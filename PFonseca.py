@@ -3,7 +3,7 @@ import requests
 from io import BytesIO
 
 # 🔧 Replace with your GitHub raw link
-url = "https://raw.githubusercontent.com/Paulojt/PFonseca/main/Venc_040725.xlsx"
+url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Venc_040725.xlsx"
 
 response = requests.get(url)
 if response.status_code == 200:
@@ -11,6 +11,7 @@ if response.status_code == 200:
     print("Excel loaded successfully!")
 else:
     print(f"Failed to fetch file. Status code: {response.status_code}")
+
 
 
 print("Fetching from:", url)
