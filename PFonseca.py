@@ -10,7 +10,7 @@ st.set_page_config(
 
 # 📊 Load and Prepare Data
 df = pd.read_excel(
-    r"C:\Users\paulo\Views\Bracar\Venc_040725.xlsx",
+    r"Venc_040725.xlsx",
     sheet_name="PFonseca2"
 )
 df.columns = df.columns.str.strip()
