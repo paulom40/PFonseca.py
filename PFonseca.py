@@ -16,6 +16,9 @@ col1, col2 = st.columns([1, 5])  # 1 unit for image, 5 units for spacing or cont
 # 🖼️ Display the image in the first column (top-left corner)
 with col1:
     image1 = Image.open('Bracar.png')  # adjust width as needed
+url = "https://example.com/some_excel_file.xlsx"
+print("Fetching from:", url)
+
 
 print("Fetching from:", url)
 
