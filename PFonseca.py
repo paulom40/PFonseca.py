@@ -5,7 +5,6 @@ import os
 # 🎯 Dashboard Configuration
 st.set_page_config(
     page_title="Comerciais Vendas Dashboard",
-    page_icon="bracar.png",
     layout="wide"
 )
 # 👑 Create columns for layout
