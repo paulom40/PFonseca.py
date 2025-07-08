@@ -2,6 +2,7 @@ import pandas as pd
 import streamlit as st
 import os
 
+from PIL import Image
 
 # 🎯 Dashboard Configuration
 st.set_page_config(
