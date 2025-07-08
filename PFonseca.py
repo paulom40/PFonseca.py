@@ -1,18 +1,17 @@
-import requests
 import pandas as pd
+import requests
 from io import BytesIO
-from PIL import Image
 
-# Load image
-image1 = Image.open("Bracar.png")
+# ✅ Replace with your actual GitHub username and repo
+url = "https://raw.githubusercontent.com/Paulojt/PFonseca/main/Venc_040725.xlsx"
 
-# Define raw Excel URL from GitHub
-url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Venc_040725.xlsx"
-print("Fetching from:", url)
-
-# Fetch and read Excel file
+# Safely download Excel file from GitHub
 response = requests.get(url)
-df = pd.read_excel(BytesIO(response.content), sheet_name="PFonseca2")
+if response.status_code == 200:
+    df = pd.read_excel(BytesIO(response.content), sheet_name="PFonseca2")
+    print("Excel loaded successfully!")
+else:
+    print("Failed to fetch Excel file:", response.status_code)
 
 print("Fetching from:", url)
 
