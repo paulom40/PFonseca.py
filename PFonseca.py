@@ -1,6 +1,6 @@
 import pandas as pd
 import streamlit as st
-
+import os
 
 # 🎯 Dashboard Configuration
 st.set_page_config(
@@ -10,6 +10,10 @@ st.set_page_config(
 )
 # 👑 Create columns for layout
 col1, col2 = st.columns([1, 5])  # 1 unit for image, 5 units for spacing or content
+if os.path.exists("bracar.png"):
+    st.image("bracar.png", width=100)
+else:
+    st.warning("Image file 'bracar.png' not found.")
 
 # 🖼️ Display the image in the first column (top-left corner)
 with col1:
