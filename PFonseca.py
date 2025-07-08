@@ -2,16 +2,16 @@ import pandas as pd
 import requests
 from io import BytesIO
 
-# ✅ Replace with your actual GitHub username and repo
+# 🔧 Replace with your GitHub raw link
 url = "https://raw.githubusercontent.com/Paulojt/PFonseca/main/Venc_040725.xlsx"
 
-# Safely download Excel file from GitHub
 response = requests.get(url)
 if response.status_code == 200:
     df = pd.read_excel(BytesIO(response.content), sheet_name="PFonseca2")
     print("Excel loaded successfully!")
 else:
-    print("Failed to fetch Excel file:", response.status_code)
+    print(f"Failed to fetch file. Status code: {response.status_code}")
+
 
 print("Fetching from:", url)
 
