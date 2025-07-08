@@ -19,7 +19,7 @@ with col1:
 # 📊 Load and Prepare Data
 url = "https://raw.githubusercontent.com/<paulom40>/<repo>/main/Venc_040725.xlsx"
 df = pd.read_excel(url, sheet_name="PFonseca2")
-)
+
 df.columns = df.columns.str.strip()
 
 # 🔄 Convert 'Dias' to clean numeric format
