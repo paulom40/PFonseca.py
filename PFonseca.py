@@ -7,16 +7,6 @@ st.set_page_config(
     page_title="Comerciais Vendas Dashboard",
     layout="wide"
 )
-# 👑 Create columns for layout
-col1, col2 = st.columns([1, 5])  # 1 unit for image, 5 units for spacing or content
-if os.path.exists("bracar.png"):
-    st.image("bracar.png", width=100)
-else:
-    st.warning("Image file 'bracar.png' not found.")
-
-# 🖼️ Display the image in the first column (top-left corner)
-with col1:
-    st.image("bracar.png", width=100)  # adjust width as needed
 
 # 📊 Load and Prepare Data
 df = pd.read_excel(
