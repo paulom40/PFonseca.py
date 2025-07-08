@@ -2,16 +2,23 @@ import pandas as pd
 import streamlit as st
 import os
 
+
 # 🎯 Dashboard Configuration
 st.set_page_config(
     page_title="Comerciais Vendas Dashboard",
+    page_icon="bracar.png",
     layout="wide"
 )
+# 👑 Create columns for layout
+col1, col2 = st.columns([1, 5])  # 1 unit for image, 5 units for spacing or content
+
+# 🖼️ Display the image in the first column (top-left corner)
+with col1:
+    image1 = Image.open('Bracar.png')  # adjust width as needed
 
 # 📊 Load and Prepare Data
-df = pd.read_excel(
-    r"Venc_040725.xlsx",
-    sheet_name="PFonseca2"
+url = "https://raw.githubusercontent.com/<Paulom40>/<repo>/main/Venc_040725.xlsx"
+df = pd.read_excel(url, sheet_name="PFonseca2")
 )
 df.columns = df.columns.str.strip()
 
@@ -65,9 +72,3 @@ mes_selecionado = mes_selecionado.lower().strip()
 df_mes = df[df["Mês"] == mes_selecionado]
 st.subheader(f"Resultados filtrados para o mês: {mes_selecionado.capitalize()}")
 st.dataframe(df_mes)
-
-
-
-
-
-
