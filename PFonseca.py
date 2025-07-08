@@ -17,7 +17,7 @@ with col1:
     image1 = Image.open('Bracar.png')  # adjust width as needed
 
 # 📊 Load and Prepare Data
-url = "https://raw.githubusercontent.com/<Paulom40>/<repo>/main/Venc_040725.xlsx"
+url = "https://raw.githubusercontent.com/<paulom40>/<repo>/main/Venc_040725.xlsx"
 df = pd.read_excel(url, sheet_name="PFonseca2")
 )
 df.columns = df.columns.str.strip()
