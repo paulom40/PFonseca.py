@@ -17,6 +17,8 @@ col1, col2 = st.columns([1, 5])  # 1 unit for image, 5 units for spacing or cont
 with col1:
     image1 = Image.open('Bracar.png')  # adjust width as needed
 
+print("Fetching from:", url)
+
 # 📊 Load and Prepare Data
 url = "https://raw.githubusercontent.com/<paulom40>/<repo>/main/Venc_040725.xlsx"
 df = pd.read_excel(url, sheet_name="PFonseca2")
