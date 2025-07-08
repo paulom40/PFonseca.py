@@ -2,15 +2,22 @@ import pandas as pd
 import requests
 from io import BytesIO
 
-# 🔧 Replace with your GitHub raw link
+# ✅ Correct raw file URL based on your GitHub username and repo name
 url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Venc_040725.xlsx"
 
-response = requests.get(url)
-if response.status_code == 200:
+try:
+    response = requests.get(url)
+    response.raise_for_status()  # Throws HTTPError if download fails
+
+    # 📖 Load specified sheet from Excel
     df = pd.read_excel(BytesIO(response.content), sheet_name="PFonseca2")
-    print("Excel loaded successfully!")
-else:
-    print(f"Failed to fetch file. Status code: {response.status_code}")
+    print("Data loaded successfully!")
+    print(df.head())  # View the first few rows
+except requests.exceptions.HTTPError as e:
+    print(f"HTTP error occurred: {e}")
+except Exception as e:
+    print(f"Unexpected error: {e}")
+
 
 
 
