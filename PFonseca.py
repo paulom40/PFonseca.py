@@ -1,22 +1,19 @@
+import requests
 import pandas as pd
-import streamlit as st
-import os
-
+from io import BytesIO
 from PIL import Image
 
-# 🎯 Dashboard Configuration
-st.set_page_config(
-    page_title="Comerciais Vendas Dashboard",
-    page_icon="bracar.png",
-    layout="wide"
-)
-# 👑 Create columns for layout
-col1, col2 = st.columns([1, 5])  # 1 unit for image, 5 units for spacing or content
+# Load image
+image1 = Image.open("Bracar.png")
 
-# 🖼️ Display the image in the first column (top-left corner)
-with col1:
-    image1 = Image.open('Bracar.png')  # adjust width as needed
-url = "https://example.com/some_excel_file.xlsx"
+# Define raw Excel URL from GitHub
+url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Venc_040725.xlsx"
+print("Fetching from:", url)
+
+# Fetch and read Excel file
+response = requests.get(url)
+df = pd.read_excel(BytesIO(response.content), sheet_name="PFonseca2")
+
 print("Fetching from:", url)
 
 
