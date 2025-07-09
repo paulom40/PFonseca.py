@@ -26,9 +26,10 @@ df["Dias"] = pd.to_numeric(df["Dias"], errors="coerce")
 df = df.dropna(subset=["Dias"])
 df["Dias"] = df["Dias"].astype(int)
 df["Valor Pendente"] = pd.to_numeric(df["Valor Pendente"], errors="coerce")
-df["Data Venc."] = pd.to_datetime(df["Data Venc."], origin="1899-12-30", unit="d", errors="coerce")
+df["Data Venc."] = pd.to_datetime(df["Data Venc."], format="%d/%m/%Y", errors="coerce")
+#df["Data Venc."] = pd.to_datetime(df["Data Venc."], origin="1899-12-30", unit="d", errors="coerce")
 df = pd.read_excel(BytesIO(response.content), sheet_name="PFonseca2")
-df["Data Venc."] = pd.to_datetime(df["Data Venc."], errors="coerce", dayfirst=True)
+
 
 
 st.write("📅 Last Update 04/07/2025")
