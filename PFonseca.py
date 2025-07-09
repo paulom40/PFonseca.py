@@ -33,6 +33,9 @@ df["Data Venc."] = pd.to_datetime(df["Data Venc."], errors="coerce", dayfirst=Tr
 
 st.write("📅 Last Update 04/07/2025")
 
+st.write("📄 Valores crus da coluna 'Data Venc.':")
+st.write(df["Data Venc."].head(10))
+
 
 
 # -------------------------------
