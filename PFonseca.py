@@ -36,20 +36,16 @@ st.dataframe(df)
 # 🧭 Sidebar Filters
 st.sidebar.header("🔎 Filtros")
 
-# 🧼 Clean the 'Entidade' column
+# Clean and prepare the 'Entidade' column
 df["Entidade"] = df["Entidade"].astype(str).str.strip()
 
-# 📋 Get sorted, unique list of clients
+# Sidebar selector
 entidades_unicas = sorted(df["Entidade"].dropna().unique())
+entidade_selecionada = st.sidebar.selectbox("Selecione o Cliente:", entidades_unicas)
 
-# 🎯 Sidebar selector for client
-entidade_selecionada = st.sidebar.selectbox(
-    "Selecione o Cliente:",
-    options=entidades_unicas
-)
-
-# 🔍 Filter the DataFrame
+# ✅ Correct filtering
 df_cliente = df[df["Entidade"] == entidade_selecionada]
+
 
 
 # Mês selector
