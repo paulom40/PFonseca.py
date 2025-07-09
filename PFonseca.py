@@ -36,15 +36,18 @@ st.dataframe(df)
 # 🧭 Sidebar Filters
 st.sidebar.header("🔎 Filtros")
 
-# Clean and prepare the 'Entidade' column
+# Clean the 'Entidade' column
 df["Entidade"] = df["Entidade"].astype(str).str.strip()
 
-# Sidebar selector
-entidades_unicas = sorted(df["Entidade"].dropna().unique())
-entidade_selecionada = st.sidebar.selectbox("Selecione o Cliente:", entidades_unicas)
+# Create a dropdown in the sidebar
+Entidade = st.sidebar.selectbox(
+    "Selecione o Cliente:",
+    options=sorted(df["Entidade"].dropna().unique())
+)
 
-# ✅ Correct filtering
-df_cliente = df[df["Entidade"] == entidade_selecionada]
+# Filter the DataFrame using the selected value
+df_cliente = df[df["Entidade"] == Entidade]
+
 
 
 
