@@ -31,9 +31,7 @@ df = pd.read_excel(BytesIO(response.content), sheet_name="PFonseca2")
 df["Data Venc."] = pd.to_datetime(df["Data Venc."], errors="coerce", dayfirst=True)
 
 
-st.write("📅 Tipo de dado da coluna 'Data Venc.':", df["Data Venc."].dtype)
-st.write(df["Data Venc."].head())
-
+st.write("📅 Last Update 04/07/2025
 
 
 
