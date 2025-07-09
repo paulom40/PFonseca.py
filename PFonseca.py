@@ -26,6 +26,7 @@ df["Dias"] = pd.to_numeric(df["Dias"], errors="coerce")
 df = df.dropna(subset=["Dias"])
 df["Dias"] = df["Dias"].astype(int)
 df["Data Venc."] = pd.to_datetime(df["Data Venc."], errors="coerce", dayfirst=True)
+df["Valor Pendente"] = pd.to_numeric(df["Valor Pendente"], errors="coerce")
 
 # -------------------------------
 # 🎛️ Sidebar: Filters
@@ -60,7 +61,14 @@ st.markdown(f"Exibindo resultados para **{entidade_selecionada}** com **{dias_mi
 
 st.dataframe(df_filtrado, use_container_width=True)
 
-# Optional summary
-st.metric("Total de Registros", len(df_filtrado))
-if not df_filtrado.empty:
-    st.metric("Dias Médios", round(df_filtrado["Dias"].mean(), 1))
+# -------------------------------
+# 📈 Summary metrics
+# -------------------------------
+total_registros = len(df_filtrado)
+media_dias = df_filtrado["Dias"].mean() if total_registros > 0 else 0
+valor_total = df_filtrado["Valor Pendente"].sum()
+
+col1, col2, col3 = st.columns(3)
+col1.metric("📌 Total de Registros", total_registros)
+col2.metric("📆 Dias Médios", f"{media_dias:.1f}")
+col3.metric("💰 Valor Pendente Total", f"€ {valor_total:,.2f}")
