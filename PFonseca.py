@@ -11,7 +11,7 @@ url = "https://github.com/paulom40/PFonseca.py/raw/main/Venc_040725.xlsx"
 try:
     response = requests.get(url)
     response.raise_for_status()
-    df = pd.read_excel(BytesIO(response.content), sheet_name="PFonseca2")
+    df = pd.read_excel(BytesIO(response.content), sheet_name="PFonseca2", parse_dates=["Data Venc."])
     st.success("📥 Dados carregados com sucesso!")
 except Exception as e:
     st.error(f"Erro ao carregar os dados: {e}")
