@@ -16,7 +16,11 @@ try:
     df = pd.read_excel(BytesIO(response.content), sheet_name="PFonseca2", dtype={"Data Venc.": float})
 
     # ✅ Convert Excel serial numbers to datetime
-    df["Data Venc."] = pd.to_datetime(df["Data Venc."], origin="1899-12-30", unit="d", errors="coerce")
+    df["Data Venc."] = (
+    pd.to_datetime(df["Data Venc."], origin="1899-12-30", unit="d", errors="coerce")
+      .dt.date
+)
+
 
     st.success("📥 Dados carregados com sucesso!")
 except Exception as e:
