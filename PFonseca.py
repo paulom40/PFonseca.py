@@ -25,8 +25,9 @@ df["Entidade"] = df["Entidade"].astype(str).str.strip()
 df["Dias"] = pd.to_numeric(df["Dias"], errors="coerce")
 df = df.dropna(subset=["Dias"])
 df["Dias"] = df["Dias"].astype(int)
-df["Data Venc."] = pd.to_datetime(df["Data Venc."], errors="coerce", dayfirst=True)
 df["Valor Pendente"] = pd.to_numeric(df["Valor Pendente"], errors="coerce")
+df["Data Venc."] = pd.to_datetime(df["Data Venc."], errors="coerce", dayfirst=True)
+
 
 # 🔍 Inspect raw 'Data Venc.' values
 st.subheader("🔍 Valores brutos da coluna 'Data Venc.'")
