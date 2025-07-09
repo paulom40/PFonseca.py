@@ -11,8 +11,13 @@ url = "https://github.com/paulom40/PFonseca.py/raw/main/Venc_040725.xlsx"
 try:
     response = requests.get(url)
     response.raise_for_status()
+
+    # Read 'Data Venc.' as float (Excel serial number)
     df = pd.read_excel(BytesIO(response.content), sheet_name="PFonseca2", dtype={"Data Venc.": float})
+
+    # ✅ Convert Excel serial numbers to datetime
     df["Data Venc."] = pd.to_datetime(df["Data Venc."], origin="1899-12-30", unit="d", errors="coerce")
+
     st.success("📥 Dados carregados com sucesso!")
 except Exception as e:
     st.error(f"Erro ao carregar os dados: {e}")
@@ -27,13 +32,6 @@ df["Dias"] = pd.to_numeric(df["Dias"], errors="coerce")
 df = df.dropna(subset=["Dias"])
 df["Dias"] = df["Dias"].astype(int)
 df["Valor Pendente"] = pd.to_numeric(df["Valor Pendente"], errors="coerce")
-#df["Data Venc."] = pd.to_datetime(df["Data Venc."], format="%d/%m/%Y", errors="coerce")
-df = pd.read_excel(BytesIO(response.content), sheet_name="PFonseca2")
-
-
-
-st.write("📅 Last Update 04/07/2025")
-
 
 # -------------------------------
 # 🎛️ Sidebar: Filters
