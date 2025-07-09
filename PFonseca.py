@@ -33,7 +33,7 @@ st.subheader("🔍 Valores brutos da coluna 'Data Venc.'")
 st.write(df["Data Venc."].head(10))
 st.write("Tipo de dado:", df["Data Venc."].dtype)
 
-st.write(df["Data Venc."].head(10))
+
 
 
 # -------------------------------
