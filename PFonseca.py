@@ -3,7 +3,9 @@ import requests
 from io import BytesIO
 
 # ✅ Correct raw file URL based on your GitHub username and repo name
-url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Venc_040725.xlsx"
+url = import pandas as pd
+
+url = "https://github.com/paulom40/PFonseca.py/raw/main/Venc_040725.xlsx"
 df = pd.read_excel(url, sheet_name="PFonseca2")
 
 try:
