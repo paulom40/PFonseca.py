@@ -33,6 +33,8 @@ df = pd.read_excel(BytesIO(response.content), sheet_name="PFonseca2")
 
 st.write("📅 Last Update 04/07/2025")
 
+st.write("📅 Datas convertidas corretamente:")
+st.write(df["Data Venc."].head(10))
 
 
 
