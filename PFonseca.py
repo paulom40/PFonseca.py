@@ -31,12 +31,6 @@ df = pd.read_excel(BytesIO(response.content), sheet_name="PFonseca2")
 df["Data Venc."] = pd.to_datetime(df["Data Venc."], errors="coerce", dayfirst=True)
 
 
-# 🔍 Inspect raw 'Data Venc.' values
-st.subheader("🔍 Valores brutos da coluna 'Data Venc.'")
-st.write(df["Data Venc."].head(10))
-st.write("Tipo de dado:", df["Data Venc."].dtype)
-
-
 
 
 # -------------------------------
