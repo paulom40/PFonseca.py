@@ -1,87 +1,59 @@
 import pandas as pd
 import requests
 from io import BytesIO
+import streamlit as st
 
-# ✅ Correct raw file URL based on your GitHub username and repo name
-url = import pandas as pd
-
+# ✅ Correct raw file URL from GitHub
 url = "https://github.com/paulom40/PFonseca.py/raw/main/Venc_040725.xlsx"
-df = pd.read_excel(url, sheet_name="PFonseca2")
 
+# 📥 Download and load Excel file
 try:
     response = requests.get(url)
-    response.raise_for_status()  # Throws HTTPError if download fails
+    response.raise_for_status()  # Raise error if download fails
 
-    # 📖 Load specified sheet from Excel
+    # Load Excel sheet into DataFrame
     df = pd.read_excel(BytesIO(response.content), sheet_name="PFonseca2")
-    print("Data loaded successfully!")
-    print(df.head())  # View the first few rows
+    st.success("Dados carregados com sucesso!")
 except requests.exceptions.HTTPError as e:
-    print(f"HTTP error occurred: {e}")
+    st.error(f"Erro HTTP ao carregar o arquivo: {e}")
+    st.stop()
 except Exception as e:
-    print(f"Unexpected error: {e}")
+    st.error(f"Erro inesperado: {e}")
+    st.stop()
 
-
-
-
-print("Fetching from:", url)
-
-
-print("Fetching from:", url)
-
-# 📊 Load and Prepare Data
-url = "https://raw.githubusercontent.com/<paulom40>/PFonseca.py/main/Venc_040725.xlsx"
-df = pd.read_excel(url, sheet_name="PFonseca2")
-
+# 🧹 Clean and prepare data
 df.columns = df.columns.str.strip()
-
-# 🔄 Convert 'Dias' to clean numeric format
 df["Dias"] = pd.to_numeric(df["Dias"], errors="coerce")
 df = df.dropna(subset=["Dias"])
 df["Dias"] = df["Dias"].astype(int)
-
-# 📅 Convert 'Data venc.' to datetime
 df["Data Venc."] = pd.to_datetime(df["Data Venc."], errors="coerce", dayfirst=True)
+df["Mês"] = df["Mês"].astype(str).str.lower().str.strip()
 
-
-# 📋 Show raw DataFrame (optional)
-if True:  # Set to False to hide
-    st.subheader("Tabela Completa")
-    st.dataframe(df)
+# 📋 Show full table (optional)
+st.subheader("📊 Tabela Completa")
+st.dataframe(df)
 
 # 🧭 Sidebar Filters
-st.sidebar.header("Selecione o cliente")
+st.sidebar.header("🔎 Filtros")
 
+# Cliente selector
 Entidade = st.sidebar.selectbox(
     "Selecione o Cliente:",
     options=df["Entidade"].dropna().unique()
 )
 
-# 🔍 Filtra os dados pelo cliente selecionado
-df_cliente = df[df["Entidade"] == Entidade]
-
-# Sidebar: Selecione o Mês
-meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", 
-         "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
-
-mes_selecionado = st.sidebar.selectbox("Selecione o Mês:", meses)
-
-
-# 🧾 Exibe em uma nova tabela abaixo
-st.subheader("Dados do Cliente Selecionado")
-st.dataframe(df_cliente)
-
-
-
-st.write(f"Cliente selecionado: {Entidade}")
-
-# Normaliza a coluna Mês
-df["Mês"] = df["Mês"].astype(str).str.lower().str.strip()
-
-# Normaliza o valor da sidebar também
+# Mês selector
+meses = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", 
+         "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
+mes_selecionado = st.sidebar.selectbox("Selecione o Mês:", [m.capitalize() for m in meses])
 mes_selecionado = mes_selecionado.lower().strip()
 
-# Filtra e exibe
-df_mes = df[df["Mês"] == mes_selecionado]
-st.subheader(f"Resultados filtrados para o mês: {mes_selecionado.capitalize()}")
+# 🔍 Filter by client
+df_cliente = df[df["Entidade"] == Entidade]
+
+# 🔍 Filter by month
+df_mes = df_cliente[df_cliente["Mês"] == mes_selecionado]
+
+# 📄 Show filtered results
+st.subheader(f"📄 Dados para {Entidade} no mês de {mes_selecionado.capitalize()}")
 st.dataframe(df_mes)
