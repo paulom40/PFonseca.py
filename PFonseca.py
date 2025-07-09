@@ -28,6 +28,12 @@ df["Dias"] = df["Dias"].astype(int)
 df["Data Venc."] = pd.to_datetime(df["Data Venc."], errors="coerce", dayfirst=True)
 df["Valor Pendente"] = pd.to_numeric(df["Valor Pendente"], errors="coerce")
 
+# 🔍 Inspect raw 'Data Venc.' values
+st.subheader("🔍 Valores brutos da coluna 'Data Venc.'")
+st.write(df["Data Venc."].head(10))
+st.write("Tipo de dado:", df["Data Venc."].dtype)
+
+
 # -------------------------------
 # 🎛️ Sidebar: Filters
 # -------------------------------
