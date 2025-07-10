@@ -67,7 +67,7 @@ df_filtrado = df_cliente[(df_cliente["Dias"] >= dias_min) & (df_cliente["Dias"] 
 # -------------------------------
 # 📊 Display results
 # -------------------------------
-st.title("📊 Vencimentos PFonseca")
+st.title("📊 Vencimentos Vânia Silva")
 st.markdown(f"Exibindo resultados para **{entidade_selecionada}** com **{dias_min}–{dias_max} dias** até vencimento.")
 
 st.dataframe(df_filtrado, use_container_width=True)
