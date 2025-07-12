@@ -13,13 +13,11 @@ try:
     response.raise_for_status()
 
     # Read 'Data Venc.' as float (Excel serial number)
-    df = pd.read_excel(BytesIO(response.content), sheet_name="Vsilva2", dtype={"Data Venc.": float})
+    df = pd.read_excel(BytesIO(response.content), sheet_name="Vsilva2")
 
-    # ✅ Convert Excel serial numbers to datetime
-    df["Data Venc."] = (
-    pd.to_datetime(df["Data Venc."], origin="1899-12-30", unit="d", errors="coerce")
-      .dt.date
-)
+# Se "Data Venc." já estiver como datetime, talvez você queira apenas manter a data sem o tempo:
+df["Data Venc."] = pd.to_datetime(df["Data Venc."], errors="coerce").dt.date
+
 
 
     st.success("📥 Dados carregados com sucesso!")
