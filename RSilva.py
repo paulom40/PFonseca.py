@@ -12,7 +12,7 @@ try:
     response = requests.get(url)
     response.raise_for_status()
 
-    df = pd.read_excel(BytesIO(response.content), sheet_name="RSilvs")
+    df = pd.read_excel(BytesIO(response.content), sheet_name="RSilva")
     df["Data Venc."] = pd.to_datetime(df["Data Venc."], errors="coerce").dt.date
 
     st.success("📥 Dados carregados com sucesso!")
