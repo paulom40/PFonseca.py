@@ -15,6 +15,12 @@ if os.path.exists("https://github.com/paulom40/PFonseca.py/raw/main/Viaverde.xls
 else:
     st.error("❌ Arquivo não encontrado. Verifique o caminho ou nome do arquivo.")
 
+if 'Matricula' not in df.columns:
+    st.error("❌ A coluna 'Matricula' não foi encontrada no arquivo.")
+else:
+    matriculas = df['Matricula'].unique()
+
+
 # Sidebar filters
 st.sidebar.header("Filtros")
 
