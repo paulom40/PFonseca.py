@@ -8,8 +8,8 @@ file_path = "https://github.com/paulom40/PFonseca.py/raw/main/ViaVerde_streamlit
 # 🧮 Attempt to load the file safely
 df = None
 try:
-    if os.path.exists(file_path):
-        df = pd.read_excel(file_path)
+    if os.path.exists("https://github.com/paulom40/PFonseca.py/raw/main/ViaVerde_streamlit.xlsx"):
+        df = pd.read_excel("https://github.com/paulom40/PFonseca.py/raw/main/ViaVerde_streamlit.xlsx")
         # Optional: Preview column names
         st.success("✅ Arquivo carregado com sucesso!")
         st.write("🔍 Colunas disponíveis:", df.columns.tolist())
