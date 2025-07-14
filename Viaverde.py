@@ -1,37 +1,56 @@
 import streamlit as st
 import pandas as pd
+import os
 
-# Load your data
-df = pd.read_excel("https://github.com/paulom40/PFonseca.py/raw/main/ViaVerde_streamlit.xlsx")  # Replace with your actual file path
+# 📁 File path
+file_path = ""https://github.com/paulom40/PFonseca.py/raw/main/ViaVerde_streamlit.xlsx""
 
-# Sidebar filters
-st.sidebar.header("Filtros")
+# 🧮 Attempt to load the file safely
+df = None
+try:
+    if os.path.exists(file_path):
+        df = pd.read_excel(file_path)
+        # Optional: Preview column names
+        st.success("✅ Arquivo carregado com sucesso!")
+        st.write("🔍 Colunas disponíveis:", df.columns.tolist())
 
-# Unique values
-matriculas = df['Matricula'].unique()
-anos = df['Ano'].unique()
-meses = df['Mês'].unique()
-dias = df['Dia'].unique()
+        # Remove 'Date' and 'Mês' columns if they exist
+        df = df.drop(columns=['Date', 'Mês'], errors='ignore')
+    else:
+        st.error(f"❌ Arquivo não encontrado: {file_path}")
+except Exception as e:
+    st.error(f"❌ Erro ao carregar o arquivo: {e}")
 
-# Multiselect filter boxes
-selected_matriculas = st.sidebar.multiselect("Matricula", sorted(matriculas), default=matriculas)
-selected_anos = st.sidebar.multiselect("Ano", sorted(anos), default=anos)
-selected_meses = st.sidebar.multiselect("Mês", sorted(meses), default=meses)
-selected_dias = st.sidebar.multiselect("Dia", sorted(dias), default=dias)
+# 🚦 Continue only if data is loaded
+if df is not None:
+    # Confirm required columns exist
+    required_columns = ['Matricula', 'Ano', 'Month', 'Dia']
+    missing_columns = [col for col in required_columns if col not in df.columns]
 
-# Filter the dataframe
-filtered_df = df[
-    (df['Matricula'].isin(selected_matriculas)) &
-    (df['Ano'].isin(selected_anos)) &
-    (df['Mês'].isin(selected_meses)) &
-    (df['Dia'].isin(selected_dias))
-]
+    if missing_columns:
+        st.error(f"❌ As seguintes colunas estão faltando: {', '.join(missing_columns)}")
+    else:
+        # 🎛️ Sidebar Filters
+        st.sidebar.header("Filtros")
 
-# Main dashboard
-st.title("📈 Via Verde Dashboard")
-st.write("Dados filtrados:")
-st.dataframe(filtered_df)
+        selected_matriculas = st.sidebar.multiselect("Matricula", sorted(df['Matricula'].unique()), default=df['Matricula'].unique())
+        selected_anos = st.sidebar.multiselect("Ano", sorted(df['Ano'].unique()), default=df['Ano'].unique())
+        selected_meses = st.sidebar.multiselect("Month", sorted(df['Month'].unique()), default=df['Month'].unique())
+        selected_dias = st.sidebar.multiselect("Dia", sorted(df['Dia'].unique()), default=df['Dia'].unique())
 
-# Summary statistics
-st.write("📌 Resumo:")
-st.write(filtered_df.describe())
+        # 🎯 Apply filters
+        filtered_df = df[
+            df['Matricula'].isin(selected_matriculas) &
+            df['Ano'].isin(selected_anos) &
+            df['Month'].isin(selected_meses) &
+            df['Dia'].isin(selected_dias)
+        ]
+
+        # 🧩 Main Dashboard Display
+        st.title("📈 Via Verde Dashboard")
+        st.write("✅ Dados filtrados:")
+        st.dataframe(filtered_df)
+
+        st.write("📌 Resumo estatístico:")
+        st.write(filtered_df.describe())
+
