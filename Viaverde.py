@@ -25,18 +25,18 @@ if df is not None:
     else:
         # 🎚️ Sidebar filters
         st.sidebar.header("Filtros")
-        selected_matriculas = st.sidebar.multiselect("Matricula", sorted(df['Matricula'].unique()), default=df['Matricula'].unique())
+        selected_matricula = st.sidebar.selectbox("Matricula", sorted(df['Matricula'].unique()))        
         selected_anos = st.sidebar.multiselect("Ano", sorted(df['Ano'].unique()), default=df['Ano'].unique())
         selected_months = st.sidebar.multiselect("Month", sorted(df['Month'].unique()), default=df['Month'].unique())
         selected_dias = st.sidebar.multiselect("Dia", sorted(df['Dia'].unique()), default=df['Dia'].unique())
 
         # 🔍 Apply filters
         filtered_df = df[
-            df['Matricula'].isin(selected_matriculas) &
-            df['Ano'].isin(selected_anos) &
-            df['Month'].isin(selected_months) &
-            df['Dia'].isin(selected_dias)
-        ]
+        (df['Matricula'] == selected_matricula) &
+        (df['Ano'].isin(selected_anos)) &
+        (df['Month'].isin(selected_months)) &
+        (df['Dia'].isin(selected_dias))
+]
 
         # 📈 Dashboard output
         st.title("📊 Via Verde Dashboard")
