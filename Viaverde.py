@@ -1,29 +1,32 @@
-import streamlit as st
 import pandas as pd
+import requests
+from io import BytesIO
+import streamlit as st
 
 # -------------------------------
 # 📥 Load Excel file from GitHub
 # -------------------------------
 url = "https://github.com/paulom40/PFonseca.py/raw/main/Viaverde.xlsx"
 
+
 # Sidebar filters
 st.sidebar.header("Filtros")
 
 # Unique values
-matricula = df['Matricula'].unique()
+matriculas = df['Matricula'].unique()
 anos = df['Ano'].unique()
 meses = df['Mês'].unique()
 dias = df['Dia'].unique()
 
 # Multiselect filter boxes
-selected_matricula = st.sidebar.multiselect("Matricula", sorted(matricula), default=matricula)
+selected_matriculas = st.sidebar.multiselect("Matricula", sorted(matriculas), default=matriculas)
 selected_anos = st.sidebar.multiselect("Ano", sorted(anos), default=anos)
 selected_meses = st.sidebar.multiselect("Mês", sorted(meses), default=meses)
 selected_dias = st.sidebar.multiselect("Dia", sorted(dias), default=dias)
 
 # Filter the dataframe
 filtered_df = df[
-    (df['Matricula'].isin(selected_matricula)) &
+    (df['Matricula'].isin(selected_matriculas)) &
     (df['Ano'].isin(selected_anos)) &
     (df['Mês'].isin(selected_meses)) &
     (df['Dia'].isin(selected_dias))
