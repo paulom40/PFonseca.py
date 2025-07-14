@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import altair as alt
 
 # 🔗 Load Excel file from GitHub
 file_url = "https://github.com/paulom40/PFonseca.py/raw/main/ViaVerde_streamlit.xlsx"
@@ -45,10 +46,22 @@ if df is not None:
         st.write("✅ Dados filtrados:")
         st.dataframe(filtered_df)
 
-        # 📉 Line chart: Value by Month
-        st.write("📊 Gráfico de linha: Valor por Mês")
-        if not filtered_df.empty:
-            chart_df = filtered_df[['Month', 'Value']].groupby('Month').sum().sort_index()
-            st.line_chart(chart_df)
-        else:
-            st.warning("⚠️ Nenhum dado corresponde aos filtros selecionados.")
+        # Prepare data for chart
+chart_df = (
+    filtered_df[['Month', 'Value']]
+    .groupby('Month')
+    .sum()
+    .reset_index()
+    .sort_values(by='Month')
+)
+
+# Create labeled line chart
+line_chart = alt.Chart(chart_df).mark_line(point=True).encode(
+    x=alt.X('Month:O', title='Mês'),
+    y=alt.Y('Value:Q', title='Valor Total'),
+    tooltip=['Month', 'Value']
+).properties(
+    title='Valor Total por Mês'
+)
+
+st.altair_chart(line_chart, use_container_width=True)
