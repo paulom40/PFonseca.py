@@ -1,6 +1,6 @@
 import pandas as pd
 import requests
-from io import BytesIO
+import os
 import streamlit as st
 
 # -------------------------------
@@ -8,6 +8,12 @@ import streamlit as st
 # -------------------------------
 url = "https://github.com/paulom40/PFonseca.py/raw/main/Viaverde.xlsx"
 
+if os.path.exists("https://github.com/paulom40/PFonseca.py/raw/main/Viaverde.xlsx"):
+    df = pd.read_excel("https://github.com/paulom40/PFonseca.py/raw/main/Viaverde.xlsx")
+    st.success("✅ Arquivo carregado com sucesso!")
+    st.write(df.head())  # Preview the first few rows
+else:
+    st.error("❌ Arquivo não encontrado. Verifique o caminho ou nome do arquivo.")
 
 # Sidebar filters
 st.sidebar.header("Filtros")
