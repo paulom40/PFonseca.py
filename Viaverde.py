@@ -5,7 +5,9 @@ import os
 # -------------------------------
 # 📥 Load Excel file from GitHub
 # -------------------------------
-url = "https://github.com/paulom40/PFonseca.py/raw/main/Viaverde.xlsx"
+url = "https://github.com/paulom40/PFonseca.py/raw/main/ViaVerde_streamlit.xlsx"
+# File path
+file_path = "https://github.com/paulom40/PFonseca.py/raw/main/ViaVerde_streamlit.xlsx"
 
 # Attempt to load the file
 df = None
