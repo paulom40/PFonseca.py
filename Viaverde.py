@@ -8,17 +8,24 @@ import streamlit as st
 # -------------------------------
 url = "https://github.com/paulom40/PFonseca.py/raw/main/Viaverde.xlsx"
 
+df = None
 if os.path.exists("https://github.com/paulom40/PFonseca.py/raw/main/Viaverde.xlsx"):
-    df = pd.read_excel("https://github.com/paulom40/PFonseca.py/raw/main/Viaverde.xlsx")
-    st.success("✅ Arquivo carregado com sucesso!")
-    st.write(df.head())  # Preview the first few rows
+    try:
+        df = pd.read_excel("https://github.com/paulom40/PFonseca.py/raw/main/Viaverde.xlsx")
+        st.success("✅ Arquivo carregado!")
+        st.write("🔍 Colunas encontradas:", df.columns.tolist())
+    except Exception as e:
+        st.error(f"❌ Erro ao ler o arquivo: {e}")
 else:
-    st.error("❌ Arquivo não encontrado. Verifique o caminho ou nome do arquivo.")
+    st.error("❌ Arquivo não encontrado. Verifique o caminho.")
 
-if 'Matricula' not in df.columns:
-    st.error("❌ A coluna 'Matricula' não foi encontrada no arquivo.")
-else:
-    matriculas = df['Matricula'].unique()
+# Now you can safely check if df exists before using it
+if df is not None:
+    if 'Matricula' in df.columns:
+        matriculas = df['Matricula'].unique()
+        st.write("Matriculas únicas:", matriculas)
+    else:
+        st.error("❌ A coluna 'Matricula' não foi encontrada no arquivo.")
 
 
 # Sidebar filters
