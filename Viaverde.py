@@ -42,26 +42,21 @@ st.title("📈 Via Verde Dashboard")
 st.write("✅ Dados filtrados:")
 st.dataframe(filtered_df)
 
-# 📉 Altair line chart: Value by Month
-st.write("📊 Valor Total por Mês")
-if not filtered_df.empty:
-    chart_df = (
-        filtered_df[['Month', 'Value']]
-        .groupby('Month')
-        .sum()
-        .reset_index()
-        .sort_values(by='Month')
-    )
+chart_df = (
+    filtered_df[['Month', 'Value']]
+    .groupby('Month')
+    .sum()
+    .reset_index()
+    .sort_values(by='Month')
+)
 
-    chart = alt.Chart(chart_df).mark_line(point=True).encode(
-        x=alt.X('Month:O', title='Mês'),
-        y=alt.Y('Value:Q', title='Valor Total'),
-        tooltip=['Month', 'Value']
-    ).properties(
-        title='Valor Total por Mês',
-        width='container'
-    )
+chart = alt.Chart(chart_df).mark_line(point=True).encode(
+    x=alt.X('Month:O', title='Mês', axis=alt.Axis(labelFontWeight='bold', titleFontWeight='bold')),
+    y=alt.Y('Value:Q', title='Valor Total', axis=alt.Axis(labelFontWeight='bold', titleFontWeight='bold')),
+    tooltip=['Month', 'Value']
+).properties(
+    title='Valor Total por Mês',
+    width='container'
+)
 
-    st.altair_chart(chart, use_container_width=True)
-else:
-    st.warning("⚠️ Nenhum dado corresponde aos filtros selecionados.")
+st.altair_chart(chart, use_container_width=True)
