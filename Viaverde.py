@@ -26,7 +26,7 @@ if df is not None:
         # 🎚️ Sidebar filters
         st.sidebar.header("Filtros")
         selected_matricula = st.sidebar.selectbox("Matricula", sorted(df['Matricula'].unique()))   
-        selected_anos = st.sidebar.selectbox("Ano", sorted(df['Ano'].unique()))
+        selected_ano = st.sidebar.selectbox("Ano", sorted(df['Ano'].unique()))
         selected_anos = st.sidebar.multiselect("Ano", sorted(df['Ano'].unique()), default=df['Ano'].unique())
         selected_months = st.sidebar.multiselect("Month", sorted(df['Month'].unique()), default=df['Month'].unique())
         selected_dias = st.sidebar.multiselect("Dia", sorted(df['Dia'].unique()), default=df['Dia'].unique())
