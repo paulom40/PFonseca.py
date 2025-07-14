@@ -42,6 +42,8 @@ st.title("📈 Via Verde Dashboard")
 st.write("✅ Dados filtrados:")
 st.dataframe(filtered_df)
 
+
+# Prepare data
 chart_df = (
     filtered_df[['Month', 'Value']]
     .groupby('Month')
@@ -50,13 +52,28 @@ chart_df = (
     .sort_values(by='Month')
 )
 
-chart = alt.Chart(chart_df).mark_line(point=True).encode(
+# Line chart with bold axis labels
+line = alt.Chart(chart_df).mark_line(point=True).encode(
     x=alt.X('Month:O', title='Mês', axis=alt.Axis(labelFontWeight='bold', titleFontWeight='bold')),
     y=alt.Y('Value:Q', title='Valor Total', axis=alt.Axis(labelFontWeight='bold', titleFontWeight='bold')),
     tooltip=['Month', 'Value']
-).properties(
-    title='Valor Total por Mês',
-    width='container'
 )
 
-st.altair_chart(chart, use_container_width=True)
+# Add text labels at each point
+labels = alt.Chart(chart_df).mark_text(
+    align='center',
+    baseline='bottom',
+    fontWeight='bold',
+    dy=-5  # shift upward for clarity
+).encode(
+    x='Month:O',
+    y='Value:Q',
+    text='Value:Q'
+)
+
+# Combine both charts
+chart = line + labels
+
+# Render
+st.altair_chart(chart.properties(title='Valor Total por Mês'), use_container_width=True)
+
