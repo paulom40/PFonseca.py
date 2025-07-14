@@ -43,13 +43,12 @@ if df is not None:
         st.write("✅ Dados filtrados:")
         st.dataframe(filtered_df)
 
-       # 📊 Line chart example
-st.write("📈 Gráfico de linha: Valor ao longo do tempo")
+     # 🎨 Line chart: Month vs. Value
+st.write("📊 Valor por Mês")
 
-# Ensure required columns are present
-if 'Value' in filtered_df.columns and 'Dia' in filtered_df.columns:
-    chart_data = filtered_df.sort_values(by=['Ano', 'Month', 'Dia'])
-    st.line_chart(chart_data[['Dia', 'Value']].set_index('Dia'))
+# Make sure the necessary columns are present
+if 'Month' in filtered_df.columns and 'Value' in filtered_df.columns:
+    chart_data = filtered_df[['Month', 'Value']].groupby('Month').sum().sort_index()
+    st.line_chart(chart_data)
 else:
-    st.warning("⚠️ Colunas necessárias para o gráfico ('Value' e 'Dia') não estão presentes.")
-
+    st.warning("⚠️ As colunas 'Month' e 'Value' são necessárias para o gráfico.")
