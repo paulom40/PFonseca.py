@@ -43,5 +43,13 @@ if df is not None:
         st.write("✅ Dados filtrados:")
         st.dataframe(filtered_df)
 
-        st.write("📌 Estatísticas descritivas:")
-        st.write(filtered_df.describe())
+       # 📊 Line chart example
+st.write("📈 Gráfico de linha: Valor ao longo do tempo")
+
+# Ensure required columns are present
+if 'Value' in filtered_df.columns and 'Dia' in filtered_df.columns:
+    chart_data = filtered_df.sort_values(by=['Ano', 'Month', 'Dia'])
+    st.line_chart(chart_data[['Dia', 'Value']].set_index('Dia'))
+else:
+    st.warning("⚠️ Colunas necessárias para o gráfico ('Value' e 'Dia') não estão presentes.")
+
