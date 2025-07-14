@@ -12,7 +12,7 @@ with col1:
     st.image("https://github.com/paulom40/PFonseca.py/raw/main/Bracar.png", width=100)  # Local file or URL
 
 with col2:
-    st.title("📈 Via Verde Dashboard")
+    st.title("Via Verde Dashboard")
 
 
 # 🚀 Load data
