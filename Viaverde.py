@@ -48,7 +48,6 @@ filtered_df = df[
 ]
 
 # 📊 Dashboard display
-st.title("📈 Via Verde Dashboard")
 st.write("✅ Dados filtrados:")
 st.dataframe(filtered_df)
 
