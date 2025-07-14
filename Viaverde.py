@@ -3,7 +3,7 @@ import pandas as pd
 import os
 
 # 📁 File path
-file_path = ""https://github.com/paulom40/PFonseca.py/raw/main/ViaVerde_streamlit.xlsx""
+file_path = "https://github.com/paulom40/PFonseca.py/raw/main/ViaVerde_streamlit.xlsx"
 
 # 🧮 Attempt to load the file safely
 df = None
