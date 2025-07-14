@@ -34,7 +34,7 @@ if df is not None:
         # 🔍 Apply filters
         filtered_df = df[
         (df['Matricula'] == selected_matricula) &
-        (df['Ano'] == selected_ano)) &
+        (df['Ano'] == selected_ano) &
         (df['Month'].isin(selected_months)) &
         (df['Dia'].isin(selected_dias))
 ]
