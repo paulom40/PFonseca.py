@@ -5,6 +5,16 @@ import altair as alt
 # 📂 File URL
 file_url = "https://github.com/paulom40/PFonseca.py/raw/main/ViaVerde_streamlit.xlsx"
 
+# Create top layout
+col1, col2 = st.columns([1, 5])  # Adjust width ratio as needed
+
+with col1:
+    st.image("https://github.com/paulom40/PFonseca.py/raw/main/Bracar.png", width=100)  # Local file or URL
+
+with col2:
+    st.title("📈 Via Verde Dashboard")
+
+
 # 🚀 Load data
 try:
     df = pd.read_excel(file_url)
