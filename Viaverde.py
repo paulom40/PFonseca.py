@@ -10,20 +10,20 @@ url = "https://github.com/paulom40/PFonseca.py/raw/main/Viaverde.xlsx"
 st.sidebar.header("Filtros")
 
 # Unique values
-matriculas = df['Matricula'].unique()
+matricula = df['Matricula'].unique()
 anos = df['Ano'].unique()
 meses = df['Mês'].unique()
 dias = df['Dia'].unique()
 
 # Multiselect filter boxes
-selected_matriculas = st.sidebar.multiselect("Matricula", sorted(matriculas), default=matriculas)
+selected_matricula = st.sidebar.multiselect("Matricula", sorted(matricula), default=matricula)
 selected_anos = st.sidebar.multiselect("Ano", sorted(anos), default=anos)
 selected_meses = st.sidebar.multiselect("Mês", sorted(meses), default=meses)
 selected_dias = st.sidebar.multiselect("Dia", sorted(dias), default=dias)
 
 # Filter the dataframe
 filtered_df = df[
-    (df['Matricula'].isin(selected_matriculas)) &
+    (df['Matricula'].isin(selected_matricula)) &
     (df['Ano'].isin(selected_anos)) &
     (df['Mês'].isin(selected_meses)) &
     (df['Dia'].isin(selected_dias))
