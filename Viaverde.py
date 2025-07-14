@@ -73,6 +73,7 @@ labels = alt.Chart(chart_df).mark_text(
     align='center',
     baseline='bottom',
     fontWeight='bold',
+    color='red',
     dy=-5  # shift upward for clarity
 ).encode(
     x='Month:O',
