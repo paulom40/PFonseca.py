@@ -18,14 +18,14 @@ with col2:
 # 🚀 Load data
 try:
     df = pd.read_excel(file_url)
-    df = df.drop(columns=['Date', 'Mês'], errors='ignore')
+    df = df.drop(columns=['Mês'], errors='ignore')
     st.success("✅ Dados carregados com sucesso!")
 except Exception as e:
     st.error(f"❌ Erro ao carregar o arquivo: {e}")
     st.stop()
 
 # ✅ Required columns check
-required_cols = ['Matricula', 'Ano', 'Month', 'Dia', 'Value']
+required_cols = ['Matricula', 'Date', 'Ano', 'Month', 'Dia', 'Value']
 missing_cols = [col for col in required_cols if col not in df.columns]
 
 if missing_cols:
