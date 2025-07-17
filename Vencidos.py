@@ -2,10 +2,6 @@ import pandas as pd
 import requests
 from io import BytesIO
 import streamlit as st
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-from reportlab.lib.units import cm
-import tempfile
 from io import BytesIO
 
 st.set_page_config(layout="wide")
@@ -120,66 +116,6 @@ col2.metric("📆 Dias Médios", f"{media_dias:.1f}")
 col3.metric("💰 Valor Pendente Total", f"€ {valor_total:,.2f}")
 
 # -------------------------------
-# 🖨️ Export to PDF with ReportLab
-# -------------------------------
-st.markdown("### 📤 Exportar para PDF")
-
-if st.button("📄 Gerar PDF dos Resultados"):
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmpfile:
-        c = canvas.Canvas(tmpfile.name, pagesize=A4)
-        width, height = A4
-
-        # Title
-        c.setFont("Helvetica-Bold", 16)
-        c.drawString(2 * cm, height - 2 * cm, "Vencimentos Comerciais")
-
-        # Filters
-        c.setFont("Helvetica", 12)
-        y = height - 3.5 * cm
-        c.drawString(2 * cm, y, f"Comercial: {comercial_selecionado}")
-        y -= 0.5 * cm
-        c.drawString(2 * cm, y, f"Categorias: {', '.join(categorias_selecionadas)}")
-        y -= 0.5 * cm
-        c.drawString(2 * cm, y, f"Entidades: {', '.join(entidades_selecionadas)}")
-        y -= 0.5 * cm
-        c.drawString(2 * cm, y, f"Dias: {dias_min}–{dias_max}")
-        y -= 1 * cm
-
-        # Summary
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(2 * cm, y, f"Total de Registros: {total_registros}")
-        y -= 0.5 * cm
-        c.drawString(2 * cm, y, f"Dias Médios: {media_dias:.1f}")
-        y -= 0.5 * cm
-        c.drawString(2 * cm, y, f"Valor Pendente Total: € {valor_total:,.2f}")
-        y -= 1 * cm
-
-        # Table header
-        c.setFont("Helvetica-Bold", 10)
-        c.drawString(2 * cm, y, "Entidade | Categoria | Dias | Valor Pendente")
-        y -= 0.5 * cm
-        c.setFont("Helvetica", 10)
-
-        # Table rows
-        for _, row in df_filtrado.iterrows():
-            linha = f"{row['Entidade']} | {row['Categoria']} | {row['Dias']} | € {row['Valor Pendente']:,.2f}"
-            c.drawString(2 * cm, y, linha)
-            y -= 0.4 * cm
-            if y < 2 * cm:
-                c.showPage()
-                y = height - 2 * cm
-
-        c.save()
-
-        with open(tmpfile.name, "rb") as f:
-            st.download_button(
-                label="📥 Baixar PDF",
-                data=f.read(),
-                file_name="vencimentos_comerciais.pdf",
-                mime="application/pdf"
-            )
-
-# -------------------------------
 # 📤 Export to Excel with Summary
 # -------------------------------
 st.markdown("### 📤 Exportar para Excel")
@@ -222,4 +158,3 @@ st.download_button(
     file_name="vencimentos_comerciais.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
-
