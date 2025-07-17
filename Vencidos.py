@@ -210,4 +210,4 @@ resumo = {
     "Entidades": ', '.join(entidades_selecionadas),
     "Dias": f"{dias_min}–{dias_max}",
     "Total de Registros":
-    (
+}
