@@ -49,14 +49,20 @@ df_comercial = df[df["Comercial"] == comercial_selecionado]
 
 # Step 2: Categoria
 categorias_unicas = sorted(df_comercial["Categoria"].dropna().unique())
-categoria_selecionada = st.sidebar.selectbox("Selecione a Categoria:", categorias_unicas)
-df_categoria = df_comercial[df_comercial["Categoria"] == categoria_selecionada]
+selecionar_todas_categorias = st.sidebar.checkbox("Selecionar todas as Categorias", value=True)
+
+if selecionar_todas_categorias:
+    categorias_selecionadas = categorias_unicas
+else:
+    categorias_selecionadas = st.sidebar.multiselect("Selecione Categorias:", categorias_unicas)
+
+df_categoria = df_comercial[df_comercial["Categoria"].isin(categorias_selecionadas)]
 
 # Step 3: Entidade (filtered by Categoria)
 entidades_unicas = sorted(df_categoria["Entidade"].dropna().unique())
-select_all = st.sidebar.checkbox("Selecionar todas as Entidades", value=True)
+select_all_entidades = st.sidebar.checkbox("Selecionar todas as Entidades", value=True)
 
-if select_all:
+if select_all_entidades:
     entidades_selecionadas = entidades_unicas
 else:
     entidades_selecionadas = st.sidebar.multiselect("Selecione Entidades:", entidades_unicas)
@@ -89,7 +95,7 @@ st.title("📊 Vencimentos Comerciais")
 st.markdown(f"""
 Exibindo resultados para:
 - **Comercial:** {comercial_selecionado}
-- **Categoria:** {categoria_selecionada}
+- **Categorias:** {', '.join(categorias_selecionadas) if categorias_selecionadas else 'Nenhuma'}
 - **Entidades:** {', '.join(entidades_selecionadas) if entidades_selecionadas else 'Nenhuma'}
 - **Dias:** {dias_min}–{dias_max}
 """)
