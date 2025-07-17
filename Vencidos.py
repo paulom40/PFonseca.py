@@ -2,6 +2,10 @@ import pandas as pd
 import requests
 from io import BytesIO
 import streamlit as st
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import cm
+import tempfile
 
 st.set_page_config(layout="wide")
 
@@ -58,7 +62,7 @@ else:
 
 df_categoria = df_comercial[df_comercial["Categoria"].isin(categorias_selecionadas)]
 
-# Step 3: Entidade (filtered by Categoria)
+# Step 3: Entidade
 entidades_unicas = sorted(df_categoria["Entidade"].dropna().unique())
 select_all_entidades = st.sidebar.checkbox("Selecionar todas as Entidades", value=True)
 
@@ -113,3 +117,97 @@ col1, col2, col3 = st.columns(3)
 col1.metric("📌 Total de Registros", total_registros)
 col2.metric("📆 Dias Médios", f"{media_dias:.1f}")
 col3.metric("💰 Valor Pendente Total", f"€ {valor_total:,.2f}")
+
+# -------------------------------
+# 🖨️ Export to PDF with ReportLab
+# -------------------------------
+st.markdown("### 📤 Exportar para PDF")
+
+if st.button("📄 Gerar PDF dos Resultados"):
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmpfile:
+        c = canvas.Canvas(tmpfile.name, pagesize=A4)
+        width, height = A4
+
+        # Title
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(2 * cm, height - 2 * cm, "Vencimentos Comerciais")
+
+        # Filters
+        c.setFont("Helvetica", 12)
+        y = height - 3.5 * cm
+        c.drawString(2 * cm, y, f"Comercial: {comercial_selecionado}")
+        y -= 0.5 * cm
+        c.drawString(2 * cm, y, f"Categorias: {', '.join(categorias_selecionadas)}")
+        y -= 0.5 * cm
+        c.drawString(2 * cm, y, f"Entidades: {', '.join(entidades_selecionadas)}")
+        y -= 0.5 * cm
+        c.drawString(2 * cm, y, f"Dias: {dias_min}–{dias_max}")
+        y -= 1 * cm
+
+        # Summary
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(2 * cm, y, f"Total de Registros: {total_registros}")
+        y -= 0.5 * cm
+        c.drawString(2 * cm, y, f"Dias Médios: {media_dias:.1f}")
+        y -= 0.5 * cm
+        c.drawString(2 * cm, y, f"Valor Pendente Total: € {valor_total:,.2f}")
+        y -= 1 * cm
+
+        # Table header
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(2 * cm, y, "Entidade | Categoria | Dias | Valor Pendente")
+        y -= 0.5 * cm
+        c.setFont("Helvetica", 10)
+
+        # Table rows
+        for _, row in df_filtrado.iterrows():
+            linha = f"{row['Entidade']} | {row['Categoria']} | {row['Dias']} | € {row['Valor Pendente']:,.2f}"
+            c.drawString(2 * cm, y, linha)
+            y -= 0.4 * cm
+            if y < 2 * cm:
+                c.showPage()
+                y = height - 2 * cm
+
+        c.save()
+
+        with open(tmpfile.name, "rb") as f:
+            st.download_button(
+                label="📥 Baixar PDF",
+                data=f.read(),
+                file_name="vencimentos_comerciais.pdf",
+                mime="application/pdf"
+            )
+
+# -------------------------------
+# 📤 Export to Excel with Summary
+# -------------------------------
+st.markdown("### 📤 Exportar para Excel")
+
+from io import BytesIO
+
+def to_excel(df, resumo):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        # Sheet 1: Vencimentos
+        df.to_excel(writer, index=False, sheet_name='Vencimentos')
+        workbook = writer.book
+        worksheet1 = writer.sheets['Vencimentos']
+        format_currency = workbook.add_format({'num_format': '€ #,##0.00'})
+        worksheet1.set_column('A:D', 20)
+        worksheet1.set_column('D:D', None, format_currency)
+
+        # Sheet 2: Resumo
+        resumo_df = pd.DataFrame(resumo.items(), columns=["Descrição", "Valor"])
+        resumo_df.to_excel(writer, index=False, sheet_name='Resumo')
+        worksheet2 = writer.sheets['Resumo']
+        worksheet2.set_column('A:B', 40)
+
+    output.seek(0)
+    return output
+
+resumo = {
+    "Comercial": comercial_selecionado,
+    "Categorias": ', '.join(categorias_selecionadas),
+    "Entidades": ', '.join(entidades_selecionadas),
+    "Dias": f"{dias_min}–{dias_max}",
+    "Total de Registros": total_reg
