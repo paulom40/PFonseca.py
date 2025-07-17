@@ -3,6 +3,9 @@ import requests
 from io import BytesIO
 import streamlit as st
 
+st.set_page_config(layout="wide")
+
+
 # -------------------------------
 # 📥 Load Excel file from GitHub
 # -------------------------------
