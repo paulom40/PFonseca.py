@@ -6,6 +6,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
 import tempfile
+from io import BytesIO
 
 st.set_page_config(layout="wide")
 
@@ -183,8 +184,6 @@ if st.button("📄 Gerar PDF dos Resultados"):
 # -------------------------------
 st.markdown("### 📤 Exportar para Excel")
 
-from io import BytesIO
-
 def to_excel(df, resumo):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -210,4 +209,4 @@ resumo = {
     "Categorias": ', '.join(categorias_selecionadas),
     "Entidades": ', '.join(entidades_selecionadas),
     "Dias": f"{dias_min}–{dias_max}",
-    "Total de Registros": total_reg
+    "Total de Registros":
