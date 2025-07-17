@@ -5,7 +5,6 @@ import streamlit as st
 
 st.set_page_config(layout="wide")
 
-
 # -------------------------------
 # 📥 Load Excel file from GitHub
 # -------------------------------
@@ -16,10 +15,7 @@ try:
     response.raise_for_status()
 
     df = pd.read_excel(BytesIO(response.content), sheet_name="VVencidos")
-    # 🛠️ Parse dates safely, skipping invalid entries
     df["Data Venc."] = pd.to_datetime(df["Data Venc."], origin='1899-12-30', unit='D', errors="coerce")
-
-
 
     st.success("📥 Dados carregados com sucesso!")
 
@@ -27,7 +23,7 @@ except Exception as e:
     st.error(f"Erro ao carregar os dados: {e}")
     st.stop()
 
-st.write("📅 Ultima atualização: 17/07/2025 ás 13:30")
+st.write("📅 Última atualização: 17/07/2025 às 13:30")
 
 # -------------------------------
 # 🧹 Clean and prepare data
@@ -40,43 +36,65 @@ df["Dias"] = df["Dias"].astype(int)
 df["Valor Pendente"] = pd.to_numeric(df["Valor Pendente"], errors="coerce")
 
 # -------------------------------
-# 🎛️ Sidebar: Filters
+# 🎛️ Sidebar: Hierarchical Filters
 # -------------------------------
 st.sidebar.header("🔎 Filtros")
 
-# Comercial selector
-Comercial_unicos = sorted(df["Comercial"].dropna().unique())
-Comercial_selecionado = st.sidebar.selectbox("Selecione o Comercial:", Comercial_unicos)
+# Step 1: Comercial
+comercial_unicos = sorted(df["Comercial"].dropna().unique())
+comercial_selecionado = st.sidebar.selectbox("Selecione o Comercial:", comercial_unicos)
 
-# Dias slider
+# Step 2: Filter by Comercial
+df_comercial = df[df["Comercial"] == comercial_selecionado]
+
+# Step 3: Entidade
+entidades_unicas = sorted(df_comercial["Entidade"].dropna().unique())
+
+# Select All toggle
+select_all = st.sidebar.checkbox("Selecionar todas as Entidades", value=True)
+
+if select_all:
+    entidades_selecionadas = entidades_unicas
+else:
+    entidades_selecionadas = st.sidebar.multiselect("Selecione Entidades:", entidades_unicas)
+
+# Step 4: Filter by Entidade
+df_entidade = df_comercial[df_comercial["Entidade"].isin(entidades_selecionadas)]
+
+# Step 5: Dias slider
 st.sidebar.markdown("### ⏳ Filtro por Dias até Vencimento")
+dias_min_default = int(df_entidade["Dias"].min()) if not df_entidade.empty else 1
+dias_max_default = int(df_entidade["Dias"].max()) if not df_entidade.empty else 360
+
 dias_min, dias_max = st.sidebar.slider(
     "Selecione o intervalo de Dias:",
     min_value=1,
     max_value=360,
-    value=(1, 360),
+    value=(dias_min_default, dias_max_default),
     step=1
 )
 
-# -------------------------------
-# 🔍 Apply filters
-# -------------------------------
-df_filtrado = df[
-    (df["Comercial"] == Comercial_selecionado) &
-    (df["Dias"] >= dias_min) &
-    (df["Dias"] <= dias_max)
+# Step 6: Final filter
+df_filtrado = df_entidade[
+    (df_entidade["Dias"] >= dias_min) &
+    (df_entidade["Dias"] <= dias_max)
 ]
 
 # -------------------------------
-# 📊 Display results
+# 📊 Display Results
 # -------------------------------
 st.title("📊 Vencimentos Comerciais")
-st.markdown(f"Exibindo resultados para **{Comercial_selecionado}** com **{dias_min}–{dias_max} dias** até vencimento.")
+st.markdown(f"""
+Exibindo resultados para:
+- **Comercial:** {comercial_selecionado}
+- **Entidades:** {', '.join(entidades_selecionadas) if entidades_selecionadas else 'Nenhuma'}
+- **Dias:** {dias_min}–{dias_max}
+""")
 
 st.dataframe(df_filtrado, use_container_width=True)
 
 # -------------------------------
-# 📈 Summary metrics
+# 📈 Summary Metrics
 # -------------------------------
 total_registros = len(df_filtrado)
 media_dias = df_filtrado["Dias"].mean() if total_registros > 0 else 0
