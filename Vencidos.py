@@ -209,5 +209,17 @@ resumo = {
     "Categorias": ', '.join(categorias_selecionadas),
     "Entidades": ', '.join(entidades_selecionadas),
     "Dias": f"{dias_min}–{dias_max}",
-    "Total de Registros":
+    "Total de Registros": total_registros,
+    "Dias Médios": f"{media_dias:.1f}",
+    "Valor Pendente Total": f"€ {valor_total:,.2f}"
 }
+
+excel_data = to_excel(df_filtrado, resumo)
+
+st.download_button(
+    label="📥 Baixar Excel com Resumo",
+    data=excel_data,
+    file_name="vencimentos_comerciais.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+
