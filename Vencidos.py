@@ -13,7 +13,10 @@ try:
     response.raise_for_status()
 
     df = pd.read_excel(BytesIO(response.content), sheet_name="VVencidos")
-    df["Data Venc."] = pd.to_datetime(df["Data Venc."], errors="coerce").dt.date
+    # 🛠️ Parse dates safely, skipping invalid entries
+    df["Data Venc."] = pd.to_datetime(df["Data Venc."], errors="coerce")
+    df = df.dropna(subset=["Data Venc."])  # remove rows with invalid dates
+    df["Data Venc."] = df["Data Venc."].dt.date
 
     st.success("📥 Dados carregados com sucesso!")
 
