@@ -30,6 +30,8 @@ st.write("📅 Última atualização: 17/07/2025 às 13:30")
 # -------------------------------
 df.columns = df.columns.str.strip()
 df["Entidade"] = df["Entidade"].astype(str).str.strip()
+df["Categoria"] = df["Categoria"].astype(str).str.strip()
+df["Comercial"] = df["Comercial"].astype(str).str.strip()
 df["Dias"] = pd.to_numeric(df["Dias"], errors="coerce")
 df = df.dropna(subset=["Dias"])
 df["Dias"] = df["Dias"].astype(int)
@@ -43,14 +45,15 @@ st.sidebar.header("🔎 Filtros")
 # Step 1: Comercial
 comercial_unicos = sorted(df["Comercial"].dropna().unique())
 comercial_selecionado = st.sidebar.selectbox("Selecione o Comercial:", comercial_unicos)
-
-# Step 2: Filter by Comercial
 df_comercial = df[df["Comercial"] == comercial_selecionado]
 
-# Step 3: Entidade
-entidades_unicas = sorted(df_comercial["Entidade"].dropna().unique())
+# Step 2: Categoria
+categorias_unicas = sorted(df_comercial["Categoria"].dropna().unique())
+categoria_selecionada = st.sidebar.selectbox("Selecione a Categoria:", categorias_unicas)
+df_categoria = df_comercial[df_comercial["Categoria"] == categoria_selecionada]
 
-# Select All toggle
+# Step 3: Entidade (filtered by Categoria)
+entidades_unicas = sorted(df_categoria["Entidade"].dropna().unique())
 select_all = st.sidebar.checkbox("Selecionar todas as Entidades", value=True)
 
 if select_all:
@@ -58,10 +61,9 @@ if select_all:
 else:
     entidades_selecionadas = st.sidebar.multiselect("Selecione Entidades:", entidades_unicas)
 
-# Step 4: Filter by Entidade
-df_entidade = df_comercial[df_comercial["Entidade"].isin(entidades_selecionadas)]
+df_entidade = df_categoria[df_categoria["Entidade"].isin(entidades_selecionadas)]
 
-# Step 5: Dias slider
+# Step 4: Dias slider
 st.sidebar.markdown("### ⏳ Filtro por Dias até Vencimento")
 dias_min_default = int(df_entidade["Dias"].min()) if not df_entidade.empty else 1
 dias_max_default = int(df_entidade["Dias"].max()) if not df_entidade.empty else 360
@@ -74,7 +76,7 @@ dias_min, dias_max = st.sidebar.slider(
     step=1
 )
 
-# Step 6: Final filter
+# Final filter
 df_filtrado = df_entidade[
     (df_entidade["Dias"] >= dias_min) &
     (df_entidade["Dias"] <= dias_max)
@@ -87,6 +89,7 @@ st.title("📊 Vencimentos Comerciais")
 st.markdown(f"""
 Exibindo resultados para:
 - **Comercial:** {comercial_selecionado}
+- **Categoria:** {categoria_selecionada}
 - **Entidades:** {', '.join(entidades_selecionadas) if entidades_selecionadas else 'Nenhuma'}
 - **Dias:** {dias_min}–{dias_max}
 """)
