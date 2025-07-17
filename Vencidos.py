@@ -68,9 +68,14 @@ dias_min, dias_max = st.sidebar.slider(
 # -------------------------------
 # 🔍 Apply filters
 # -------------------------------
-df_Comercial = df["Comercial"] == Comercial_selecionado]
-df_cliente = df[df["Entidade"] == entidade_selecionada]
-df_filtrado = df_cliente[(df_cliente["Dias"] >= dias_min) & (df_cliente["Dias"] <= dias_max)]
+# 🔍 Apply filters (corrigido)
+df_filtrado = df[
+    (df["Comercial"] == Comercial_selecionado) &
+    (df["Entidade"] == entidade_selecionada) &
+    (df["Dias"] >= dias_min) &
+    (df["Dias"] <= dias_max)
+]
+
 
 # -------------------------------
 # 📊 Display results
