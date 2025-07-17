@@ -21,15 +21,6 @@ except Exception as e:
     st.error(f"Erro ao carregar os dados: {e}")
     st.stop()
 
-
-
-
-
-    st.success("📥 Dados carregados com sucesso!")
-except Exception as e:
-    st.error(f"Erro ao carregar os dados: {e}")
-    st.stop()
-
 st.write("📅 Last Update 11/07/2025")
 
 # -------------------------------
@@ -51,10 +42,6 @@ st.sidebar.header("🔎 Filtros")
 Comercial_unicos = sorted(df["Comercial"].dropna().unique())
 Comercial_selecionado = st.sidebar.selectbox("Selecione o Comercial:", Comercial_unicos)
 
-# Cliente selector
-entidades_unicas = sorted(df["Entidade"].dropna().unique())
-entidade_selecionada = st.sidebar.selectbox("Selecione o Cliente:", entidades_unicas)
-
 # Dias slider
 st.sidebar.markdown("### ⏳ Filtro por Dias até Vencimento")
 dias_min, dias_max = st.sidebar.slider(
@@ -68,14 +55,11 @@ dias_min, dias_max = st.sidebar.slider(
 # -------------------------------
 # 🔍 Apply filters
 # -------------------------------
-# 🔍 Apply filters (corrigido)
 df_filtrado = df[
     (df["Comercial"] == Comercial_selecionado) &
-    (df["Entidade"] == entidade_selecionada) &
     (df["Dias"] >= dias_min) &
     (df["Dias"] <= dias_max)
 ]
-
 
 # -------------------------------
 # 📊 Display results
