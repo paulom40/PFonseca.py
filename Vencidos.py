@@ -14,7 +14,8 @@ try:
 
     df = pd.read_excel(BytesIO(response.content), sheet_name="VVencidos")
     # 🛠️ Parse dates safely, skipping invalid entries
-   df["Data Venc."] = pd.to_datetime(df["Data Venc."], errors="coerce")
+    df["Data Venc."] = pd.to_datetime(df["Data Venc."], origin='1899-12-30', unit='D', errors="coerce")
+
 
 
 
