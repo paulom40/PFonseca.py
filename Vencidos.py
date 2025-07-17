@@ -14,9 +14,8 @@ try:
 
     df = pd.read_excel(BytesIO(response.content), sheet_name="VVencidos")
     # 🛠️ Parse dates safely, skipping invalid entries
-    df["Data Venc."] = pd.to_datetime(df["Data Venc."], errors="coerce")
-    df = df.dropna(subset=["Data Venc."])  # remove rows with invalid dates
-    df["Data Venc."] = df["Data Venc."].dt.date
+    df["Data Venc."] = pd.to_datetime(df["Data Venc."], format="%d/%m/%Y", errors="coerce")
+
 
     st.success("📥 Dados carregados com sucesso!")
 
