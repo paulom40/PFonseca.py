@@ -2,7 +2,6 @@ import pandas as pd
 import requests
 from io import BytesIO
 import streamlit as st
-from io import BytesIO
 
 st.set_page_config(layout="wide")
 
@@ -122,20 +121,13 @@ st.markdown("### 📤 Exportar para Excel")
 
 def to_excel(df, resumo):
     output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
         # Sheet 1: Vencimentos
         df.to_excel(writer, index=False, sheet_name='Vencimentos')
-        workbook = writer.book
-        worksheet1 = writer.sheets['Vencimentos']
-        format_currency = workbook.add_format({'num_format': '€ #,##0.00'})
-        worksheet1.set_column('A:D', 20)
-        worksheet1.set_column('D:D', None, format_currency)
 
         # Sheet 2: Resumo
         resumo_df = pd.DataFrame(resumo.items(), columns=["Descrição", "Valor"])
         resumo_df.to_excel(writer, index=False, sheet_name='Resumo')
-        worksheet2 = writer.sheets['Resumo']
-        worksheet2.set_column('A:B', 40)
 
     output.seek(0)
     return output
