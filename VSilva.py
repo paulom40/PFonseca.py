@@ -11,7 +11,7 @@ url = "https://github.com/paulom40/PFonseca.py/raw/main/VSilva.xlsx"
 try:
     response = requests.get(url)
     response.raise_for_status()
-    df = pd.read_excel(BytesIO(response.content), sheet_name="VSilva")
+    df = pd.read_excel(BytesIO(response.content), sheet_name="Vsilva")
     df["Data Venc."] = pd.to_datetime(df["Data Venc."], errors="coerce").dt.date
     st.success("📥 Dados carregados com sucesso!")
 except Exception as e:
