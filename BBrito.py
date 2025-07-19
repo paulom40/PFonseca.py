@@ -42,30 +42,54 @@ st.sidebar.header("🔎 Filtros")
 entidades_unicas = sorted(df["Entidade"].dropna().unique())
 entidade_selecionada = st.sidebar.selectbox("Selecione o Cliente:", entidades_unicas)
 
-# -------------------------------
-# 🔍 Apply Dias filter (-7 to -1)
-# -------------------------------
-df_cliente = df[df["Entidade"] == entidade_selecionada]
-df_filtrado = df_cliente[(df_cliente["Dias"] >= -7) & (df_cliente["Dias"] <= -1)]
-
-# -------------------------------
-# 📊 Display results
-# -------------------------------
-st.title("📉 Vencimentos Atrasados - Últimos 7 Dias")
-st.markdown(
-    f"Exibindo resultados para **{entidade_selecionada}** com vencimentos **atrasados entre -7 e -1 dias**."
+# Dias slider
+st.sidebar.markdown("### ⏳ Filtro por Dias até Vencimento")
+dias_min, dias_max = st.sidebar.slider(
+    "Selecione o intervalo de Dias:",
+    min_value=1,
+    max_value=180,
+    value=(1, 180),
+    step=1
 )
 
+# -------------------------------
+# 🔍 Apply main filter (Dias > 0)
+# -------------------------------
+df_cliente = df[df["Entidade"] == entidade_selecionada]
+df_filtrado = df_cliente[(df_cliente["Dias"] >= dias_min) & (df_cliente["Dias"] <= dias_max)]
+
+# -------------------------------
+# 📊 Display main filtered table
+# -------------------------------
+st.title("📊 Vencimentos Bruno Brito")
+st.markdown(f"Exibindo resultados para **{entidade_selecionada}** com **{dias_min}–{dias_max} dias** até vencimento.")
 st.dataframe(df_filtrado, use_container_width=True)
 
 # -------------------------------
-# 📈 Summary metrics
+# 📈 Main summary metrics
 # -------------------------------
 total_registros = len(df_filtrado)
 media_dias = df_filtrado["Dias"].mean() if total_registros > 0 else 0
 valor_total = df_filtrado["Valor Pendente"].sum()
 
 col1, col2, col3 = st.columns(3)
-col1.metric("🔴 Total Atrasados", total_registros)
-col2.metric("🕒 Média Dias", f"{media_dias:.1f}")
-col3.metric("💸 Valor Pendente Total", f"€ {valor_total:,.2f}")
+col1.metric("📌 Total de Registros", total_registros)
+col2.metric("📆 Dias Médios", f"{media_dias:.1f}")
+col3.metric("💰 Valor Pendente Total", f"€ {valor_total:,.2f}")
+
+# -------------------------------
+# 📉 Extra Table: Atrasados - Dias -7 a -1
+# -------------------------------
+st.subheader("📉 Registros Atrasados nos Últimos 7 Dias")
+df_atrasado = df_cliente[(df_cliente["Dias"] >= -7) & (df_cliente["Dias"] <= -1)]
+st.dataframe(df_atrasado, use_container_width=True)
+
+# 📈 Metrics for overdue table
+total_atrasados = len(df_atrasado)
+media_dias_atrasado = df_atrasado["Dias"].mean() if total_atrasados > 0 else 0
+valor_total_atrasado = df_atrasado["Valor Pendente"].sum()
+
+col1, col2, col3 = st.columns(3)
+col1.metric("🔴 Total Atrasados", total_atrasados)
+col2.metric("🕒 Média Dias", f"{media_dias_atrasado:.1f}")
+col3.metric("💸 Valor Atrasado Total", f"€ {valor_total_atrasado:,.2f}")
