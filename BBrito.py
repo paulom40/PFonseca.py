@@ -78,7 +78,7 @@ col2.metric("📆 Dias Médios", f"{media_dias:.1f}")
 col3.metric("💰 Valor Pendente Total", f"€ {valor_total:,.2f}")
 
 # -------------------------------
-# 📉 Extra Table: Atrasados - Dias -60 a -1
+# 📉 Extra Table: Atrasados - Dias -7 a -1
 # -------------------------------
 st.subheader("📉 Registros Por vencer nos Últimos 7 Dias")
 df_atrasado = df_cliente[(df_cliente["Dias"] >= -7) & (df_cliente["Dias"] <= -1)]
@@ -90,6 +90,6 @@ media_dias_atrasado = df_atrasado["Dias"].mean() if total_atrasados > 0 else 0
 valor_total_atrasado = df_atrasado["Valor Pendente"].sum()
 
 col1, col2, col3 = st.columns(3)
-col1.metric("🔴 Total Atrasados", total_atrasados)
-col2.metric("🕒 Média Dias", f"{media_dias_atrasado:.1f}")
-col3.metric("💸 Valor Atrasado Total", f"€ {valor_total_atrasado:,.2f}")
+col1.metric("🔴 Total Atrasados", total_a vencer)
+col2.metric("🕒 Média Dias", f"{media_dias_a vencer:.1f}")
+col3.metric("💸 Valor Atrasado Total", f"€ {valor_total_a vencer:,.2f}")
