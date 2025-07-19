@@ -72,7 +72,7 @@ col3.metric("💰 Valor Pendente Total", f"€ {df_filtrado['Valor Pendente'].su
 # -------------------------------
 # 📉 Overdue Table (-20 a -1 Dias)
 # -------------------------------
-st.subheader("📉 Registros Por Vencer nos Últimos 20 Dias")
+st.subheader("📉 Registros Por Vencer nos proximos 20 Dias")
 df_a_vencer = df_cliente[(df_cliente["Dias"] >= -20) & (df_cliente["Dias"] <= -1)]
 st.dataframe(df_a_vencer[cols_exibir], use_container_width=True)
 
