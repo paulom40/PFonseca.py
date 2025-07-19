@@ -6,31 +6,19 @@ import streamlit as st
 # -------------------------------
 # 📥 Load Excel file from GitHub
 # -------------------------------
-url = "https://github.com/paulom40/PFonseca.py/raw/main/MMiranda.xlsx"
+url = "https://github.com/paulom40/PFonseca.py/raw/main/SSilva.xlsx"
 
 try:
     response = requests.get(url)
     response.raise_for_status()
-
-    df = pd.read_excel(BytesIO(response.content), sheet_name="MMiranda")
+    df = pd.read_excel(BytesIO(response.content), sheet_name="SSilva")
     df["Data Venc."] = pd.to_datetime(df["Data Venc."], errors="coerce").dt.date
-
-    st.success("📥 Dados carregados com sucesso!")
-
-except Exception as e:
-    st.error(f"Erro ao carregar os dados: {e}")
-    st.stop()
-
-
-
-
-
     st.success("📥 Dados carregados com sucesso!")
 except Exception as e:
     st.error(f"Erro ao carregar os dados: {e}")
     st.stop()
 
-st.write("📅 Last Update 11/07/2025")
+st.write("📅 Last Update 18/07/2025")
 
 # -------------------------------
 # 🧹 Clean and prepare data
@@ -47,11 +35,9 @@ df["Valor Pendente"] = pd.to_numeric(df["Valor Pendente"], errors="coerce")
 # -------------------------------
 st.sidebar.header("🔎 Filtros")
 
-# Cliente selector
 entidades_unicas = sorted(df["Entidade"].dropna().unique())
 entidade_selecionada = st.sidebar.selectbox("Selecione o Cliente:", entidades_unicas)
 
-# Dias slider
 st.sidebar.markdown("### ⏳ Filtro por Dias até Vencimento")
 dias_min, dias_max = st.sidebar.slider(
     "Selecione o intervalo de Dias:",
@@ -67,22 +53,31 @@ dias_min, dias_max = st.sidebar.slider(
 df_cliente = df[df["Entidade"] == entidade_selecionada]
 df_filtrado = df_cliente[(df_cliente["Dias"] >= dias_min) & (df_cliente["Dias"] <= dias_max)]
 
+# Columns to display
+cols_exibir = ["Entidade", "Documento", "Data Venc.", "Dias", "Valor Pendente"]
+
 # -------------------------------
-# 📊 Display results
+# 📊 Main filtered table
 # -------------------------------
-st.title("📊 Vencimentos Sandra Silva")
+st.title("📊 Vencimentos Bruno Brito")
 st.markdown(f"Exibindo resultados para **{entidade_selecionada}** com **{dias_min}–{dias_max} dias** até vencimento.")
+st.dataframe(df_filtrado[cols_exibir], use_container_width=True)
 
-st.dataframe(df_filtrado, use_container_width=True)
-
-# -------------------------------
 # 📈 Summary metrics
-# -------------------------------
-total_registros = len(df_filtrado)
-media_dias = df_filtrado["Dias"].mean() if total_registros > 0 else 0
-valor_total = df_filtrado["Valor Pendente"].sum()
-
 col1, col2, col3 = st.columns(3)
-col1.metric("📌 Total de Registros", total_registros)
-col2.metric("📆 Dias Médios", f"{media_dias:.1f}")
-col3.metric("💰 Valor Pendente Total", f"€ {valor_total:,.2f}")
+col1.metric("📌 Total de Registros", len(df_filtrado))
+col2.metric("📆 Dias Médios", f"{df_filtrado['Dias'].mean():.1f}" if len(df_filtrado) > 0 else "0")
+col3.metric("💰 Valor Pendente Total", f"€ {df_filtrado['Valor Pendente'].sum():,.2f}")
+
+# -------------------------------
+# 📉 Overdue Table (-20 a -1 Dias)
+# -------------------------------
+st.subheader("📉 Registros Por Vencer nos Últimos 20 Dias")
+df_a_vencer = df_cliente[(df_cliente["Dias"] >= -20) & (df_cliente["Dias"] <= -1)]
+st.dataframe(df_a_vencer[cols_exibir], use_container_width=True)
+
+# 📈 Overdue summary metrics
+col1, col2, col3 = st.columns(3)
+col1.metric("🔴 Total A Vencer", len(df_a_vencer))
+col2.metric("🕒 Média Dias", f"{df_a_vencer['Dias'].mean():.1f}" if len(df_a_vencer) > 0 else "0")
+col3.metric("💸 Valor A Vencer Total", f"€ {df_a_vencer['Valor Pendente'].sum():,.2f}")
