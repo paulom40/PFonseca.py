@@ -80,7 +80,7 @@ col3.metric("💰 Valor Pendente Total", f"€ {valor_total:,.2f}")
 # -------------------------------
 # 📉 Extra Table: Atrasados - Dias -60 a -1
 # -------------------------------
-st.subheader("📉 Registros Atrasados nos Últimos 60 Dias")
+st.subheader("📉 Registros Por vencer nos Últimos 60 Dias")
 df_atrasado = df_cliente[(df_cliente["Dias"] >= -60) & (df_cliente["Dias"] <= -1)]
 st.dataframe(df_atrasado, use_container_width=True)
 
