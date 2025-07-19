@@ -81,15 +81,15 @@ col3.metric("💰 Valor Pendente Total", f"€ {valor_total:,.2f}")
 # 📉 Extra Table: Atrasados - Dias -7 a -1
 # -------------------------------
 st.subheader("📉 Registros Por vencer nos Últimos 7 Dias")
-df_atrasado = df_cliente[(df_cliente["Dias"] >= -7) & (df_cliente["Dias"] <= -1)]
-st.dataframe(df_atrasado, use_container_width=True)
+df_a_vencer = df_cliente[(df_cliente["Dias"] >= -7) & (df_cliente["Dias"] <= -1)]
+st.dataframe(df_a_vencer, use_container_width=True)
 
 # 📈 Metrics for overdue table
-total_atrasados = len(df_atrasado)
-media_dias_atrasado = df_atrasado["Dias"].mean() if total_atrasados > 0 else 0
-valor_total_atrasado = df_atrasado["Valor Pendente"].sum()
+total_a_vencer = len(df_a_vencer)
+media_dias_a_vencer = df_a_vencer["Dias"].mean() if total_a_vencers > 0 else 0
+valor_total_a_vencero = df_a_vencer["Valor Pendente"].sum()
 
 col1, col2, col3 = st.columns(3)
-col1.metric("🔴 Total Atrasados", total_a_vencer)
+col1.metric("🔴 Total A Vencer", total_a_vencer)
 col2.metric("🕒 Média Dias", f"{media_dias_a_vencer:.1f}")
-col3.metric("💸 Valor Atrasado Total", f"€ {valor_total_a_vencer:,.2f}")
+col3.metric("💸 Valor A Vencer Total", f"€ {valor_total_a_vencer:,.2f}")
