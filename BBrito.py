@@ -90,6 +90,6 @@ media_dias_atrasado = df_atrasado["Dias"].mean() if total_atrasados > 0 else 0
 valor_total_atrasado = df_atrasado["Valor Pendente"].sum()
 
 col1, col2, col3 = st.columns(3)
-col1.metric("🔴 Total Atrasados", total_a vencer)
+col1.metric("🔴 Total Atrasados", total_a_vencer)
 col2.metric("🕒 Média Dias", f"{media_dias_a vencer:.1f}")
 col3.metric("💸 Valor Atrasado Total", f"€ {valor_total_a vencer:,.2f}")
