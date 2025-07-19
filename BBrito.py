@@ -86,7 +86,7 @@ st.dataframe(df_a_vencer, use_container_width=True)
 
 # 📈 Metrics for overdue table
 total_a_vencer = len(df_a_vencer)
-media_dias_a_vencer = df_a_vencer["Dias"].mean() if total_a_vencers > 0 else 0
+media_dias_a_vencer = df_a_vencer["Dias"].mean() if total_a_vencer > 0 else 0
 valor_total_a_vencero = df_a_vencer["Valor Pendente"].sum()
 
 col1, col2, col3 = st.columns(3)
