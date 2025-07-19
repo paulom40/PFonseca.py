@@ -21,6 +21,15 @@ except Exception as e:
     st.error(f"Erro ao carregar os dados: {e}")
     st.stop()
 
+
+
+
+
+    st.success("📥 Dados carregados com sucesso!")
+except Exception as e:
+    st.error(f"Erro ao carregar os dados: {e}")
+    st.stop()
+
 st.write("📅 Last Update 18/07/2025")
 
 # -------------------------------
@@ -52,31 +61,17 @@ dias_min, dias_max = st.sidebar.slider(
     step=1
 )
 
-# Date range filter
-st.sidebar.markdown("### 📅 Filtro por Intervalo de Data de Vencimento")
-data_inicio = st.sidebar.date_input("Data Inicial", value=df["Data Venc."].min())
-data_fim = st.sidebar.date_input("Data Final", value=df["Data Venc."].max())
-
 # -------------------------------
 # 🔍 Apply filters
 # -------------------------------
 df_cliente = df[df["Entidade"] == entidade_selecionada]
-
-df_filtrado = df_cliente[
-    (df_cliente["Dias"] >= dias_min) &
-    (df_cliente["Dias"] <= dias_max) &
-    (df_cliente["Data Venc."] >= data_inicio) &
-    (df_cliente["Data Venc."] <= data_fim)
-]
+df_filtrado = df_cliente[(df_cliente["Dias"] >= dias_min) & (df_cliente["Dias"] <= dias_max)]
 
 # -------------------------------
 # 📊 Display results
 # -------------------------------
 st.title("📊 Vencimentos Bruno Brito")
-st.markdown(
-    f"Exibindo resultados para **{entidade_selecionada}** com **{dias_min}–{dias_max} dias** até vencimento "
-    f"e vencimentos entre **{data_inicio}** e **{data_fim}**."
-)
+st.markdown(f"Exibindo resultados para **{entidade_selecionada}** com **{dias_min}–{dias_max} dias** até vencimento.")
 
 st.dataframe(df_filtrado, use_container_width=True)
 
