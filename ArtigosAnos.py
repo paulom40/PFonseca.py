@@ -81,16 +81,31 @@ if quantity_col:
 else:
     st.warning("🛑 Nenhuma coluna de quantidade foi encontrada.")
 
- # 🔁 Lista com os meses completos na ordem correta
+ import altair as alt
+
+# ✅ Lista de meses ordenados
 ordered_months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
                   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
-# 📊 Gerar dados para o gráfico de barras do Preço Médio
+# 📊 Calcular Preço Médio por mês e ano
 pm_data = filtered_df.groupby(['MÊS', 'ANO'])['PM'].mean().reset_index()
-pivot_pm = pm_data.pivot(index='MÊS', columns='ANO', values='PM').fillna(0)
-pivot_pm = pivot_pm.reindex(ordered_months)
 
-# 📊 Renderizar gráfico de barras
-st.write("### 💸 Evolução do Preço Médio por Mês: 2023 vs 2024 vs 2025")
-st.bar_chart(pivot_pm)
+# 🔄 Garantir a ordem dos meses
+pm_data['MÊS'] = pd.Categorical(pm_data['MÊS'], categories=ordered_months, ordered=True)
+
+# 🎨 Criar gráfico de barras com Altair
+bar_chart = alt.Chart(pm_data).mark_bar().encode(
+    x=alt.X('MÊS:N', title='Mês'),
+    y=alt.Y('PM:Q', title='Preço Médio'),
+    color=alt.Color('ANO:N', title='Ano'),
+    tooltip=['ANO', 'MÊS', 'PM']
+).properties(
+    title='💸 Evolução do Preço Médio por Mês: 2023 vs 2024 vs 2025',
+    width=700,
+    height=400
+)
+
+# 📊 Mostrar gráfico
+st.altair_chart(bar_chart, use_container_width=True)
+
 
