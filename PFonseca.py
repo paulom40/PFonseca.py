@@ -60,7 +60,7 @@ cols_exibir = ["Entidade", "Documento", "Data Venc.", "Dias", "Valor Pendente"]
 # 📊 Main filtered table
 # -------------------------------
 st.title("📊 Vencimentos Pedro Fonseca")
-st.markdown(f"Exibindo resultados para **{entidade_selecionada}** com **{dias_min}–{dias_max} dias** até vencimento.")
+st.markdown(f"Exibindo resultados para **{entidade_selecionada}** com **{dias_min}–{dias_max} dias** vencidos.")
 st.dataframe(df_filtrado[cols_exibir], use_container_width=True)
 
 # 📈 Summary metrics
