@@ -37,11 +37,15 @@ if quantity_col:
         default=df['MÊS'].dropna().unique()
     )
 
-    selected_ano = st.sidebar.multiselect(
-        "Ano",
-        options=df['ANO'].dropna().unique(),
-        default=df['ANO'].dropna().unique()
-    )
+    # 🎯 Filter only the years you're interested in
+ano_opcoes = [ano for ano in [2023, 2024, 2025] if ano in df['ANO'].dropna().unique()]
+
+selected_ano = st.sidebar.multiselect(
+    "Ano (Comparar)",
+    options=ano_opcoes,
+    default=ano_opcoes
+)
+
 
     # 🧮 Filter the dataset
     filtered_df = df[
