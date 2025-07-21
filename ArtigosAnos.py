@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 # URL of the raw Excel file on GitHub
-excel_url = 'https://raw.githubusercontent.com/yourusername/yourrepo/main/Artigos_totais_ANOS.xlsx'
+excel_url = 'https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Artigos_totais_ANOS.xlsx'
 
 # Load the Excel file (specific worksheet: "Resumo")
 df = pd.read_excel(excel_url, sheet_name='Resumo', engine='openpyxl')
