@@ -1,39 +1,32 @@
 import streamlit as st
 import pandas as pd
 
-# URL of the raw Excel file on GitHub
+# 📂 URL of the raw Excel file from GitHub
 excel_url = 'https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Artigos_totais_ANOS.xlsx'
-
-# Load the Excel file (specific worksheet: "Resumo")
+# 📄 Load and normalize worksheet columns
 df = pd.read_excel(excel_url, sheet_name='Resumo', engine='openpyxl')
-df.columns = df.columns.str.strip().str.upper()
+df.columns = df.columns.str.strip().str.upper()  # Clean column names
 
-# Sidebar filters
-st.sidebar.header("🔎 Filters")
-selected_produto = st.sidebar.multiselect(
-    "Produto",
-    options=df['PRODUTO'].dropna().unique(),
-    default=df['PRODUTO'].dropna().unique()
-)
-selected_mes = st.sidebar.multiselect("Mês", options=df['Mês'].unique(), default=df['Mês'].unique())
-selected_ano = st.sidebar.multiselect("Ano", options=df['Ano'].unique(), default=df['Ano'].unique())
+# 🪟 Sidebar filters
+st.sidebar.header("🔎 Filtros")
+selected_produto = st.sidebar.multiselect("Produto", options=df['PRODUTO'].dropna().unique(), default=df['PRODUTO'].dropna().unique())
+selected_mes = st.sidebar.multiselect("Mês", options=df['MÊS'].dropna().unique(), default=df['MÊS'].dropna().unique())
+selected_ano = st.sidebar.multiselect("Ano", options=df['ANO'].dropna().unique(), default=df['ANO'].dropna().unique())
 
-# Filter data
+# 🧮 Filter the data
 filtered_df = df[
-    (df['Produto'].isin(selected_produto)) &
-    (df['Mês'].isin(selected_mes)) &
-    (df['Ano'].isin(selected_ano))
+    (df['PRODUTO'].isin(selected_produto)) &
+    (df['MÊS'].isin(selected_mes)) &
+    (df['ANO'].isin(selected_ano))
 ]
 
-# Display filtered data in a table
-st.write("### 📋 Filtered Data")
+# 📊 Display filtered data
+st.write("### 📋 Dados Filtrados")
 st.dataframe(filtered_df)
 
-# Line chart
-st.write("### 📈 Line Chart")
-chart_data = filtered_df.groupby(['Ano', 'Mês'])['Quantidade'].sum().reset_index()
+# 📈 Create line chart
+chart_data = filtered_df.groupby(['ANO', 'MÊS'])['QUANTIDADE'].sum().reset_index()
+chart_data['LABEL'] = chart_data['ANO'].astype(str) + '-' + chart_data['MÊS'].astype(str)
 
-# Create a label for X-axis
-chart_data['Label'] = chart_data['Ano'].astype(str) + '-' + chart_data['Mês'].astype(str)
-
-st.line_chart(chart_data.set_index('Label')['Quantidade'])
+st.write("### 📈 Gráfico de Linhas")
+st.line_chart(chart_data.set_index('LABEL')['QUANTIDADE'])
