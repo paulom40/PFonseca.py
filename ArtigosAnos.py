@@ -80,3 +80,12 @@ if quantity_col:
 
 else:
     st.warning("🛑 Nenhuma coluna de quantidade foi encontrada.")
+
+    # 📈 Prepare chart
+    chart_df = filtered_df[filtered_df['ANO'].isin(selected_ano)]
+    pivot_data = chart_df.groupby(['MÊS', 'ANO'])[PM_col].sum().reset_index()
+    pivot_table = pivot_data.pivot(index='MÊS', columns='ANO', values=PM_col).fillna(0)
+
+    # 📊 Render chart
+    st.write("### 📈 Comparação de preços médios: 2023 vs 2024 vs 2025")
+    st.line_chart(pivot_table)
