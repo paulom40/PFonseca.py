@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import io
+
 
 
 # 🖼️ Logo
@@ -57,22 +57,25 @@ if quantity_col:
     ]
 
     # 📋 Show filtered data
-    st.write("### 📋 Dados Filtrados")
-    st.dataframe(filtered_df)
+st.write("### 📋 Dados Filtrados")
+st.dataframe(filtered_df)
 
-    
-# ✨ Create in-memory Excel file
+# ⬇️ Optional Excel download
+import io
 excel_buffer = io.BytesIO()
 with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
     filtered_df.to_excel(writer, index=False, sheet_name='Filtrado')
 
-# ⬇️ Download button
 st.download_button(
     label="📥 Download dados filtrados em Excel",
     data=excel_buffer.getvalue(),
     file_name="dados_filtrados.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
+
+# 📈 Prepare chart data
+chart_df = filtered_df[filtered_df['ANO'].isin(anos_para_comparar)]
+
 
 
     # 📈 Prepare chart data
