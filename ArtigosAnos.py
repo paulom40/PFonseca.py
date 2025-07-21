@@ -6,10 +6,15 @@ excel_url = 'https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Artigos
 
 # Load the Excel file (specific worksheet: "Resumo")
 df = pd.read_excel(excel_url, sheet_name='Resumo', engine='openpyxl')
+df.columns = df.columns.str.strip().str.upper()
 
 # Sidebar filters
 st.sidebar.header("🔎 Filters")
-selected_produto = st.sidebar.multiselect("Produto", options=df['Produto'].unique(), default=df['Produto'].unique())
+selected_produto = st.sidebar.multiselect(
+    "Produto",
+    options=df['PRODUTO'].dropna().unique(),
+    default=df['PRODUTO'].dropna().unique()
+)
 selected_mes = st.sidebar.multiselect("Mês", options=df['Mês'].unique(), default=df['Mês'].unique())
 selected_ano = st.sidebar.multiselect("Ano", options=df['Ano'].unique(), default=df['Ano'].unique())
 
