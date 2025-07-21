@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import io
+import altair as alt
 
 # 🖼️ Logo
 st.image("https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png", width=100)
@@ -81,7 +82,6 @@ if quantity_col:
 else:
     st.warning("🛑 Nenhuma coluna de quantidade foi encontrada.")
 
- import altair as alt
 
 # ✅ Lista de meses ordenados
 ordered_months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
