@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 
+st.image("https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png", width=100)
+
 # 📂 Excel file from GitHub (use RAW .xlsx URL)
 excel_url = 'https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Artigos_totais_ANOS.xlsx'
 
