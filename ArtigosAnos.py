@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 
+# 🖼️ Logo
 st.image("https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png", width=100)
 
 # 📂 Excel file from GitHub (use RAW .xlsx URL)
@@ -12,14 +13,13 @@ df = pd.read_excel(excel_url, sheet_name='Resumo', engine='openpyxl')
 # 🧼 Normalize column names
 df.columns = df.columns.str.strip().str.upper()
 
-# ✅ Display column names for debugging (optional)
-# st.write("🔍 Available columns:", df.columns.tolist())
-
-# 🧠 Try to detect the quantity column automatically
+# 🧠 Detect quantity column
 quantity_candidates = ['QUANTIDADE', 'QTD', 'TOTAL', 'VALOR']
 quantity_col = next((col for col in df.columns if col in quantity_candidates), None)
 
-# ✅ Proceed only if quantity column is found
+# 🔧 Sanitize 'ANO' column
+df['ANO'] = pd.to_numeric(df['ANO'], errors='coerce').astype('Int64')
+
 if quantity_col:
 
     # 🧭 Sidebar Filters
@@ -37,15 +37,15 @@ if quantity_col:
         default=df['MÊS'].dropna().unique()
     )
 
-    # 🎯 Filter only the years you're interested in
-ano_opcoes = [ano for ano in [2023, 2024, 2025] if ano in df['ANO'].dropna().unique()]
+    # 🎯 Restrict to 2023–2025
+    anos_disponiveis = df['ANO'].dropna().unique()
+    anos_para_comparar = [ano for ano in [2023, 2024, 2025] if ano in anos_disponiveis]
 
-selected_ano = st.sidebar.multiselect(
-    "Ano (Comparar)",
-    options=ano_opcoes,
-    default=ano_opcoes
-)
-
+    selected_ano = st.sidebar.multiselect(
+        "Ano (Comparar)",
+        options=anos_para_comparar,
+        default=anos_para_comparar
+    )
 
     # 🧮 Filter the dataset
     filtered_df = df[
@@ -59,14 +59,13 @@ selected_ano = st.sidebar.multiselect(
     st.dataframe(filtered_df)
 
     # 📈 Prepare chart data
-    years_to_compare = [2023, 2024, 2025]
-    chart_df = filtered_df[filtered_df['ANO'].isin(years_to_compare)]
+    chart_df = filtered_df[filtered_df['ANO'].isin(anos_para_comparar)]
 
-    # 📊 Group and pivot for multi-year comparison
+    # 📊 Group and pivot for comparison
     pivot_data = chart_df.groupby(['MÊS', 'ANO'])[quantity_col].sum().reset_index()
     pivot_table = pivot_data.pivot(index='MÊS', columns='ANO', values=quantity_col).fillna(0)
 
-    # 🖼️ Draw multi-line comparison chart
+    # 🖼️ Draw chart
     st.write("### 📈 Comparação de Quantidades: 2023 vs 2024 vs 2025")
     st.line_chart(pivot_table)
 
