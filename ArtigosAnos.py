@@ -83,6 +83,7 @@ else:
     st.warning("🛑 Nenhuma coluna de quantidade foi encontrada.")
 
 
+
 # ✅ Lista de meses ordenados
 ordered_months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
                   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
@@ -105,7 +106,20 @@ bar_chart = alt.Chart(pm_data).mark_bar().encode(
     height=400
 )
 
-# 📊 Mostrar gráfico
-st.altair_chart(bar_chart, use_container_width=True)
+# ✏️ Adicionar valores acima de cada barra
+text_labels = alt.Chart(pm_data).mark_text(
+    align='center',
+    baseline='bottom',
+    dy=-3,
+    fontSize=12,
+    font='Arial'
+).encode(
+    x='MÊS:N',
+    y='PM:Q',
+    detail='ANO:N',
+    text=alt.Text('PM:Q', format=".2f")
+)
 
-
+# 🔗 Combinar os gráficos
+final_chart = bar_chart + text_labels
+final_chart
