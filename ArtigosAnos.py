@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import io
 
 # 🖼️ Logo
 st.image("https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png", width=100)
@@ -71,3 +72,18 @@ if quantity_col:
 
 else:
     st.warning("🛑 Nenhuma coluna de quantidade foi encontrada.")
+
+
+# ✨ Create in-memory Excel file
+excel_buffer = io.BytesIO()
+with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+    filtered_df.to_excel(writer, index=False, sheet_name='Filtrado')
+
+# ⬇️ Download button
+st.download_button(
+    label="📥 Download dados filtrados em Excel",
+    data=excel_buffer.getvalue(),
+    file_name="dados_filtrados.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+
