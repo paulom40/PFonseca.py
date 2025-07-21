@@ -44,16 +44,14 @@ if quantity_col:
     st.dataframe(filtered_df)
 
     # 📈 Prepare chart data
-    chart_data = (
-        filtered_df.groupby(['ANO', 'MÊS'])[quantity_col]
-        .sum()
-        .reset_index()
-    )
-    chart_data['LABEL'] = chart_data['ANO'].astype(str) + '-' + chart_data['MÊS'].astype(str)
+   # 📊 Filter chart data to include only the selected years
+years_to_compare = [2023, 2024, 2025]
+chart_df = filtered_df[filtered_df['ANO'].isin(years_to_compare)]
 
-    # 🖼️ Draw chart
-    st.write("### 📈 Gráfico de Linhas")
-    st.line_chart(chart_data.set_index('LABEL')[quantity_col])
+# 📈 Group and pivot for multi-year comparison
+pivot_data = chart_df.groupby(['MÊS', 'ANO'])[quantity_col].sum().reset_index()
+pivot_table = pivot_data.pivot(index='MÊS', columns='ANO', values=quantity_col).fillna(0)
 
-else:
-    st.error("🚫 Nenhuma coluna de quantidade encontrada. Verifique os nomes na folha 'Resumo'.")
+# 🖼️ Draw multi-line comparison chart
+st.write("### 📈 Comparação de Quantidades: 2023 vs 2024 vs 2025")
+st.line_chart(pivot_table)
