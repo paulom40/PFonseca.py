@@ -56,11 +56,11 @@ if quantity_col:
         (df['ANO'].isin(selected_ano))
     ]
 
-    # 📋 Show filtered data
+  # 📋 Show filtered data
 st.write("### 📋 Dados Filtrados")
 st.dataframe(filtered_df)
 
-# ⬇️ Optional Excel download
+# ⬇️ Download filtered data as Excel
 import io
 excel_buffer = io.BytesIO()
 with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
@@ -76,20 +76,10 @@ st.download_button(
 # 📈 Prepare chart data
 chart_df = filtered_df[filtered_df['ANO'].isin(anos_para_comparar)]
 
+# 📊 Group and pivot for comparison
+pivot_data = chart_df.groupby(['MÊS', 'ANO'])[quantity_col].sum().reset_index()
+pivot_table = pivot_data.pivot(index='MÊS', columns='ANO', values=quantity_col).fillna(0)
 
-
-    # 📈 Prepare chart data
-    chart_df = filtered_df[filtered_df['ANO'].isin(anos_para_comparar)]
-
-    # 📊 Group and pivot for comparison
-    pivot_data = chart_df.groupby(['MÊS', 'ANO'])[quantity_col].sum().reset_index()
-    pivot_table = pivot_data.pivot(index='MÊS', columns='ANO', values=quantity_col).fillna(0)
-
-    # 🖼️ Draw chart
-    st.write("### 📈 Comparação de Quantidades: 2023 vs 2024 vs 2025")
-    st.line_chart(pivot_table)
-
-else:
-    st.warning("🛑 Nenhuma coluna de quantidade foi encontrada.")
-
-
+# 🖼️ Draw chart
+st.write("### 📈 Comparação de Quantidades: 2023 vs 2024 vs 2025")
+st.line_chart(pivot_table)
