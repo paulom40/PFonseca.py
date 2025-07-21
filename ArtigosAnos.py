@@ -10,6 +10,9 @@ df = pd.read_excel(excel_url, sheet_name='Resumo', engine='openpyxl')
 # 🧼 Normalize column names
 df.columns = df.columns.str.strip().str.upper()
 
+# ✅ Display column names for debugging (optional)
+# st.write("🔍 Available columns:", df.columns.tolist())
+
 # 🧠 Try to detect the quantity column automatically
 quantity_candidates = ['QUANTIDADE', 'QTD', 'TOTAL', 'VALOR']
 quantity_col = next((col for col in df.columns if col in quantity_candidates), None)
@@ -28,8 +31,8 @@ if quantity_col:
 
     selected_mes = st.sidebar.multiselect(
         "Mês",
-        options=df['MES'].dropna().unique(),
-        default=df['MES'].dropna().unique()
+        options=df['MÊS'].dropna().unique(),
+        default=df['MÊS'].dropna().unique()
     )
 
     selected_ano = st.sidebar.multiselect(
@@ -41,7 +44,7 @@ if quantity_col:
     # 🧮 Filter the dataset
     filtered_df = df[
         (df['PRODUTO'].isin(selected_produto)) &
-        (df['MES'].isin(selected_mes)) &
+        (df['MÊS'].isin(selected_mes)) &
         (df['ANO'].isin(selected_ano))
     ]
 
