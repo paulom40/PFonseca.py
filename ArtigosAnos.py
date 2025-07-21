@@ -28,13 +28,15 @@ selected_mes = st.sidebar.multiselect(
     options=df['MES'].dropna().unique(),
     default=df['MES'].dropna().unique()
 )
+st.sidebar.header("🔎 Filtros")
+
+selected_mes = st.sidebar.multiselect(
+    "Mês",
+    options=df['MES'].dropna().unique(),
+    default=df['MES'].dropna().unique()
+)
 
 
-    
-
-    selected_mes = st.sidebar.multiselect(
-        "Mês", options=df['MÊS'].dropna().unique(), default=df['MÊS'].dropna().unique()
-    )
     selected_ano = st.sidebar.multiselect(
         "Ano", options=df['ANO'].dropna().unique(), default=df['ANO'].dropna().unique()
     )
