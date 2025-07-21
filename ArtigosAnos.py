@@ -81,19 +81,16 @@ if quantity_col:
 else:
     st.warning("🛑 Nenhuma coluna de quantidade foi encontrada.")
 
-  # 🔁 Lista com os nomes completos dos meses na ordem correta
+ # 🔁 Lista com os meses completos na ordem correta
 ordered_months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
                   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
-# 🛠️ Gerar dados do Preço Médio
+# 📊 Gerar dados para o gráfico de barras do Preço Médio
 pm_data = filtered_df.groupby(['MÊS', 'ANO'])['PM'].mean().reset_index()
 pivot_pm = pm_data.pivot(index='MÊS', columns='ANO', values='PM').fillna(0)
-
-# 🗂️ Reordenar os meses
 pivot_pm = pivot_pm.reindex(ordered_months)
 
-# 📊 Renderizar o gráfico
+# 📊 Renderizar gráfico de barras
 st.write("### 💸 Evolução do Preço Médio por Mês: 2023 vs 2024 vs 2025")
-st.line_chart(pivot_pm)
-
+st.bar_chart(pivot_pm)
 
