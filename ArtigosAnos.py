@@ -23,11 +23,12 @@ if quantity_col:
     # 🧭 Sidebar Filters
     st.sidebar.header("🔎 Filtros")
 
-selected_produto = st.sidebar.multiselect(
-    "Produto", 
-    options=df['PRODUTO'].dropna().unique(), 
-    default=df['PRODUTO'].dropna().unique()
+selected_mes = st.sidebar.multiselect(
+    "Mês",
+    options=df['MES'].dropna().unique(),
+    default=df['MES'].dropna().unique()
 )
+
 
     
 
