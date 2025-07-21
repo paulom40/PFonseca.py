@@ -43,8 +43,7 @@ selected_ano = st.sidebar.multiselect(
 
 
     # 🧮 Filter the dataset
-    def filter_data():
-    filtered_df = df[
+        filtered_df = df[
         (df['PRODUTO'].isin(selected_produto)) &
         (df['MES'].isin(selected_mes)) &
         (df['ANO'].isin(selected_ano))
