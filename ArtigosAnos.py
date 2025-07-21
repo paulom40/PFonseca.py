@@ -22,8 +22,7 @@ if quantity_col:
 
     # 🧭 Sidebar Filters
     st.sidebar.header("🔎 Filtros")
-    st.sidebar.header("🔎 Filtros")
-
+    
 selected_produto = st.sidebar.selectbox(
     "Produto",
     options=df['PRODUTO'].dropna().unique()
