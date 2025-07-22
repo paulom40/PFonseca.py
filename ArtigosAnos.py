@@ -14,7 +14,7 @@ df = pd.read_excel(excel_url, sheet_name='Resumo', engine='openpyxl')
 df.columns = df.columns.str.strip().str.upper()
 df['ANO'] = pd.to_numeric(df['ANO'].astype(str).str.strip(), errors='coerce').astype('Int64')
 df['KGS'] = pd.to_numeric(df['KGS'], errors='coerce')
-df['PLACEHOLDER'] = False  # mark all original rows as real data
+df['PLACEHOLDER'] = False  # mark original data
 
 # 🔍 Detect quantity column
 quantity_candidates = ['QUANTIDADE', 'QTD', 'TOTAL', 'VALOR', 'KGS']
@@ -23,13 +23,25 @@ quantity_col = next((col for col in df.columns if col in quantity_candidates), N
 if quantity_col:
     # 🎛️ Sidebar filters
     st.sidebar.header("🔎 Filtros")
-    selected_produto = st.sidebar.multiselect("Produto", options=df['PRODUTO'].dropna().unique(),
-                                              default=df['PRODUTO'].dropna().unique())
-    selected_mes = st.sidebar.multiselect("Mês", options=df['MÊS'].dropna().unique(),
-                                          default=df['MÊS'].dropna().unique())
+    selected_produto = st.sidebar.multiselect(
+        "Produto", options=df['PRODUTO'].dropna().unique(),
+        default=df['PRODUTO'].dropna().unique()
+    )
+    selected_mes = st.sidebar.multiselect(
+        "Mês", options=df['MÊS'].dropna().unique(),
+        default=df['MÊS'].dropna().unique()
+    )
+
+    # Combine existing years + future years, then remove duplicates
     anos_disponiveis = sorted(df['ANO'].dropna().unique().tolist())
-    selected_ano = st.sidebar.multiselect("Ano (Comparar)", options=anos_disponiveis + [2023, 2024, 2025],
-                                          default=anos_disponiveis + [2023, 2024, 2025])
+    future_years = [2023, 2024, 2025]
+    all_years = sorted(set(anos_disponiveis + future_years))
+
+    selected_ano = st.sidebar.multiselect(
+        "Ano (Comparar)",
+        options=all_years,
+        default=all_years
+    )
 
     # 🔍 Filter real data
     filtered_df = df[
@@ -38,16 +50,16 @@ if quantity_col:
         (df['ANO'].isin(selected_ano))
     ].copy()
 
-    # ➕ Add placeholders for missing year+month+produto combinations
-    existing_combinations = filtered_df[['ANO', 'PRODUTO', 'MÊS']].drop_duplicates()
-
+    # ➕ Add placeholders for missing (ANO, PRODUTO, MÊS)
+    existing_keys = filtered_df[['ANO', 'PRODUTO', 'MÊS']].drop_duplicates()
     placeholders = []
+
     for ano in selected_ano:
         for produto in selected_produto:
             for mes in selected_mes:
-                if not ((existing_combinations['ANO'] == ano) &
-                        (existing_combinations['PRODUTO'] == produto) &
-                        (existing_combinations['MÊS'] == mes)).any():
+                if not ((existing_keys['ANO'] == ano) &
+                        (existing_keys['PRODUTO'] == produto) &
+                        (existing_keys['MÊS'] == mes)).any():
                     placeholders.append({
                         'ANO': ano,
                         'PRODUTO': produto,
@@ -60,7 +72,7 @@ if quantity_col:
     if placeholders:
         filtered_df = pd.concat([filtered_df, pd.DataFrame(placeholders)], ignore_index=True)
 
-    # 🚨 Warn if selected years were missing entirely in the original file
+    # 🚨 Warn if selected years were fully missing
     missing_years = set(selected_ano) - set(df['ANO'].dropna().unique())
     if missing_years:
         st.warning(f"⚠️ Os anos {', '.join(map(str, missing_years))} não existem nos dados originais. Linhas com 0 foram adicionadas.")
@@ -126,7 +138,7 @@ if quantity_col:
 
         st.altair_chart(line_chart + labels, use_container_width=True)
 
-    # 💸 Bar chart for PM (optional)
+    # 💸 Bar chart for PM (if available)
     if 'PM' in filtered_df.columns:
         pm_df = chart_df[chart_df['PLACEHOLDER'] == False].copy()
         pm_df['MÊS'] = pd.Categorical(pm_df['MÊS'], categories=ordered_months, ordered=True)
