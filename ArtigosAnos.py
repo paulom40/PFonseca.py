@@ -109,6 +109,20 @@ if quantity_col:
         height=400
     )
 
+    text_labels = alt.Chart(pivot_data).mark_text(
+    align='center',
+    baseline='bottom',
+    dy=-5,  # move text slightly above the points
+    fontSize=11,
+    font='Arial'
+    ).encode(
+    x='MÊS:N',
+    y=alt.Y(f'{quantity_col}:Q'),
+    detail='ANO:N',
+    text=alt.Text(f'{quantity_col}:Q', format=".0f")  # adjust format as needed
+    )
+
+    
     st.altair_chart(line_chart, use_container_width=True)
 
     # 💸 Bar chart for Preço Médio
