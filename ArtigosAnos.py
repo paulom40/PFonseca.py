@@ -71,17 +71,32 @@ if quantity_col:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-    # 📈 Prepare chart
-    chart_df = filtered_df[filtered_df['ANO'].isin(selected_ano)]
-    pivot_data = chart_df.groupby(['MÊS', 'ANO'])[quantity_col].sum().reset_index()
-    pivot_table = pivot_data.pivot(index='MÊS', columns='ANO', values=quantity_col).fillna(0)
+    
+    # 📈 Prepare chart data for Altair
+chart_df = filtered_df[filtered_df['ANO'].isin(selected_ano)]
 
-    # 📊 Render chart
-    st.write("### 📈 Comparação de Quantidades: 2023 vs 2024 vs 2025")
-    st.line_chart(pivot_table)
+pivot_data = chart_df.groupby(['MÊS', 'ANO'])[quantity_col].sum().reset_index()
 
-else:
-    st.warning("🛑 Nenhuma coluna de quantidade foi encontrada.")
+# 🗓️ Garantir ordem correta dos meses
+ordered_months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+
+pivot_data['MÊS'] = pd.Categorical(pivot_data['MÊS'], categories=ordered_months, ordered=True)
+
+# 📊 Gráfico de linhas com Altair
+line_chart = alt.Chart(pivot_data).mark_line(point=True).encode(
+    x=alt.X('MÊS:N', title='Mês'),
+    y=alt.Y(f'{quantity_col}:Q', title='Quantidade'),
+    color=alt.Color('ANO:N', title='Ano'),
+    tooltip=['MÊS', 'ANO', quantity_col]
+).properties(
+    title='📈 Evolução de Quantidades por Mês: 2023 vs 2024 vs 2025',
+    width=700,
+    height=400
+)
+
+st.altair_chart(line_chart, use_container_width=True)
+
 
 
 
