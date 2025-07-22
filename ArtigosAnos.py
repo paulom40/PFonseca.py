@@ -117,7 +117,7 @@ if quantity_col:
         pm_data['MÊS'] = pd.Categorical(pm_data['MÊS'], categories=ordered_months, ordered=True)
 
         bar_chart = alt.Chart(pm_data).mark_bar().encode(
-            x=alt.X('MÊS:N', title='Mês'),
+            x=alt.X('MÊS:N', title='Mês', sort=ordered_months),
             y=alt.Y('PM:Q', title='Preço Médio'),
             color=alt.Color('ANO:N', title='Ano'),
             tooltip=['ANO', 'MÊS', 'PM']
