@@ -115,7 +115,7 @@ if quantity_col:
     dy=-5,  # move text slightly above the points
     fontSize=11,
     font='Arial'
-    color='white'    
+    color='white'   
     ).encode(
     x='MÊS:N',
     y=alt.Y(f'{quantity_col}:Q'),
