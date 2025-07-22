@@ -17,8 +17,9 @@ df.columns = df.columns.str.strip().str.upper()
 df['ANO'] = pd.to_numeric(df['ANO'], errors='coerce').astype('Int64')
 
 # 🔍 Detect quantity column
-quantity_candidates = ['QUANTIDADE', 'QTD', 'TOTAL', 'VALOR']
+quantity_candidates = ['QUANTIDADE', 'QTD', 'TOTAL', 'VALOR', 'KGS']
 quantity_col = next((col for col in df.columns if col in quantity_candidates), None)
+
 
 if quantity_col:
 
