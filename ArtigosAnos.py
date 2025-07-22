@@ -123,7 +123,8 @@ if quantity_col:
     )
 
     
-    st.altair_chart(line_chart, use_container_width=True)
+    st.altair_chart(line_chart + text_labels, use_container_width=True)
+
 
     # 💸 Bar chart for Preço Médio
     if 'PM' in filtered_df.columns:
