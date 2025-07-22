@@ -94,11 +94,12 @@ if quantity_col:
     # 📈 Line chart for quantities
     chart_df = filtered_df.copy()
     chart_df['MÊS'] = pd.Categorical(chart_df['MÊS'], categories=ordered_months, ordered=True)
+  
 
     pivot_data = chart_df.groupby(['MÊS', 'ANO'])[quantity_col].sum().reset_index()
 
     line_chart = alt.Chart(pivot_data).mark_line(point=True).encode(
-        x=alt.X('MÊS:N', title='Mês'),
+        x=alt.X('MÊS:N', title='Mês', sort=ordered_months),
         y=alt.Y(f'{quantity_col}:Q', title='Quantidade'),
         color=alt.Color('ANO:N', title='Ano'),
         tooltip=['MÊS', 'ANO', quantity_col]
