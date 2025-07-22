@@ -36,16 +36,20 @@ if quantity_col:
     ]
 
     # ➕ Add missing selected years as placeholder rows
-    for ano in selected_ano:
-        if ano not in filtered_df['ANO'].dropna().unique():
-            placeholder = {
-                'ANO': ano,
-                'PRODUTO': selected_produto[0] if selected_produto else None,
-                'MÊS': selected_mes[0] if selected_mes else None,
-                quantity_col: 0,
-                'PM': 0 if 'PM' in df.columns else None
-            }
-            filtered_df = pd.concat([filtered_df, pd.DataFrame([placeholder])], ignore_index=True)
+for ano in selected_ano:
+    if ano not in filtered_df['ANO'].dropna().unique():
+        placeholders = []
+        for produto in selected_produto:
+            for mes in selected_mes:
+                placeholder = {
+                    'ANO': ano,
+                    'PRODUTO': produto,
+                    'MÊS': mes,
+                    quantity_col: 0,
+                    'PM': 0 if 'PM' in df.columns else None
+                }
+                placeholders.append(placeholder)
+        filtered_df = pd.concat([filtered_df, pd.DataFrame(placeholders)], ignore_index=True)
 
     # 🚨 Warning for original missing years
     missing_years = set(selected_ano) - set(df['ANO'].dropna().unique())
