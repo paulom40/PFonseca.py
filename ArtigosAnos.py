@@ -13,7 +13,8 @@ df = pd.read_excel(excel_url, sheet_name='Resumo', engine='openpyxl')
 # 🧼 Clean column names
 df.columns = df.columns.str.strip().str.upper()
 
-# 🔧 Ensure 'ANO' is numeric
+# 🧼 Clean and convert 'ANO' column
+df['ANO'] = df['ANO'].astype(str).str.strip()
 df['ANO'] = pd.to_numeric(df['ANO'], errors='coerce').astype('Int64')
 df['KGS'] = pd.to_numeric(df['KGS'], errors='coerce')
 
