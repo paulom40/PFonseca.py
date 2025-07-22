@@ -15,6 +15,8 @@ df.columns = df.columns.str.strip().str.upper()
 
 # 🔧 Ensure 'ANO' is numeric
 df['ANO'] = pd.to_numeric(df['ANO'], errors='coerce').astype('Int64')
+df['KGS'] = pd.to_numeric(df['KGS'], errors='coerce')
+
 
 # 🧮 Detect quantity column (includes 'KGS')
 quantity_candidates = ['QUANTIDADE', 'QTD', 'TOTAL', 'VALOR', 'KGS']
