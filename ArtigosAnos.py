@@ -87,20 +87,28 @@ for ano in selected_ano:
     ordered_months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
                       'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
     chart_df = filtered_df.copy()
+    
+
+    chart_df['LINE_TYPE'] = chart_df['PLACEHOLDER'].apply(lambda x: 'placeholder' if x else 'real')
     chart_df['MÊS'] = pd.Categorical(chart_df['MÊS'], categories=ordered_months, ordered=True)
+
+pivot_data = chart_df.groupby(['MÊS', 'ANO', 'LINE_TYPE'])[quantity_col].sum().reset_index()
+
 
     pivot_data = chart_df.groupby(['MÊS', 'ANO'])[quantity_col].sum().reset_index()
 
     line_chart = alt.Chart(pivot_data).mark_line(point=True).encode(
-        x=alt.X('MÊS:N', title='Mês', sort=ordered_months),
-        y=alt.Y(f'{quantity_col}:Q', title='Quantidade'),
-        color=alt.Color('ANO:N', title='Ano'),
-        tooltip=['MÊS', 'ANO', quantity_col]
-    ).properties(
-        title='📈 Evolução de Quantidades por Mês',
-        width=700,
-        height=400
-    )
+    x=alt.X('MÊS:N', title='Mês', sort=ordered_months),
+    y=alt.Y(f'{quantity_col}:Q', title='Quantidade'),
+    color=alt.Color('ANO:N', title='Ano'),
+    strokeDash=alt.StrokeDash('LINE_TYPE:N', title='Tipo'),
+    tooltip=['MÊS', 'ANO', quantity_col, 'LINE_TYPE']
+).properties(
+    title='📈 Evolução de Quantidades por Mês',
+    width=700,
+    height=400
+)
+
 
     labels = alt.Chart(pivot_data).mark_text(
         align='center', baseline='bottom', dy=-5, fontSize=11, font='Arial',
