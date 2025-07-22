@@ -3,6 +3,8 @@ import pandas as pd
 import io
 import altair as alt
 
+st.set_page_config(layout="wide")
+
 # 🖼️ Logo
 st.image("https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png", width=100)
 
