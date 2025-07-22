@@ -112,16 +112,17 @@ if quantity_col:
     text_labels = alt.Chart(pivot_data).mark_text(
     align='center',
     baseline='bottom',
-    dy=-5,  # move text slightly above the points
+    dy=-5,
     fontSize=11,
-    font='Arial'
-    color='white'   
-    ).encode(
+    font='Arial',
+    color='white'  # ← Make sure this comma exists!
+).encode(
     x='MÊS:N',
     y=alt.Y(f'{quantity_col}:Q'),
     detail='ANO:N',
-    text=alt.Text(f'{quantity_col}:Q', format=".0f")  # adjust format as needed
-    )
+    text=alt.Text(f'{quantity_col}:Q', format=".0f")
+)
+
 
     
     combined_chart = line_chart + text_labels
