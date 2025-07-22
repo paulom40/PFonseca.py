@@ -133,4 +133,4 @@ if quantity_col:
         st.altair_chart(bar_chart + pm_labels, use_container_width=True)
 
 else:
-    st.warning("🛑 Nenhuma coluna de quantidade foi encontrada no arquivo.")  i cant get any data from 2023 in the line chart is null
+    st.warning("🛑 Nenhuma coluna de quantidade foi encontrada no arquivo.")  
