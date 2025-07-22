@@ -123,7 +123,9 @@ if quantity_col:
     )
 
     
-    st.altair_chart(line_chart + text_labels, use_container_width=True)
+    combined_chart = line_chart + text_labels
+    st.altair_chart(combined_chart, use_container_width=True)
+
 
 
     # 💸 Bar chart for Preço Médio
