@@ -13,13 +13,12 @@ df = pd.read_excel(excel_url, sheet_name='Resumo', engine='openpyxl')
 # 🧼 Clean column names
 df.columns = df.columns.str.strip().str.upper()
 
-# 🧼 Clean and convert 'ANO' column
+# 🧼 Clean and convert key columns
 df['ANO'] = df['ANO'].astype(str).str.strip()
 df['ANO'] = pd.to_numeric(df['ANO'], errors='coerce').astype('Int64')
 df['KGS'] = pd.to_numeric(df['KGS'], errors='coerce')
 
-
-# 🧮 Detect quantity column (includes 'KGS')
+# 🧮 Detect quantity column
 quantity_candidates = ['QUANTIDADE', 'QTD', 'TOTAL', 'VALOR', 'KGS']
 quantity_col = next((col for col in df.columns if col in quantity_candidates), None)
 
@@ -54,9 +53,25 @@ if quantity_col:
         (df['ANO'].isin(selected_ano))
     ]
 
+    # 🚨 Warn if selected years aren't in filtered data
+    missing_years = set(selected_ano) - set(filtered_df['ANO'].dropna().unique())
+    if missing_years:
+        st.warning(f"⚠️ Os dados filtrados não contêm os anos: {', '.join(map(str, missing_years))}.")
+
     # 📋 Show filtered data
     st.write("### 📋 Dados Filtrados")
     st.dataframe(filtered_df)
+
+    # 📊 Summary Metrics
+    st.write("### 🔢 Indicadores")
+    total_qty = filtered_df[quantity_col].sum()
+    st.metric("📦 Quantidade Total", f"{total_qty:,.2f}")
+
+    if 'PM' in filtered_df.columns:
+        avg_price = filtered_df['PM'].mean()
+        st.metric("💰 Preço Médio", f"€{avg_price:,.2f}")
+    else:
+        st.info("ℹ️ Coluna 'PM' ausente — indicador de preço médio não disponível.")
 
     # 📥 Download button
     excel_buffer = io.BytesIO()
@@ -70,11 +85,11 @@ if quantity_col:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-    # 🗓️ Month order
+    # 🗓️ Define month order
     ordered_months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
                       'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
-    # 📈 Line chart for quantity comparison
+    # 📈 Line chart for quantities
     chart_df = filtered_df.copy()
     chart_df['MÊS'] = pd.Categorical(chart_df['MÊS'], categories=ordered_months, ordered=True)
 
@@ -94,34 +109,35 @@ if quantity_col:
     st.altair_chart(line_chart, use_container_width=True)
 
     # 💸 Bar chart for Preço Médio
-    pm_data = filtered_df.groupby(['MÊS', 'ANO'])['PM'].mean().reset_index()
-    pm_data['MÊS'] = pd.Categorical(pm_data['MÊS'], categories=ordered_months, ordered=True)
+    if 'PM' in filtered_df.columns:
+        pm_data = filtered_df.groupby(['MÊS', 'ANO'])['PM'].mean().reset_index()
+        pm_data['MÊS'] = pd.Categorical(pm_data['MÊS'], categories=ordered_months, ordered=True)
 
-    bar_chart = alt.Chart(pm_data).mark_bar().encode(
-        x=alt.X('MÊS:N', title='Mês'),
-        y=alt.Y('PM:Q', title='Preço Médio'),
-        color=alt.Color('ANO:N', title='Ano'),
-        tooltip=['ANO', 'MÊS', 'PM']
-    ).properties(
-        title='💸 Evolução do Preço Médio por Mês',
-        width=700,
-        height=400
-    )
+        bar_chart = alt.Chart(pm_data).mark_bar().encode(
+            x=alt.X('MÊS:N', title='Mês'),
+            y=alt.Y('PM:Q', title='Preço Médio'),
+            color=alt.Color('ANO:N', title='Ano'),
+            tooltip=['ANO', 'MÊS', 'PM']
+        ).properties(
+            title='💸 Evolução do Preço Médio por Mês',
+            width=700,
+            height=400
+        )
 
-    text_labels = alt.Chart(pm_data).mark_text(
-        align='center',
-        baseline='bottom',
-        dy=-3,
-        fontSize=12,
-        font='Arial'
-    ).encode(
-        x='MÊS:N',
-        y='PM:Q',
-        detail='ANO:N',
-        text=alt.Text('PM:Q', format=".2f")
-    )
+        text_labels = alt.Chart(pm_data).mark_text(
+            align='center',
+            baseline='bottom',
+            dy=-3,
+            fontSize=12,
+            font='Arial'
+        ).encode(
+            x='MÊS:N',
+            y='PM:Q',
+            detail='ANO:N',
+            text=alt.Text('PM:Q', format=".2f")
+        )
 
-    st.altair_chart(bar_chart + text_labels, use_container_width=True)
+        st.altair_chart(bar_chart + text_labels, use_container_width=True)
 
 else:
     st.warning("🛑 Nenhuma coluna de quantidade foi encontrada no arquivo.")
