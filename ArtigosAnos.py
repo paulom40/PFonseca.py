@@ -85,7 +85,14 @@ if quantity_col:
     chart_df = filtered_df.copy()
     chart_df['MÊS'] = pd.Categorical(chart_df['MÊS'], categories=ordered_months, ordered=True)
 
-    pivot_data = chart_df.groupby(['MÊS', 'ANO'])[quantity_col].sum().reset_index()
+    pivot_data = (
+    chart_df.groupby(['ANO', 'MÊS'])[quantity_col]
+    .sum()
+    .reset_index()
+    .sort_values(by=['ANO', 'MÊS'])
+)
+pivot_data['MÊS'] = pd.Categorical(pivot_data['MÊS'], categories=ordered_months, ordered=True)
+
 
     line_chart = alt.Chart(pivot_data).mark_line(point=True).encode(
         x=alt.X('MÊS:N', title='Mês', sort=ordered_months),
