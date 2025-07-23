@@ -13,6 +13,8 @@ df.columns = df.columns.str.strip().str.upper()
 df['ANO'] = pd.to_numeric(df['ANO'].astype(str).str.strip(), errors='coerce').astype('Int64')
 df['KGS'] = pd.to_numeric(df['KGS'], errors='coerce')
 
+
+
 # 🔎 Identify quantity column
 quantity_candidates = ['QUANTIDADE', 'QTD', 'TOTAL', 'VALOR', 'KGS']
 quantity_col = next((col for col in df.columns if col in quantity_candidates), None)
