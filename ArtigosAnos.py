@@ -106,16 +106,19 @@ if quantity_col:
     )
 
     labels = alt.Chart(pivot_data).mark_text(
-        align='center',
-        baseline='bottom',
-        dy=-5,
-        fontSize=11,
-        font='Arial',
-        color='white'
-    ).encode(
-        x='MÊS:N', y=alt.Y(f'{quantity_col}:Q'), detail='ANO:N',
-        text=alt.Text(f'{quantity_col}:Q', format=".0f")
-    )
+    align='center',
+    baseline='bottom',
+    dy=-5,
+    fontSize=11,
+    font='Arial',
+    color='white'
+).encode(
+    x='MÊS:N',
+    y=alt.Y(f'{quantity_col}:Q'),
+    detail='ANO:N',
+    text=alt.Text(f'{quantity_col}:Q', format=",.0f")  # Formata com separador de milhar
+)
+
     
     
     st.altair_chart(line_chart, use_container_width=True)
