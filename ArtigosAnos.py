@@ -117,18 +117,19 @@ if 'PM' in filtered_df.columns and filtered_df['PM'].notnull().any():
         height=400
     )
     labels_pm = alt.Chart(pm_data.groupby(['MES', 'ANO'])['PM'].mean().reset_index()).mark_text(
-    align='center',
-    baseline='middle',
-    dy=-7,  # adjust as needed
+    align='center',        # horizontally center
+    baseline='middle',     # vertically center
+    dy=0,                  # tweak up/down position if needed
     fontSize=11,
     font='Arial',
-    color='white'  # 👈 white text labels
+    color='white'
 ).encode(
     x=alt.X('MES:N', sort=ordered_months),
     y=alt.Y('PM:Q'),
     detail='ANO:N',
     text=alt.Text('PM:Q', format=".2f")
 )
+
 
     st.altair_chart(bar_chart + labels_pm, use_container_width=True)
 else:
