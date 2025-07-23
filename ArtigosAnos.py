@@ -46,19 +46,29 @@ if quantity_col:
     # ➕ Add missing selected years as placeholder rows
     for ano in selected_ano:
         if ano not in filtered_df['ANO'].dropna().unique():
-            placeholder = {
-                'ANO': ano,
-                'PRODUTO': selected_produto[0] if selected_produto else None,
-                'MÊS': selected_mes[0] if selected_mes else None,
-                quantity_col: 0,
-                'PM': 0 if 'PM' in df.columns else None
-            }
-            filtered_df = pd.concat([filtered_df, pd.DataFrame([placeholder])], ignore_index=True)
-    
+            for mes in selected_mes:
+                placeholder = {
+                    'ANO': ano,
+                    'PRODUTO': selected_produto[0] if selected_produto else None,
+                    'MÊS': mes,
+                    quantity_col: 0,
+                    'PM': 0 if 'PM' in df.columns else None
+                }
+                filtered_df = pd.concat([filtered_df, pd.DataFrame([placeholder])], ignore_index=True)
+
     # Ensure month order in filtered data
     filtered_df['MÊS'] = pd.Categorical(filtered_df['MÊS'], 
                                       categories=ordered_months, 
                                       ordered=True)
+
+    # 🚨 Debugging: Check 2023 data
+    st.write("### 🛠️ Verificação de Dados de 2023")
+    data_2023 = filtered_df[filtered_df['ANO'] == 2023]
+    if data_2023.empty:
+        st.warning("⚠️ Nenhum dado encontrado para 2023 após filtragem.")
+    else:
+        st.write(f"Dados de 2023 encontrados ({len(data_2023)} linhas):")
+        st.dataframe(data_2023)
 
     # 🚨 Warning for original missing years
     missing_years = set(selected_ano) - set(df['ANO'].dropna().unique())
@@ -93,7 +103,15 @@ if quantity_col:
     )
 
     # 📈 Line chart
+    # Create a complete index for all month-year combinations
+    all_combinations = pd.MultiIndex.from_product([selected_mes, selected_ano], names=['MÊS', 'ANO'])
     pivot_data = filtered_df.groupby(['MÊS', 'ANO'])[quantity_col].sum().reset_index()
+    pivot_data['MÊS'] = pd.Categorical(pivot_data['MÊS'], 
+                                     categories=ordered_months, 
+                                     ordered=True)
+    
+    # Reindex to include all combinations, filling missing with 0
+    pivot_data = pivot_data.set_index(['MÊS', 'ANO']).reindex(all_combinations, fill_value=0).reset_index()
     pivot_data['MÊS'] = pd.Categorical(pivot_data['MÊS'], 
                                      categories=ordered_months, 
                                      ordered=True)
@@ -122,6 +140,12 @@ if quantity_col:
     # 💸 Bar chart for PM
     if 'PM' in filtered_df.columns:
         pm_data = filtered_df.groupby(['MÊS', 'ANO'])['PM'].mean().reset_index()
+        pm_data['MÊS'] = pd.Categorical(pm_data['MÊS'], 
+                                       categories=ordered_months, 
+                                       ordered=True)
+        
+        # Reindex to include all combinations, filling missing PM with 0
+        pm_data = pm_data.set_index(['MÊS', 'ANO']).reindex(all_combinations, fill_value=0).reset_index()
         pm_data['MÊS'] = pd.Categorical(pm_data['MÊS'], 
                                        categories=ordered_months, 
                                        ordered=True)
