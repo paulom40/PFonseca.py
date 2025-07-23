@@ -105,6 +105,19 @@ if quantity_col:
         height=400
     )
 
+    labels = alt.Chart(pivot_data).mark_text(
+        align='center',
+        baseline='bottom',
+        dy=-5,
+        fontSize=11,
+        font='Arial',
+        color='white'
+    ).encode(
+        x='MÊS:N', y=alt.Y(f'{quantity_col}:Q'), detail='ANO:N',
+        text=alt.Text(f'{quantity_col}:Q', format=".0f")
+    )
+    
+    
     st.altair_chart(line_chart, use_container_width=True)
 
     # 💸 Gráfico de barras (Preço Médio por mês)
