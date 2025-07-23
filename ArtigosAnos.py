@@ -38,13 +38,13 @@ filtered_df = df[
 # ➕ Preencher dados faltantes por ano, mês, produto
 for ano in selected_ano:
     for produto in selected_produto:
-        for mes in selected_mes:
-            exists = filtered_df[
+        for mes in ordered_months:  # ← usar todos os meses, não só os selecionados
+            existe = filtered_df[
                 (filtered_df['ANO'] == ano) &
                 (filtered_df['PRODUTO'] == produto) &
                 (filtered_df['MÊS'] == mes)
             ]
-            if exists.empty:
+            if existe.empty:
                 placeholder = {
                     'ANO': ano,
                     'PRODUTO': produto,
@@ -53,6 +53,7 @@ for ano in selected_ano:
                     'PM': 0 if 'PM' in df.columns else None
                 }
                 filtered_df = pd.concat([filtered_df, pd.DataFrame([placeholder])], ignore_index=True)
+
 
 # 📋 Mostrar tabela de dados filtrados
 st.write("### 📋 Dados Filtrados")
