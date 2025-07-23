@@ -18,15 +18,20 @@ quantity_candidates = ['QUANTIDADE', 'QTD', 'TOTAL', 'VALOR', 'KGS']
 quantity_col = next((col for col in df.columns if col in quantity_candidates), None)
 
 if quantity_col:
-    # 🎛️ Sidebar filters
-    st.sidebar.header("🔎 Filtros")
-    selected_produto = st.sidebar.multiselect("Produto", options=df['PRODUTO'].dropna().unique(),
-                                              default=df['PRODUTO'].dropna().unique())
-    selected_mes = st.sidebar.multiselect("Mês", options=df['MÊS'].dropna().unique(),
-                                          default=df['MÊS'].dropna().unique())
-    anos_disponiveis = sorted(df['ANO'].dropna().unique().tolist())
-    selected_ano = st.sidebar.multiselect("Ano (Comparar)", options=anos_disponiveis,
-                                          default=anos_disponiveis)
+    # outras linhas
+    pivot_data = chart_df.groupby(['MÊS', 'ANO'])[quantity_col].sum().reset_index()
+
+    line_chart = alt.Chart(pivot_data).mark_line(point=True).encode(
+        x=alt.X('MÊS:N', title='Mês', sort=ordered_months),
+        y=alt.Y(f'{quantity_col}:Q', title='Quantidade'),
+        color=alt.Color('ANO:N', title='Ano'),
+        tooltip=['MÊS', 'ANO', quantity_col]
+    ).properties(
+        title='📈 Evolução de Quantidades por Mês',
+        width=700,
+        height=400
+    )
+
 
     # 🔍 Apply filters
     filtered_df = df[
