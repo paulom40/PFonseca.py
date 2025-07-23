@@ -18,9 +18,10 @@ quantity_candidates = ['QUANTIDADE', 'QTD', 'TOTAL', 'VALOR', 'KGS']
 quantity_col = next((col for col in df.columns if col in quantity_candidates), None)
 
 if quantity_col:
-    # Outras instruções...
-    
+    # outras variáveis e dados…
+
     pivot_data = chart_df.groupby(['MÊS', 'ANO'])[quantity_col].sum().reset_index()
+    pivot_data['MÊS'] = pd.Categorical(pivot_data['MÊS'], categories=ordered_months, ordered=True)
 
     line_chart = alt.Chart(pivot_data).mark_line(point=True).encode(
         x=alt.X('MÊS:N', title='Mês', sort=ordered_months),
@@ -36,7 +37,7 @@ if quantity_col:
     st.altair_chart(line_chart, use_container_width=True)
 
 
-    
+       
 
     # 🔍 Apply filters
     filtered_df = df[
