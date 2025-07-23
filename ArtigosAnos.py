@@ -18,8 +18,7 @@ quantity_candidates = ['QUANTIDADE', 'QTD', 'TOTAL', 'VALOR', 'KGS']
 quantity_col = next((col for col in df.columns if col in quantity_candidates), None)
 
 if quantity_col:
-    # outras linhas
-    pivot_data = chart_df.groupby(['MÊS', 'ANO'])[quantity_col].sum().reset_index()
+    # ... outros blocos
 
     line_chart = alt.Chart(pivot_data).mark_line(point=True).encode(
         x=alt.X('MÊS:N', title='Mês', sort=ordered_months),
@@ -32,6 +31,7 @@ if quantity_col:
         height=400
     )
 
+    
 
     # 🔍 Apply filters
     filtered_df = df[
