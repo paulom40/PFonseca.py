@@ -37,20 +37,23 @@ filtered_df = df[
 
 # ➕ Placeholder para anos ausentes
 for ano in selected_ano:
-    if ano not in filtered_df['ANO'].unique():
-        placeholder = {
-            'ANO': ano,
-            'PRODUTO': selected_produto[0] if selected_produto else None,
-            'MÊS': selected_mes[0] if selected_mes else None,
-            quantity_col: 0,
-            'PM': 0 if 'PM' in df.columns else None
-        }
-        filtered_df = pd.concat([filtered_df, pd.DataFrame([placeholder])], ignore_index=True)
-
-# 🚨 Alerta sobre anos em falta
-missing_years = set(selected_ano) - set(df['ANO'].dropna().unique())
-if missing_years:
-    st.warning(f"⚠️ Os dados originais não contêm os anos: {', '.join(map(str, missing_years))}. Foram adicionados como placeholders.")
+    for produto in selected_produto:
+        for mes in selected_mes:
+            # Verifica se já existe essa combinação
+            exists = filtered_df[
+                (filtered_df['ANO'] == ano) &
+                (filtered_df['PRODUTO'] == produto) &
+                (filtered_df['MÊS'] == mes)
+            ]
+            if exists.empty:
+                placeholder = {
+                    'ANO': ano,
+                    'PRODUTO': produto,
+                    'MÊS': mes,
+                    quantity_col: 0,
+                    'PM': 0 if 'PM' in df.columns else None
+                }
+                filtered_df = pd.concat([filtered_df, pd.DataFrame([placeholder])], ignore_index=True)
 
 # 📋 Exibir tabela
 st.write("### 📋 Dados Filtrados")
