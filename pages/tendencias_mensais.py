@@ -1,56 +1,69 @@
 import streamlit as st
-import pandas as pd
 import altair as alt
+import pandas as pd
+import io
 
-# 📄 Page setup
-st.set_page_config(page_title="Tendências Mensais", layout="wide")
-st.title("📆 Tendências Mensais")
+def render(df, filtered_df, quantity_col, selected_ano):
+    st.title("📊 Tendências Mensais")
 
-# 📁 Load Data
-excel_url = 'https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Artigos_totais_ANOS.xlsx'
-df = pd.read_excel(excel_url, sheet_name='Resumo', engine='openpyxl')
-df.columns = df.columns.str.strip().str.upper()
+    # 🚨 Avisar sobre anos em falta
+    missing_years = set(selected_ano) - set(df['ANO'].dropna().unique())
+    if missing_years:
+        st.warning(f"⚠️ Os dados originais não contêm os anos: {', '.join(map(str, missing_years))}. Adicionados como placeholders.")
 
-# 📅 Ensure month order
-ordered_months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-                  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
-df['MÊS'] = pd.Categorical(df['MÊS'], categories=ordered_months, ordered=True)
+    # 📋 Tabela
+    st.write("### 📋 Dados Filtrados")
+    st.dataframe(filtered_df)
 
-# 🎛️ Sidebar Filters
-st.sidebar.header("Filtros")
-produtos = st.sidebar.multiselect("Selecionar Produto", df['PRODUTO'].dropna().unique())
-anos = st.sidebar.multiselect("Selecionar Ano", sorted(df['ANO'].dropna().unique()))
+    # 🔢 Indicadores (excluindo anos irrelevantes)
+    st.write("### 🔢 Indicadores")
+    excluded_years = [2023, 2024, 2025]
+    indicator_df = filtered_df[~filtered_df['ANO'].isin(excluded_years)]
 
-filtered_df = df[
-    (df['PRODUTO'].isin(produtos)) &
-    (df['ANO'].isin(anos))
-]
+    st.metric("📦 Quantidade Total", f"{indicator_df[quantity_col].sum():,.2f}")
 
-if not filtered_df.empty:
-    # 📈 Quantity Trend Chart
-    if 'KGS' in filtered_df.columns:
-        qty_chart_data = filtered_df.groupby(['MÊS', 'ANO'])['KGS'].sum().reset_index()
+    if 'PM' in indicator_df.columns and not indicator_df['PM'].isna().all():
+        st.metric("💰 Preço Médio", f"€{indicator_df['PM'].mean():,.2f}")
+    else:
+        st.info("ℹ️ Coluna 'PM' ausente ou sem dados válidos.")
 
-        qty_chart = alt.Chart(qty_chart_data).mark_line(point=True).encode(
-            x='MÊS:N', y='KGS:Q', color='ANO:N', tooltip=['MÊS', 'ANO', 'KGS']
-        ).properties(
-            title='📦 Quantidades por Mês',
-            width=800, height=400
-        )
+    # 📥 Download Excel
+    excel_buffer = io.BytesIO()
+    with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+        filtered_df.to_excel(writer, index=False, sheet_name='Filtrado')
 
-        st.altair_chart(qty_chart, use_container_width=True)
+    st.download_button(
+        label="📥 Baixar dados filtrados em Excel",
+        data=excel_buffer.getvalue(),
+        file_name="dados_filtrados.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
-    # 💸 Price Trend Chart
+    # 📈 Gráfico de linhas de quantidade
+    ordered_months = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                      'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+    chart_df = filtered_df.copy()
+    chart_df['MÊS'] = pd.Categorical(chart_df['MÊS'], categories=ordered_months, ordered=True)
+
+    pivot_data = chart_df.groupby(['MÊS', 'ANO'])[quantity_col].sum().reset_index()
+
+    line_chart = alt.Chart(pivot_data).mark_line(point=True).encode(
+        x='MÊS:N', y=f'{quantity_col}:Q',
+        color='ANO:N',
+        tooltip=['MÊS', 'ANO', quantity_col]
+    ).properties(title='📈 Evolução de Quantidades por Mês', width=700, height=400)
+
+    st.altair_chart(line_chart, use_container_width=True)
+
+    # 💸 Gráfico de barras do preço médio
     if 'PM' in filtered_df.columns:
-        price_chart_data = filtered_df.groupby(['MÊS', 'ANO'])['PM'].mean().reset_index()
+        pm_data = filtered_df.groupby(['MÊS', 'ANO'])['PM'].mean().reset_index()
+        pm_data['MÊS'] = pd.Categorical(pm_data['MÊS'], categories=ordered_months, ordered=True)
 
-        price_chart = alt.Chart(price_chart_data).mark_bar().encode(
-            x='MÊS:N', y='PM:Q', color='ANO:N', tooltip=['MÊS', 'ANO', 'PM']
-        ).properties(
-            title='💰 Preço Médio por Mês',
-            width=800, height=400
-        )
+        bar_chart = alt.Chart(pm_data).mark_bar().encode(
+            x='MÊS:N', y='PM:Q',
+            color='ANO:N',
+            tooltip=['ANO', 'MÊS', 'PM']
+        ).properties(title='💸 Evolução do Preço Médio por Mês', width=700, height=400)
 
-        st.altair_chart(price_chart, use_container_width=True)
-else:
-    st.info("🔍 Selecione pelo menos um produto e ano com dados disponíveis.")
+        st.altair_chart(bar_chart, use_container_width=True)
