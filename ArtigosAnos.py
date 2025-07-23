@@ -83,11 +83,19 @@ if not chart_df.empty:
     )
 
     labels = alt.Chart(pivot_data).mark_text(
-        align='center', baseline='bottom', dy=-5, fontSize=11, font='Arial'
-    ).encode(
-        x='MES:N', y='KGS:Q', detail='ANO:N',
-        text=alt.Text('KGS:Q', format=".0f")
-    )
+    align='center',
+    baseline='bottom',
+    dy=-5,
+    fontSize=11,
+    font='Arial',
+    color='white'  # 👈 Add this line to make labels white
+).encode(
+    x='MES:N',
+    y='KGS:Q',
+    detail='ANO:N',
+    text=alt.Text('KGS:Q', format=".0f")
+)
+
 
     st.altair_chart(line_chart + labels, use_container_width=True)
 else:
