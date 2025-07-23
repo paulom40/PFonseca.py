@@ -56,16 +56,19 @@ if quantity_col:
     st.write("### 📋 Dados Filtrados")
     st.dataframe(filtered_df)
 
-    # 🔢 Summary Metrics
+    # 🔢 Summary Metrics (excluding 2023, 2024, 2025)
     st.write("### 🔢 Indicadores")
-    total_qty = filtered_df[quantity_col].sum()
+    excluded_years = [2023, 2024, 2025]
+    indicator_df = filtered_df[~filtered_df['ANO'].isin(excluded_years)]
+
+    total_qty = indicator_df[quantity_col].sum()
     st.metric("📦 Quantidade Total", f"{total_qty:,.2f}")
 
-    if 'PM' in filtered_df.columns:
-        avg_price = filtered_df['PM'].mean()
+    if 'PM' in indicator_df.columns and not indicator_df['PM'].isna().all():
+        avg_price = indicator_df['PM'].mean()
         st.metric("💰 Preço Médio", f"€{avg_price:,.2f}")
     else:
-        st.info("ℹ️ Coluna 'PM' ausente — indicador de preço médio não disponível.")
+        st.info("ℹ️ Coluna 'PM' ausente ou sem dados válidos — indicador de preço médio não disponível.")
 
     # 📥 Excel download
     excel_buffer = io.BytesIO()
@@ -133,4 +136,4 @@ if quantity_col:
         st.altair_chart(bar_chart + pm_labels, use_container_width=True)
 
 else:
-    st.warning("🛑 Nenhuma coluna de quantidade foi encontrada no arquivo.")  
+    st.warning("🛑 Nenhuma coluna de quantidade foi encontrada no arquivo.")
