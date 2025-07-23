@@ -47,6 +47,15 @@ if quantity_col:
             }
             filtered_df = pd.concat([filtered_df, pd.DataFrame([placeholder])], ignore_index=True)
 
+    st.sidebar.title("📍 Navegação")
+page = st.sidebar.selectbox("Ir para página", ["Página Inicial", "Tendências Mensais"])
+
+if page == "Página Inicial":
+    st.title("Bem-vindo à página inicial!")
+elif page == "Tendências Mensais":
+    exec(open("pages/tendencias_mensais.py").read())
+
+
     # 🚨 Warning for original missing years
     missing_years = set(selected_ano) - set(df['ANO'].dropna().unique())
     if missing_years:
