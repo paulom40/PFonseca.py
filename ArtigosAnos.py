@@ -13,11 +13,6 @@ df.columns = df.columns.str.strip().str.upper()
 df['ANO'] = pd.to_numeric(df['ANO'].astype(str).str.strip(), errors='coerce').astype('Int64')
 df['KGS'] = pd.to_numeric(df['KGS'], errors='coerce')
 
-# 🗓️ Define month order
-ordered_months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-                 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
-df['MÊS'] = pd.Categorical(df['MÊS'], categories=ordered_months, ordered=True)
-
 # 🔎 Identify quantity column
 quantity_candidates = ['QUANTIDADE', 'QTD', 'TOTAL', 'VALOR', 'KGS']
 quantity_col = next((col for col in df.columns if col in quantity_candidates), None)
@@ -25,16 +20,13 @@ quantity_col = next((col for col in df.columns if col in quantity_candidates), N
 if quantity_col:
     # 🎛️ Sidebar filters
     st.sidebar.header("🔎 Filtros")
-    selected_produto = st.sidebar.multiselect("Produto", 
-                                            options=df['PRODUTO'].dropna().unique(),
-                                            default=df['PRODUTO'].dropna().unique())
-    selected_mes = st.sidebar.multiselect("Mês", 
-                                        options=ordered_months,
-                                        default=ordered_months)
+    selected_produto = st.sidebar.multiselect("Produto", options=df['PRODUTO'].dropna().unique(),
+                                              default=df['PRODUTO'].dropna().unique())
+    selected_mes = st.sidebar.multiselect("Mês", options=df['MÊS'].dropna().unique(),
+                                          default=df['MÊS'].dropna().unique())
     anos_disponiveis = sorted(df['ANO'].dropna().unique().tolist())
-    selected_ano = st.sidebar.multiselect("Ano (Comparar)", 
-                                        options=anos_disponiveis,
-                                        default=anos_disponiveis)
+    selected_ano = st.sidebar.multiselect("Ano (Comparar)", options=anos_disponiveis,
+                                          default=anos_disponiveis)
 
     # 🔍 Apply filters
     filtered_df = df[
@@ -46,29 +38,14 @@ if quantity_col:
     # ➕ Add missing selected years as placeholder rows
     for ano in selected_ano:
         if ano not in filtered_df['ANO'].dropna().unique():
-            for mes in selected_mes:
-                placeholder = {
-                    'ANO': ano,
-                    'PRODUTO': selected_produto[0] if selected_produto else None,
-                    'MÊS': mes,
-                    quantity_col: 0,
-                    'PM': 0 if 'PM' in df.columns else None
-                }
-                filtered_df = pd.concat([filtered_df, pd.DataFrame([placeholder])], ignore_index=True)
-
-    # Ensure month order in filtered data
-    filtered_df['MÊS'] = pd.Categorical(filtered_df['MÊS'], 
-                                      categories=ordered_months, 
-                                      ordered=True)
-
-    # 🚨 Debugging: Check 2023 data
-    st.write("### 🛠️ Verificação de Dados de 2023")
-    data_2023 = filtered_df[filtered_df['ANO'] == 2023]
-    if data_2023.empty:
-        st.warning("⚠️ Nenhum dado encontrado para 2023 após filtragem.")
-    else:
-        st.write(f"Dados de 2023 encontrados ({len(data_2023)} linhas):")
-        st.dataframe(data_2023)
+            placeholder = {
+                'ANO': ano,
+                'PRODUTO': selected_produto[0] if selected_produto else None,
+                'MÊS': selected_mes[0] if selected_mes else None,
+                quantity_col: 0,
+                'PM': 0 if 'PM' in df.columns else None
+            }
+            filtered_df = pd.concat([filtered_df, pd.DataFrame([placeholder])], ignore_index=True)
 
     # 🚨 Warning for original missing years
     missing_years = set(selected_ano) - set(df['ANO'].dropna().unique())
@@ -102,19 +79,13 @@ if quantity_col:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-    # 📈 Line chart
-    # Create a complete index for all month-year combinations
-    all_combinations = pd.MultiIndex.from_product([selected_mes, selected_ano], names=['MÊS', 'ANO'])
-    pivot_data = filtered_df.groupby(['MÊS', 'ANO'])[quantity_col].sum().reset_index()
-    pivot_data['MÊS'] = pd.Categorical(pivot_data['MÊS'], 
-                                     categories=ordered_months, 
-                                     ordered=True)
-    
-    # Reindex to include all combinations, filling missing with 0
-    pivot_data = pivot_data.set_index(['MÊS', 'ANO']).reindex(all_combinations, fill_value=0).reset_index()
-    pivot_data['MÊS'] = pd.Categorical(pivot_data['MÊS'], 
-                                     categories=ordered_months, 
-                                     ordered=True)
+    # 🗓️ Month order and line chart
+    ordered_months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+    chart_df = filtered_df.copy()
+    chart_df['MÊS'] = pd.Categorical(chart_df['MÊS'], categories=ordered_months, ordered=True)
+
+    pivot_data = chart_df.groupby(['MÊS', 'ANO'])[quantity_col].sum().reset_index()
 
     line_chart = alt.Chart(pivot_data).mark_line(point=True).encode(
         x=alt.X('MÊS:N', title='Mês', sort=ordered_months),
@@ -140,15 +111,7 @@ if quantity_col:
     # 💸 Bar chart for PM
     if 'PM' in filtered_df.columns:
         pm_data = filtered_df.groupby(['MÊS', 'ANO'])['PM'].mean().reset_index()
-        pm_data['MÊS'] = pd.Categorical(pm_data['MÊS'], 
-                                       categories=ordered_months, 
-                                       ordered=True)
-        
-        # Reindex to include all combinations, filling missing PM with 0
-        pm_data = pm_data.set_index(['MÊS', 'ANO']).reindex(all_combinations, fill_value=0).reset_index()
-        pm_data['MÊS'] = pd.Categorical(pm_data['MÊS'], 
-                                       categories=ordered_months, 
-                                       ordered=True)
+        pm_data['MÊS'] = pd.Categorical(pm_data['MÊS'], categories=ordered_months, ordered=True)
 
         bar_chart = alt.Chart(pm_data).mark_bar().encode(
             x=alt.X('MÊS:N', title='Mês', sort=ordered_months),
@@ -170,4 +133,4 @@ if quantity_col:
         st.altair_chart(bar_chart + pm_labels, use_container_width=True)
 
 else:
-    st.warning("🛑 Nenhuma coluna de quantidade foi encontrada no arquivo.")
+    st.warning("🛑 Nenhuma coluna de quantidade foi encontrada no arquivo.")  
