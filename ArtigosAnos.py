@@ -2,13 +2,11 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 import io
-from sklearn.linear_model import LinearRegression
 
-# ⚙️ Configuração da página
 st.set_page_config(layout="wide")
 st.image("https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png", width=100)
 
-# 📂 Carregamento e limpeza dos dados
+# 📂 Carregar e limpar dados
 url = 'https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Artigos_totais_ANOS.xlsx'
 df = pd.read_excel(url, sheet_name='Resumo', engine='openpyxl')
 df.columns = df.columns.str.strip().str.upper()
@@ -52,7 +50,7 @@ for ano in selected_ano:
         }
         filtered_df = pd.concat([filtered_df, pd.DataFrame([placeholder])], ignore_index=True)
 
-# 🚨 Avisar sobre anos ausentes
+# 🚨 Aviso sobre anos ausentes
 missing_years = set(selected_ano) - set(df['ANO'].dropna().unique())
 if missing_years:
     st.warning(f"⚠️ Os dados originais não contêm os anos: {', '.join(map(str, missing_years))}. Foram adicionados como placeholders.")
@@ -69,21 +67,6 @@ if 'PM' in filtered_df.columns and not filtered_df['PM'].isna().all():
     st.metric("💰 Preço Médio", f"€{filtered_df['PM'].mean():,.2f}")
 else:
     st.info("ℹ️ Coluna 'PM' ausente ou inválida.")
-
-# 🔮 Previsão da quantidade para próximo ano
-trend_df = (
-    filtered_df.groupby('ANO')[quantity_col]
-    .sum()
-    .reset_index()
-    .dropna()
-)
-
-if len(trend_df) >= 2:
-    model = LinearRegression()
-    model.fit(trend_df[['ANO']], trend_df[quantity_col])
-    next_year = trend_df['ANO'].max() + 1
-    predicted_qty = model.predict([[next_year]])[0]
-    st.metric(f"🔮 Previsão para {next_year}", f"{predicted_qty:,.0f} kg")
 
 # 📥 Exportar para Excel
 excel_buffer = io.BytesIO()
