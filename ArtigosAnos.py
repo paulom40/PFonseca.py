@@ -36,7 +36,10 @@ if quantity_col:
         (df['MÊS'].isin(selected_mes)) &
         (df['ANO'].isin(selected_ano))
     ]
+    
+    filtered_df['PM'] = filtered_df['PM'].round(2)
 
+    
     # ➕ Add missing selected years as placeholder rows
     for ano in selected_ano:
         if ano not in filtered_df['ANO'].dropna().unique():
