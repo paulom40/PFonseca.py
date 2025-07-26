@@ -116,7 +116,7 @@ if 'PM' in filtered_df.columns and filtered_df['PM'].notnull().any():
     )
     labels_pm = alt.Chart(pm_data.groupby(['MES', 'ANO'])['PM'].mean().reset_index()).mark_text(
         align='center',
-        baseline='middle',
+        baseline='top',
         dy=0,
         fontSize=11,
         font='Arial',
