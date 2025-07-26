@@ -100,49 +100,49 @@ if not chart_df.empty:
 else:
     st.info("ℹ️ Não há dados de KGS válidos para gerar o gráfico.")
 
-# KPI: Top 10 and Bottom 10 Articles by PM per Year
-st.write("### 💸 Top e Bottom 10 Artigos por Preço Médio (PM) por Ano")
-if 'PM' in filtered_df.columns and filtered_df['PM'].notnull().any():
-    pm_data = filtered_df[filtered_df['PM'].notnull()].copy()
+# KPI: Top 10 and Bottom 10 Articles by KGS per Year
+st.write("### 📦 Top e Bottom 10 Artigos por Quantidade (KGS) por Ano")
+if 'KGS' in filtered_df.columns and filtered_df['KGS'].notnull().any():
+    kgs_data = filtered_df[filtered_df['KGS'].notnull()].copy()
     
-    # Group by year and product to get average PM
-    pm_agg = pm_data.groupby(['ANO', 'PRODUTO'])['PM'].mean().reset_index()
+    # Group by year and product to get total KGS
+    kgs_agg = kgs_data.groupby(['ANO', 'PRODUTO'])['KGS'].sum().reset_index()
     
     # For each year, get top 10 and bottom 10 articles
-    for year in sorted(pm_agg['ANO'].dropna().unique()):
-        year_data = pm_agg[pm_agg['ANO'] == year].copy()
+    for year in sorted(kgs_agg['ANO'].dropna().unique()):
+        year_data = kgs_agg[kgs_agg['ANO'] == year].copy()
         if not year_data.empty:
-            # Calculate overall average PM for the year
-            avg_pm_year = year_data['PM'].mean()
+            # Calculate average KGS for the year (total KGS / number of articles)
+            avg_kgs_year = year_data['KGS'].mean()
             
             # Get top 10 and bottom 10 articles
-            top_10 = year_data.nlargest(10, 'PM')[['PRODUTO', 'PM']].round(2)
-            bottom_10 = year_data.nsmallest(10, 'PM')[['PRODUTO', 'PM']].round(2)
+            top_10 = year_data.nlargest(10, 'KGS')[['PRODUTO', 'KGS']].round(2)
+            bottom_10 = year_data.nsmallest(10, 'KGS')[['PRODUTO', 'KGS']].round(2)
             
             # Display in an expander for each year
             with st.expander(f"📊 Ano {year}"):
-                st.metric(f"💰 Preço Médio Geral ({year})", f"€{avg_pm_year:,.2f}")
+                st.metric(f"📦 Quantidade Média (KGS) ({year})", f"{avg_kgs_year:,.2f}")
                 
                 col1, col2 = st.columns(2)
                 
                 with col1:
-                    st.write("**Top 10 Artigos (Maior PM)**")
+                    st.write("**Top 10 Artigos (Maior KGS)**")
                     if not top_10.empty:
                         st.dataframe(
-                            top_10.rename(columns={'PRODUTO': 'Artigo', 'PM': 'Preço Médio (€)'}),
+                            top_10.rename(columns={'PRODUTO': 'Artigo', 'KGS': 'Quantidade (KGS)'}),
                             use_container_width=True
                         )
                     else:
                         st.info("ℹ️ Não há dados suficientes para os top 10 artigos.")
                 
                 with col2:
-                    st.write("**Bottom 10 Artigos (Menor PM)**")
+                    st.write("**Bottom 10 Artigos (Menor KGS)**")
                     if not bottom_10.empty:
                         st.dataframe(
-                            bottom_10.rename(columns={'PRODUTO': 'Artigo', 'PM': 'Preço Médio (€)'}),
+                            bottom_10.rename(columns={'PRODUTO': 'Artigo', 'KGS': 'Quantidade (KGS)'}),
                             use_container_width=True
                         )
                     else:
                         st.info("ℹ️ Não há dados suficientes para os bottom 10 artigos.")
 else:
-    st.info("ℹ️ Não há dados de PM válidos para gerar os indicadores.")
+    st.info("ℹ️ Não há dados de KGS válidos para gerar os indicadores.")
