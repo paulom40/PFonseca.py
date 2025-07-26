@@ -100,39 +100,33 @@ if not chart_df.empty:
 else:
     st.info("ℹ️ Não há dados de KGS válidos para gerar o gráfico.")
 
-# Grouped bar chart for PM
+# Bar chart for PM
 if 'PM' in filtered_df.columns and filtered_df['PM'].notnull().any():
     pm_data = filtered_df[filtered_df['PM'].notnull()].copy()
     pm_data['MES'] = pd.Categorical(pm_data['MES'], categories=ordered_months, ordered=True)
-    pm_pivot = pm_data.groupby(['MES', 'ANO'])['PM'].mean().reset_index()
-
-    bar_chart = alt.Chart(pm_pivot).mark_bar().encode(
-        x=alt.X('ANO:N', title='Ano'),
-        y=alt.Y('PM:Q', title='Preço Médio (€)'),
-        color=alt.Color('ANO:N', title='Ano', scale=alt.Scale(scheme='category10')),
-        column=alt.Column('MES:N', title='Mês', sort=ordered_months),
-        tooltip=['MES', 'ANO', 'PM']
+    bar_chart = alt.Chart(pm_data.groupby(['MES', 'ANO'])['PM'].mean().reset_index()).mark_bar().encode(
+        x=alt.X('MES:N', title='Mês', sort=ordered_months),
+        y=alt.Y('PM:Q', title='Preço Médio'),
+        color=alt.Color('ANO:N', title='Ano'),
+        tooltip=['ANO', 'MES', 'PM']
     ).properties(
-        title='💸 Comparação do Preço Médio por Mês e Ano',
-        width=100  # Adjusted for grouped bars
-    ).configure_facet(
-        spacing=10  # Add spacing between month columns
+        title='💸 Evolução do Preço Médio por Mês',
+        width=700,
+        height=400
     )
-
-    labels_pm = alt.Chart(pm_pivot).mark_text(
+    labels_pm = alt.Chart(pm_data.groupby(['MES', 'ANO'])['PM'].mean().reset_index()).mark_text(
         align='center',
-        baseline='bottom',
-        dy=-5,
-        fontSize=10,
+        baseline='middle',
+        dy=0,
+        fontSize=11,
         font='Arial',
-        color='black'
+        color='white'
     ).encode(
-        x=alt.X('ANO:N', title='Ano'),
-        y=alt.Y('PM:Q'),
-        column=alt.Column('MES:N', sort=ordered_months),
+        x=alt.X('MES:N', sort=ordered_months),
+        y='PM:Q',
+        detail='ANO:N',
         text=alt.Text('PM:Q', format=".2f")
     )
-
     st.altair_chart(bar_chart + labels_pm, use_container_width=True)
 else:
     st.info("ℹ️ Não há dados de PM válidos para gerar o gráfico.")
