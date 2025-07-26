@@ -100,33 +100,49 @@ if not chart_df.empty:
 else:
     st.info("ℹ️ Não há dados de KGS válidos para gerar o gráfico.")
 
-# Bar chart for PM
+# KPI: Top 10 and Bottom 10 Articles by PM per Year
+st.write("### 💸 Top e Bottom 10 Artigos por Preço Médio (PM) por Ano")
 if 'PM' in filtered_df.columns and filtered_df['PM'].notnull().any():
     pm_data = filtered_df[filtered_df['PM'].notnull()].copy()
-    pm_data['MES'] = pd.Categorical(pm_data['MES'], categories=ordered_months, ordered=True)
-    bar_chart = alt.Chart(pm_data.groupby(['MES', 'ANO'])['PM'].mean().reset_index()).mark_bar().encode(
-        x=alt.X('MES:N', title='Mês', sort=ordered_months),
-        y=alt.Y('PM:Q', title='Preço Médio'),
-        color=alt.Color('ANO:N', title='Ano'),
-        tooltip=['ANO', 'MES', 'PM']
-    ).properties(
-        title='💸 Evolução do Preço Médio por Mês',
-        width=700,
-        height=400
-    )
-    labels_pm = alt.Chart(pm_data.groupby(['MES', 'ANO'])['PM'].mean().reset_index()).mark_text(
-        align='center',
-        baseline='top',
-        dy=0,
-        fontSize=11,
-        font='Arial',
-        color='white'
-    ).encode(
-        x=alt.X('MES:N', sort=ordered_months),
-        y='PM:Q',
-        detail='ANO:N',
-        text=alt.Text('PM:Q', format=".2f")
-    )
-    st.altair_chart(bar_chart + labels_pm, use_container_width=True)
+    
+    # Group by year and product to get average PM
+    pm_agg = pm_data.groupby(['ANO', 'PRODUTO'])['PM'].mean().reset_index()
+    
+    # For each year, get top 10 and bottom 10 articles
+    for year in sorted(pm_agg['ANO'].dropna().unique()):
+        year_data = pm_agg[pm_agg['ANO'] == year].copy()
+        if not year_data.empty:
+            # Calculate overall average PM for the year
+            avg_pm_year = year_data['PM'].mean()
+            
+            # Get top 10 and bottom 10 articles
+            top_10 = year_data.nlargest(10, 'PM')[['PRODUTO', 'PM']].round(2)
+            bottom_10 = year_data.nsmallest(10, 'PM')[['PRODUTO', 'PM']].round(2)
+            
+            # Display in an expander for each year
+            with st.expander(f"📊 Ano {year}"):
+                st.metric(f"💰 Preço Médio Geral ({year})", f"€{avg_pm_year:,.2f}")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.write("**Top 10 Artigos (Maior PM)**")
+                    if not top_10.empty:
+                        st.dataframe(
+                            top_10.rename(columns={'PRODUTO': 'Artigo', 'PM': 'Preço Médio (€)'}),
+                            use_container_width=True
+                        )
+                    else:
+                        st.info("ℹ️ Não há dados suficientes para os top 10 artigos.")
+                
+                with col2:
+                    st.write("**Bottom 10 Artigos (Menor PM)**")
+                    if not bottom_10.empty:
+                        st.dataframe(
+                            bottom_10.rename(columns={'PRODUTO': 'Artigo', 'PM': 'Preço Médio (€)'}),
+                            use_container_width=True
+                        )
+                    else:
+                        st.info("ℹ️ Não há dados suficientes para os bottom 10 artigos.")
 else:
-    st.info("ℹ️ Não há dados de PM válidos para gerar o gráfico.")
+    st.info("ℹ️ Não há dados de PM válidos para gerar os indicadores.")
