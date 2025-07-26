@@ -100,33 +100,47 @@ if not chart_df.empty:
 else:
     st.info("ℹ️ Não há dados de KGS válidos para gerar o gráfico.")
 
-# Bar chart for PM
+# Check if PM data is available
 if 'PM' in filtered_df.columns and filtered_df['PM'].notnull().any():
+    # Prepare data
     pm_data = filtered_df[filtered_df['PM'].notnull()].copy()
     pm_data['MES'] = pd.Categorical(pm_data['MES'], categories=ordered_months, ordered=True)
-    bar_chart = alt.Chart(pm_data.groupby(['MES', 'ANO'])['PM'].mean().reset_index()).mark_bar().encode(
-        x=alt.X('MES:N', title='Mês', sort=ordered_months),
+    
+    # Aggregate data
+    agg_data = pm_data.groupby(['MES', 'ANO'])['PM'].mean().reset_index()
+    
+    # Define bar chart with grouped bars
+    bar_chart = alt.Chart(agg_data).mark_bar().encode(
+        x=alt.X('ANO:N', title='Ano'),  # Year on x-axis within each month
         y=alt.Y('PM:Q', title='Preço Médio'),
-        color=alt.Color('ANO:N', title='Ano'),
+        color=alt.Color('ANO:N', title='Ano', scale=alt.Scale(scheme='category10')),  # Distinct colors for years
+        column=alt.Column('MES:N', title='Mês', sort=ordered_months),  # Facet by month
         tooltip=['ANO', 'MES', 'PM']
     ).properties(
         title='💸 Evolução do Preço Médio por Mês',
-        width=700,
+        width=100,  # Narrower width for each facet
         height=400
     )
-    labels_pm = alt.Chart(pm_data.groupby(['MES', 'ANO'])['PM'].mean().reset_index()).mark_text(
+
+    # Define text labels
+    labels = alt.Chart(agg_data).mark_text(
         align='center',
-        baseline='middle',
-        dy=0,
+        baseline='bottom',
+        dy=-5,  # Place labels above bars
         fontSize=11,
         font='Arial',
-        color='white'
+        color='black'  # Black for better visibility
     ).encode(
-        x=alt.X('MES:N', sort=ordered_months),
-        y='PM:Q',
-        detail='ANO:N',
-        text=alt.Text('PM:Q', format=".2f")
+        x=alt.X('ANO:N'),
+        y=alt.Y('PM:Q'),
+        column=alt.Column('MES:N', sort=ordered_months),
+        text=alt.Text('PM:Q', format='.2f')
     )
-    st.altair_chart(bar_chart + labels_pm, use_container_width=True)
+
+    # Combine charts
+    combined_chart = bar_chart + labels
+
+    # Display in Streamlit
+    st.altair_chart(combined_chart, use_container_width=True)
 else:
     st.info("ℹ️ Não há dados de PM válidos para gerar o gráfico.")
