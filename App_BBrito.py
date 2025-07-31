@@ -23,7 +23,7 @@ except Exception as e:
 # ---------------------------------------
 # 📅 Data Cleaning
 # ---------------------------------------
-st.write("📅 Última atualização: 26/07/2025")
+st.write("📅 Última atualização: 31/07/2025")
 
 df.columns = df.columns.str.strip()
 df["Entidade"] = df["Entidade"].astype(str).str.strip()
