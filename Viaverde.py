@@ -33,7 +33,6 @@ if missing_cols:
 
 # 🎛️ Debug: Display unique Month and Dia values
 st.write("🔍 Valores únicos de Month (raw):", sorted(df['Month'].unique()))
-st.write("🔍 Valores únicos de Dia:", sorted(df['Dia'].unique()))
 
 # Normalize Month column to match month_order
 month_mapping = {
