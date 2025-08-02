@@ -105,6 +105,13 @@ weekend_chart_df = (
     .reset_index()
 )
 
+# Define month order in Portuguese
+month_order = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+]
+
+
 # Second line chart for Sábado and Domingo
 weekend_line = alt.Chart(weekend_chart_df).mark_line(point=True).encode(
     x=alt.X('Month:O', title='Mês', sort=month_order, axis=alt.Axis(labelFontWeight='bold', titleFontWeight='bold')),
