@@ -91,7 +91,7 @@ chart = line + labels
 st.altair_chart(chart.properties(title='Valor Total por Mês'), use_container_width=True)
 
 # Filter data for Sábado and Domingo
-weekend_df = filtered_df[filtered_df['Dia'].isin(['sábado', 'domingo'])]
+weekend_df = filtered_df[filtered_df['Dia'].isin(['Sábado', 'Domingo'])]
 
 # Display table for Sábado and Domingo
 st.write("✅ Dados para Sábado e Domingo:")
@@ -105,12 +105,9 @@ weekend_chart_df = (
     .reset_index()
 )
 
-# Define month order in Portuguese
-month_order = [
-    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-]
-
+# Debug: Display weekend_chart_df to verify Month values
+st.write("✅ Dados para o segundo gráfico (Sábado e Domingo):")
+st.dataframe(weekend_chart_df)
 
 # Second line chart for Sábado and Domingo
 weekend_line = alt.Chart(weekend_chart_df).mark_line(point=True).encode(
@@ -124,7 +121,7 @@ weekend_labels = alt.Chart(weekend_chart_df).mark_text(
     align='center',
     baseline='bottom',
     fontWeight='bold',
-    color='red',
+    color='blue',  # Changed to blue for distinction
     dy=-5  # shift upward for clarity
 ).encode(
     x=alt.X('Month:O', sort=month_order),
