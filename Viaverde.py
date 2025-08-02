@@ -50,7 +50,7 @@ filtered_df = df[
 st.write("✅ Dados filtrados:")
 st.dataframe(filtered_df)
 
-# Prepare data
+# Prepare data for first line chart
 chart_df = (
     filtered_df[['Month', 'Value']]
     .groupby('Month')
@@ -64,7 +64,7 @@ month_order = [
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
 ]
 
-# Line chart with bold axis labels and ordered months
+# First line chart with bold axis labels and ordered months
 line = alt.Chart(chart_df).mark_line(point=True).encode(
     x=alt.X('Month:O', title='Mês', sort=month_order, axis=alt.Axis(labelFontWeight='bold', titleFontWeight='bold')),
     y=alt.Y('Value:Q', title='Valor Total', axis=alt.Axis(labelFontWeight='bold', titleFontWeight='bold')),
@@ -87,5 +87,50 @@ labels = alt.Chart(chart_df).mark_text(
 # Combine both charts
 chart = line + labels
 
-# Render
+# Render first line chart
 st.altair_chart(chart.properties(title='Valor Total por Mês'), use_container_width=True)
+
+# Filter data for sábado and domingo (lowercase)
+weekend_df = filtered_df[filtered_df['Dia'].isin(['sábado', 'domingo'])]
+
+# Display table for sábado and domingo
+st.write("✅ Dados para sábado e domingo:")
+st.dataframe(weekend_df)
+
+# Prepare data for second line chart (sábado and domingo)
+weekend_chart_df = (
+    weekend_df[['Month', 'Value']]
+    .groupby('Month')
+    .sum()
+    .reset_index()
+)
+
+# Debug: Display weekend_chart_df to verify Month values
+st.write("✅ Dados para o segundo gráfico (sábado e domingo):")
+st.dataframe(weekend_chart_df)
+
+# Second line chart for sábado and domingo
+weekend_line = alt.Chart(weekend_chart_df).mark_line(point=True).encode(
+    x=alt.X('Month:O', title='Mês', sort=month_order, axis=alt.Axis(labelFontWeight='bold', titleFontWeight='bold')),
+    y=alt.Y('Value:Q', title='Valor Total (sábado e domingo)', axis=alt.Axis(labelFontWeight='bold', titleFontWeight='bold')),
+    tooltip=['Month', 'Value']
+)
+
+# Add text labels for second chart
+weekend_labels = alt.Chart(weekend_chart_df).mark_text(
+    align='center',
+    baseline='bottom',
+    fontWeight='bold',
+    color='blue',  # Changed to blue for distinction
+    dy=-5  # shift upward for clarity
+).encode(
+    x=alt.X('Month:O', sort=month_order),
+    y='Value:Q',
+    text='Value:Q'
+)
+
+# Combine second chart
+weekend_chart = weekend_line + weekend_labels
+
+# Render second line chart
+st.altair_chart(weekend_chart.properties(title='Valor Total por Mês (sábado e domingo)'), use_container_width=True)
