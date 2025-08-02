@@ -139,4 +139,14 @@ weekend_labels = alt.Chart(weekend_chart_df).mark_text(
     fontWeight='bold',
     color='blue',  # Changed to blue for distinction
     dy=-5  # shift upward for clarity
-).
+).encode(
+    x=alt.X('Month:O', sort=month_order),
+    y='Value:Q',
+    text='Value:Q'
+)
+
+# Combine second chart
+weekend_chart = weekend_line + weekend_labels
+
+# Render second line chart
+st.altair_chart(weekend_chart.properties(title='Valor Total por Mês (sábado e domingo)'), use_container_width=True)
