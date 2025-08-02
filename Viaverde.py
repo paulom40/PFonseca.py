@@ -106,7 +106,7 @@ weekend_chart_df = (
 )
 
 # Debug: Display weekend_chart_df to verify Month values
-st.write("✅ Dados para o segundo gráfico (Sábado e Domingo):")
+st.write("✅ Dados para o segundo gráfico (sábado e domingo):")
 st.dataframe(weekend_chart_df)
 
 # Second line chart for Sábado and Domingo
