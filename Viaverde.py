@@ -31,6 +31,20 @@ if missing_cols:
     st.error(f"⚠️ Faltam colunas: {', '.join(missing_cols)}")
     st.stop()
 
+# 🎛️ Debug: Display unique Month and Dia values
+st.write("🔍 Valores únicos de Month:", sorted(df['Month'].unique()))
+st.write("🔍 Valores únicos de Dia:", sorted(df['Dia'].unique()))
+
+# Normalize Month column to match month_order
+month_mapping = {
+    'janeiro': 'Janeiro', 'fevereiro': 'Fevereiro', 'março': 'Março', 'abril': 'Abril',
+    'maio': 'Maio', 'junho': 'Junho', 'julho': 'Julho', 'agosto': 'Agosto',
+    'setembro': 'Setembro', 'outubro': 'Outubro', 'novembro': 'Novembro', 'dezembro': 'Dezembro',
+    '1': 'Janeiro', '2': 'Fevereiro', '3': 'Março', '4': 'Abril', '5': 'Maio', '6': 'Junho',
+    '7': 'Julho', '8': 'Agosto', '9': 'Setembro', '10': 'Outubro', '11': 'Novembro', '12': 'Dezembro'
+}
+df['Month'] = df['Month'].astype(str).str.lower().map(month_mapping).fillna(df['Month'])
+
 # 🎛️ Sidebar filters
 st.sidebar.header("Filtros")
 selected_matricula = st.sidebar.selectbox("Matricula", sorted(df['Matricula'].unique()))
@@ -64,6 +78,10 @@ month_order = [
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
 ]
 
+# Debug: Display chart_df to verify Month values
+st.write("✅ Dados para o primeiro gráfico:")
+st.dataframe(chart_df)
+
 # First line chart with bold axis labels and ordered months
 line = alt.Chart(chart_df).mark_line(point=True).encode(
     x=alt.X('Month:O', title='Mês', sort=month_order, axis=alt.Axis(labelFontWeight='bold', titleFontWeight='bold')),
@@ -90,14 +108,20 @@ chart = line + labels
 # Render first line chart
 st.altair_chart(chart.properties(title='Valor Total por Mês'), use_container_width=True)
 
-# Filter data for Sábado and Domingo
-weekend_df = filtered_df[filtered_df['Dia'].isin(['Sábado', 'Domingo'])]
+# Filter data for sábado and domingo (try both cases to ensure data capture)
+weekend_df = filtered_df[filtered_df['Dia'].isin(['sábado', 'domingo', 'Sábado', 'Domingo'])]
 
-# Display table for Sábado and Domingo
-st.write("✅ Dados para Sábado e Domingo:")
-st.dataframe(weekend_df)
+# Debug: Display unique Dia values in weekend_df
+st.write("🔍 Valores únicos de Dia no weekend_df:", sorted(weekend_df['Dia'].unique()))
 
-# Prepare data for second line chart (Sábado and Domingo)
+# Display table for sábado and domingo
+st.write("✅ Dados para sábado e domingo:")
+if weekend_df.empty:
+    st.warning("⚠️ Nenhum dado para sábado ou domingo.")
+else:
+    st.dataframe(weekend_df)
+
+# Prepare data for second line chart (sábado and domingo)
 weekend_chart_df = (
     weekend_df[['Month', 'Value']]
     .groupby('Month')
@@ -109,10 +133,10 @@ weekend_chart_df = (
 st.write("✅ Dados para o segundo gráfico (sábado e domingo):")
 st.dataframe(weekend_chart_df)
 
-# Second line chart for Sábado and Domingo
+# Second line chart for sábado and domingo
 weekend_line = alt.Chart(weekend_chart_df).mark_line(point=True).encode(
     x=alt.X('Month:O', title='Mês', sort=month_order, axis=alt.Axis(labelFontWeight='bold', titleFontWeight='bold')),
-    y=alt.Y('Value:Q', title='Valor Total (Sábado e Domingo)', axis=alt.Axis(labelFontWeight='bold', titleFontWeight='bold')),
+    y=alt.Y('Value:Q', title='Valor Total (sábado e domingo)', axis=alt.Axis(labelFontWeight='bold', titleFontWeight='bold')),
     tooltip=['Month', 'Value']
 )
 
@@ -133,4 +157,4 @@ weekend_labels = alt.Chart(weekend_chart_df).mark_text(
 weekend_chart = weekend_line + weekend_labels
 
 # Render second line chart
-st.altair_chart(weekend_chart.properties(title='Valor Total por Mês (Sábado e Domingo)'), use_container_width=True)
+st.altair_chart(weekend_chart.properties(title='Valor Total por Mês (sábado e domingo)'), use_container_width=True)
