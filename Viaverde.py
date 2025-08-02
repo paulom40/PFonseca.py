@@ -32,18 +32,19 @@ if missing_cols:
     st.stop()
 
 # 🎛️ Debug: Display unique Month and Dia values
-st.write("🔍 Valores únicos de Month:", sorted(df['Month'].unique()))
+st.write("🔍 Valores únicos de Month (raw):", sorted(df['Month'].unique()))
 st.write("🔍 Valores únicos de Dia:", sorted(df['Dia'].unique()))
 
 # Normalize Month column to match month_order
 month_mapping = {
-    'janeiro': 'Janeiro', 'fevereiro': 'Fevereiro', 'março': 'Março', 'abril': 'Abril',
-    'maio': 'Maio', 'junho': 'Junho', 'julho': 'Julho', 'agosto': 'Agosto',
-    'setembro': 'Setembro', 'outubro': 'Outubro', 'novembro': 'Novembro', 'dezembro': 'Dezembro',
-    '1': 'Janeiro', '2': 'Fevereiro', '3': 'Março', '4': 'Abril', '5': 'Maio', '6': 'Junho',
-    '7': 'Julho', '8': 'Agosto', '9': 'Setembro', '10': 'Outubro', '11': 'Novembro', '12': 'Dezembro'
+    'abril': 'Abril', 'dezembro': 'Dezembro', 'fevereiro': 'Fevereiro', 'janeiro': 'Janeiro',
+    'junho': 'Junho', 'maio': 'Maio', 'março': 'Março', 'novembro': 'Novembro',
+    'outubro': 'Outubro', 'setembro': 'Setembro'
 }
-df['Month'] = df['Month'].astype(str).str.lower().map(month_mapping).fillna(df['Month'])
+df['Month'] = df['Month'].str.lower().map(month_mapping).fillna(df['Month'])
+
+# 🎛️ Debug: Display unique Month values after normalization
+st.write("🔍 Valores únicos de Month (normalized):", sorted(df['Month'].unique()))
 
 # 🎛️ Sidebar filters
 st.sidebar.header("Filtros")
@@ -108,8 +109,8 @@ chart = line + labels
 # Render first line chart
 st.altair_chart(chart.properties(title='Valor Total por Mês'), use_container_width=True)
 
-# Filter data for sábado and domingo (try both cases to ensure data capture)
-weekend_df = filtered_df[filtered_df['Dia'].isin(['sábado', 'domingo', 'Sábado', 'Domingo'])]
+# Filter data for sábado and domingo (lowercase)
+weekend_df = filtered_df[filtered_df['Dia'].isin(['sábado', 'domingo'])]
 
 # Debug: Display unique Dia values in weekend_df
 st.write("🔍 Valores únicos de Dia no weekend_df:", sorted(weekend_df['Dia'].unique()))
