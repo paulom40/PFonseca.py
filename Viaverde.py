@@ -91,7 +91,7 @@ chart = line + labels
 st.altair_chart(chart.properties(title='Valor Total por Mês'), use_container_width=True)
 
 # Filter data for Sábado and Domingo
-weekend_df = filtered_df[filtered_df['Dia'].isin(['Sábado', 'Domingo'])]
+weekend_df = filtered_df[filtered_df['Dia'].isin(['sábado', 'domingo'])]
 
 # Display table for Sábado and Domingo
 st.write("✅ Dados para Sábado e Domingo:")
