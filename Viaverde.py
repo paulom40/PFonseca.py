@@ -14,7 +14,6 @@ with col1:
 with col2:
     st.title("Via Verde Dashboard")
 
-
 # 🚀 Load data
 try:
     df = pd.read_excel(file_url)
@@ -51,19 +50,23 @@ filtered_df = df[
 st.write("✅ Dados filtrados:")
 st.dataframe(filtered_df)
 
-
 # Prepare data
 chart_df = (
     filtered_df[['Month', 'Value']]
     .groupby('Month')
     .sum()
     .reset_index()
-    .sort_values(by='Month')
 )
 
-# Line chart with bold axis labels
+# Define month order in Portuguese
+month_order = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+]
+
+# Line chart with bold axis labels and ordered months
 line = alt.Chart(chart_df).mark_line(point=True).encode(
-    x=alt.X('Month:O', title='Mês', axis=alt.Axis(labelFontWeight='bold', titleFontWeight='bold')),
+    x=alt.X('Month:O', title='Mês', sort=month_order, axis=alt.Axis(labelFontWeight='bold', titleFontWeight='bold')),
     y=alt.Y('Value:Q', title='Valor Total', axis=alt.Axis(labelFontWeight='bold', titleFontWeight='bold')),
     tooltip=['Month', 'Value']
 )
@@ -76,7 +79,7 @@ labels = alt.Chart(chart_df).mark_text(
     color='red',
     dy=-5  # shift upward for clarity
 ).encode(
-    x='Month:O',
+    x=alt.X('Month:O', sort=month_order),
     y='Value:Q',
     text='Value:Q'
 )
@@ -86,4 +89,3 @@ chart = line + labels
 
 # Render
 st.altair_chart(chart.properties(title='Valor Total por Mês'), use_container_width=True)
-
