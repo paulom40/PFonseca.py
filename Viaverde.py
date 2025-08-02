@@ -124,7 +124,7 @@ weekend_labels = alt.Chart(weekend_chart_df).mark_text(
     align='center',
     baseline='bottom',
     fontWeight='bold',
-    color='blue',  # Different color to distinguish from first chart
+    color='red',
     dy=-5  # shift upward for clarity
 ).encode(
     x=alt.X('Month:O', sort=month_order),
