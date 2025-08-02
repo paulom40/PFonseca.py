@@ -31,6 +31,18 @@ if missing_cols:
     st.error(f"⚠️ Faltam colunas: {', '.join(missing_cols)}")
     st.stop()
 
+# 🎛️ Debug: Display unique Month and Dia values
+st.write("🔍 Valores únicos de Month:", sorted(df['Month'].unique()))
+st.write("🔍 Valores únicos de Dia:", sorted(df['Dia'].unique()))
+
+# Normalize Month column to match month_order (capitalize first letter)
+month_mapping = {
+    'janeiro': 'Janeiro', 'fevereiro': 'Fevereiro', 'março': 'Março', 'abril': 'Abril',
+    'maio': 'Maio', 'junho': 'Junho', 'julho': 'Julho', 'agosto': 'Agosto',
+    'setembro': 'Setembro', 'outubro': 'Outubro', 'novembro': 'Novembro', 'dezembro': 'Dezembro'
+}
+df['Month'] = df['Month'].str.lower().map(month_mapping).fillna(df['Month'])
+
 # 🎛️ Sidebar filters
 st.sidebar.header("Filtros")
 selected_matricula = st.sidebar.selectbox("Matricula", sorted(df['Matricula'].unique()))
@@ -63,6 +75,10 @@ month_order = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
 ]
+
+# Debug: Display chart_df to verify Month values
+st.write("✅ Dados para o primeiro gráfico:")
+st.dataframe(chart_df)
 
 # First line chart with bold axis labels and ordered months
 line = alt.Chart(chart_df).mark_line(point=True).encode(
@@ -123,14 +139,4 @@ weekend_labels = alt.Chart(weekend_chart_df).mark_text(
     fontWeight='bold',
     color='blue',  # Changed to blue for distinction
     dy=-5  # shift upward for clarity
-).encode(
-    x=alt.X('Month:O', sort=month_order),
-    y='Value:Q',
-    text='Value:Q'
-)
-
-# Combine second chart
-weekend_chart = weekend_line + weekend_labels
-
-# Render second line chart
-st.altair_chart(weekend_chart.properties(title='Valor Total por Mês (sábado e domingo)'), use_container_width=True)
+).
