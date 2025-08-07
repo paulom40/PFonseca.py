@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import requests
 from io import BytesIO
-import matplotlib.pyplot as plt
+import plotly.express as px
 
 # Title
 st.title("Relatório Interativo - 1º Semestre 2025")
@@ -52,26 +52,29 @@ if 'Valor' in df_filtrado.columns:
 # Bar chart: Valor por Mês
 if 'Valor' in df_filtrado.columns and 'Mês' in df_filtrado.columns:
     st.subheader("📈 Valor por Mês")
-    chart_data = df_filtrado.groupby('Mês')['Valor'].sum().sort_index()
-    st.bar_chart(chart_data)
+    chart_data = df_filtrado.groupby('Mês')['Valor'].sum().reset_index()
+    fig_bar = px.bar(chart_data, x='Mês', y='Valor', title="Valor por Mês")
+    st.plotly_chart(fig_bar, use_container_width=True)
 
 # Line Chart 1: Artigo vs Kgs (default)
 if 'Artigo' in df_filtrado.columns and 'Kgs' in df_filtrado.columns:
     st.subheader("📉 Linha: Artigo vs Kgs (Padrão)")
-    line_data = df_filtrado.groupby('Artigo')['Kgs'].sum().sort_index()
-    st.line_chart(line_data)
+    line_data = df_filtrado.groupby('Artigo')['Kgs'].sum().reset_index()
+    fig_line1 = px.line(line_data, x='Artigo', y='Kgs', markers=True, title="Artigo vs Kgs")
+    st.plotly_chart(fig_line1, use_container_width=True)
 
-# Line Chart 2: Artigo vs Kgs with red labels
+    # Line Chart 2: Artigo vs Kgs with red labels
     st.subheader("📉 Linha: Artigo vs Kgs (Etiquetas Vermelhas)")
-    fig, ax = plt.subplots()
-    ax.plot(line_data.index, line_data.values, marker='o', color='blue')
-    ax.set_xlabel("Artigo", color='red')
-    ax.set_ylabel("Kgs", color='red')
-    ax.tick_params(axis='x', colors='red')
-    ax.tick_params(axis='y', colors='red')
-    ax.set_title("Artigo vs Kgs", color='red')
-    plt.xticks(rotation=45)
-    st.pyplot(fig)
+    fig_line2 = px.line(line_data, x='Artigo', y='Kgs', markers=True, title="Artigo vs Kgs")
+    fig_line2.update_layout(
+        xaxis_title="Artigo",
+        yaxis_title="Kgs",
+        font=dict(color="red"),
+        xaxis=dict(tickfont=dict(color='red'), titlefont=dict(color='red')),
+        yaxis=dict(tickfont=dict(color='red'), titlefont=dict(color='red')),
+        title_font=dict(color='red')
+    )
+    st.plotly_chart(fig_line2, use_container_width=True)
 
 # Download filtered data as Excel
 def to_excel(df):
