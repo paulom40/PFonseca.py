@@ -4,7 +4,7 @@ import requests
 from io import BytesIO
 
 # Title
-st.title("Relatório Interativo - 1º Semestre 2025")
+st.title("📈 Relatório Interativo - KPIs do 1º Semestre 2025")
 
 @st.cache_data(ttl=3600)
 def load_data():
@@ -48,7 +48,43 @@ st.write(f"Total de Registros: {len(df_filtrado)}")
 if 'Valor' in df_filtrado.columns:
     st.write(f"Valor Total: €{df_filtrado['Valor'].sum():,.2f}")
 
-# Download filtered data as Excel (using openpyxl)
+# KPIs by Mês
+st.header("📌 KPIs Mensais")
+
+for mes in sorted(df_filtrado['Mês'].dropna().unique()):
+    st.subheader(f"📅 Mês: {mes}")
+
+    df_mes = df_filtrado[df_filtrado['Mês'] == mes]
+
+    # Top 5 Artigos
+    if 'Artigo' in df_mes.columns and 'Kgs' in df_mes.columns:
+        top_artigos = df_mes.groupby('Artigo')['Kgs'].sum().sort_values(ascending=False).head(5)
+        st.markdown("**Top 5 Artigos (por Kgs):**")
+        st.dataframe(top_artigos.reset_index(), use_container_width=True)
+
+    # Top 5 Clientes
+    if 'Cliente' in df_mes.columns and 'Valor' in df_mes.columns:
+        top_clientes = df_mes.groupby('Cliente')['Valor'].sum().sort_values(ascending=False).head(5)
+        st.markdown("**Top 5 Clientes (por Valor):**")
+        st.dataframe(top_clientes.reset_index(), use_container_width=True)
+
+    # Top 3 Comerciais
+    if 'Comercial' in df_mes.columns and 'Valor' in df_mes.columns:
+        top_comerciais = df_mes.groupby('Comercial')['Valor'].sum().sort_values(ascending=False).head(3)
+        st.markdown("**Top 3 Comerciais (por Valor):**")
+        st.dataframe(top_comerciais.reset_index(), use_container_width=True)
+
+    # Top 5 Artigos by Categoria
+    if 'Categoria' in df_mes.columns and 'Artigo' in df_mes.columns and 'Valor' in df_mes.columns:
+        st.markdown("**Top 5 Artigos por Categoria (por Valor):**")
+        categorias = df_mes['Categoria'].dropna().unique()
+        for cat in categorias:
+            df_cat = df_mes[df_mes['Categoria'] == cat]
+            top_art_cat = df_cat.groupby('Artigo')['Valor'].sum().sort_values(ascending=False).head(5)
+            st.markdown(f"🔹 Categoria: {cat}")
+            st.dataframe(top_art_cat.reset_index(), use_container_width=True)
+
+# Excel download
 def to_excel(df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
