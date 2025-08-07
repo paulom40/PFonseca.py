@@ -3,7 +3,48 @@ import pandas as pd
 import requests
 from io import BytesIO
 from openpyxl import Workbook
-from openpyxl.chart import BarChart, Reference
+from openpyxl.utils.dataframe import dataframe_to_rows
+
+# Page setup
+st.set_page_config(page_title="Relatório Interativo", layout="wide")
+st.title("📈 Relatório Interativo - KPIs do 1º Semestre 2025")
+
+# Load data
+@st.cache_data(ttl=3600)
+def load_data():
+    url = "https://github.com/paulom40/PFonseca.py/raw/main/1Semestre2025.xlsx"
+    response = requests.get(url)
+    df = pd.read_excel(BytesIO(response.content), sheet_name="Dados")
+    df.columns = df.columns.str.strip()
+    return df
+
+try:
+    df = load_data()
+    st.success("✅ Dados carregados com sucesso!")
+except Exception as e:
+    st.error(f"❌ Erro ao carregar os dados: {e}")
+    st.stop()
+
+# Sidebar filters
+st.sidebar.header("Filtros")
+ano_selecionado = st.sidebar.multiselect("Ano", sorted(df['Ano'].dropna().unique()), default=sorted(df['Ano'].dropna().unique()))
+mes_selecionado = st.sidebar.multiselect("Mês", sorted(df['Mês'].dropna().unique()), default=sorted(df['Mês'].dropna().unique()))
+artigo_selecionado = st.sidebar.multiselect("Artigo", sorted(df['Artigo'].dropna().unique “
+
+System: The provided code appears to be incomplete, as it cuts off in the middle of the `artigo_selecionado` line. However, based on your request to remove the charts and fix the `KeyError: 'Kgs'`, I'll complete the code by:
+1. Removing all chart-related code from the `to_excel_with_kpis_and_charts` function.
+2. Replacing the erroneous 'Kgs' column reference with 'Valor', which is consistently used elsewhere in the code for monetary aggregations.
+3. Ensuring the Excel export includes the filtered data and KPI tables (Top Artigos, Top Clientes, Top Comerciais) without charts.
+4. Completing the sidebar filter section and the rest of the code based on the original structure.
+
+Here’s the corrected and complete code:
+
+```python
+import streamlit as st
+import pandas as pd
+import requests
+from io import BytesIO
+from openpyxl import Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 
 # Page setup
@@ -55,7 +96,6 @@ if 'Valor' in df_filtrado.columns:
 
 # KPIs by Mês
 st.header("📌 KPIs Mensais")
-
 for mes in sorted(df_filtrado['Mês'].dropna().unique()):
     st.subheader(f"📅 Mês: {mes}")
     df_mes = df_filtrado[df_filtrado['Mês'] == mes]
@@ -78,8 +118,8 @@ for mes in sorted(df_filtrado['Mês'].dropna().unique()):
         st.markdown("**Top 5 Comerciais (por Valor):**")
         st.dataframe(top_comerciais_formatted.reset_index(), use_container_width=True)
 
-# Excel export with charts
-def to_excel_with_kpis_and_charts(df_filtrado):
+# Excel export without charts
+def to_excel_with_kpis(df_filtrado):
     df_filtrado.columns = df_filtrado.columns.str.strip()
     wb = Workbook()
     ws_filtrado = wb.active
@@ -102,32 +142,12 @@ def to_excel_with_kpis_and_charts(df_filtrado):
             for r in dataframe_to_rows(top_artigos, index=False, header=True):
                 ws_artigos.append(r)
 
-            chart = BarChart()
-            chart.title = f"Top 10 Artigos - {mes}"
-            chart.x_axis.title = "Artigo"
-            chart.y_axis.title = "Valor (€)"
-            data = Reference(ws_artigos, min_col=2, min_row=1, max_row=len(top_artigos)+1)
-            categories = Reference(ws_artigos, min_col=1, min_row=2, max_row=len(top_artigos)+1)
-            chart.add_data(data, titles_from_data=True)
-            chart.set_categories(categories)
-            ws_artigos.add_chart(chart, "E2")
-
         # Top Clientes
         if 'Cliente' in df_mes.columns and 'Valor' in df_mes.columns:
             top_clientes = df_mes.groupby('Cliente')['Valor'].sum().sort_values(ascending=False).head(10).reset_index()
             ws_clientes = wb.create_sheet(f"{mes}_Clientes")
             for r in dataframe_to_rows(top_clientes, index=False, header=True):
                 ws_clientes.append(r)
-
-            chart = BarChart()
-            chart.title = f"Top 10 Clientes - {mes}"
-            chart.x_axis.title = "Cliente"
-            chart.y_axis.title = "Valor (€)"
-            data = Reference(ws_clientes, min_col=2, min_row=1, max_row=len(top_clientes)+1)
-            categories = Reference(ws_clientes, min_col=1, min_row=2, max_row=len(top_clientes)+1)
-            chart.add_data(data, titles_from_data=True)
-            chart.set_categories(categories)
-            ws_clientes.add_chart(chart, "E2")
 
         # Top Comerciais
         if 'Comercial' in df_mes.columns and 'Valor' in df_mes.columns:
@@ -136,26 +156,16 @@ def to_excel_with_kpis_and_charts(df_filtrado):
             for r in dataframe_to_rows(top_comerciais, index=False, header=True):
                 ws_comerciais.append(r)
 
-            chart = BarChart()
-            chart.title = f"Top 5 Comerciais - {mes}"
-            chart.x_axis.title = "Comercial"
-            chart.y_axis.title = "Valor (€)"
-            data = Reference(ws_comerciais, min_col=2, min_row=1, max_row=len(top_comerciais)+1)
-            categories = Reference(ws_comerciais, min_col=1, min_row=2, max_row=len(top_comerciais)+1)
-            chart.add_data(data, titles_from_data=True)
-            chart.set_categories(categories)
-            ws_comerciais.add_chart(chart, "E2")
-
     output = BytesIO()
     wb.save(output)
     return output.getvalue()
 
 # Download button
-excel_data = to_excel_with_kpis_and_charts(df_filtrado)
+excel_data = to_excel_with_kpis(df_filtrado)
 
 st.download_button(
-    label="📥 Baixar Relatório com Gráficos",
+    label="📥 Baixar Relatório",
     data=excel_data,
-    file_name="relatorio_kpis_com_graficos.xlsx",
+    file_name="relatorio_kpis.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
