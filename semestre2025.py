@@ -75,13 +75,13 @@ for mes in sorted(df_filtrado['Mês'].dropna().unique()):
     if 'Artigo' in df_mes.columns and 'Qtd' in df_mes.columns:
         top_artigos = df_mes.groupby('Artigo')['Qtd'].sum().sort_values(ascending=False).head(10)
         top_artigos_formatted = top_artigos.apply(lambda x: f"{x:,.2f}")
-        st.markdown("**Top 10 Artigos (por Quantidade):**")
+        st.markdown("**🔟Top 10 Artigos (por Quantidade):**")
         st.dataframe(top_artigos_formatted.reset_index(), use_container_width=True)
 
     if 'Cliente' in df_mes.columns and 'Valor' in df_mes.columns:
         top_clientes = df_mes.groupby('Cliente')['Valor'].sum().sort_values(ascending=False).head(10)
         top_clientes_formatted = top_clientes.apply(lambda x: f"€{x:,.2f}")
-        st.markdown("**Top 10 Clientes (por Valor):**")
+        st.markdown("**🔟Top 10 Clientes (por Valor):**")
         st.dataframe(top_clientes_formatted.reset_index(), use_container_width=True)
 
     if 'Comercial' in df_mes.columns and 'Valor' in df_mes.columns:
