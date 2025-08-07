@@ -16,7 +16,7 @@ def load_data():
     url = "https://github.com/paulom40/PFonseca.py/raw/main/1Semestre2025.xlsx"
     response = requests.get(url)
     df = pd.read_excel(BytesIO(response.content), sheet_name="Dados")
-    df.columns = df.columns.str.strip()  # Normalize column names
+    df.columns = df.columns.str.strip()
     return df
 
 try:
@@ -60,11 +60,11 @@ for mes in sorted(df_filtrado['Mês'].dropna().unique()):
     st.subheader(f"📅 Mês: {mes}")
     df_mes = df_filtrado[df_filtrado['Mês'] == mes]
 
-    if 'Artigo' in df_mes.columns and any(col.lower() == 'kgs' for col in df_mes.columns):
-        kgs_col = next(col for col in df_mes.columns if col.lower() == 'kgs')
-        top_artigos = df_mes.groupby('Artigo')[kgs_col].sum().sort_values(ascending=False).head(10)
-        st.markdown("**Top 10 Artigos (por Kgs):**")
-        st.dataframe(top_artigos.reset_index(), use_container_width=True)
+    if 'Artigo' in df_mes.columns and 'Valor' in df_mes.columns:
+        top_artigos = df_mes.groupby('Artigo')['Valor'].sum().sort_values(ascending=False).head(10)
+        top_artigos_formatted = top_artigos.apply(lambda x: f"€{x:,.2f}")
+        st.markdown("**Top 10 Artigos (por Valor):**")
+        st.dataframe(top_artigos_formatted.reset_index(), use_container_width=True)
 
     if 'Cliente' in df_mes.columns and 'Valor' in df_mes.columns:
         top_clientes = df_mes.groupby('Cliente')['Valor'].sum().sort_values(ascending=False).head(10)
@@ -95,10 +95,9 @@ def to_excel_with_kpis_and_charts(df_filtrado):
     for mes in sorted(df_filtrado['Mês'].dropna().unique()):
         df_mes = df_filtrado[df_filtrado['Mês'] == mes]
 
-        # Top Artigos
-        if 'Artigo' in df_mes.columns and any(col.lower() == 'kgs' for col in df_mes.columns):
-            kgs_col = next(col for col in df_mes.columns if col.lower() == 'kgs')
-            top_artigos = df_mes.groupby('Artigo')[kgs_col].sum().sort_values(ascending=False).head(10).reset_index()
+        # Top Artigos by Valor
+        if 'Artigo' in df_mes.columns and 'Valor' in df_mes.columns:
+            top_artigos = df_mes.groupby('Artigo')['Valor'].sum().sort_values(ascending=False).head(10).reset_index()
             ws_artigos = wb.create_sheet(f"{mes}_Artigos")
             for r in dataframe_to_rows(top_artigos, index=False, header=True):
                 ws_artigos.append(r)
@@ -106,7 +105,7 @@ def to_excel_with_kpis_and_charts(df_filtrado):
             chart = BarChart()
             chart.title = f"Top 10 Artigos - {mes}"
             chart.x_axis.title = "Artigo"
-            chart.y_axis.title = "Kgs"
+            chart.y_axis.title = "Valor (€)"
             data = Reference(ws_artigos, min_col=2, min_row=1, max_row=len(top_artigos)+1)
             categories = Reference(ws_artigos, min_col=1, min_row=2, max_row=len(top_artigos)+1)
             chart.add_data(data, titles_from_data=True)
