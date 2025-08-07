@@ -16,14 +16,26 @@ def load_data():
     response = requests.get(url)
     df = pd.read_excel(BytesIO(response.content), sheet_name="Dados")
     df.columns = df.columns.str.strip()
+    df.rename(columns={'Kgs': 'Qtd'}, inplace=True)  # Rename if needed
     return df
 
+# Cache clear button
+if st.sidebar.button("🔄 Limpar Cache"):
+    st.cache_data.clear()
+    st.experimental_rerun()
+
+# Load and validate data
 try:
     df = load_data()
     st.success("✅ Dados carregados com sucesso!")
 except Exception as e:
     st.error(f"❌ Erro ao carregar os dados: {e}")
     st.stop()
+
+# Diagnostic: Show column names
+with st.expander("🧪 Diagnóstico: Verificar Colunas"):
+    st.write("Colunas disponíveis no DataFrame:")
+    st.write(df.columns.tolist())
 
 # Sidebar filters
 st.sidebar.header("Filtros")
@@ -78,7 +90,7 @@ for mes in sorted(df_filtrado['Mês'].dropna().unique()):
         st.markdown("**Top 5 Comerciais (por Valor):**")
         st.dataframe(top_comerciais_formatted.reset_index(), use_container_width=True)
 
-# Excel export without charts
+# Excel export
 def to_excel_with_kpis(df_filtrado):
     df_filtrado.columns = df_filtrado.columns.str.strip()
     wb = Workbook()
@@ -97,21 +109,18 @@ def to_excel_with_kpis(df_filtrado):
     for mes in sorted(df_filtrado['Mês'].dropna().unique()):
         df_mes = df_filtrado[df_filtrado['Mês'] == mes]
 
-        # Top Artigos by Qtd
         if 'Artigo' in df_mes.columns and 'Qtd' in df_mes.columns:
             top_artigos = df_mes.groupby('Artigo')['Qtd'].sum().sort_values(ascending=False).head(10).reset_index()
             ws_artigos = wb.create_sheet(f"{mes}_Artigos")
             for r in dataframe_to_rows(top_artigos, index=False, header=True):
                 ws_artigos.append(r)
 
-        # Top Clientes by Valor
         if 'Cliente' in df_mes.columns and 'Valor' in df_mes.columns:
             top_clientes = df_mes.groupby('Cliente')['Valor'].sum().sort_values(ascending=False).head(10).reset_index()
             ws_clientes = wb.create_sheet(f"{mes}_Clientes")
             for r in dataframe_to_rows(top_clientes, index=False, header=True):
                 ws_clientes.append(r)
 
-        # Top Comerciais by Valor
         if 'Comercial' in df_mes.columns and 'Valor' in df_mes.columns:
             top_comerciais = df_mes.groupby('Comercial')['Valor'].sum().sort_values(ascending=False).head(5).reset_index()
             ws_comerciais = wb.create_sheet(f"{mes}_Comerciais")
