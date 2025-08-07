@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
+import requests
 from io import BytesIO
+import matplotlib.pyplot as plt
 
 # Title
 st.title("Relatório Interativo - 1º Semestre 2025")
@@ -22,12 +24,9 @@ except Exception as e:
 # Sidebar filters
 st.sidebar.header("Filtros")
 
-# Multiple selection filters
 ano_selecionado = st.sidebar.multiselect("Ano", sorted(df['Ano'].dropna().unique()), default=sorted(df['Ano'].dropna().unique()))
 mes_selecionado = st.sidebar.multiselect("Mês", sorted(df['Mês'].dropna().unique()), default=sorted(df['Mês'].dropna().unique()))
 artigo_selecionado = st.sidebar.multiselect("Artigo", sorted(df['Artigo'].dropna().unique()), default=sorted(df['Artigo'].dropna().unique()))
-
-# Single selection filters
 comercial_selecionado = st.sidebar.selectbox("Comercial", sorted(df['Comercial'].dropna().unique()))
 cliente_selecionado = st.sidebar.selectbox("Cliente", sorted(df['Cliente'].dropna().unique()))
 
@@ -50,11 +49,29 @@ st.write(f"Total de Registros: {len(df_filtrado)}")
 if 'Valor' in df_filtrado.columns:
     st.write(f"Valor Total: €{df_filtrado['Valor'].sum():,.2f}")
 
-# Optional chart
+# Bar chart: Valor por Mês
 if 'Valor' in df_filtrado.columns and 'Mês' in df_filtrado.columns:
     st.subheader("📈 Valor por Mês")
     chart_data = df_filtrado.groupby('Mês')['Valor'].sum().sort_index()
     st.bar_chart(chart_data)
+
+# Line Chart 1: Artigo vs Kgs (default)
+if 'Artigo' in df_filtrado.columns and 'Kgs' in df_filtrado.columns:
+    st.subheader("📉 Linha: Artigo vs Kgs (Padrão)")
+    line_data = df_filtrado.groupby('Artigo')['Kgs'].sum().sort_index()
+    st.line_chart(line_data)
+
+# Line Chart 2: Artigo vs Kgs with red labels
+    st.subheader("📉 Linha: Artigo vs Kgs (Etiquetas Vermelhas)")
+    fig, ax = plt.subplots()
+    ax.plot(line_data.index, line_data.values, marker='o', color='blue')
+    ax.set_xlabel("Artigo", color='red')
+    ax.set_ylabel("Kgs", color='red')
+    ax.tick_params(axis='x', colors='red')
+    ax.tick_params(axis='y', colors='red')
+    ax.set_title("Artigo vs Kgs", color='red')
+    plt.xticks(rotation=45)
+    st.pyplot(fig)
 
 # Download filtered data as Excel
 def to_excel(df):
