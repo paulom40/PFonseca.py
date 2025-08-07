@@ -69,11 +69,11 @@ for mes in sorted(df_filtrado['Mês'].dropna().unique()):
         st.markdown("**Top 5 Clientes (por Valor):**")
         st.dataframe(top_clientes_formatted.reset_index(), use_container_width=True)
 
-    # Top 3 Comerciais
+    # Top 5 Comerciais
     if 'Comercial' in df_mes.columns and 'Valor' in df_mes.columns:
-        top_comerciais = df_mes.groupby('Comercial')['Valor'].sum().sort_values(ascending=False).head(3)
+        top_comerciais = df_mes.groupby('Comercial')['Valor'].sum().sort_values(ascending=False).head(5)
         top_comerciais_formatted = top_comerciais.apply(lambda x: f"€{x:,.2f}")
-        st.markdown("**Top 3 Comerciais (por Valor):**")
+        st.markdown("**Top 5 Comerciais (por Valor):**")
         st.dataframe(top_comerciais_formatted.reset_index(), use_container_width=True)
 
     # Top 5 Artigos by Categoria
