@@ -115,14 +115,14 @@ def to_excel_with_kpis(df_filtrado):
             for r in dataframe_to_rows(top_artigos, index=False, header=True):
                 ws_artigos.append(r)
 
-        if 'Cliente' in df_mes.columns and 'Valor' in df_mes.columns:
-            top_clientes = df_mes.groupby('Cliente')['Valor'].sum().sort_values(ascending=False).head(10).reset_index()
+        if 'Cliente' in df_mes.columns and 'Qtd' in df_mes.columns:
+            top_clientes = df_mes.groupby('Cliente')['Qtd'].sum().sort_values(ascending=False).head(10).reset_index()
             ws_clientes = wb.create_sheet(f"{mes}_Clientes")
             for r in dataframe_to_rows(top_clientes, index=False, header=True):
                 ws_clientes.append(r)
 
-        if 'Comercial' in df_mes.columns and 'Valor' in df_mes.columns:
-            top_comerciais = df_mes.groupby('Comercial')['Valor'].sum().sort_values(ascending=False).head(5).reset_index()
+        if 'Comercial' in df_mes.columns and 'Qtd' in df_mes.columns:
+            top_comerciais = df_mes.groupby('Comercial')['Qtd'].sum().sort_values(ascending=False).head(5).reset_index()
             ws_comerciais = wb.create_sheet(f"{mes}_Comerciais")
             for r in dataframe_to_rows(top_comerciais, index=False, header=True):
                 ws_comerciais.append(r)
