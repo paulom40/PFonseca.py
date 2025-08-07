@@ -58,17 +58,17 @@ for mes in sorted(df_filtrado['Mês'].dropna().unique()):
 
     df_mes = df_filtrado[df_filtrado['Mês'] == mes]
 
-    # Top 5 Artigos
+    # Top 10 Artigos
     if 'Artigo' in df_mes.columns and 'Kgs' in df_mes.columns:
-        top_artigos = df_mes.groupby('Artigo')['Kgs'].sum().sort_values(ascending=False).head(5)
-        st.markdown("**Top 5 Artigos (por Kgs):**")
+        top_artigos = df_mes.groupby('Artigo')['Kgs'].sum().sort_values(ascending=False).head(10)
+        st.markdown("**Top 10 Artigos (por Kgs):**")
         st.dataframe(top_artigos.reset_index(), use_container_width=True)
 
-    # Top 5 Clientes
+    # Top 10 Clientes
     if 'Cliente' in df_mes.columns and 'Valor' in df_mes.columns:
-        top_clientes = df_mes.groupby('Cliente')['Valor'].sum().sort_values(ascending=False).head(5)
+        top_clientes = df_mes.groupby('Cliente')['Valor'].sum().sort_values(ascending=False).head(10)
         top_clientes_formatted = top_clientes.apply(lambda x: f"€{x:,.2f}")
-        st.markdown("**Top 5 Clientes (por Valor):**")
+        st.markdown("**Top 10 Clientes (por Valor):**")
         st.dataframe(top_clientes_formatted.reset_index(), use_container_width=True)
 
     # Top 5 Comerciais
@@ -78,13 +78,13 @@ for mes in sorted(df_filtrado['Mês'].dropna().unique()):
         st.markdown("**Top 5 Comerciais (por Valor):**")
         st.dataframe(top_comerciais_formatted.reset_index(), use_container_width=True)
 
-    # Top 5 Artigos by Categoria
+    # Top 10 Artigos by Categoria
     if 'Categoria' in df_mes.columns and 'Artigo' in df_mes.columns and 'Valor' in df_mes.columns:
-        st.markdown("**Top 5 Artigos por Categoria (por Valor):**")
+        st.markdown("**Top 10 Artigos por Categoria (por Valor):**")
         categorias = df_mes['Categoria'].dropna().unique()
         for cat in categorias:
             df_cat = df_mes[df_mes['Categoria'] == cat]
-            top_art_cat = df_cat.groupby('Artigo')['Valor'].sum().sort_values(ascending=False).head(5)
+            top_art_cat = df_cat.groupby('Artigo')['Valor'].sum().sort_values(ascending=False).head(10)
             top_art_cat_formatted = top_art_cat.apply(lambda x: f"€{x:,.2f}")
             st.markdown(f"🔹 Categoria: {cat}")
             st.dataframe(top_art_cat_formatted.reset_index(), use_container_width=True)
