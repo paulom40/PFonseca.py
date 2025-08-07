@@ -3,6 +3,8 @@ import pandas as pd
 import requests
 from io import BytesIO
 
+st.set_page_config(page_title="Relatório Interativo", layout="wide")
+
 # Title
 st.title("📈 Relatório Interativo - KPIs do 1º Semestre 2025")
 
