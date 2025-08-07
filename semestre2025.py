@@ -51,6 +51,8 @@ st.subheader("📌 Resumo")
 st.write(f"Total de Registros: {len(df_filtrado)}")
 if 'Valor' in df_filtrado.columns:
     st.write(f"Valor Total: €{df_filtrado['Valor'].sum():,.2f}")
+if 'Qtd' in df_filtrado.columns:
+    st.write(f"Quantidade Total: {df_filtrado['Qtd'].sum():,.2f}")
 
 # KPIs by Mês
 st.header("📌 KPIs Mensais")
@@ -58,10 +60,10 @@ for mes in sorted(df_filtrado['Mês'].dropna().unique()):
     st.subheader(f"📅 Mês: {mes}")
     df_mes = df_filtrado[df_filtrado['Mês'] == mes]
 
-    if 'Artigo' in df_mes.columns and 'Valor' in df_mes.columns:
-        top_artigos = df_mes.groupby('Artigo')['Valor'].sum().sort_values(ascending=False).head(10)
-        top_artigos_formatted = top_artigos.apply(lambda x: f"€{x:,.2f}")
-        st.markdown("**Top 10 Artigos (por Valor):**")
+    if 'Artigo' in df_mes.columns and 'Qtd' in df_mes.columns:
+        top_artigos = df_mes.groupby('Artigo')['Qtd'].sum().sort_values(ascending=False).head(10)
+        top_artigos_formatted = top_artigos.apply(lambda x: f"{x:,.2f}")
+        st.markdown("**Top 10 Artigos (por Quantidade):**")
         st.dataframe(top_artigos_formatted.reset_index(), use_container_width=True)
 
     if 'Cliente' in df_mes.columns and 'Valor' in df_mes.columns:
@@ -89,25 +91,27 @@ def to_excel_with_kpis(df_filtrado):
     ws_resumo.append(["Total de Registros", len(df_filtrado)])
     if 'Valor' in df_filtrado.columns:
         ws_resumo.append(["Valor Total (€)", df_filtrado['Valor'].sum()])
+    if 'Qtd' in df_filtrado.columns:
+        ws_resumo.append(["Quantidade Total", df_filtrado['Qtd'].sum()])
 
     for mes in sorted(df_filtrado['Mês'].dropna().unique()):
         df_mes = df_filtrado[df_filtrado['Mês'] == mes]
 
-        # Top Artigos by Valor
-        if 'Artigo' in df_mes.columns and 'Valor' in df_mes.columns:
-            top_artigos = df_mes.groupby('Artigo')['Valor'].sum().sort_values(ascending=False).head(10).reset_index()
+        # Top Artigos by Qtd
+        if 'Artigo' in df_mes.columns and 'Qtd' in df_mes.columns:
+            top_artigos = df_mes.groupby('Artigo')['Qtd'].sum().sort_values(ascending=False).head(10).reset_index()
             ws_artigos = wb.create_sheet(f"{mes}_Artigos")
             for r in dataframe_to_rows(top_artigos, index=False, header=True):
                 ws_artigos.append(r)
 
-        # Top Clientes
+        # Top Clientes by Valor
         if 'Cliente' in df_mes.columns and 'Valor' in df_mes.columns:
             top_clientes = df_mes.groupby('Cliente')['Valor'].sum().sort_values(ascending=False).head(10).reset_index()
             ws_clientes = wb.create_sheet(f"{mes}_Clientes")
             for r in dataframe_to_rows(top_clientes, index=False, header=True):
                 ws_clientes.append(r)
 
-        # Top Comerciais
+        # Top Comerciais by Valor
         if 'Comercial' in df_mes.columns and 'Valor' in df_mes.columns:
             top_comerciais = df_mes.groupby('Comercial')['Valor'].sum().sort_values(ascending=False).head(5).reset_index()
             ws_comerciais = wb.create_sheet(f"{mes}_Comerciais")
