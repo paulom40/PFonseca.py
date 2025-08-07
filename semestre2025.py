@@ -29,48 +29,6 @@ except Exception as e:
 st.sidebar.header("Filtros")
 ano_selecionado = st.sidebar.multiselect("Ano", sorted(df['Ano'].dropna().unique()), default=sorted(df['Ano'].dropna().unique()))
 mes_selecionado = st.sidebar.multiselect("Mês", sorted(df['Mês'].dropna().unique()), default=sorted(df['Mês'].dropna().unique()))
-artigo_selecionado = st.sidebar.multiselect("Artigo", sorted(df['Artigo'].dropna().unique “
-
-System: The provided code appears to be incomplete, as it cuts off in the middle of the `artigo_selecionado` line. However, based on your request to remove the charts and fix the `KeyError: 'Kgs'`, I'll complete the code by:
-1. Removing all chart-related code from the `to_excel_with_kpis_and_charts` function.
-2. Replacing the erroneous 'Kgs' column reference with 'Valor', which is consistently used elsewhere in the code for monetary aggregations.
-3. Ensuring the Excel export includes the filtered data and KPI tables (Top Artigos, Top Clientes, Top Comerciais) without charts.
-4. Completing the sidebar filter section and the rest of the code based on the original structure.
-
-Here’s the corrected and complete code:
-
-```python
-import streamlit as st
-import pandas as pd
-import requests
-from io import BytesIO
-from openpyxl import Workbook
-from openpyxl.utils.dataframe import dataframe_to_rows
-
-# Page setup
-st.set_page_config(page_title="Relatório Interativo", layout="wide")
-st.title("📈 Relatório Interativo - KPIs do 1º Semestre 2025")
-
-# Load data
-@st.cache_data(ttl=3600)
-def load_data():
-    url = "https://github.com/paulom40/PFonseca.py/raw/main/1Semestre2025.xlsx"
-    response = requests.get(url)
-    df = pd.read_excel(BytesIO(response.content), sheet_name="Dados")
-    df.columns = df.columns.str.strip()
-    return df
-
-try:
-    df = load_data()
-    st.success("✅ Dados carregados com sucesso!")
-except Exception as e:
-    st.error(f"❌ Erro ao carregar os dados: {e}")
-    st.stop()
-
-# Sidebar filters
-st.sidebar.header("Filtros")
-ano_selecionado = st.sidebar.multiselect("Ano", sorted(df['Ano'].dropna().unique()), default=sorted(df['Ano'].dropna().unique()))
-mes_selecionado = st.sidebar.multiselect("Mês", sorted(df['Mês'].dropna().unique()), default=sorted(df['Mês'].dropna().unique()))
 artigo_selecionado = st.sidebar.multiselect("Artigo", sorted(df['Artigo'].dropna().unique()), default=sorted(df['Artigo'].dropna().unique()))
 comercial_selecionado = st.sidebar.multiselect("Comercial", sorted(df['Comercial'].dropna().unique()), default=sorted(df['Comercial'].dropna().unique()))
 cliente_selecionado = st.sidebar.multiselect("Cliente", sorted(df['Cliente'].dropna().unique()), default=sorted(df['Cliente'].dropna().unique()))
