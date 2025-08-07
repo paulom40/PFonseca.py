@@ -26,16 +26,16 @@ st.sidebar.header("Filtros")
 ano_selecionado = st.sidebar.multiselect("Ano", sorted(df['Ano'].dropna().unique()), default=sorted(df['Ano'].dropna().unique()))
 mes_selecionado = st.sidebar.multiselect("Mês", sorted(df['Mês'].dropna().unique()), default=sorted(df['Mês'].dropna().unique()))
 artigo_selecionado = st.sidebar.multiselect("Artigo", sorted(df['Artigo'].dropna().unique()), default=sorted(df['Artigo'].dropna().unique()))
-comercial_selecionado = st.sidebar.selectbox("Comercial", sorted(df['Comercial'].dropna().unique()))
-cliente_selecionado = st.sidebar.selectbox("Cliente", sorted(df['Cliente'].dropna().unique()))
+comercial_selecionado = st.sidebar.multiselect("Comercial", sorted(df['Comercial'].dropna().unique()), default=sorted(df['Comercial'].dropna().unique()))
+cliente_selecionado = st.sidebar.multiselect("Cliente", sorted(df['Cliente'].dropna().unique()), default=sorted(df['Cliente'].dropna().unique()))
 
 # Apply filters
 df_filtrado = df[
     (df['Ano'].isin(ano_selecionado)) &
     (df['Mês'].isin(mes_selecionado)) &
     (df['Artigo'].isin(artigo_selecionado)) &
-    (df['Comercial'] == comercial_selecionado) &
-    (df['Cliente'] == cliente_selecionado)
+    (df['Comercial'].isin(comercial_selecionado)) &
+    (df['Cliente'].isin(cliente_selecionado))
 ]
 
 # Show filtered data
