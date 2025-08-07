@@ -48,10 +48,10 @@ st.write(f"Total de Registros: {len(df_filtrado)}")
 if 'Valor' in df_filtrado.columns:
     st.write(f"Valor Total: €{df_filtrado['Valor'].sum():,.2f}")
 
-# Download filtered data as Excel
+# Download filtered data as Excel (using openpyxl)
 def to_excel(df):
     output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Filtrado')
     processed_data = output.getvalue()
     return processed_data
