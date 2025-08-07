@@ -78,16 +78,16 @@ for mes in sorted(df_filtrado['Mês'].dropna().unique()):
         st.markdown("**Top 10 Artigos (por Quantidade):**")
         st.dataframe(top_artigos_formatted.reset_index(), use_container_width=True)
 
-    if 'Cliente' in df_mes.columns and 'Valor' in df_mes.columns:
-        top_clientes = df_mes.groupby('Cliente')['Valor'].sum().sort_values(ascending=False).head(10)
+    if 'Cliente' in df_mes.columns and 'Qtd' in df_mes.columns:
+        top_clientes = df_mes.groupby('Cliente')['Qtd'].sum().sort_values(ascending=False).head(10)
         top_clientes_formatted = top_clientes.apply(lambda x: f"€{x:,.2f}")
-        st.markdown("**Top 10 Clientes (por Valor):**")
+        st.markdown("**Top 10 Clientes (por Qtd):**")
         st.dataframe(top_clientes_formatted.reset_index(), use_container_width=True)
 
-    if 'Comercial' in df_mes.columns and 'Valor' in df_mes.columns:
-        top_comerciais = df_mes.groupby('Comercial')['Valor'].sum().sort_values(ascending=False).head(5)
+    if 'Comercial' in df_mes.columns and 'Qtd' in df_mes.columns:
+        top_comerciais = df_mes.groupby('Comercial')['Qtd'].sum().sort_values(ascending=False).head(5)
         top_comerciais_formatted = top_comerciais.apply(lambda x: f"€{x:,.2f}")
-        st.markdown("**Top 5 Comerciais (por Valor):**")
+        st.markdown("**Top 5 Comerciais (por Qtd):**")
         st.dataframe(top_comerciais_formatted.reset_index(), use_container_width=True)
 
 # Excel export
