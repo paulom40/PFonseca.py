@@ -20,10 +20,6 @@ def load_data():
         # Load Excel file from the response content
         data = pd.read_excel(BytesIO(response.content))
         
-        # Rename 'Data' column to 'Date' if it exists
-        if "Data" in data.columns:
-            data = data.rename(columns={"Data": "Date"})
-        
         # Cleaning and processing data
         data["Quantidade"] = pd.to_numeric(data["Quantidade"], errors="coerce")
         data["PM"] = pd.to_numeric(data["PM"], errors="coerce")
@@ -32,7 +28,7 @@ def load_data():
         # Clean "Date" column: convert to numeric, handle None/invalid values
         data["Date"] = pd.to_numeric(data["Date"], errors="coerce")
         
-        # Convert valid Excel serial dates to datetime, filtering out-of-bounds/None values
+        # Convert valid Excel serial dates to datetime, filtering out-of-bounds values
         def convert_serial_date(x):
             if pd.notnull(x):
                 # Limit to reasonable date range (1900 to 2100)
@@ -52,7 +48,7 @@ def load_data():
         data["Week"] = data["Date"].dt.isocalendar().week.where(data["Date"].notnull(), np.nan)
         
         # Drop rows with missing critical columns or invalid dates
-        data = data.dropna(subset=["Quantidade", "PM", "Mês", "Ano", "Artigo", "Date", "Week"])
+        data = data.dropna(subset=["Quantidade", "PM", "Mês", "Artigo", "Date", "Week"])
         
         return data
     else:
@@ -65,26 +61,20 @@ df = load_data()
 # Sidebar filters
 st.sidebar.header("Filters")
 
-# Ano filter
-anos = sorted(df["Ano"].unique()) if not df.empty else []
-selected_ano = st.sidebar.selectbox("Select Ano", ["All"] + list(anos), index=0)
-
-# Mês filter
+# Mês filter (multiselect)
 meses = sorted(df["Mês"].unique()) if not df.empty else []
-selected_mes = st.sidebar.selectbox("Select Mês", ["All"] + list(meses), index=0)
+selected_meses = st.sidebar.multiselect("Select Mês", meses, default=meses, placeholder="Select months (or leave empty for all)")
 
-# Artigo filter
+# Artigo filter (multiselect)
 artigos = sorted(df["Artigo"].unique()) if not df.empty else []
-selected_artigo = st.sidebar.selectbox("Select Artigo", ["All"] + list(artigos), index=0)
+selected_artigos = st.sidebar.multiselect("Select Artigo", artigos, default=artigos, placeholder="Select articles (or leave empty for all)")
 
 # Filtering data
 filtered_df = df.copy()
-if selected_ano != "All":
-    filtered_df = filtered_df[filtered_df["Ano"] == selected_ano]
-if selected_mes != "All":
-    filtered_df = filtered_df[filtered_df["Mês"] == selected_mes]
-if selected_artigo != "All":
-    filtered_df = filtered_df[filtered_df["Artigo"] == selected_artigo]
+if selected_meses:
+    filtered_df = filtered_df[filtered_df["Mês"].isin(selected_meses)]
+if selected_artigos:
+    filtered_df = filtered_df[filtered_df["Artigo"].isin(selected_artigos)]
 
 # KPIs
 st.header("Key Performance Indicators")
@@ -100,7 +90,6 @@ avg_qty_month = filtered_df.groupby("Mês")["Quantidade"].mean().mean() if not f
 col2.metric("Average Quantidade by Month", f"{avg_qty_month:.2f}")
 
 # Average V Líquido by Week
-# Use only rows with valid weeks
 valid_week_df = filtered_df[filtered_df["Week"].notnull()]
 avg_v_liquido_week = valid_week_df.groupby("Week")["V Líquido"].mean().mean() if not valid_week_df.empty else 0
 col3.metric("Average V Líquido by Week", f"{avg_v_liquido_week:.2f}")
