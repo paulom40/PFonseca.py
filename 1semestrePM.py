@@ -29,13 +29,13 @@ def load_data():
         data["PM"] = pd.to_numeric(data["PM"], errors="coerce")
         data["V Líquido"] = pd.to_numeric(data["V Líquido"], errors="coerce")
         
-        # Clean and convert "Date" column to numeric, handling invalid entries
+        # Clean "Date" column: convert to numeric, handle None/invalid values
         data["Date"] = pd.to_numeric(data["Date"], errors="coerce")
         
-        # Convert valid Excel serial dates to datetime, filtering out-of-bounds values
+        # Convert valid Excel serial dates to datetime, filtering out-of-bounds/None values
         def convert_serial_date(x):
             if pd.notnull(x):
-                # Limit to reasonable date range (e.g., 1900 to 2100)
+                # Limit to reasonable date range (1900 to 2100)
                 # Excel serial date 1 = 1900-01-01, 73048 ≈ 2100-01-01
                 if 1 <= x <= 73048:
                     try:
@@ -51,8 +51,8 @@ def load_data():
         # Extract week number for valid dates
         data["Week"] = data["Date"].dt.isocalendar().week.where(data["Date"].notnull(), np.nan)
         
-        # Handling missing values in critical columns
-        data = data.dropna(subset=["Quantidade", "PM", "Mês", "Ano", "Artigo"])
+        # Drop rows with missing critical columns or invalid dates
+        data = data.dropna(subset=["Quantidade", "PM", "Mês", "Ano", "Artigo", "Date", "Week"])
         
         return data
     else:
@@ -99,9 +99,11 @@ col1.metric("Average PM", f"{avg_pm:.2f}")
 avg_qty_month = filtered_df.groupby("Mês")["Quantidade"].mean().mean() if not filtered_df.empty else 0
 col2.metric("Average Quantidade by Month", f"{avg_qty_month:.2f}")
 
-# Average Quantidade by Week
-avg_qty_week = filtered_df.groupby("Week")["Quantidade"].mean().mean() if not filtered_df.empty else 0
-col3.metric("Average Quantidade by Week", f"{avg_qty_week:.2f}")
+# Average V Líquido by Week
+# Use only rows with valid weeks
+valid_week_df = filtered_df[filtered_df["Week"].notnull()]
+avg_v_liquido_week = valid_week_df.groupby("Week")["V Líquido"].mean().mean() if not valid_week_df.empty else 0
+col3.metric("Average V Líquido by Week", f"{avg_v_liquido_week:.2f}")
 
 # Displaying the filtered data table
 st.header("Filtered Data")
