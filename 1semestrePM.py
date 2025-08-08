@@ -34,7 +34,7 @@ def load_data():
         df["Week"] = df["Date"].dt.isocalendar().week
 
     # 🔢 Convert numeric columns
-    for col in ["Quantidade", "PM", "V_Líquido"]:
+    for col in ["Quantidade", "PM", "Valor liquido"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
@@ -61,25 +61,25 @@ filtered_df = df[
 
 # 📈 KPIs
 st.header("📈 Key Performance Indicators")
-col1, col2, col3, col4 = st.columns(4)  # Added a fourth column for the new metric
+col1, col2, col3, col4 = st.columns(4)
 
 avg_pm = filtered_df["PM"].mean()
 avg_qty_month = filtered_df.groupby("Mês")["Quantidade"].mean().mean()
 avg_qty_week = filtered_df.groupby("Week")["Quantidade"].mean().mean()
-avg_vliquido_by_month = filtered_df.groupby("Mês")["V_Líquido"].mean().mean()  # Fixed column name
+avg_vliquido_by_month = filtered_df.groupby("Mês")["Valor liquido"].mean().mean()
 
 col1.metric("Average PM", f"{avg_pm:.2f}")
 col2.metric("Average Quantidade by Month", f"{avg_qty_month:.2f}")
 col3.metric("Average Quantidade by Week", f"{avg_qty_week:.2f}")
-col4.metric("Average V Líquido by Month", f"{avg_vliquido_by_month:.2f}")  # Added new metric
+col4.metric("Average Valor Liquido by Month", f"{avg_vliquido_by_month:.2f}")
 
 # 📦 Quantidade por Mês
 st.subheader("📦 Quantidade por Mês")
 st.bar_chart(filtered_df.groupby("Mês")["Quantidade"].sum())
 
-# 💰 V Líquido por Mês
-st.subheader("💰 V Líquido por Mês")
-st.line_chart(filtered_df.groupby("Mês")["V_Líquido"].mean())
+# 💰 Valor Liquido por Mês
+st.subheader("💰 Valor Liquido por Mês")
+st.line_chart(filtered_df.groupby("Mês")["Valor liquido"].mean())
 
 # 📋 Dados Filtrados
 st.subheader("📋 Dados Filtrados")
