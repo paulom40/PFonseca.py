@@ -99,11 +99,9 @@ col1.metric("Average PM", f"{avg_pm:.2f}")
 avg_qty_month = filtered_df.groupby("Mês")["Quantidade"].mean().mean() if not filtered_df.empty else 0
 col2.metric("Average Quantidade by Month", f"{avg_qty_month:.2f}")
 
-# Average V Líquido by Week
-# Filter out rows with NaN in Week to avoid NaN in mean calculation
-valid_week_df = filtered_df[filtered_df["Week"].notnull()]
-avg_v_liquido_week = valid_week_df.groupby("Week")["V Líquido"].mean().mean() if not valid_week_df.empty else 0
-col3.metric("Average V Líquido by Week", f"{avg_v_liquido_week:.2f}")
+# Average Quantidade by Week
+avg_qty_week = filtered_df.groupby("Week")["Quantidade"].mean().mean() if not filtered_df.empty else 0
+col3.metric("Average Quantidade by Week", f"{avg_qty_week:.2f}")
 
 # Displaying the filtered data table
 st.header("Filtered Data")
