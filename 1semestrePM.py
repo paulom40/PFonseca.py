@@ -27,7 +27,8 @@ def load_data():
         df["Date"] = pd.to_numeric(df["Date"], errors="coerce")
         df["Date"] = df["Date"].apply(
             lambda x: pd.to_datetime("1899-12-30") + pd.Timedelta(days=x)
-            if pd.notnull(x) and 0 <= x <= 2958465 else pd.NaT
+            if pd.notnull(x) and isinstance(x, (int, float)) and 0 <= x <= 2958465
+            else pd.NaT
         )
     else:
         st.warning("⚠️ 'Date' column not found.")
