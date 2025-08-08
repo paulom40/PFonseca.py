@@ -34,7 +34,7 @@ def load_data():
         df["Week"] = df["Date"].dt.isocalendar().week
 
     # 🔢 Convert numeric columns
-    for col in ["Quantidade", "PM", "V Líquido"]:
+    for col in ["Quantidade", "PM", "V_Líquido"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
@@ -77,7 +77,7 @@ st.bar_chart(filtered_df.groupby("Mês")["Quantidade"].sum())
 
 # 💰 V Líquido por Mês
 st.subheader("💰 V Líquido por Mês")
-st.line_chart(filtered_df.groupby("Mês")["V Líquido"].mean())
+st.line_chart(filtered_df.groupby("Mês")["V_Líquido"].mean())
 
 # 📋 Dados Filtrados
 st.subheader("📋 Dados Filtrados")
