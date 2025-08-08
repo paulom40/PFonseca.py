@@ -20,21 +20,25 @@ def load_data():
         # Load Excel file from the response content
         data = pd.read_excel(BytesIO(response.content))
         
+        # Rename 'Data' column to 'Date' if it exists
+        if "Data" in data.columns:
+            data = data.rename(columns={"Data": "Date"})
+        
         # Cleaning and processing data
         data["Quantidade"] = pd.to_numeric(data["Quantidade"], errors="coerce")
         data["PM"] = pd.to_numeric(data["PM"], errors="coerce")
         data["V Líquido"] = pd.to_numeric(data["V Líquido"], errors="coerce")
         
-        # Clean and convert "Data" column to numeric, handling invalid entries
-        data["Data"] = pd.to_numeric(data["Data"], errors="coerce")
+        # Clean and convert "Date" column to numeric, handling invalid entries
+        data["Date"] = pd.to_numeric(data["Date"], errors="coerce")
         
         # Convert valid Excel serial dates to datetime
-        data["Data"] = data["Data"].apply(
+        data["Date"] = data["Date"].apply(
             lambda x: pd.to_datetime("1899-12-30") + pd.Timedelta(days=x) if pd.notnull(x) else pd.NaT
         )
         
         # Extract week number for valid dates
-        data["Week"] = data["Data"].dt.isocalendar().week.where(data["Data"].notnull(), np.nan)
+        data["Week"] = data["Date"].dt.isocalendar().week.where(data["Date"].notnull(), np.nan)
         
         # Handling missing values in critical columns
         data = data.dropna(subset=["Quantidade", "PM", "Mês", "Ano", "Artigo"])
