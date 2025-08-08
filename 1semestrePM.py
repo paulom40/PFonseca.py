@@ -25,14 +25,18 @@ def load_data():
 
     # 📅 Convert 'Date' to datetime
     if "Date" in df.columns:
+        # Debugging: Show first few raw Date values
+        st.write("First few raw Date values:", df["Date"].head().tolist())
+        # Convert to numeric, coerce invalid values to NaN
         df["Date"] = pd.to_numeric(df["Date"], errors="coerce")
-        # Debugging: Show first few Date values before conversion
-        st.write("First few Date values (raw):", df["Date"].head().tolist())
+        # Debugging: Show first few numeric Date values
+        st.write("First few numeric Date values:", df["Date"].head().tolist())
+        # Convert to datetime, handling NaN explicitly
         df["Date"] = df["Date"].apply(
-            lambda x: pd.to_datetime("1899-12-30") + pd.Timedelta(days=x) if pd.notnull(x) and x >= 0 else pd.NaT
+            lambda x: pd.NaT if pd.isna(x) else pd.to_datetime("1899-12-30") + pd.Timedelta(days=x)
         )
-        # Debugging: Show first few Date values after conversion
-        st.write("First few Date values (converted):", df["Date"].head().tolist())
+        # Debugging: Show first few converted Date values
+        st.write("First few converted Date values:", df["Date"].head().tolist())
         # Extract week number, handle NaT values
         df["Week"] = df["Date"].dt.isocalendar().week.where(df["Date"].notna(), pd.NA)
         # Debugging: Show count of valid week values
