@@ -31,10 +31,15 @@ def load_data():
         df["Date"] = pd.to_numeric(df["Date"], errors="coerce")
         # Debugging: Show first few numeric Date values
         st.write("First few numeric Date values:", df["Date"].head().tolist())
-        # Filter out out-of-bounds values and convert to datetime
+        # Pre-filter out-of-bounds values
         df["Date"] = df["Date"].apply(
-            lambda x: pd.NaT if pd.isna(x) or (not isinstance(x, (int, float)) or x < 0 or x > 2958465)
-            else pd.to_datetime("1899-12-30") + pd.Timedelta(days=x)
+            lambda x: x if pd.notnull(x) and isinstance(x, (int, float)) and 0 <= x <= 2958465 else pd.NaN
+        )
+        # Debugging: Show first few filtered numeric Date values
+        st.write("First few filtered numeric Date values:", df["Date"].head().tolist())
+        # Convert to datetime
+        df["Date"] = df["Date"].apply(
+            lambda x: pd.NaT if pd.isna(x) else pd.to_datetime("1899-12-30") + pd.Timedelta(days=x)
         )
         # Debugging: Show first few converted Date values
         st.write("First few converted Date values:", df["Date"].head().tolist())
