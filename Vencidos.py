@@ -15,7 +15,9 @@ try:
     response.raise_for_status()
 
     df = pd.read_excel(BytesIO(response.content), sheet_name="VVencidos")
-    df["Data Venc."] = pd.to_datetime(df["Data Venc."], origin='1899-12-30', unit='D', errors="coerce")
+
+    # ✅ Parse dates correctly (dd/mm/yyyy format)
+    df["Data Venc."] = pd.to_datetime(df["Data Venc."], format="%d/%m/%Y", errors="coerce")
 
     st.success("📥 Dados carregados com sucesso!")
 
@@ -36,6 +38,9 @@ df["Dias"] = pd.to_numeric(df["Dias"], errors="coerce")
 df = df.dropna(subset=["Dias"])
 df["Dias"] = df["Dias"].astype(int)
 df["Valor Pendente"] = pd.to_numeric(df["Valor Pendente"], errors="coerce")
+
+# 🆕 Add column: Dias até vencimento (optional)
+df["Dias até Vencimento"] = (df["Data Venc."] - pd.Timestamp.today()).dt.days
 
 # -------------------------------
 # 🎛️ Sidebar: Hierarchical Filters
