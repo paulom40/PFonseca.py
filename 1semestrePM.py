@@ -5,6 +5,9 @@ import pandas as pd
 url = "https://github.com/paulom40/PFonseca.py/raw/main/1semestrePM.xlsx"
 df = pd.read_excel(url)
 
+# Clean column names: strip spaces and standardize
+df.columns = df.columns.str.strip()
+
 # Sidebar filters
 st.sidebar.title("🎛️ Filtros")
 selected_years = st.sidebar.multiselect("Ano", df['Ano'].unique(), default=df['Ano'].unique())
