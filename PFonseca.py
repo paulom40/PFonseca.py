@@ -18,7 +18,7 @@ except Exception as e:
     st.error(f"Erro ao carregar os dados: {e}")
     st.stop()
 
-st.write("📅 Last Update 01/08/2025")
+st.write("📅 Last Update 07/08/2025")
 
 # -------------------------------
 # 🧹 Clean and prepare data
@@ -81,4 +81,5 @@ col1, col2, col3 = st.columns(3)
 col1.metric("🔴 Total A Vencer", len(df_a_vencer))
 col2.metric("🕒 Média Dias", f"{df_a_vencer['Dias'].mean():.1f}" if len(df_a_vencer) > 0 else "0")
 col3.metric("💸 Valor A Vencer Total", f"€ {df_a_vencer['Valor Pendente'].sum():,.2f}")
+
 
