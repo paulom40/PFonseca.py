@@ -6,37 +6,41 @@ st.set_page_config(page_title="Sales Dashboard", layout="wide")
 
 # Fetch data from URL
 url = "https://github.com/paulom40/PFonseca.py/raw/main/1semestrePM.xlsx"
+
 @st.cache_data
 def load_data():
-    return pd.read_excel(url)
+    df = pd.read_excel(url)
+    # Normalize column names for consistency
+    df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
+    return df
 
 df = load_data()
 
 # Sidebar filters
 st.sidebar.header("Filtros")
-ano_options = sorted(df['Ano'].unique())
+ano_options = sorted(df['ano'].unique())
 selected_ano = st.sidebar.multiselect("Ano", ano_options, default=ano_options)
 
-mes_options = sorted(df['Mês'].unique())
+mes_options = sorted(df['mês'].unique())
 selected_mes = st.sidebar.multiselect("Mês", mes_options, default=mes_options)
 
-artigo_options = sorted(df['Artigo'].unique())
+artigo_options = sorted(df['artigo'].unique())
 selected_artigo = st.sidebar.multiselect("Artigo", artigo_options, default=artigo_options)
 
 # Filter data
 filtered_df = df[
-    (df['Ano'].isin(selected_ano)) &
-    (df['Mês'].isin(selected_mes)) &
-    (df['Artigo'].isin(selected_artigo))
+    (df['ano'].isin(selected_ano)) &
+    (df['mês'].isin(selected_mes)) &
+    (df['artigo'].isin(selected_artigo))
 ]
 
 # KPIs
 st.header("KPIs")
 col1, col2, col3 = st.columns(3)
 
-avg_pm = filtered_df['PM'].mean() if not filtered_df.empty else 0
-avg_quantidade = filtered_df['Quantidade'].mean() if not filtered_df.empty else 0
-avg_valor_liquido = filtered_df['Valor Liquido'].mean() if not filtered_df.empty else 0
+avg_pm = filtered_df['pm'].mean() if not filtered_df.empty else 0
+avg_quantidade = filtered_df['quantidade'].mean() if not filtered_df.empty else 0
+avg_valor_liquido = filtered_df['valor_liquido'].mean() if not filtered_df.empty else 0
 
 with col1:
     st.metric("Média PM", f"{avg_pm:.2f}")
