@@ -59,10 +59,10 @@ with col3:
 st.header("📋 Dados Filtrados")
 st.dataframe(filtered_df)
 
-# 📤 Export filtered data to Excel
+# 📤 Export filtered data to Excel using openpyxl
 def to_excel(df):
     output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Dados Filtrados')
     return output.getvalue()
 
