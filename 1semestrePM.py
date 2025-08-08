@@ -31,9 +31,10 @@ def load_data():
         df["Date"] = pd.to_numeric(df["Date"], errors="coerce")
         # Debugging: Show first few numeric Date values
         st.write("First few numeric Date values:", df["Date"].head().tolist())
-        # Convert to datetime, handling NaN explicitly
+        # Filter out out-of-bounds values and convert to datetime
         df["Date"] = df["Date"].apply(
-            lambda x: pd.NaT if pd.isna(x) else pd.to_datetime("1899-12-30") + pd.Timedelta(days=x)
+            lambda x: pd.NaT if pd.isna(x) or (not isinstance(x, (int, float)) or x < 0 or x > 2958465)
+            else pd.to_datetime("1899-12-30") + pd.Timedelta(days=x)
         )
         # Debugging: Show first few converted Date values
         st.write("First few converted Date values:", df["Date"].head().tolist())
@@ -41,6 +42,10 @@ def load_data():
         df["Week"] = df["Date"].dt.isocalendar().week.where(df["Date"].notna(), pd.NA)
         # Debugging: Show count of valid week values
         st.write(f"Valid 'Week' values after creation: {df['Week'].notna().sum()}")
+        # Debugging: Show any rows with out-of-bounds Date values
+        out_of_bounds = df[pd.isna(df["Date"]) & df["Date"].notna()]
+        if not out_of_bounds.empty:
+            st.write("Rows with out-of-bounds Date values:", out_of_bounds.head())
     else:
         st.warning("⚠️ 'Date' column not found in dataset. 'Week' column will not be created.")
         df["Week"] = pd.NA
