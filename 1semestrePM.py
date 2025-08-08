@@ -21,13 +21,13 @@ mes_options = sorted(df['Mês'].unique())
 selected_mes = st.sidebar.multiselect("Mês", mes_options, default=mes_options)
 
 artigo_options = sorted(df['Artigos'].unique())
-selected_artigo = st.sidebar.multiselect("Artigos", artigo_options, default=artigo_options)
+selected_artigo = st.sidebar.multiselect("Artigo", artigo_options, default=artigo_options)
 
 # Filter data
 filtered_df = df[
     (df['Ano'].isin(selected_ano)) &
     (df['Mês'].isin(selected_mes)) &
-    (df['Artigos'].isin(selected_artigo))
+    (df['Artigo'].isin(selected_artigo))
 ]
 
 # KPIs
