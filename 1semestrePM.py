@@ -61,15 +61,17 @@ filtered_df = df[
 
 # 📈 KPIs
 st.header("📈 Key Performance Indicators")
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)  # Added a fourth column for the new metric
 
 avg_pm = filtered_df["PM"].mean()
 avg_qty_month = filtered_df.groupby("Mês")["Quantidade"].mean().mean()
 avg_qty_week = filtered_df.groupby("Week")["Quantidade"].mean().mean()
+avg_vliquido_by_month = filtered_df.groupby("Mês")["V_Líquido"].mean().mean()  # Fixed column name
 
 col1.metric("Average PM", f"{avg_pm:.2f}")
 col2.metric("Average Quantidade by Month", f"{avg_qty_month:.2f}")
 col3.metric("Average Quantidade by Week", f"{avg_qty_week:.2f}")
+col4.metric("Average V Líquido by Month", f"{avg_vliquido_by_month:.2f}")  # Added new metric
 
 # 📦 Quantidade por Mês
 st.subheader("📦 Quantidade por Mês")
