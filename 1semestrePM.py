@@ -23,7 +23,7 @@ def load_data():
     # 🧼 Clean column names
     df.columns = df.columns.str.strip()
 
-    # 📅 Convert 'Date' to datetime
+    # 📅 Convert 'Date' to datetime (optional, removed 'Week' dependency)
     if "Date" in df.columns:
         # Debugging: Show first few raw Date values
         st.write("First few raw Date values:", df["Date"].head().tolist())
@@ -31,29 +31,15 @@ def load_data():
         df["Date"] = pd.to_numeric(df["Date"], errors="coerce")
         # Debugging: Show first few numeric Date values
         st.write("First few numeric Date values:", df["Date"].head().tolist())
-        # Pre-filter out-of-bounds values
+        # Convert to datetime, cap out-of-bounds values
         df["Date"] = df["Date"].apply(
-            lambda x: x if pd.notnull(x) and isinstance(x, (int, float)) and 0 <= x <= 2958465 else pd.NaN
-        )
-        # Debugging: Show first few filtered numeric Date values
-        st.write("First few filtered numeric Date values:", df["Date"].head().tolist())
-        # Convert to datetime
-        df["Date"] = df["Date"].apply(
-            lambda x: pd.NaT if pd.isna(x) else pd.to_datetime("1899-12-30") + pd.Timedelta(days=x)
+            lambda x: pd.NaT if pd.isna(x) or (not isinstance(x, (int, float)) or x < 0 or x > 2958465)
+            else pd.to_datetime("1899-12-30") + pd.Timedelta(days=x)
         )
         # Debugging: Show first few converted Date values
         st.write("First few converted Date values:", df["Date"].head().tolist())
-        # Extract week number, handle NaT values
-        df["Week"] = df["Date"].dt.isocalendar().week.where(df["Date"].notna(), pd.NA)
-        # Debugging: Show count of valid week values
-        st.write(f"Valid 'Week' values after creation: {df['Week'].notna().sum()}")
-        # Debugging: Show any rows with out-of-bounds Date values
-        out_of_bounds = df[pd.isna(df["Date"]) & df["Date"].notna()]
-        if not out_of_bounds.empty:
-            st.write("Rows with out-of-bounds Date values:", out_of_bounds.head())
     else:
-        st.warning("⚠️ 'Date' column not found in dataset. 'Week' column will not be created.")
-        df["Week"] = pd.NA
+        st.warning("⚠️ 'Date' column not found in dataset.")
 
     # 🔢 Convert numeric columns
     for col in ["Quantidade", "PM", "Valor liquido"]:
@@ -85,9 +71,6 @@ filtered_df = df[
     df["Mês"].isin(selected_meses) &
     df["Artigo"].isin(selected_artigos)
 ]
-
-# Debugging: Show count of valid week values after filtering
-st.write(f"Valid 'Week' values in filtered_df: {filtered_df['Week'].notna().sum()}")
 
 # 📈 KPIs
 st.header("📈 Key Performance Indicators")
