@@ -5,10 +5,10 @@ import requests
 from io import BytesIO
 
 # 🔧 Page configuration
-st.set_page_config(page_title="Sales Dashboard", layout="wide")
+st.set_page_config(page_title="📊 Sales Dashboard", layout="wide")
 
 # 🏷️ Title
-st.title("📊 Sales Data Analysis Dashboard")
+st.title("📊 1º Semestre PM - Sales Data Dashboard")
 
 # 📥 Load and clean data
 @st.cache_data
@@ -20,11 +20,9 @@ def load_data():
         return pd.DataFrame()
 
     df = pd.read_excel(BytesIO(response.content))
-
-    # 🧼 Clean column names
     df.columns = df.columns.str.strip()
 
-    # 📅 Convert 'Date' to datetime
+    # 📅 Convert 'Date' column
     if "Date" in df.columns:
         df["Date"] = pd.to_numeric(df["Date"], errors="coerce")
         df["Date"] = df["Date"].apply(
@@ -32,17 +30,17 @@ def load_data():
             if pd.notnull(x) and 0 <= x <= 2958465 else pd.NaT
         )
     else:
-        st.warning("⚠️ 'Date' column not found in dataset.")
+        st.warning("⚠️ 'Date' column not found.")
 
     # 🔢 Convert numeric columns
     for col in ["Quantidade", "PM", "Valor liquido"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
         else:
-            st.warning(f"⚠️ Column '{col}' not found in dataset.")
+            st.warning(f"⚠️ Column '{col}' not found.")
 
     # 🧹 Drop rows missing key fields
-    df = df.dropna(subset=["Quantidade", "PM", "Mês", "Ano", "Artigo"])
+    df.dropna(subset=["Quantidade", "PM", "Mês", "Ano", "Artigo"], inplace=True)
 
     return df
 
@@ -74,25 +72,37 @@ month_order = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julh
 filtered_df["Mês"] = pd.Categorical(filtered_df["Mês"], categories=month_order, ordered=True)
 
 # 📈 KPIs
-st.header("📈 Key Performance Indicators")
+st.header("📈 Indicadores de Desempenho")
 col1, col2, col3 = st.columns(3)
 
 avg_pm = filtered_df["PM"].mean()
 avg_qty_month = filtered_df.groupby("Mês")["Quantidade"].mean().mean()
 avg_vliquido_by_month = filtered_df.groupby("Mês")["Valor liquido"].mean().mean()
 
-col1.metric("Average PM", f"{avg_pm:.2f}")
-col2.metric("Average Quantidade by Month", f"{avg_qty_month:.2f}")
-col3.metric("Average Valor Liquido by Month", f"{avg_vliquido_by_month:.2f}")
+col1.metric("PM Médio", f"{avg_pm:.2f}")
+col2.metric("Quantidade Média por Mês", f"{avg_qty_month:.2f}")
+col3.metric("Valor Líquido Médio por Mês", f"{avg_vliquido_by_month:.2f}")
 
 # 📦 Quantidade por Mês
-st.subheader("📦 Quantidade por Mês")
+st.subheader("📦 Quantidade Total por Mês")
 st.bar_chart(filtered_df.groupby("Mês")["Quantidade"].sum())
 
-# 💰 Valor Liquido por Mês
-st.subheader("💰 Valor Liquido por Mês")
+# 💰 Valor Líquido por Mês
+st.subheader("💰 Valor Líquido Médio por Mês")
 st.line_chart(filtered_df.groupby("Mês")["Valor liquido"].mean())
 
 # 📋 Dados Filtrados
 st.subheader("📋 Dados Filtrados")
 st.dataframe(filtered_df, use_container_width=True)
+
+# 📥 Download CSV
+st.download_button(
+    label="📥 Baixar dados filtrados como CSV",
+    data=filtered_df.to_csv(index=False).encode("utf-8"),
+    file_name="dados_filtrados.csv",
+    mime="text/csv"
+)
+
+# 🧼 Footer
+st.markdown("---")
+st.markdown("Feito com ❤️ por Paulojt")
