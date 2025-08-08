@@ -25,11 +25,18 @@ def load_data():
         data["PM"] = pd.to_numeric(data["PM"], errors="coerce")
         data["V Líquido"] = pd.to_numeric(data["V Líquido"], errors="coerce")
         
-        # Converting Excel serial date to datetime
-        data["Data"] = pd.TimedeltaIndex(data["Data"], unit="d") + pd.to_datetime("1899-12-30")
-        data["Week"] = data["Data"].dt.isocalendar().week
+        # Clean and convert "Data" column to numeric, handling invalid entries
+        data["Data"] = pd.to_numeric(data["Data"], errors="coerce")
         
-        # Handling missing values
+        # Convert valid Excel serial dates to datetime
+        data["Data"] = data["Data"].apply(
+            lambda x: pd.to_datetime("1899-12-30") + pd.Timedelta(days=x) if pd.notnull(x) else pd.NaT
+        )
+        
+        # Extract week number for valid dates
+        data["Week"] = data["Data"].dt.isocalendar().week.where(data["Data"].notnull(), np.nan)
+        
+        # Handling missing values in critical columns
         data = data.dropna(subset=["Quantidade", "PM", "Mês", "Ano", "Artigo"])
         
         return data
