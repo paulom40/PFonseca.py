@@ -32,10 +32,21 @@ def load_data():
         # Clean and convert "Date" column to numeric, handling invalid entries
         data["Date"] = pd.to_numeric(data["Date"], errors="coerce")
         
-        # Convert valid Excel serial dates to datetime
-        data["Date"] = data["Date"].apply(
-            lambda x: pd.to_datetime("1899-12-30") + pd.Timedelta(days=x) if pd.notnull(x) else pd.NaT
-        )
+        # Convert valid Excel serial dates to datetime, filtering out-of-bounds values
+        def convert_serial_date(x):
+            if pd.notnull(x):
+                # Limit to reasonable date range (e.g., 1900 to 2100)
+                # Excel serial date 1 = 1900-01-01, 73048 ≈ 2100-01-01
+                if 1 <= x <= 73048:
+                    try:
+                        return pd.to_datetime("1899-12-30") + pd.Timedelta(days=x)
+                    except (ValueError, OverflowError):
+                        return pd.NaT
+                else:
+                    return pd.NaT
+            return pd.NaT
+        
+        data["Date"] = data["Date"].apply(convert_serial_date)
         
         # Extract week number for valid dates
         data["Week"] = data["Date"].dt.isocalendar().week.where(data["Date"].notnull(), np.nan)
