@@ -23,15 +23,18 @@ def load_data():
     # 🧼 Clean column names
     df.columns = df.columns.str.strip()
 
-    # 📅 Convert 'Data' to datetime
-    if "Data" in df.columns:
-        df = df.rename(columns={"Data": "Date"})
+    # 📅 Convert 'Date' to datetime
+    if "Date" in df.columns:
         df["Date"] = pd.to_numeric(df["Date"], errors="coerce")
         df["Date"] = df["Date"].apply(
             lambda x: pd.to_datetime("1899-12-30") + pd.Timedelta(days=x)
             if pd.notnull(x) and 1 <= x <= 73048 else pd.NaT
         )
-        df["Week"] = df["Date"].dt.isocalendar().week
+        # Extract week number, handle NaT values
+        df["Week"] = df["Date"].dt.isocalendar().week.where(df["Date"].notna(), pd.NA)
+    else:
+        st.warning("⚠️ 'Date' column not found in dataset. 'Week' column will not be created.")
+        df["Week"] = pd.NA
 
     # 🔢 Convert numeric columns
     for col in ["Quantidade", "PM", "Valor liquido"]:
@@ -61,17 +64,15 @@ filtered_df = df[
 
 # 📈 KPIs
 st.header("📈 Key Performance Indicators")
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3 = st.columns(3)
 
 avg_pm = filtered_df["PM"].mean()
 avg_qty_month = filtered_df.groupby("Mês")["Quantidade"].mean().mean()
-avg_qty_week = filtered_df.groupby("Week")["Quantidade"].mean().mean()
 avg_vliquido_by_month = filtered_df.groupby("Mês")["Valor liquido"].mean().mean()
 
 col1.metric("Average PM", f"{avg_pm:.2f}")
 col2.metric("Average Quantidade by Month", f"{avg_qty_month:.2f}")
-col3.metric("Average Quantidade by Week", f"{avg_qty_week:.2f}")
-col4.metric("Average Valor Liquido by Month", f"{avg_vliquido_by_month:.2f}")
+col3.metric("Average Valor Liquido by Month", f"{avg_vliquido_by_month:.2f}")
 
 # 📦 Quantidade por Mês
 st.subheader("📦 Quantidade por Mês")
