@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import requests
 from io import BytesIO
 
@@ -23,21 +24,13 @@ def load_data():
     # 🧼 Clean column names
     df.columns = df.columns.str.strip()
 
-    # 📅 Convert 'Date' to datetime (optional, removed 'Week' dependency)
+    # 📅 Convert 'Date' to datetime
     if "Date" in df.columns:
-        # Debugging: Show first few raw Date values
-        st.write("First few raw Date values:", df["Date"].head().tolist())
-        # Convert to numeric, coerce invalid values to NaN
         df["Date"] = pd.to_numeric(df["Date"], errors="coerce")
-        # Debugging: Show first few numeric Date values
-        st.write("First few numeric Date values:", df["Date"].head().tolist())
-        # Convert to datetime, cap out-of-bounds values
         df["Date"] = df["Date"].apply(
-            lambda x: pd.NaT if pd.isna(x) or (not isinstance(x, (int, float)) or x < 0 or x > 2958465)
-            else pd.to_datetime("1899-12-30") + pd.Timedelta(days=x)
+            lambda x: pd.to_datetime("1899-12-30") + pd.Timedelta(days=x)
+            if pd.notnull(x) and 0 <= x <= 2958465 else pd.NaT
         )
-        # Debugging: Show first few converted Date values
-        st.write("First few converted Date values:", df["Date"].head().tolist())
     else:
         st.warning("⚠️ 'Date' column not found in dataset.")
 
@@ -51,13 +44,13 @@ def load_data():
     # 🧹 Drop rows missing key fields
     df = df.dropna(subset=["Quantidade", "PM", "Mês", "Ano", "Artigo"])
 
-    # Debugging: Show column names
-    st.write("Loaded DataFrame columns:", df.columns.tolist())
-
     return df
 
 # 📊 Load data
-df = load_data()
+with st.spinner("Loading data..."):
+    df = load_data()
+if df.empty:
+    st.stop()
 
 # 🎛️ Sidebar filters
 st.sidebar.header("🎛️ Filtros")
@@ -71,6 +64,14 @@ filtered_df = df[
     df["Mês"].isin(selected_meses) &
     df["Artigo"].isin(selected_artigos)
 ]
+
+if filtered_df.empty:
+    st.warning("⚠️ No matching data for selected filters.")
+    st.stop()
+
+# 📅 Sort months chronologically
+month_order = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
+filtered_df["Mês"] = pd.Categorical(filtered_df["Mês"], categories=month_order, ordered=True)
 
 # 📈 KPIs
 st.header("📈 Key Performance Indicators")
