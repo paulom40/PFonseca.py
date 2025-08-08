@@ -96,7 +96,7 @@ df_filtrado = df_entidade[
 # -------------------------------
 # 📊 Display Results
 # -------------------------------
-st.title("📊 Vencimentos Comerciais")
+st.title("📊 Vencidos Comerciais")
 st.markdown(f"""
 Exibindo resultados para:
 - **Comercial:** {comercial_selecionado}
