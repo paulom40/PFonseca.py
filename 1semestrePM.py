@@ -1,15 +1,16 @@
 import streamlit as st
 import pandas as pd
+import io
 
-# Set page config
+# 🚀 Page configuration
 st.set_page_config(page_title="Sales Dashboard", layout="wide")
 
-# Display logo/image in top-left corner
+# 🖼️ Display logo in top-left corner
 col_logo, _ = st.columns([1, 5])
 with col_logo:
     st.image("https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png", width=150)
 
-# Fetch data from URL
+# 📥 Load data from Excel file hosted on GitHub
 url = "https://github.com/paulom40/PFonseca.py/raw/main/1semestrePM.xlsx"
 
 @st.cache_data
@@ -20,8 +21,9 @@ def load_data():
 
 df = load_data()
 
-# Sidebar filters
+# 🎛️ Sidebar filters
 st.sidebar.header("🧩 Filtros")
+
 ano_options = sorted(df['ano'].unique())
 selected_ano = st.sidebar.multiselect("Ano", ano_options, default=ano_options)
 
@@ -31,14 +33,14 @@ selected_mes = st.sidebar.multiselect("Mês", mes_options, default=mes_options)
 artigo_options = sorted(df['artigo'].unique())
 selected_artigo = st.sidebar.multiselect("Artigo", artigo_options, default=artigo_options)
 
-# Filter data
+# 🔍 Filter data based on selections
 filtered_df = df[
     (df['ano'].isin(selected_ano)) &
     (df['mês'].isin(selected_mes)) &
     (df['artigo'].isin(selected_artigo))
 ]
 
-# KPIs with icons
+# 📊 KPIs section
 st.header("📊 KPIs")
 col1, col2, col3 = st.columns(3)
 
@@ -53,6 +55,22 @@ with col2:
 with col3:
     st.metric("💰 Média Valor Liquido", f"{avg_valor_liquido:.2f}")
 
-# Display filtered data
+# 📋 Display filtered data
 st.header("📋 Dados Filtrados")
 st.dataframe(filtered_df)
+
+# 📤 Export filtered data to Excel
+def to_excel(df):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Dados Filtrados')
+    return output.getvalue()
+
+excel_data = to_excel(filtered_df)
+
+st.download_button(
+    label="📥 Exportar para Excel",
+    data=excel_data,
+    file_name="dados_filtrados.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
