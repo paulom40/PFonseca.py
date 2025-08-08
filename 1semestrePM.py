@@ -63,11 +63,21 @@ st.sidebar.header("Filters")
 
 # Mês filter (multiselect)
 meses = sorted(df["Mês"].unique()) if not df.empty else []
-selected_meses = st.sidebar.multiselect("Select Mês", meses, default=meses, placeholder="Select months (or leave empty for all)")
+selected_meses = st.sidebar.multiselect(
+    "Select Mês (Months)",
+    options=meses,
+    default=meses,
+    placeholder="Select one or more months (leave empty for all)"
+)
 
 # Artigo filter (multiselect)
 artigos = sorted(df["Artigo"].unique()) if not df.empty else []
-selected_artigos = st.sidebar.multiselect("Select Artigo", artigos, default=artigos, placeholder="Select articles (or leave empty for all)")
+selected_artigos = st.sidebar.multiselect(
+    "Select Artigo (Articles)",
+    options=artigos,
+    default=artigos,
+    placeholder="Select one or more articles (leave empty for all)"
+)
 
 # Filtering data
 filtered_df = df.copy()
