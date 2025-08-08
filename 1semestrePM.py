@@ -100,7 +100,9 @@ avg_qty_month = filtered_df.groupby("Mês")["Quantidade"].mean().mean() if not f
 col2.metric("Average Quantidade by Month", f"{avg_qty_month:.2f}")
 
 # Average Quantidade by Week
-avg_qty_week = filtered_df.groupby("Week")["Quantidade"].mean().mean() if not filtered_df.empty else 0
+# Filter out rows with NaN in Week to avoid NaN in mean calculation
+valid_week_df = filtered_df[filtered_df["Week"].notnull()]
+avg_qty_week = valid_week_df.groupby("Week")["Quantidade"].mean().mean() if not valid_week_df.empty else 0
 col3.metric("Average Quantidade by Week", f"{avg_qty_week:.2f}")
 
 # Displaying the filtered data table
