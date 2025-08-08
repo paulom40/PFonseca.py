@@ -32,6 +32,8 @@ def load_data():
         )
         # Extract week number, handle NaT values
         df["Week"] = df["Date"].dt.isocalendar().week.where(df["Date"].notna(), pd.NA)
+        # Debugging: Show count of valid week values
+        st.write(f"Valid 'Week' values after creation: {df['Week'].notna().sum()}")
     else:
         st.warning("⚠️ 'Date' column not found in dataset. 'Week' column will not be created.")
         df["Week"] = pd.NA
@@ -40,9 +42,14 @@ def load_data():
     for col in ["Quantidade", "PM", "Valor liquido"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
+        else:
+            st.warning(f"⚠️ Column '{col}' not found in dataset.")
 
     # 🧹 Drop rows missing key fields
     df = df.dropna(subset=["Quantidade", "PM", "Mês", "Ano", "Artigo"])
+
+    # Debugging: Show column names
+    st.write("Loaded DataFrame columns:", df.columns.tolist())
 
     return df
 
@@ -61,6 +68,9 @@ filtered_df = df[
     df["Mês"].isin(selected_meses) &
     df["Artigo"].isin(selected_artigos)
 ]
+
+# Debugging: Show count of valid week values after filtering
+st.write(f"Valid 'Week' values in filtered_df: {filtered_df['Week'].notna().sum()}")
 
 # 📈 KPIs
 st.header("📈 Key Performance Indicators")
