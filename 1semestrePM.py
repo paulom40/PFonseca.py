@@ -20,7 +20,7 @@ selected_ano = st.sidebar.multiselect("Ano", ano_options, default=ano_options)
 mes_options = sorted(df['Mês'].unique())
 selected_mes = st.sidebar.multiselect("Mês", mes_options, default=mes_options)
 
-artigo_options = sorted(df['Artigos'].unique())
+artigo_options = sorted(df['Artigo'].unique())
 selected_artigo = st.sidebar.multiselect("Artigo", artigo_options, default=artigo_options)
 
 # Filter data
