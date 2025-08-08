@@ -36,14 +36,14 @@ col1, col2, col3 = st.columns(3)
 
 avg_pm = filtered_df['PM'].mean() if not filtered_df.empty else 0
 avg_quantidade = filtered_df['Quantidade'].mean() if not filtered_df.empty else 0
-avg_valor_liquido = filtered_df['Valor Líquido'].mean() if not filtered_df.empty else 0
+avg_valor_liquido = filtered_df['Valor Liquido'].mean() if not filtered_df.empty else 0
 
 with col1:
     st.metric("Média PM", f"{avg_pm:.2f}")
 with col2:
     st.metric("Média Quantidade", f"{avg_quantidade:.2f}")
 with col3:
-    st.metric("Média Valor Líquido", f"{avg_valor_liquido:.2f}")
+    st.metric("Média Valor Liquido", f"{avg_valor_liquido:.2f}")
 
 # Display filtered data
 st.header("Dados Filtrados")
