@@ -26,10 +26,13 @@ def load_data():
     # 📅 Convert 'Date' to datetime
     if "Date" in df.columns:
         df["Date"] = pd.to_numeric(df["Date"], errors="coerce")
+        # Debugging: Show first few Date values before conversion
+        st.write("First few Date values (raw):", df["Date"].head().tolist())
         df["Date"] = df["Date"].apply(
-            lambda x: pd.to_datetime("1899-12-30") + pd.Timedelta(days=x)
-            if pd.notnull(x) and 1 <= x <= 73048 else pd.NaT
+            lambda x: pd.to_datetime("1899-12-30") + pd.Timedelta(days=x) if pd.notnull(x) and x >= 0 else pd.NaT
         )
+        # Debugging: Show first few Date values after conversion
+        st.write("First few Date values (converted):", df["Date"].head().tolist())
         # Extract week number, handle NaT values
         df["Week"] = df["Date"].dt.isocalendar().week.where(df["Date"].notna(), pd.NA)
         # Debugging: Show count of valid week values
