@@ -145,7 +145,7 @@ if not df.empty:
 
         worksheet3 = writer.sheets['Summary by Entidade']
         valor_index3 = summary_entidade.columns.get_loc('Total_Pending')
-        avg_dias_index3 = summary_entidade.columns.get_loc('Avg_Dias')
+        Avg_dias_index3 = summary_entidade.columns.get_loc('Avg_Dias')
         worksheet3.set_column(valor_index3, valor_index3, 15, currency_format)
         worksheet3.set_column(avg_dias_index3, avg_dias_index3, 10, integer_format)
 
