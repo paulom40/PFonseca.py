@@ -83,7 +83,7 @@ if not df.empty:
         Count=('Dias', 'count')
     ).reset_index()
     summary_comercial['Total_Pending'] = summary_comercial['Total_Pending'].round(2)
-    summary_comercial['Avg_Dias'] = summary_comercial['Avg_Dias'].round(1)
+    summary_comercial['Avg_Dias'] = summary_comercial['Avg_Dias'].round(0).astype(int)
     summary_comercial_display = summary_comercial.copy()
     summary_comercial_display['Total_Pending'] = summary_comercial_display['Total_Pending'].apply(lambda x: f"€{x:,.2f}")
     st.table(summary_comercial_display)
@@ -96,7 +96,7 @@ if not df.empty:
         Count=('Dias', 'count')
     ).reset_index()
     summary_entidade['Total_Pending'] = summary_entidade['Total_Pending'].round(2)
-    summary_entidade['Avg_Dias'] = summary_entidade['Avg_Dias'].round(1)
+    summary_entidade['Avg_Dias'] = summary_entidade['Avg_Dias'].round(0).astype(int)
     summary_entidade_display = summary_entidade.copy()
     summary_entidade_display['Total_Pending'] = summary_entidade_display['Total_Pending'].apply(lambda x: f"€{x:,.2f}")
     st.table(summary_entidade_display)
@@ -136,11 +136,15 @@ if not df.empty:
 
         worksheet2 = writer.sheets['Summary by Comercial']
         valor_index2 = summary_comercial.columns.get_loc('Total_Pending')
+        avg_dias_index2 = summary_comercial.columns.get_loc('Avg_Dias')
         worksheet2.set_column(valor_index2, valor_index2, 15, currency_format)
+        worksheet2.set_column(avg_dias_index2, avg_dias_index2, 10, integer_format)
 
         worksheet3 = writer.sheets['Summary by Entidade']
         valor_index3 = summary_entidade.columns.get_loc('Total_Pending')
+        avg_dias_index3 = summary_entidade.columns.get_loc('Avg_Dias')
         worksheet3.set_column(valor_index3, valor_index3, 15, currency_format)
+        worksheet3.set_column(avg_dias_index3, avg_dias_index3, 10, integer_format)
 
     output.seek(0)
     st.download_button(
