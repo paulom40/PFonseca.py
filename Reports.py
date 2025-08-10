@@ -60,7 +60,7 @@ if not df.empty:
 
     # Format Dias and Valor Pendente for display
     filtered_df_display = filtered_df.copy()
-    filtered_df_display['Dias'] = filtered_df_display['Dias'].astype('Int64')
+    filtered_df_display['Dias'] = pd.to_numeric(filtered_df_display['Dias'], downcast='integer', errors='coerce')
     filtered_df_display['Valor Pendente'] = filtered_df_display['Valor Pendente'].apply(lambda x: f"€{x:,.2f}")
 
     # Display overdue records
