@@ -7,7 +7,6 @@ from io import BytesIO
 
 st.set_page_config(page_title="Overdue Payment Reports", layout="wide")
 
-
 # Load the Excel data from GitHub
 @st.cache_data
 def load_data():
@@ -21,6 +20,10 @@ def load_data():
             bins=[10, 30, 60, 90, float('inf')],
             labels=['11-30 days', '31-60 days', '61-90 days', '90+ days']
         )
+        # Convert date columns to datetime
+        df['Data Venc.'] = pd.to_datetime(df['Data Venc.'], errors='coerce')
+        df['Data Doc.'] = pd.to_datetime(df['Data Doc.'], errors='coerce')
+        df['Data Receb.'] = pd.to_datetime(df['Data Receb.'], errors='coerce')
         return df
     else:
         st.error("❌ Failed to load V0808.xlsx from GitHub. Check the URL or repository access.")
@@ -28,7 +31,7 @@ def load_data():
 
 # App title and description
 st.markdown("<h1 style='color:#4B8BBE;'>📊 Relatório Recebimentos </h1>", unsafe_allow_html=True)
-st.markdown("<p style='color:#555;'>Relatório desde <b>V0808.xlsx</b>. Filter by Comercial, Entidade, and Off Days range.</p>", unsafe_allow_html=True)
+st.markdown("<p style='color:#555;'>Relatório desde <b>V0808.xlsx</b>. Filter by Comercial, Entidade, Off Days range, and Date columns.</p>", unsafe_allow_html=True)
 
 # Load data
 df = load_data()
@@ -56,8 +59,26 @@ if not df.empty:
     )
     min_dias, max_dias = dias_range
 
+    # 🔄 NEW: Date column selector and range filter
+    date_column = st.sidebar.selectbox(
+        "🗂️ Choose date column to filter",
+        options=['Data Venc.', 'Data Doc.', 'Data Receb.']
+    )
+    min_date = df[date_column].min()
+    max_date = df[date_column].max()
+    selected_date_range = st.sidebar.date_input(
+        f"📆 Select {date_column} range",
+        value=(min_date, max_date),
+        min_value=min_date,
+        max_value=max_date
+    )
+    start_date, end_date = selected_date_range
+
     # Apply filters
-    filtered_df = df[(df['Dias'] >= min_dias) & (df['Dias'] <= max_dias)]
+    filtered_df = df[
+        (df['Dias'] >= min_dias) & (df['Dias'] <= max_dias) &
+        (df[date_column] >= pd.to_datetime(start_date)) & (df[date_column] <= pd.to_datetime(end_date))
+    ]
     if selected_comercial:
         filtered_df = filtered_df[filtered_df['Comercial'].isin(selected_comercial)]
     if selected_entidade:
@@ -68,8 +89,12 @@ if not df.empty:
     filtered_df_display['Dias'] = filtered_df_display['Dias'].round(0).astype(int)
     filtered_df_display['Valor Pendente'] = filtered_df_display['Valor Pendente'].apply(lambda x: f"€{x:,.2f}")
 
-    # Display selected range
+    # Display selected ranges
     st.markdown(f"<h4 style='color:#4B8BBE;'>📅 Análise desde os dias <b>{min_dias}</b> a <b>{max_dias}</b></h4>", unsafe_allow_html=True)
+    st.markdown(
+        f"<h5 style='color:#4B8BBE;'>📆 Registos com <b>{date_column}</b> entre <b>{start_date.strftime('%d-%m-%Y')}</b> e <b>{end_date.strftime('%d-%m-%Y')}</b></h5>",
+        unsafe_allow_html=True
+    )
 
     # Display overdue records
     st.markdown("### 📋 Tabela de dados:")
@@ -104,17 +129,7 @@ if not df.empty:
     summary_entidade_display['Total_Pending'] = summary_entidade_display['Total_Pending'].apply(lambda x: f"€{x:,.2f}")
     st.table(summary_entidade_display)
 
-    # Overdue distribution chart
-    st.markdown("### 📊 Overdue Distribution by Dias Category")
-    fig, ax = plt.subplots()
-    filtered_df['Overdue Category'].value_counts().sort_index().plot(
-        kind='bar',
-        ax=ax,
-        color=['#4B8BBE', '#FFB000', '#00B26F', '#D7263D']
-    )
-    ax.set_xlabel('Overdue Category')
-    ax.set_ylabel('Count')
-    st.pyplot(fig)
+    # ❌ REMOVED: Overdue distribution chart
 
     # Excel download
     st.markdown("### 📥 Download Filtered Data")
