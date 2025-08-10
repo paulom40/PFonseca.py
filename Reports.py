@@ -5,6 +5,9 @@ import requests
 import io
 from io import BytesIO
 
+st.set_page_config(page_title="Overdue Payment Reports", layout="wide")
+
+
 # Load the Excel data from GitHub
 @st.cache_data
 def load_data():
