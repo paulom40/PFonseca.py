@@ -25,7 +25,7 @@ def load_data():
 
 # App title and description
 st.markdown("<h1 style='color:#4B8BBE;'>📊 Overdue Payment Reports</h1>", unsafe_allow_html=True)
-st.markdown("<p style='color:#555;'>Interactive reports from <b>V0808.xlsx</b>. Filter by Comercial, Entidade, and Dias.</p>", unsafe_allow_html=True)
+st.markdown("<p style='color:#555;'>Interactive reports from <b>V0808.xlsx</b>. Filter by Comercial, Entidade, and Off Days range.</p>", unsafe_allow_html=True)
 
 # Load data
 df = load_data()
@@ -44,15 +44,17 @@ if not df.empty:
         options=sorted(df['Entidade'].dropna().unique()),
         default=[]
     )
-    min_dias = st.sidebar.slider(
-        '📅 Minimum Dias',
+    dias_range = st.sidebar.slider(
+        '📅 Select Off Days Range',
         min_value=0,
         max_value=int(df['Dias'].max()),
-        value=0
+        value=(0, int(df['Dias'].max())),
+        step=1
     )
+    min_dias, max_dias = dias_range
 
     # Apply filters
-    filtered_df = df[df['Dias'] >= min_dias]
+    filtered_df = df[(df['Dias'] >= min_dias) & (df['Dias'] <= max_dias)]
     if selected_comercial:
         filtered_df = filtered_df[filtered_df['Comercial'].isin(selected_comercial)]
     if selected_entidade:
@@ -62,6 +64,9 @@ if not df.empty:
     filtered_df_display = filtered_df.copy()
     filtered_df_display['Dias'] = pd.to_numeric(filtered_df_display['Dias'], downcast='integer', errors='coerce')
     filtered_df_display['Valor Pendente'] = filtered_df_display['Valor Pendente'].apply(lambda x: f"€{x:,.2f}")
+
+    # Display selected range
+    st.markdown(f"<h4 style='color:#4B8BBE;'>📅 Showing records with Dias between <b>{min_dias}</b> and <b>{max_dias}</b></h4>", unsafe_allow_html=True)
 
     # Display overdue records
     st.markdown("### 📋 Filtered Records Table")
