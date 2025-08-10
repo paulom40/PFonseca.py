@@ -69,7 +69,7 @@ if not df.empty:
     filtered_df_display['Valor Pendente'] = filtered_df_display['Valor Pendente'].apply(lambda x: f"€{x:,.2f}")
 
     # Display selected range
-    st.markdown(f"<h4 style='color:#4B8BBE;'>📅 Showing records with Dias between <b>{min_dias}</b> and <b>{max_dias}</b></h4>", unsafe_allow_html=True)
+    st.markdown(f"<h4 style='color:#4B8BBE;'>📅 Análise dese dos dias <b>{min_dias}</b> and <b>{max_dias}</b></h4>", unsafe_allow_html=True)
 
     # Display overdue records
     st.markdown("### 📋 Filtered Records Table")
