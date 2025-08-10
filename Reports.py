@@ -106,7 +106,7 @@ if not df.empty:
     # Display overdue records
     st.markdown("### 📋 Tabela de dados:")
     st.dataframe(
-        filtered_df_display[['Comercial', 'Entidade', 'Dias', 'Valor Pendente', 'Documento', 'Série', 'N.º Doc.', 'Categoria']],
+        filtered_df_display[['Comercial', 'Entidade', 'Data Venc.', 'Dias', 'Valor Pendente', 'Documento', 'N.º Doc.', 'Categoria']],
         use_container_width=True
     )
 
