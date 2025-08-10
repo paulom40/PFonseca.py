@@ -82,11 +82,11 @@ if not df.empty:
     st.markdown("### 🧮 Relatório por Comercial")
     summary_comercial = filtered_df.groupby('Comercial').agg(
         Total_Pending=('Valor Pendente', 'sum'),
-        Avg_Dias=('Dias', 'mean'),
+        Max_Dias=('Dias', 'max'),
         Count=('Dias', 'count')
     ).reset_index()
     summary_comercial['Total_Pending'] = summary_comercial['Total_Pending'].round(2)
-    summary_comercial['Avg_Dias'] = summary_comercial['Avg_Dias'].round(0).astype(int)
+    summary_comercial['Max_Dias'] = summary_comercial['Max_Dias'].round(0).astype(int)
     summary_comercial_display = summary_comercial.copy()
     summary_comercial_display['Total_Pending'] = summary_comercial_display['Total_Pending'].apply(lambda x: f"€{x:,.2f}")
     st.table(summary_comercial_display)
@@ -95,11 +95,11 @@ if not df.empty:
     st.markdown("### 🧾 Relatório por Entidade")
     summary_entidade = filtered_df.groupby('Entidade').agg(
         Total_Pending=('Valor Pendente', 'sum'),
-        Avg_Dias=('Dias', 'mean'),
+        Max_Dias=('Dias', 'max'),
         Count=('Dias', 'count')
     ).reset_index()
     summary_entidade['Total_Pending'] = summary_entidade['Total_Pending'].round(2)
-    summary_entidade['Avg_Dias'] = summary_entidade['Avg_Dias'].round(0).astype(int)
+    summary_entidade['Max_Dias'] = summary_entidade['Max_Dias'].round(0).astype(int)
     summary_entidade_display = summary_entidade.copy()
     summary_entidade_display['Total_Pending'] = summary_entidade_display['Total_Pending'].apply(lambda x: f"€{x:,.2f}")
     st.table(summary_entidade_display)
