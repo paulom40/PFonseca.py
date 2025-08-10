@@ -79,7 +79,7 @@ if not df.empty:
     )
 
     # Summary by Comercial
-    st.markdown("### 🧮 Summary by Comercial")
+    st.markdown("### 🧮 Relatório por Comercial")
     summary_comercial = filtered_df.groupby('Comercial').agg(
         Total_Pending=('Valor Pendente', 'sum'),
         Avg_Dias=('Dias', 'mean'),
@@ -92,7 +92,7 @@ if not df.empty:
     st.table(summary_comercial_display)
 
     # Summary by Entidade
-    st.markdown("### 🧾 Summary by Entidade")
+    st.markdown("### 🧾 Relatório por Entidade")
     summary_entidade = filtered_df.groupby('Entidade').agg(
         Total_Pending=('Valor Pendente', 'sum'),
         Avg_Dias=('Dias', 'mean'),
