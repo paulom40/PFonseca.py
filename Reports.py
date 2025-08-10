@@ -62,7 +62,7 @@ if not df.empty:
 
     # Format Dias and Valor Pendente for display
     filtered_df_display = filtered_df.copy()
-    filtered_df_display['Dias'] = pd.to_numeric(filtered_df_display['Dias'], downcast='integer', errors='coerce')
+    filtered_df_display['Dias'] = filtered_df_display['Dias'].round(0).astype(int)
     filtered_df_display['Valor Pendente'] = filtered_df_display['Valor Pendente'].apply(lambda x: f"€{x:,.2f}")
 
     # Display selected range
@@ -125,10 +125,13 @@ if not df.empty:
         # Apply formatting
         workbook = writer.book
         currency_format = workbook.add_format({'num_format': '€#,##0.00'})
+        integer_format = workbook.add_format({'num_format': '0'})
 
-        # Format Valor Pendente columns
+        # Format Dias and Valor Pendente columns
         worksheet1 = writer.sheets['Filtered Records']
+        dias_index1 = filtered_df.columns.get_loc('Dias')
         valor_index1 = filtered_df.columns.get_loc('Valor Pendente')
+        worksheet1.set_column(dias_index1, dias_index1, 10, integer_format)
         worksheet1.set_column(valor_index1, valor_index1, 15, currency_format)
 
         worksheet2 = writer.sheets['Summary by Comercial']
