@@ -147,7 +147,7 @@ if not df.empty:
         valor_index3 = summary_entidade.columns.get_loc('Total_Pending')
         Max_dias_index3 = summary_entidade.columns.get_loc('Max_Dias')
         worksheet3.set_column(valor_index3, valor_index3, 15, currency_format)
-        worksheet3.set_column(avg_dias_index3, avg_dias_index3, 10, integer_format)
+        worksheet3.set_column(Max_dias_index3, Max_dias_index3, 10, integer_format)
 
     output.seek(0)
     st.download_button(
