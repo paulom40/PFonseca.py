@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 import requests
 import io
 from io import BytesIO
@@ -20,10 +19,10 @@ def load_data():
             bins=[10, 30, 60, 90, float('inf')],
             labels=['11-30 days', '31-60 days', '61-90 days', '90+ days']
         )
-        # Convert date columns to datetime
-        df['Data Venc.'] = pd.to_datetime(df['Data Venc.'], errors='coerce')
-        df['Data Doc.'] = pd.to_datetime(df['Data Doc.'], errors='coerce')
-        df['Data Receb.'] = pd.to_datetime(df['Data Receb.'], errors='coerce')
+        # Convert only existing date columns
+        for col in ['Data Venc.', 'Data Doc.', 'Data Receb.']:
+            if col in df.columns:
+                df[col] = pd.to_datetime(df[col], errors='coerce')
         return df
     else:
         st.error("❌ Failed to load V0808.xlsx from GitHub. Check the URL or repository access.")
@@ -31,7 +30,7 @@ def load_data():
 
 # App title and description
 st.markdown("<h1 style='color:#4B8BBE;'>📊 Relatório Recebimentos </h1>", unsafe_allow_html=True)
-st.markdown("<p style='color:#555;'>Relatório desde <b>V0808.xlsx</b>. Filter by Comercial, Entidade, Off Days range, and Date columns.</p>", unsafe_allow_html=True)
+st.markdown("<p style='color:#555;'>Relatório desde <b>V0808.xlsx</b>. Filter by Comercial, Entidade, Dias range, and Date columns.</p>", unsafe_allow_html=True)
 
 # Load data
 df = load_data()
@@ -40,16 +39,19 @@ if not df.empty:
     # Sidebar filters
     st.sidebar.markdown("### 🎛️ Filters")
     st.sidebar.markdown("---")
+
     selected_comercial = st.sidebar.multiselect(
         '🧑‍💼 Select Comercial',
         options=sorted(df['Comercial'].dropna().unique()),
         default=sorted(df['Comercial'].dropna().unique())
     )
+
     selected_entidade = st.sidebar.multiselect(
         '🏢 Select Entidade',
         options=sorted(df['Entidade'].dropna().unique()),
         default=[]
     )
+
     dias_range = st.sidebar.slider(
         '📅 Select Off Days Range',
         min_value=0,
@@ -59,13 +61,16 @@ if not df.empty:
     )
     min_dias, max_dias = dias_range
 
-    # 🔄 NEW: Date column selector and range filter
+    # Date column selector and range filter
+    available_date_columns = [col for col in ['Data Venc.', 'Data Doc.', 'Data Receb.'] if col in df.columns]
     date_column = st.sidebar.selectbox(
         "🗂️ Choose date column to filter",
-        options=['Data Venc.', 'Data Doc.', 'Data Receb.']
+        options=available_date_columns
     )
+
     min_date = df[date_column].min()
     max_date = df[date_column].max()
+
     selected_date_range = st.sidebar.date_input(
         f"📆 Select {date_column} range",
         value=(min_date, max_date),
@@ -79,8 +84,10 @@ if not df.empty:
         (df['Dias'] >= min_dias) & (df['Dias'] <= max_dias) &
         (df[date_column] >= pd.to_datetime(start_date)) & (df[date_column] <= pd.to_datetime(end_date))
     ]
+
     if selected_comercial:
         filtered_df = filtered_df[filtered_df['Comercial'].isin(selected_comercial)]
+
     if selected_entidade:
         filtered_df = filtered_df[filtered_df['Entidade'].isin(selected_entidade)]
 
@@ -128,8 +135,6 @@ if not df.empty:
     summary_entidade_display = summary_entidade.copy()
     summary_entidade_display['Total_Pending'] = summary_entidade_display['Total_Pending'].apply(lambda x: f"€{x:,.2f}")
     st.table(summary_entidade_display)
-
-    # ❌ REMOVED: Overdue distribution chart
 
     # Excel download
     st.markdown("### 📥 Download Filtered Data")
