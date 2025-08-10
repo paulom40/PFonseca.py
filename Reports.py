@@ -82,11 +82,11 @@ if not df.empty:
     st.markdown("### 🧮 Relatório por Comercial")
     summary_comercial = filtered_df.groupby('Comercial').agg(
         Total_Pending=('Valor Pendente', 'sum'),
-        Avr_Dias=('Dias', 'mean'),
+        Avg_Dias=('Dias', 'mean'),
         Count=('Dias', 'count')
     ).reset_index()
     summary_comercial['Total_Pending'] = summary_comercial['Total_Pending'].round(2)
-    summary_comercial['Avr_Dias'] = summary_comercial['Avr_Dias'].round(0).astype(int)
+    summary_comercial['Avg_Dias'] = summary_comercial['Avg_Dias'].round(0).astype(int)
     summary_comercial_display = summary_comercial.copy()
     summary_comercial_display['Total_Pending'] = summary_comercial_display['Total_Pending'].apply(lambda x: f"€{x:,.2f}")
     st.table(summary_comercial_display)
