@@ -28,7 +28,7 @@ def load_data():
 
 # App title and description
 st.markdown("<h1 style='color:#4B8BBE;'>📊 Relatório Recebimentos </h1>", unsafe_allow_html=True)
-st.markdown("<p style='color:#555;'>Interactive reports from <b>V0808.xlsx</b>. Filter by Comercial, Entidade, and Off Days range.</p>", unsafe_allow_html=True)
+st.markdown("<p style='color:#555;'>Relatório desde <b>V0808.xlsx</b>. Filter by Comercial, Entidade, and Off Days range.</p>", unsafe_allow_html=True)
 
 # Load data
 df = load_data()
