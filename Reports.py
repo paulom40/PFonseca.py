@@ -8,7 +8,7 @@ from io import BytesIO
 USER_CREDENTIALS = {
     "admin": "1234",
     "paulo": "teste",
-    "Zé Miguel: "bracar"
+    "Zé_Miguel: "bracar"
 }
 
 def login():
