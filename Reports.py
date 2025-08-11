@@ -30,7 +30,7 @@ def load_data():
 
 # App title and description
 st.markdown("<h1 style='color:#4B8BBE;'>📊 Relatório Recebimentos </h1>", unsafe_allow_html=True)
-st.markdown("<p style='color:#555;'>Relatório desde <b>V0808.xlsx</b>. Filter by Comercial, Entidade, Dias range, and Date columns.</p>", unsafe_allow_html=True)
+st.markdown("<p style='color:#555;'>Atualizado em 10/08/2025'</b>.
 
 # Load data
 df = load_data()
