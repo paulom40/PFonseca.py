@@ -4,9 +4,32 @@ import requests
 import io
 from io import BytesIO
 
+# ------------------ 🔐 LOGIN SYSTEM ------------------
+USER_CREDENTIALS = {
+    "admin": "1234",
+    "paulo": "senha_segura"
+}
+
+def login():
+    st.sidebar.title("🔐 Login")
+    username = st.sidebar.text_input("Username")
+    password = st.sidebar.text_input("Password", type="password")
+    if st.sidebar.button("Login"):
+        if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == password:
+            st.session_state["authenticated"] = True
+        else:
+            st.error("❌ Invalid username or password")
+
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+if not st.session_state["authenticated"]:
+    login()
+    st.stop()
+
+# ------------------ 📊 MAIN APP ------------------
 st.set_page_config(page_title="Overdue Payment Reports", layout="wide")
 
-# Load the Excel data from GitHub
 @st.cache_data
 def load_data():
     url = "https://github.com/paulom40/PFonseca.py/raw/main/V0808.xlsx"
@@ -19,7 +42,6 @@ def load_data():
             bins=[10, 30, 60, 90, float('inf')],
             labels=['11-30 days', '31-60 days', '61-90 days', '90+ days']
         )
-        # Convert only existing date columns
         for col in ['Data Venc.', 'Data Doc.', 'Data Receb.']:
             if col in df.columns:
                 df[col] = pd.to_datetime(df[col], errors='coerce')
@@ -28,16 +50,12 @@ def load_data():
         st.error("❌ Failed to load V0808.xlsx from GitHub. Check the URL or repository access.")
         return pd.DataFrame()
 
-# App title and description
 st.markdown("<h1 style='color:#4B8BBE;'>📊 Relatório Recebimentos </h1>", unsafe_allow_html=True)
-st.markdown('**Atualizado em 10/08/2025**')  # Using double asterisks
+st.markdown('**Atualizado em 10/08/2025**')
 
-
-# Load data
 df = load_data()
 
 if not df.empty:
-    # Sidebar filters
     st.sidebar.markdown("### 🎛️ Filters")
     st.sidebar.markdown("---")
 
@@ -62,7 +80,6 @@ if not df.empty:
     )
     min_dias, max_dias = dias_range
 
-    # Date column selector and range filter
     available_date_columns = [col for col in ['Data Venc.', 'Data Doc.', 'Data Receb.'] if col in df.columns]
     date_column = st.sidebar.selectbox(
         "🗂️ Choose date column to filter",
@@ -80,7 +97,6 @@ if not df.empty:
     )
     start_date, end_date = selected_date_range
 
-    # Apply filters
     filtered_df = df[
         (df['Dias'] >= min_dias) & (df['Dias'] <= max_dias) &
         (df[date_column] >= pd.to_datetime(start_date)) & (df[date_column] <= pd.to_datetime(end_date))
@@ -92,26 +108,22 @@ if not df.empty:
     if selected_entidade:
         filtered_df = filtered_df[filtered_df['Entidade'].isin(selected_entidade)]
 
-    # Format Dias and Valor Pendente for display
     filtered_df_display = filtered_df.copy()
     filtered_df_display['Dias'] = filtered_df_display['Dias'].round(0).astype(int)
     filtered_df_display['Valor Pendente'] = filtered_df_display['Valor Pendente'].apply(lambda x: f"€{x:,.2f}")
 
-    # Display selected ranges
     st.markdown(f"<h4 style='color:#4B8BBE;'>📅 Análise desde os dias <b>{min_dias}</b> a <b>{max_dias}</b></h4>", unsafe_allow_html=True)
     st.markdown(
         f"<h5 style='color:#4B8BBE;'>📆 Registos com <b>{date_column}</b> entre <b>{start_date.strftime('%d-%m-%Y')}</b> e <b>{end_date.strftime('%d-%m-%Y')}</b></h5>",
         unsafe_allow_html=True
     )
 
-    # Display overdue records
     st.markdown("### 📋 Tabela de dados:")
     st.dataframe(
         filtered_df_display[['Comercial', 'Entidade', 'Data Venc.', 'Dias', 'Valor Pendente', 'Documento', 'N.º Doc.', 'Categoria']],
         use_container_width=True
     )
 
-    # Summary by Comercial
     st.markdown("### 🧮 Relatório por Comercial")
     summary_comercial = filtered_df.groupby('Comercial').agg(
         Total_Pending=('Valor Pendente', 'sum'),
@@ -124,7 +136,6 @@ if not df.empty:
     summary_comercial_display['Total_Pending'] = summary_comercial_display['Total_Pending'].apply(lambda x: f"€{x:,.2f}")
     st.table(summary_comercial_display)
 
-    # Summary by Entidade
     st.markdown("### 🧾 Relatório por Entidade")
     summary_entidade = filtered_df.groupby('Entidade').agg(
         Total_Pending=('Valor Pendente', 'sum'),
@@ -137,21 +148,17 @@ if not df.empty:
     summary_entidade_display['Total_Pending'] = summary_entidade_display['Total_Pending'].apply(lambda x: f"€{x:,.2f}")
     st.table(summary_entidade_display)
 
-    # Excel download
     st.markdown("### 📥 Download Filtered Data")
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        # Write data
         filtered_df.to_excel(writer, index=False, sheet_name='Filtered Records')
         summary_comercial.to_excel(writer, index=False, sheet_name='Summary by Comercial')
         summary_entidade.to_excel(writer, index=False, sheet_name='Summary by Entidade')
 
-        # Apply formatting
         workbook = writer.book
         currency_format = workbook.add_format({'num_format': '€#,##0.00'})
         integer_format = workbook.add_format({'num_format': '0'})
 
-        # Format Dias and Valor Pendente columns
         worksheet1 = writer.sheets['Filtered Records']
         dias_index1 = filtered_df.columns.get_loc('Dias')
         valor_index1 = filtered_df.columns.get_loc('Valor Pendente')
