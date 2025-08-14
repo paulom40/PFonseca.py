@@ -29,7 +29,7 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # ------------------ 📊 MAIN APP ------------------
-st.set_page_config(page_title="Overdue Payment Reports", layout="wide")
+st.set_page_config(page_title="Bracar Reports", layout="wide")
 
 @st.cache_data
 def load_data():
