@@ -52,7 +52,7 @@ def load_data():
         return pd.DataFrame()
 
 st.markdown("<h1 style='color:#4B8BBE;'>📊 Relatório Recebimentos </h1>", unsafe_allow_html=True)
-st.markdown('**Atualizado em 10/08/2025**')
+st.markdown('**Atualizado em 13/08/2025**')
 
 df = load_data()
 
