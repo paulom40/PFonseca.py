@@ -88,7 +88,7 @@ st.markdown("""
 # Hardcoded credentials (for demo purposes; use a secure database in production)
 credentials = {
     "admin": "password123",
-    "user1": "sales2025",
+    "paulo": "teste",
     "user2": "dashboard456"
 }
 
