@@ -215,4 +215,5 @@ def dashboard_page():
         st.rerun()
 
     st.markdown("---")
-    st.markdown("<p style='text-align: center; color: #ffffff;'>Created with ❤️ using Streamlit</p")
+    st.markdown("<p style='text-align: center; color: #ffffff;'>Created with ❤️ using Streamlit</p>", unsafe_allow_html=True)
+
