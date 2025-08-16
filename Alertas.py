@@ -5,7 +5,7 @@ from io import BytesIO
 # 🚀 Page configuration
 st.set_page_config(page_title="Sales Dashboard", layout="wide", page_icon="📊")
 
-# 🌌 Custom CSS for animated background and sleek login
+# 🌌 Custom CSS for animated background and refined login
 st.markdown("""
     <style>
     body {
@@ -14,7 +14,7 @@ st.markdown("""
         overflow: hidden;
     }
     .main {
-        background: linear-gradient(-45deg, #1f1c2c, #928dab, #2c3e50, #34495e);
+        background: linear-gradient(-45deg, #2c3e50, #34495e, #2c3e50, #34495e);
         background-size: 400% 400%;
         animation: gradientBG 15s ease infinite;
         padding: 20px;
@@ -26,12 +26,12 @@ st.markdown("""
         100% {background-position: 0% 50%;}
     }
     .login-card {
-        background: rgba(0, 0, 0, 0.7);
+        background: rgba(255, 255, 255, 0.05);
         padding: 40px;
-        border-radius: 30px;
+        border-radius: 20px;
         box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
         max-width: 400px;
-        margin: 60px auto;
+        margin: 80px auto;
         text-align: center;
         color: #ecf0f1;
         font-family: 'Segoe UI', sans-serif;
@@ -43,7 +43,7 @@ st.markdown("""
     }
     .login-title {
         color: #ffffff;
-        font-size: 28px;
+        font-size: 26px;
         margin-bottom: 25px;
         text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
     }
@@ -52,13 +52,14 @@ st.markdown("""
         justify-content: center;
     }
     .stTextInput input {
-        width: 50% !important;
-        background-color: #2c3e50;
+        width: 60% !important;
+        background-color: #34495e;
         color: #ecf0f1;
         border: 2px solid #3498db;
         border-radius: 10px;
         padding: 10px;
         margin-bottom: 15px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
         transition: border-color 0.3s ease;
     }
     .stTextInput input:focus {
@@ -95,7 +96,7 @@ st.markdown("""
     .logo {
         display: block;
         margin: 0 auto 20px auto;
-        border-radius: 50%;
+        border-radius: 10px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     }
     </style>
@@ -214,11 +215,4 @@ def dashboard_page():
         st.rerun()
 
     st.markdown("---")
-    st.markdown("<p style='text-align: center; color: #ffffff;'>Created with ❤️ using Streamlit</p>", unsafe_allow_html=True)
-
-# 🧠 Main app logic
-if not st.session_state.logged_in:
-    login_page()
-else:
-    dashboard_page()
-
+    st.markdown("<p style='text-align: center; color: #ffffff;'>Created with ❤️ using Streamlit</p
