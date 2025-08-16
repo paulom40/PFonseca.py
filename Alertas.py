@@ -50,7 +50,7 @@ filtered_df = df[
     (df['Entidade'].isin(selected_entidade))
 ]
 
-st.title("Invoice Aging Alerts")
+st.title("Alertas Vencimentos")
 
 # Summary data
 summary = []
