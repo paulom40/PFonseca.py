@@ -99,7 +99,7 @@ if 'logged_in' not in st.session_state:
 # Login page
 def login_page():
     st.markdown("<div class='login-card'>", unsafe_allow_html=True)
-    st.image("https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png", width=150, caption="", use_column_width=False)
+    st.image("https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png", width=150, caption="", use_container_width=False)
     st.markdown("<h2 class='login-title'>🔐 Login to Sales Dashboard</h2>", unsafe_allow_html=True)
     with st.form(key='login_form'):
         username = st.text_input("Username", placeholder="Enter your username")
