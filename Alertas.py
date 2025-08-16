@@ -22,11 +22,11 @@ df = df.dropna(subset=['Dias'])
 
 # Define the ranges and labels
 ranges = [
-    (-40, -30, "Overdue 30-40 days"),
-    (-30, -20, "Overdue 20-30 days"),
-    (-20, -10, "Overdue 10-20 days"),
-    (-10, 0, "Overdue 0-10 days"),
-    (0, 10, "Due in 0-10 days")
+    (-40, -30, "30-40 dias"),
+    (-30, -20, "20-30 dias"),
+    (-20, -10, "10-20 dias"),
+    (-10, 0, "0-10 dias"),
+    (0, 10, "0-10 dias")
 ]
 
 # Sidebar for filters
