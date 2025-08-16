@@ -5,7 +5,7 @@ from io import BytesIO
 # 🚀 Page configuration
 st.set_page_config(page_title="Sales Dashboard", layout="wide", page_icon="📊")
 
-# 🌌 Custom CSS for animated background and stylish login
+# 🌌 Custom CSS for animated background and sleek login
 st.markdown("""
     <style>
     body {
@@ -24,40 +24,6 @@ st.markdown("""
         0% {background-position: 0% 50%;}
         50% {background-position: 100% 50%;}
         100% {background-position: 0% 50%;}
-    }
-    .sidebar .sidebar-content {
-        background-color: #e6f3ff;
-    }
-    h1 {
-        color: #ffffff;
-        text-align: center;
-        font-family: 'Segoe UI', sans-serif;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
-    }
-    h2 {
-        color: #2980b9;
-        font-family: 'Segoe UI', sans-serif;
-    }
-    h3 {
-        color: #e74c3c;
-        font-family: 'Segoe UI', sans-serif;
-    }
-    .stDataFrame {
-        border: 2px solid #3498db;
-        border-radius: 10px;
-        padding: 10px;
-    }
-    .stButton>button {
-        background-color: #4CAF50;
-        color: white;
-        border-radius: 8px;
-        padding: 10px 20px;
-        font-weight: bold;
-        transition: all 0.3s ease;
-    }
-    .stButton>button:hover {
-        background-color: #45a049;
-        transform: scale(1.05);
     }
     .login-card {
         background: rgba(0, 0, 0, 0.7);
@@ -81,7 +47,12 @@ st.markdown("""
         margin-bottom: 25px;
         text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
     }
+    .stTextInput {
+        display: flex;
+        justify-content: center;
+    }
     .stTextInput input {
+        width: 50% !important;
         background-color: #2c3e50;
         color: #ecf0f1;
         border: 2px solid #3498db;
@@ -93,6 +64,23 @@ st.markdown("""
     .stTextInput input:focus {
         border-color: #2980b9;
         outline: none;
+    }
+    .stButton {
+        display: flex;
+        justify-content: center;
+    }
+    .stButton>button {
+        background-color: #3498db;
+        color: white;
+        border-radius: 10px;
+        padding: 12px 24px;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+    .stButton>button:hover {
+        background-color: #2980b9;
+        transform: scale(1.05);
     }
     .error-message {
         color: #e74c3c;
@@ -220,3 +208,17 @@ def dashboard_page():
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             key="download_button"
         )
+
+    if st.button("🔓 Logout"):
+        st.session_state.logged_in = False
+        st.rerun()
+
+    st.markdown("---")
+    st.markdown("<p style='text-align: center; color: #ffffff;'>Created with ❤️ using Streamlit</p>", unsafe_allow_html=True)
+
+# 🧠 Main app logic
+if not st.session_state.logged_in:
+    login_page()
+else:
+    dashboard_page()
+``
