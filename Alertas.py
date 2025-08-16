@@ -49,11 +49,13 @@ st.markdown("""
     .login-card {
         background-color: white;
         padding: 30px;
-        border-radius: 15px;
+        border-radius: 50%; /* Changed to circular */
         box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
         max-width: 400px;
         margin: 50px auto;
         text-align: center;
+        display: inline-block;
+        vertical-align: middle;
     }
     .stTextInput input {
         border: 2px solid #3498db;
@@ -101,18 +103,15 @@ def login_page():
     st.markdown("<div class='login-card'>", unsafe_allow_html=True)
     st.image("https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png", width=150, caption="", use_container_width=False)
     st.markdown("<h2 class='login-title'>🔐 Login to Sales Dashboard</h2>", unsafe_allow_html=True)
-    with st.form(key='login_form'):
-        username = st.text_input("Username", placeholder="Enter your username")
-        password = st.text_input("Password", type="password", placeholder="Enter your password")
-        submit_button = st.form_submit_button(label="Login 🚀")
-
-        if submit_button:
-            if username in credentials and credentials[username] == password:
-                st.session_state.logged_in = True
-                st.markdown("<p class='success-message'>✅ Login successful! Redirecting...</p>", unsafe_allow_html=True)
-                st.rerun()
-            else:
-                st.markdown("<p class='error-message'>❌ Invalid username or password. Please try again.</p>", unsafe_allow_html=True)
+    username = st.text_input("Username", placeholder="Enter your username")
+    password = st.text_input("Password", type="password", placeholder="Enter your password")
+    if st.button("Login 🚀"):
+        if username in credentials and credentials[username] == password:
+            st.session_state.logged_in = True
+            st.markdown("<p class='success-message'>✅ Login successful! Redirecting...</p>", unsafe_allow_html=True)
+            st.rerun()
+        else:
+            st.markdown("<p class='error-message'>❌ Invalid username or password. Please try again.</p>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 # Dashboard page
@@ -135,7 +134,7 @@ def dashboard_page():
 
     # Define the ranges and labels with colorful emojis
     ranges = [
-        (-700, -40, "-700 to -40 dias 🟫"),  # New range added
+        (-700, -40, "-700 to -40 dias 🟫"),
         (-40, -30, "30-40 dias 🟥"),
         (-30, -20, "20-30 dias 🟧"),
         (-20, -10, "10-20 dias 🟨"),
