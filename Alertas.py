@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from io import BytesIO
+import uuid
 
 # 🚀 Page configuration
 st.set_page_config(page_title="Sales Dashboard", layout="wide", page_icon="📊")
@@ -9,80 +10,124 @@ st.set_page_config(page_title="Sales Dashboard", layout="wide", page_icon="📊"
 st.markdown("""
     <style>
     .main {
-        background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+        background: linear-gradient(135deg, #ff6b6b 0%, #4ecdc4 100%);
         padding: 20px;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
     .sidebar .sidebar-content {
-        background-color: #e6f3ff;
+        background: linear-gradient(180deg, #ffffff 0%, #e6f3ff 100%);
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
     h1 {
         color: #ffffff;
         text-align: center;
-        font-family: 'Segoe UI', sans-serif;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        font-family: 'Poppins', sans-serif;
+        text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.3);
+        font-size: 2.5em;
     }
     h2 {
-        color: #2980b9;
-        font-family: 'Segoe UI', sans-serif;
+        color: #2c3e50;
+        font-family: 'Poppins', sans-serif;
+        font-weight: 600;
     }
     h3 {
-        color: #e74c3c;
-        font-family: 'Segoe UI', sans-serif;
+        color: #e91e63;
+        font-family: 'Poppins', sans-serif;
+        font-weight: 500;
     }
     .stDataFrame {
-        border: 2px solid #3498db;
-        border-radius: 10px;
-        padding: 10px;
+        border: 2px solid #ff8a65;
+        border-radius: 12px;
+        padding: 15px;
+        background-color: #ffffff;
     }
     .stButton>button {
-        background-color: #4CAF50;
+        background: linear-gradient(90deg, #ff6b6b 0%, #ff8a65 100%);
         color: white;
-        border-radius: 8px;
-        padding: 10px 20px;
-        font-weight: bold;
+        border: none;
+        border-radius: 12px;
+        padding: 12px 24px;
+        font-family: 'Poppins', sans-serif;
+        font-weight: 600;
+        font-size: 16px;
         transition: all 0.3s ease;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     }
     .stButton>button:hover {
-        background-color: #45a049;
-        transform: scale(1.05);
+        background: linear-gradient(90deg, #e55d5d 0%, #e07b5a 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
     }
     .login-card {
-        background-color: white;
-        padding: 30px;
-        border-radius: 50%; /* Changed to circular */
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-        max-width: 400px;
-        margin: 50px auto;
+        background: linear-gradient(145deg, #ffffff 0%, #f0f4f8 100%);
+        padding: 40px;
+        border-radius: 20px;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+        max-width: 450px;
+        margin: 0 auto;
         text-align: center;
-        display: inline-block;
-        vertical-align: middle;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .login-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
     }
     .stTextInput input {
-        border: 2px solid #3498db;
-        border-radius: 5px;
-        padding: 8px;
-        transition: border-color 0.3s ease;
+        border: 2px solid #ff8a65;
+        border-radius: 8px;
+        padding: 12px;
+        font-family: 'Poppins', sans-serif;
+        font-size: 16px;
+        transition: all 0.3s ease;
+        background-color: #f9f9f9;
     }
     .stTextInput input:focus {
-        border-color: #2575fc;
+        border-color: #ff6b6b;
+        box-shadow: 0 0 8px rgba(255, 107, 107, 0.3);
         outline: none;
+        background-color: #ffffff;
     }
     .login-title {
         color: #2c3e50;
-        font-size: 24px;
-        margin-bottom: 20px;
+        font-size: 28px;
+        font-family: 'Poppins', sans-serif;
+        font-weight: 700;
+        margin-bottom: 30px;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
     }
     .error-message {
-        color: #e74c3c;
-        font-weight: bold;
+        color: #d32f2f;
+        font-weight: 600;
+        font-family: 'Poppins', sans-serif;
+        margin-top: 10px;
     }
     .success-message {
         color: #2ecc71;
-        font-weight: bold;
+        font-weight: 600;
+        font-family: 'Poppins', sans-serif;
+        margin-top: 10px;
     }
     .logo {
         display: block;
         margin: 0 auto 20px auto;
+        border-radius: 10px;
+        transition: transform 0.3s ease;
+    }
+    .logo:hover {
+        transform: scale(1.1);
+    }
+    @media (max-width: 600px) {
+        .login-card {
+            padding: 20px;
+            max-width: 90%;
+        }
+        .login-title {
+            font-size: 24px;
+        }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -101,7 +146,7 @@ if 'logged_in' not in st.session_state:
 # Login page
 def login_page():
     st.markdown("<div class='login-card'>", unsafe_allow_html=True)
-    st.image("https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png", width=150, caption="", use_container_width=False)
+    st.image("https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png", width=150, caption="", use_container_width=False, output_format="PNG")
     st.markdown("<h2 class='login-title'>🔐 Login to Sales Dashboard</h2>", unsafe_allow_html=True)
     username = st.text_input("Username", placeholder="Enter your username")
     password = st.text_input("Password", type="password", placeholder="Enter your password")
