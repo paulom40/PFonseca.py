@@ -78,13 +78,17 @@ st.markdown("""
         color: #2ecc71;
         font-weight: bold;
     }
+    .logo {
+        display: block;
+        margin: 0 auto 20px auto;
+    }
     </style>
 """, unsafe_allow_html=True)
 
 # Hardcoded credentials (for demo purposes; use a secure database in production)
 credentials = {
     "admin": "password123",
-    "paulo": "teste",
+    "user1": "sales2025",
     "user2": "dashboard456"
 }
 
@@ -95,6 +99,7 @@ if 'logged_in' not in st.session_state:
 # Login page
 def login_page():
     st.markdown("<div class='login-card'>", unsafe_allow_html=True)
+    st.image("https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png", width=150, caption="", use_column_width=False)
     st.markdown("<h2 class='login-title'>🔐 Login to Sales Dashboard</h2>", unsafe_allow_html=True)
     with st.form(key='login_form'):
         username = st.text_input("Username", placeholder="Enter your username")
