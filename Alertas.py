@@ -26,31 +26,57 @@ ranges = [
     (0, 10, "Due in 0-10 days")
 ]
 
+# Sidebar for filters
+st.sidebar.title("Filters")
+
+# Filter by Comercial
+unique_comercial = sorted(df['Comercial'].unique())
+selected_comercial = st.sidebar.multiselect("Select Comercial", unique_comercial, default=unique_comercial)
+
+# Filter by Entidade
+unique_entidade = sorted(df['Entidade'].unique())
+selected_entidade = st.sidebar.multiselect("Select Entidade", unique_entidade, default=unique_entidade)
+
+# Filter by Ranges
+range_labels = [label for _, _, label in ranges]
+selected_ranges = st.sidebar.multiselect("Select Ranges", range_labels, default=range_labels)
+
+# Filter the dataframe based on selections
+filtered_df = df[
+    (df['Comercial'].isin(selected_comercial)) &
+    (df['Entidade'].isin(selected_entidade))
+]
+
 st.title("Invoice Aging Alerts")
 
 # Summary data
 summary = []
 
 for low, high, label in ranges:
-    filtered = df[(df['Dias'] >= low) & (df['Dias'] < high)]
-    count = len(filtered)
-    total_pending = filtered['Valor Pendente'].sum() if 'Valor Pendente' in df.columns else 0
-    summary.append({
-        "Range": label,
-        "Count": count,
-        "Total Pending": total_pending
-    })
+    if label in selected_ranges:
+        range_filtered = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] < high)]
+        count = len(range_filtered)
+        total_pending = range_filtered['Valor Pendente'].sum() if 'Valor Pendente' in df.columns else 0
+        summary.append({
+            "Range": label,
+            "Count": count,
+            "Total Pending": total_pending
+        })
 
 # Display summary table
 st.subheader("Summary")
-summary_df = pd.DataFrame(summary)
-st.dataframe(summary_df)
+if summary:
+    summary_df = pd.DataFrame(summary)
+    st.dataframe(summary_df)
+else:
+    st.write("No data in selected ranges")
 
 # Display details for each range
 for low, high, label in ranges:
-    st.subheader(label)
-    filtered = df[(df['Dias'] >= low) & (df['Dias'] < high)]
-    if not filtered.empty:
-        st.dataframe(filtered)
-    else:
-        st.write("No alerts in this range")
+    if label in selected_ranges:
+        st.subheader(label)
+        range_filtered = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] < high)]
+        if not range_filtered.empty:
+            st.dataframe(range_filtered)
+        else:
+            st.write("No alerts in this range")
