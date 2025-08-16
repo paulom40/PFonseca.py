@@ -85,9 +85,4 @@ for low, high, label in ranges:
             st.write("No alerts in this range")
 
 
-st.download_button(
-    label="📥 Baixar Excel com Resumo",
-    data=excel_data,
-    file_name="alertas_comerciais.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
+
