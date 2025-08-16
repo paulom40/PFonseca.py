@@ -1,11 +1,12 @@
 import streamlit as st
 import pandas as pd
 from io import BytesIO
+import time
 
 # 🚀 Page configuration
 st.set_page_config(page_title="Sales Dashboard", layout="wide", page_icon="📊")
 
-# 🌌 Custom CSS for animated background and refined login
+# 🌌 Custom CSS for animated background, login, and footer
 st.markdown("""
     <style>
     body {
@@ -99,6 +100,18 @@ st.markdown("""
         border-radius: 10px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     }
+    .footer {
+        text-align: center;
+        color: #ffffff;
+        font-size: 16px;
+        animation: fadePulse 3s ease-in-out infinite;
+        margin-top: 40px;
+    }
+    @keyframes fadePulse {
+        0% {opacity: 0.6;}
+        50% {opacity: 1;}
+        100% {opacity: 0.6;}
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -122,8 +135,10 @@ def login_page():
     password = st.text_input("Password", type="password", placeholder="Enter your password")
     if st.button("Login 🚀"):
         if username in credentials and credentials[username] == password:
+            st.markdown("<p class='success-message'>✅ Login successful! Loading dashboard...</p>", unsafe_allow_html=True)
+            with st.spinner("🔄 Preparing your dashboard..."):
+                time.sleep(2)
             st.session_state.logged_in = True
-            st.markdown("<p class='success-message'>✅ Login successful! Redirecting...</p>", unsafe_allow_html=True)
             st.rerun()
         else:
             st.markdown("<p class='error-message'>❌ Invalid username or password. Please try again.</p>", unsafe_allow_html=True)
@@ -203,17 +218,4 @@ def dashboard_page():
             filtered_df.to_excel(writer, index=False, sheet_name='Filtered_Data')
         excel_data = output.getvalue()
         st.download_button(
-            label="📥 Download Filtered Data as Excel",
-            data=excel_data,
-            file_name="filtered_data.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            key="download_button"
-        )
-
-    if st.button("🔓 Logout"):
-        st.session_state.logged_in = False
-        st.rerun()
-
-    st.markdown("---")
-    st.markdown("<p style='text-align: center; color: #ffffff;'>Created with ❤️ using Streamlit</p")
-
+            label="📥 Download
