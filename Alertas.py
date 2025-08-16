@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from io import BytesIO
 
 # 🚀 Page configuration
 st.set_page_config(page_title="Sales Dashboard", layout="wide")
@@ -84,5 +85,17 @@ for low, high, label in ranges:
         else:
             st.write("No alerts in this range")
 
-
-
+# Download filtered data as Excel
+if not filtered_df.empty:
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        filtered_df.to_excel(writer, index=False, sheet_name='Filtered_Data')
+    excel_data = output.getvalue()
+    st.download_button(
+        label="Download Filtered Data as Excel",
+        data=excel_data,
+        file_name="filtered_data.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+else:
+    st.write("No data available to download")
