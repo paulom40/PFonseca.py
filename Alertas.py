@@ -214,5 +214,10 @@ def dashboard_page():
             filtered_df.to_excel(writer, index=False, sheet_name='Filtered_Data')
         excel_data = output.getvalue()
         st.download_button(
-            label="📥 Download Filtered Data as Excel",
-            data=
+    label="📥 Download Filtered Data as Excel",
+    data=excel_data,
+    file_name="filtered_data.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    key="download_button"
+)
+
