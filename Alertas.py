@@ -168,6 +168,10 @@ def dashboard_page():
     # Title with emoji
     st.markdown("<h1>📊 Alertas Vencimentos</h1>", unsafe_allow_html=True)
 
+    # Refresh button
+    if st.button("🔄 Refresh Data"):
+        st.rerun()
+
     # Summary data
     summary = []
 
