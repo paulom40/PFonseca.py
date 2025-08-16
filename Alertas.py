@@ -1,131 +1,104 @@
 import streamlit as st
 import pandas as pd
 from io import BytesIO
-import time
 
 # 🚀 Page configuration
 st.set_page_config(page_title="Sales Dashboard", layout="wide", page_icon="📊")
 
-# 🌌 Custom CSS for enhanced visuals
+# Custom CSS for colorful and stylish design
 st.markdown("""
     <style>
-    body {
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-    }
     .main {
-        background: linear-gradient(-45deg, #6a11cb, #2575fc, #6a11cb, #2575fc);
-        background-size: 400% 400%;
-        animation: gradientBG 15s ease infinite;
+        background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
         padding: 20px;
-        min-height: 100vh;
     }
-    @keyframes gradientBG {
-        0% {background-position: 0% 50%;}
-        50% {background-position: 100% 50%;}
-        100% {background-position: 0% 50%;}
+    .sidebar .sidebar-content {
+        background-color: #e6f3ff;
     }
-    .login-card {
-        background: rgba(255, 255, 255, 0.1);
-        padding: 40px;
-        border-radius: 20px;
-        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
-        max-width: 400px;
-        margin: 80px auto;
-        text-align: center;
+    h1 {
         color: #ffffff;
+        text-align: center;
         font-family: 'Segoe UI', sans-serif;
-        animation: fadeIn 2s ease;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
     }
-    @keyframes fadeIn {
-        from {opacity: 0;}
-        to {opacity: 1;}
+    h2 {
+        color: #2980b9;
+        font-family: 'Segoe UI', sans-serif;
     }
-    .login-title {
-        font-size: 26px;
-        margin-bottom: 25px;
-        text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+    h3 {
+        color: #e74c3c;
+        font-family: 'Segoe UI', sans-serif;
     }
-    .stTextInput {
-        display: flex;
-        justify-content: center;
-    }
-    .stTextInput input {
-        width: 60% !important;
-        background-color: #34495e;
-        color: #ecf0f1;
+    .stDataFrame {
         border: 2px solid #3498db;
         border-radius: 10px;
         padding: 10px;
-        margin-bottom: 15px;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-        transition: border-color 0.3s ease;
-    }
-    .stTextInput input:focus {
-        border-color: #2980b9;
-        outline: none;
-    }
-    .stButton {
-        display: flex;
-        justify-content: center;
     }
     .stButton>button {
         background-color: #4CAF50;
         color: white;
-        border-radius: 10px;
-        padding: 12px 24px;
+        border-radius: 8px;
+        padding: 10px 20px;
         font-weight: bold;
         transition: all 0.3s ease;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
     }
     .stButton>button:hover {
         background-color: #45a049;
         transform: scale(1.05);
     }
+    .login-card {
+        background-color: white;
+        padding: 30px;
+        border-radius: 50%; /* Changed to circular */
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        max-width: 400px;
+        margin: 50px auto;
+        text-align: center;
+        display: inline-block;
+        vertical-align: middle;
+    }
+    .stTextInput input {
+        border: 2px solid #3498db;
+        border-radius: 5px;
+        padding: 8px;
+        transition: border-color 0.3s ease;
+    }
+    .stTextInput input:focus {
+        border-color: #2575fc;
+        outline: none;
+    }
+    .login-title {
+        color: #2c3e50;
+        font-size: 24px;
+        margin-bottom: 20px;
+    }
     .error-message {
         color: #e74c3c;
         font-weight: bold;
-        margin-top: 10px;
     }
     .success-message {
         color: #2ecc71;
         font-weight: bold;
-        margin-top: 10px;
     }
     .logo {
         display: block;
         margin: 0 auto 20px auto;
-        border-radius: 10px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    }
-    .footer {
-        text-align: center;
-        color: #ffffff;
-        font-size: 16px;
-        animation: fadePulse 3s ease-in-out infinite;
-        margin-top: 40px;
-    }
-    @keyframes fadePulse {
-        0% {opacity: 0.6;}
-        50% {opacity: 1;}
-        100% {opacity: 0.6;}
     }
     </style>
 """, unsafe_allow_html=True)
 
-# 🔐 Credentials
+# Hardcoded credentials (for demo purposes; use a secure database in production)
 credentials = {
     "admin": "password123",
     "paulo": "teste",
     "user2": "dashboard456"
 }
 
-# 🔄 Session state
+# Initialize session state for login
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 
-# 🔐 Login page
+# Login page
 def login_page():
     st.markdown("<div class='login-card'>", unsafe_allow_html=True)
     st.image("https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png", width=150, caption="", use_container_width=False)
@@ -134,27 +107,32 @@ def login_page():
     password = st.text_input("Password", type="password", placeholder="Enter your password")
     if st.button("Login 🚀"):
         if username in credentials and credentials[username] == password:
-            st.markdown("<p class='success-message'>✅ Login successful! Loading dashboard...</p>", unsafe_allow_html=True)
-            with st.spinner("🔄 Preparing your dashboard..."):
-                time.sleep(2)
             st.session_state.logged_in = True
+            st.markdown("<p class='success-message'>✅ Login successful! Redirecting...</p>", unsafe_allow_html=True)
             st.rerun()
         else:
             st.markdown("<p class='error-message'>❌ Invalid username or password. Please try again.</p>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# 📊 Dashboard page
+# Dashboard page
 def dashboard_page():
+    # URL to the Excel file
     url = "https://github.com/paulom40/PFonseca.py/raw/main/V0808.xlsx"
+
+    # Load the data
     try:
         df = pd.read_excel(url)
     except Exception as e:
         st.error(f"❌ Error loading file: {e}")
         st.stop()
 
+    # Ensure 'Dias' is numeric
     df['Dias'] = pd.to_numeric(df['Dias'], errors='coerce')
+
+    # Drop rows with NaN in 'Dias'
     df = df.dropna(subset=['Dias'])
 
+    # Define the ranges and labels with colorful emojis
     ranges = [
         (-700, -40, "-700 to -40 dias 🟫"),
         (-40, -30, "30-40 dias 🟥"),
@@ -164,24 +142,38 @@ def dashboard_page():
         (0, 10, "0-10 dias 🟦")
     ]
 
+    # Sidebar for filters
     st.sidebar.markdown("### 🎨 Filters")
     st.sidebar.markdown("---")
-    selected_comercial = st.sidebar.multiselect("👨‍💼 Select Comercial", sorted(df['Comercial'].unique()), default=sorted(df['Comercial'].unique()))
-    selected_entidade = st.sidebar.multiselect("🏢 Select Entidade", sorted(df['Entidade'].unique()), default=sorted(df['Entidade'].unique()))
+
+    # Filter by Comercial
+    unique_comercial = sorted(df['Comercial'].unique())
+    selected_comercial = st.sidebar.multiselect("👨‍💼 Select Comercial", unique_comercial, default=unique_comercial)
+
+    # Filter by Entidade
+    unique_entidade = sorted(df['Entidade'].unique())
+    selected_entidade = st.sidebar.multiselect("🏢 Select Entidade", unique_entidade, default=unique_entidade)
+
+    # Filter by Ranges
     range_labels = [label for _, _, label in ranges]
     selected_ranges = st.sidebar.multiselect("📅 Select Ranges", range_labels, default=range_labels)
 
+    # Filter the dataframe based on selections
     filtered_df = df[
         (df['Comercial'].isin(selected_comercial)) &
         (df['Entidade'].isin(selected_entidade))
     ]
 
+    # Title with emoji
     st.markdown("<h1>📊 Alertas Vencimentos</h1>", unsafe_allow_html=True)
 
+    # Refresh button
     if st.button("🔄 Refresh Data"):
         st.rerun()
 
+    # Summary data
     summary = []
+
     for low, high, label in ranges:
         if label in selected_ranges:
             range_filtered = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] < high)]
@@ -193,12 +185,15 @@ def dashboard_page():
                 "Total Pending": total_pending
             })
 
+    # Display summary table
     st.markdown("<h2>📋 Summary</h2>", unsafe_allow_html=True)
     if summary:
-        st.dataframe(pd.DataFrame(summary), use_container_width=True)
+        summary_df = pd.DataFrame(summary)
+        st.dataframe(summary_df, use_container_width=True)
     else:
         st.markdown("⚠️ No data in selected ranges", unsafe_allow_html=True)
 
+    # Display details for each range
     for low, high, label in ranges:
         if label in selected_ranges:
             st.markdown(f"<h3>{label}</h3>", unsafe_allow_html=True)
@@ -208,16 +203,33 @@ def dashboard_page():
             else:
                 st.markdown(f"⚠️ No alerts in this range", unsafe_allow_html=True)
 
+    # Download filtered data as Excel
     if not filtered_df.empty:
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             filtered_df.to_excel(writer, index=False, sheet_name='Filtered_Data')
         excel_data = output.getvalue()
         st.download_button(
-    label="📥 Download Filtered Data as Excel",
-    data=excel_data,
-    file_name="filtered_data.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    key="download_button"
-)
+            label="📥 Download Filtered Data as Excel",
+            data=excel_data,
+            file_name="filtered_data.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="download_button"
+        )
+    else:
+        st.markdown("⚠️ No data available to download", unsafe_allow_html=True)
 
+    # Logout button
+    if st.button("🔓 Logout"):
+        st.session_state.logged_in = False
+        st.rerun()
+
+    # Footer
+    st.markdown("---")
+    st.markdown("<p style='text-align: center; color: #ffffff;'>Created with ❤️ using Streamlit</p>", unsafe_allow_html=True)
+
+# Main app logic
+if not st.session_state.logged_in:
+    login_page()
+else:
+    dashboard_page()
