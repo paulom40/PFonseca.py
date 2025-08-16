@@ -5,11 +5,34 @@ from io import BytesIO
 # 🚀 Page configuration
 st.set_page_config(page_title="Sales Dashboard", layout="wide", page_icon="📊")
 
-# Custom CSS for colorful styling
+# Custom CSS for colorful and stylish design
 st.markdown("""
     <style>
     .main {
-        background-color: #f0f2f6;
+        background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+        padding: 20px;
+    }
+    .sidebar .sidebar-content {
+        background-color: #e6f3ff;
+    }
+    h1 {
+        color: #ffffff;
+        text-align: center;
+        font-family: 'Segoe UI', sans-serif;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    h2 {
+        color: #2980b9;
+        font-family: 'Segoe UI', sans-serif;
+    }
+    h3 {
+        color: #e74c3c;
+        font-family: 'Segoe UI', sans-serif;
+    }
+    .stDataFrame {
+        border: 2px solid #3498db;
+        border-radius: 10px;
+        padding: 10px;
     }
     .stButton>button {
         background-color: #4CAF50;
@@ -17,34 +40,43 @@ st.markdown("""
         border-radius: 8px;
         padding: 10px 20px;
         font-weight: bold;
+        transition: all 0.3s ease;
     }
     .stButton>button:hover {
         background-color: #45a049;
+        transform: scale(1.05);
     }
-    .sidebar .sidebar-content {
-        background-color: #e6f3ff;
-    }
-    h1 {
-        color: #2c3e50;
+    .login-card {
+        background-color: white;
+        padding: 30px;
+        border-radius: 15px;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        max-width: 400px;
+        margin: 50px auto;
         text-align: center;
-        font-family: 'Arial', sans-serif;
-    }
-    h2 {
-        color: #2980b9;
-        font-family: 'Arial', sans-serif;
-    }
-    h3 {
-        color: #e74c3c;
-        font-family: 'Arial', sans-serif;
-    }
-    .stDataFrame {
-        border: 2px solid #3498db;
-        border-radius: 10px;
-        padding: 10px;
     }
     .stTextInput input {
         border: 2px solid #3498db;
         border-radius: 5px;
+        padding: 8px;
+        transition: border-color 0.3s ease;
+    }
+    .stTextInput input:focus {
+        border-color: #2575fc;
+        outline: none;
+    }
+    .login-title {
+        color: #2c3e50;
+        font-size: 24px;
+        margin-bottom: 20px;
+    }
+    .error-message {
+        color: #e74c3c;
+        font-weight: bold;
+    }
+    .success-message {
+        color: #2ecc71;
+        font-weight: bold;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -52,7 +84,7 @@ st.markdown("""
 # Hardcoded credentials (for demo purposes; use a secure database in production)
 credentials = {
     "admin": "password123",
-    "user1": "sales2025",
+    "paulo": "teste",
     "user2": "dashboard456"
 }
 
@@ -62,7 +94,8 @@ if 'logged_in' not in st.session_state:
 
 # Login page
 def login_page():
-    st.markdown("<h1>🔐 Login to Sales Dashboard</h1>", unsafe_allow_html=True)
+    st.markdown("<div class='login-card'>", unsafe_allow_html=True)
+    st.markdown("<h2 class='login-title'>🔐 Login to Sales Dashboard</h2>", unsafe_allow_html=True)
     with st.form(key='login_form'):
         username = st.text_input("Username", placeholder="Enter your username")
         password = st.text_input("Password", type="password", placeholder="Enter your password")
@@ -71,10 +104,11 @@ def login_page():
         if submit_button:
             if username in credentials and credentials[username] == password:
                 st.session_state.logged_in = True
-                st.success("✅ Login successful! Welcome to the dashboard.")
+                st.markdown("<p class='success-message'>✅ Login successful! Redirecting...</p>", unsafe_allow_html=True)
                 st.rerun()
             else:
-                st.error("❌ Invalid username or password. Please try again.")
+                st.markdown("<p class='error-message'>❌ Invalid username or password. Please try again.</p>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # Dashboard page
 def dashboard_page():
@@ -183,7 +217,7 @@ def dashboard_page():
 
     # Footer
     st.markdown("---")
-    st.markdown("<p style='text-align: center; color: #7f8c8d;'>Created with ❤️ using Streamlit</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #ffffff;'>Created with ❤️ using Streamlit</p>", unsafe_allow_html=True)
 
 # Main app logic
 if not st.session_state.logged_in:
