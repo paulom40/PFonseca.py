@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 
+# 🚀 Page configuration
+st.set_page_config(page_title="Sales Dashboard", layout="wide")
+
 # URL to the Excel file
 url = "https://github.com/paulom40/PFonseca.py/raw/main/V0808.xlsx"
 
