@@ -3,12 +3,12 @@ import pandas as pd
 import requests
 import io
 from io import BytesIO
+import uuid
 
 # ------------------ 🔐 LOGIN SYSTEM ------------------
 USER_CREDENTIALS = {
     "admin": "1234",
     "paulo": "teste"
-    
 }
 
 def login():
@@ -32,7 +32,7 @@ if not st.session_state["authenticated"]:
 st.set_page_config(page_title="Bracar Reports", layout="wide")
 
 @st.cache_data
-def load_data():
+def load_data(_cache_buster):
     url = "https://github.com/paulom40/PFonseca.py/raw/main/V0808.xlsx"
     response = requests.get(url)
     if response.status_code == 200:
@@ -54,7 +54,16 @@ def load_data():
 st.markdown("<h1 style='color:#4B8BBE;'>📊 Relatório Recebimentos </h1>", unsafe_allow_html=True)
 st.markdown('**Atualizado em 14/08/2025**')
 
-df = load_data()
+# Add Update Button
+if st.button("🔄 Update Data"):
+    st.cache_data.clear()  # Clear the cache
+    st.session_state["cache_buster"] = str(uuid.uuid4())  # Generate new cache buster
+
+# Initialize cache_buster if not present
+if "cache_buster" not in st.session_state:
+    st.session_state["cache_buster"] = str(uuid.uuid4())
+
+df = load_data(st.session_state["cache_buster"])
 
 if not df.empty:
     st.sidebar.markdown("### 🎛️ Filters")
