@@ -90,3 +90,4 @@ st.download_button(
     data=excel_data,
     file_name="alertas_comerciais.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
