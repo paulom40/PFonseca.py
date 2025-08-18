@@ -4,6 +4,9 @@ import requests
 import io
 from io import BytesIO
 import uuid
+import altair as alt
+import smtplib
+from email.message import EmailMessage
 
 # ------------------ 🔐 LOGIN SYSTEM ------------------
 USER_CREDENTIALS = {
@@ -54,12 +57,10 @@ def load_data(_cache_buster):
 st.markdown("<h1 style='color:#4B8BBE;'>📊 Relatório Recebimentos </h1>", unsafe_allow_html=True)
 st.markdown('**Atualizado em 14/08/2025**')
 
-# Add Update Button
 if st.button("🔄 Update Data"):
-    st.cache_data.clear()  # Clear the cache
-    st.session_state["cache_buster"] = str(uuid.uuid4())  # Generate new cache buster
+    st.cache_data.clear()
+    st.session_state["cache_buster"] = str(uuid.uuid4())
 
-# Initialize cache_buster if not present
 if "cache_buster" not in st.session_state:
     st.session_state["cache_buster"] = str(uuid.uuid4())
 
@@ -158,39 +159,39 @@ if not df.empty:
     summary_entidade_display['Total_Pending'] = summary_entidade_display['Total_Pending'].apply(lambda x: f"€{x:,.2f}")
     st.table(summary_entidade_display)
 
-    st.markdown("### 📥 Download Filtered Data")
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        filtered_df.to_excel(writer, index=False, sheet_name='Filtered Records')
-        summary_comercial.to_excel(writer, index=False, sheet_name='Summary by Comercial')
-        summary_entidade.to_excel(writer, index=False, sheet_name='Summary by Entidade')
-
-        workbook = writer.book
-        currency_format = workbook.add_format({'num_format': '€#,##0.00'})
-        integer_format = workbook.add_format({'num_format': '0'})
-
-        worksheet1 = writer.sheets['Filtered Records']
-        dias_index1 = filtered_df.columns.get_loc('Dias')
-        valor_index1 = filtered_df.columns.get_loc('Valor Pendente')
-        worksheet1.set_column(dias_index1, dias_index1, 10, integer_format)
-        worksheet1.set_column(valor_index1, valor_index1, 15, currency_format)
-
-        worksheet2 = writer.sheets['Summary by Comercial']
-        valor_index2 = summary_comercial.columns.get_loc('Total_Pending')
-        avg_dias_index2 = summary_comercial.columns.get_loc('Avg_Dias')
-        worksheet2.set_column(valor_index2, valor_index2, 15, currency_format)
-        worksheet2.set_column(avg_dias_index2, avg_dias_index2, 10, integer_format)
-
-        worksheet3 = writer.sheets['Summary by Entidade']
-        valor_index3 = summary_entidade.columns.get_loc('Total_Pending')
-        Max_dias_index3 = summary_entidade.columns.get_loc('Max_Dias')
-        worksheet3.set_column(valor_index3, valor_index3, 15, currency_format)
-        worksheet3.set_column(Max_dias_index3, Max_dias_index3, 10, integer_format)
-
-    output.seek(0)
-    st.download_button(
-        label='📤 Download Excel',
-        data=output,
-        file_name='overdue_report.xlsx',
-        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    # 🕒 Entidades with last Data Doc > 30 days
+    today = pd.Timestamp.today()
+    entidade_last_doc = (
+        df.groupby('Entidade')['Data Doc.']
+        .max()
+        .reset_index()
+        .rename(columns={'Data Doc.': 'Last Data Doc'})
     )
+    entidade_last_doc['Days Since Last Doc'] = (today - entidade_last_doc['Last Data Doc']).dt.days
+    entidade_overdue_doc = entidade_last_doc[entidade_last_doc['Days Since Last Doc'] > 30].copy()
+    entidade_overdue_doc.sort_values(by='Days Since Last Doc', ascending=False, inplace=True)
+
+    st.markdown("### ⏳ Entidades com último documento há mais de 30 dias")
+    st.dataframe(entidade_overdue_doc, use_container_width=True)
+
+    st.markdown("### 📊 Dias desde último documento por Entidade")
+    chart = alt.Chart(entidade_overdue_doc).mark_bar().encode(
+        x=alt.X('Entidade', sort='-y'),
+        y='Days Since Last Doc',
+        tooltip=['Entidade', 'Days Since Last Doc']
+    ).properties(width=800, height=400)
+    st.altair_chart(chart, use_container_width=True)
+
+    # 📧 Optional Email Alert
+    def send_email_alert(entidades):
+        msg = EmailMessage()
+        msg['Subject'] = '⚠️ Alert: Entidades with overdue documents'
+        msg['From'] = 'your_email@example.com'
+        msg['To'] = 'recipient@example.com'
+        msg.set_content(f"The following Entidades have overdue documents:\n\n{entidades.to_string(index=False)}")
+        with smtplib.SMTP_SSL('smtp.example.com', 465) as smtp:
+            smtp.login('your_email@example.com', 'your_password')
+            smtp.send_message(msg)
+
+    # Uncomment to enable email alert
+    # if st.button("
