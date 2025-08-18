@@ -5,8 +5,6 @@ import io
 from io import BytesIO
 import uuid
 import altair as alt
-import smtplib
-from email.message import EmailMessage
 
 # ------------------ 🔐 LOGIN SYSTEM ------------------
 USER_CREDENTIALS = {
@@ -159,7 +157,7 @@ if not df.empty:
     summary_entidade_display['Total_Pending'] = summary_entidade_display['Total_Pending'].apply(lambda x: f"€{x:,.2f}")
     st.table(summary_entidade_display)
 
-    # 🕒 Entidades with last Data Doc > 30 days
+    # 🕒 Entidades with last Data Doc > 30 and > 90 days
     today = pd.Timestamp.today()
     entidade_last_doc = (
         df.groupby('Entidade')['Data Doc.']
@@ -168,30 +166,29 @@ if not df.empty:
         .rename(columns={'Data Doc.': 'Last Data Doc'})
     )
     entidade_last_doc['Days Since Last Doc'] = (today - entidade_last_doc['Last Data Doc']).dt.days
-    entidade_overdue_doc = entidade_last_doc[entidade_last_doc['Days Since Last Doc'] > 30].copy()
-    entidade_overdue_doc.sort_values(by='Days Since Last Doc', ascending=False, inplace=True)
+
+    entidade_doc_30 = entidade_last_doc[entidade_last_doc['Days Since Last Doc'] > 30].copy()
+    entidade_doc_30.sort_values(by='Days Since Last Doc', ascending=False, inplace=True)
+
+    entidade_doc_90 = entidade_last_doc[entidade_last_doc['Days Since Last Doc'] > 90].copy()
+    entidade_doc_90.sort_values(by='Days Since Last Doc', ascending=False, inplace=True)
 
     st.markdown("### ⏳ Entidades com último documento há mais de 30 dias")
-    st.dataframe(entidade_overdue_doc, use_container_width=True)
+    st.dataframe(entidade_doc_30, use_container_width=True)
 
-    st.markdown("### 📊 Dias desde último documento por Entidade")
-    chart = alt.Chart(entidade_overdue_doc).mark_bar().encode(
+    st.markdown("### 🔴 Entidades com último documento há mais de 90 dias")
+    st.dataframe(entidade_doc_90, use_container_width=True)
+
+    st.markdown("### 📊 Dias desde último documento por Entidade (>30 dias)")
+    chart_30 = alt.Chart(entidade_doc_30).mark_bar().encode(
         x=alt.X('Entidade', sort='-y'),
         y='Days Since Last Doc',
         tooltip=['Entidade', 'Days Since Last Doc']
     ).properties(width=800, height=400)
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(chart_30, use_container_width=True)
 
-    # 📧 Optional Email Alert
-    def send_email_alert(entidades):
-        msg = EmailMessage()
-        msg['Subject'] = '⚠️ Alert: Entidades with overdue documents'
-        msg['From'] = 'your_email@example.com'
-        msg['To'] = 'recipient@example.com'
-        msg.set_content(f"The following Entidades have overdue documents:\n\n{entidades.to_string(index=False)}")
-        with smtplib.SMTP_SSL('smtp.example.com', 465) as smtp:
-            smtp.login('your_email@example.com', 'your_password')
-            smtp.send_message(msg)
-
-    # Uncomment to enable email alert
-    # if st.button("
+    st.markdown("### 📊 Dias desde último documento por Entidade (>90 dias)")
+    chart_90 = alt.Chart(entidade_doc_90).mark_bar().encode(
+        x=alt.X('Entidade', sort='-y'),
+        y='Days Since Last Doc',
+        tooltip=['Ent
