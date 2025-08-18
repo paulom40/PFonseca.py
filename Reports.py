@@ -189,4 +189,4 @@ if not df.empty:
 
     st.markdown("### 📊 Dias desde último documento por Entidade (>90 dias)")
     chart_90 = alt.Chart(entidade_doc_90).mark_bar().encode(
-        x=alt.X('Entidade', sort='-y'),
+        x=alt.X('Entidade', sort='-y')
