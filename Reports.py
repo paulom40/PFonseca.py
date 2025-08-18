@@ -6,6 +6,9 @@ from io import BytesIO
 import uuid
 import altair as alt
 from datetime import datetime
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # ------------------ 🔐 LOGIN SYSTEM ------------------
 USER_CREDENTIALS = {
@@ -56,12 +59,41 @@ def load_data(_cache_buster):
         st.error(f"❌ Failed to load V0808.xlsx from GitHub: {str(e)}")
         return pd.DataFrame()
 
+# Function to send email alert
+def send_email_alert(entidades, smtp_server, smtp_port, sender_email, sender_password, recipient_email):
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = sender_email
+        msg['To'] = recipient_email
+        msg['Subject'] = "⚠️ Alert: Entidades com Último Documento entre 30 e 60 Dias"
+
+        body = "As seguintes entidades têm o último documento entre 30 e 60 dias:\n\n"
+        for _, row in entidades.iterrows():
+            body += f"Entidade: {row['Entidade']}, Dias desde último documento: {row['Days Since Last Doc']}\n"
+        msg.attach(MIMEText(body, 'plain'))
+
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(sender_email, sender_password)
+            server.send_message(msg)
+        return True
+    except smtplib.SMTPAuthenticationError:
+        st.error("❌ Gmail authentication failed. Check your email and App Password in secrets.toml.")
+        return False
+    except smtplib.SMTPException as e:
+        st.warning(f"⚠️ Failed to send email alert: SMTP error - {str(e)}")
+        return False
+    except Exception as e:
+        st.warning(f"⚠️ Failed to send email alert: {str(e)}")
+        return False
+
 st.markdown("<h1 style='color:#4B8BBE;'>📊 Relatório Recebimentos </h1>", unsafe_allow_html=True)
 st.markdown(f"**Atualizado em {datetime.now().strftime('%d/%m/%Y')}**")
 
 if st.button("🔄 Update Data"):
     st.cache_data.clear()
     st.session_state["cache_buster"] = str(uuid.uuid4())
+    st.session_state.pop("email_sent", None)  # Reset email sent flag on data update
 
 if "cache_buster" not in st.session_state:
     st.session_state["cache_buster"] = str(uuid.uuid4())
@@ -196,13 +228,51 @@ else:
     )
     entidade_last_doc['Days Since Last Doc'] = (today - entidade_last_doc['Last Data Doc']).dt.days
 
-    entidade_doc_30 = entidade_last_doc[entidade_last_doc['Days Since Last Doc'] > 30].copy()
-    entidade_doc_30.sort_values(by='Days Since Last Doc', ascending=False, inplace=True)
+    # Filter for 30-60 days
+    entidade_doc_30_60 = entidade_last_doc[
+        (entidade_last_doc['Days Since Last Doc'] > 30) & 
+        (entidade_last_doc['Days Since Last Doc'] <= 60)
+    ].copy()
+    entidade_doc_30_60.sort_values(by='Days Since Last Doc', ascending=False, inplace=True)
 
-    entidade_doc_90 = entidade_last_doc[entidade_last_doc['Days Since Last Doc'] > 90].copy()
-    entidade_doc_90.sort_values(by='Days Since Last Doc', ascending=False, inplace=True)
+    # Send email alert if there are entities between 30 and 60 days and email hasn't been sent in this session
+    if not entidade_doc_30_60.empty and "email_sent" not in st.session_state:
+        try:
+            smtp_server = st.secrets["email"]["smtp_server"]
+            smtp_port = st.secrets["email"]["smtp_port"]
+            sender_email = st.secrets["email"]["sender_email"]
+            sender_password = st.secrets["email"]["sender_password"]
+            recipient_email = st.secrets["email"]["recipient_email"]
+            
+            if send_email_alert(
+                entidade_doc_30_60,
+                smtp_server,
+                smtp_port,
+                sender_email,
+                sender_password,
+                recipient_email
+            ):
+                st.success("📧 Email alert sent for entities with last document between 30 and 60 days.")
+                st.session_state["email_sent"] = True  # Prevent sending multiple emails in the same session
+        except KeyError:
+            st.error("❌ Email configuration not found in Streamlit secrets. Please configure email settings in secrets.toml.")
+
+    st.markdown("### ⏳ Entidades com último documento entre 30 e 60 dias")
+    if not entidade_doc_30_60.empty:
+        st.dataframe(entidade_doc_30_60, use_container_width=True)
+        st.markdown("### 📊 Dias desde último documento por Entidade (30-60 dias)")
+        chart_30_60 = alt.Chart(entidade_doc_30_60).mark_bar().encode(
+            x=alt.X('Entidade', sort='-y'),
+            y='Days Since Last Doc',
+            tooltip=['Entidade', 'Days Since Last Doc']
+        ).properties(width=800, height=400)
+        st.altair_chart(chart_30_60, use_container_width=True)
+    else:
+        st.info("ℹ️ No entities with last document between 30 and 60 days.")
 
     st.markdown("### ⏳ Entidades com último documento há mais de 30 dias")
+    entidade_doc_30 = entidade_last_doc[entidade_last_doc['Days Since Last Doc'] > 30].copy()
+    entidade_doc_30.sort_values(by='Days Since Last Doc', ascending=False, inplace=True)
     if not entidade_doc_30.empty:
         st.dataframe(entidade_doc_30, use_container_width=True)
         st.markdown("### 📊 Dias desde último documento por Entidade (>30 dias)")
@@ -216,6 +286,8 @@ else:
         st.info("ℹ️ No entities with last document older than 30 days.")
 
     st.markdown("### 🔴 Entidades com último documento há mais de 90 dias")
+    entidade_doc_90 = entidade_last_doc[entidade_last_doc['Days Since Last Doc'] > 90].copy()
+    entidade_doc_90.sort_values(by='Days Since Last Doc', ascending=False, inplace=True)
     if not entidade_doc_90.empty:
         st.dataframe(entidade_doc_90, use_container_width=True)
         st.markdown("### 📊 Dias desde último documento por Entidade (>90 dias)")
