@@ -188,5 +188,37 @@ if not df.empty:
     st.altair_chart(chart_30, use_container_width=True)
 
     st.markdown("### 📊 Dias desde último documento por Entidade (>90 dias)")
-    chart_90 = alt.Chart(entidade_doc_90).mark_bar().encode(
-        x=alt.X('Entidade', sort='-y')
+       chart_90 = alt.Chart(entidade_doc_90).mark_bar().encode(
+        x=alt.X('Entidade', sort='-y'),
+        y='Days Since Last Doc',
+        tooltip=['Entidade', 'Days Since Last Doc']
+    ).properties(width=800, height=400)
+
+    st.altair_chart(chart_90, use_container_width=True)
+
+    # ------------------ 📥 EXPORT TO EXCEL ------------------
+    st.markdown("### 📤 Exportar dados filtrados para Excel")
+
+    def to_excel_bytes(df1, df2, df3):
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df1.to_excel(writer, sheet_name='Dados Filtrados', index=False)
+            df2.to_excel(writer, sheet_name='Resumo Comercial', index=False)
+            df3.to_excel(writer, sheet_name='Resumo Entidade', index=False)
+
+            workbook = writer.book
+            format_red = workbook.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006'})
+            worksheet = writer.sheets['Dados Filtrados']
+            worksheet.conditional_format('D2:D1000', {'type': 'cell', 'criteria': '>', 'value': 90, 'format': format_red})
+
+        output.seek(0)
+        return output
+
+    excel_data = to_excel_bytes(filtered_df, summary_comercial, summary_entidade)
+    st.download_button(
+        label="📥 Download Excel",
+        data=excel_data,
+        file_name="Relatorio_Recebimentos.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
