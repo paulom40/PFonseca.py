@@ -187,8 +187,8 @@ if not df.empty:
     ).properties(width=800, height=400)
     st.altair_chart(chart_30, use_container_width=True)
 
-        st.markdown("### 📊 Dias desde último documento por Entidade (>90 dias)")
-    chart_90 = alt.Chart(entidade_doc_90).mark_bar().encode(
+      st.markdown("### 📊 Dias desde último documento por Entidade (>90 dias)")
+        chart_90 = alt.Chart(entidade_doc_90).mark_bar().encode(
         x=alt.X('Entidade', sort='-y'),
         y='Days Since Last Doc',
         tooltip=['Entidade', 'Days Since Last Doc']
