@@ -100,23 +100,23 @@ if not chart_df.empty:
 else:
     st.info("ℹ️ Não há dados de KGS válidos para gerar o gráfico.")
 
-# KPI: Top 10 and Bottom 10 Articles by KGS per Year
-st.write("### 📦 Top e Bottom 10 Artigos por Quantidade (KGS) por Ano")
+# KPI: Top 10 and Bottom 15 Articles by KGS per Year
+st.write("### 📦 Top e Bottom 15 Artigos por Quantidade (KGS) por Ano")
 if 'KGS' in filtered_df.columns and filtered_df['KGS'].notnull().any():
     kgs_data = filtered_df[filtered_df['KGS'].notnull()].copy()
     
     # Group by year and product to get total KGS
     kgs_agg = kgs_data.groupby(['ANO', 'PRODUTO'])['KGS'].sum().reset_index()
     
-    # For each year, get top 10 and bottom 10 articles
+    # For each year, get top 15 and bottom 15 articles
     for year in sorted(kgs_agg['ANO'].dropna().unique()):
         year_data = kgs_agg[kgs_agg['ANO'] == year].copy()
         if not year_data.empty:
             # Calculate average KGS for the year (total KGS / number of articles)
             avg_kgs_year = year_data['KGS'].mean()
             
-            # Get top 10 and bottom 10 articles
-            top_10 = year_data.nlargest(10, 'KGS')[['PRODUTO', 'KGS']].round(2)
+            # Get top 15 and bottom 10 articles
+            top_15 = year_data.nlargest(15, 'KGS')[['PRODUTO', 'KGS']].round(2)
             bottom_10 = year_data.nsmallest(10, 'KGS')[['PRODUTO', 'KGS']].round(2)
             
             # Display in an expander for each year
@@ -126,14 +126,14 @@ if 'KGS' in filtered_df.columns and filtered_df['KGS'].notnull().any():
                 col1, col2 = st.columns(2)
                 
                 with col1:
-                    st.write("**Top 10 Artigos (Maior KGS)**")
-                    if not top_10.empty:
+                    st.write("**Top 15 Artigos (Maior KGS)**")
+                    if not top_15.empty:
                         st.dataframe(
-                            top_10.rename(columns={'PRODUTO': 'Artigo', 'KGS': 'Quantidade (KGS)'}),
+                            top_15.rename(columns={'PRODUTO': 'Artigo', 'KGS': 'Quantidade (KGS)'}),
                             use_container_width=True
                         )
                     else:
-                        st.info("ℹ️ Não há dados suficientes para os top 10 artigos.")
+                        st.info("ℹ️ Não há dados suficientes para os top 15 artigos.")
                 
                 with col2:
                     st.write("**Bottom 10 Artigos (Menor KGS)**")
