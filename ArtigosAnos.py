@@ -100,7 +100,7 @@ if not chart_df.empty:
 else:
     st.info("ℹ️ Não há dados de KGS válidos para gerar o gráfico.")
 
-# KPI: Top 10 and Bottom 15 Articles by KGS per Year
+# KPI: Top 15 and Bottom 15 Articles by KGS per Year
 st.write("### 📦 Top e Bottom 15 Artigos por Quantidade (KGS) por Ano")
 if 'KGS' in filtered_df.columns and filtered_df['KGS'].notnull().any():
     kgs_data = filtered_df[filtered_df['KGS'].notnull()].copy()
@@ -117,7 +117,7 @@ if 'KGS' in filtered_df.columns and filtered_df['KGS'].notnull().any():
             
             # Get top 15 and bottom 10 articles
             top_15 = year_data.nlargest(15, 'KGS')[['PRODUTO', 'KGS']].round(2)
-            bottom_10 = year_data.nsmallest(10, 'KGS')[['PRODUTO', 'KGS']].round(2)
+            bottom_15 = year_data.nsmallest(15, 'KGS')[['PRODUTO', 'KGS']].round(2)
             
             # Display in an expander for each year
             with st.expander(f"📊 Ano {year}"):
@@ -136,13 +136,13 @@ if 'KGS' in filtered_df.columns and filtered_df['KGS'].notnull().any():
                         st.info("ℹ️ Não há dados suficientes para os top 15 artigos.")
                 
                 with col2:
-                    st.write("**Bottom 10 Artigos (Menor KGS)**")
-                    if not bottom_10.empty:
+                    st.write("**Bottom 15 Artigos (Menor KGS)**")
+                    if not bottom_15.empty:
                         st.dataframe(
-                            bottom_10.rename(columns={'PRODUTO': 'Artigo', 'KGS': 'Quantidade (KGS)'}),
+                            bottom_15.rename(columns={'PRODUTO': 'Artigo', 'KGS': 'Quantidade (KGS)'}),
                             use_container_width=True
                         )
                     else:
-                        st.info("ℹ️ Não há dados suficientes para os bottom 10 artigos.")
+                        st.info("ℹ️ Não há dados suficientes para os bottom 15 artigos.")
 else:
     st.info("ℹ️ Não há dados de KGS válidos para gerar os indicadores.")
