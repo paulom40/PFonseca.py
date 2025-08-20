@@ -11,14 +11,20 @@ st.image("https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png
 ordered_months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
                   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
-# Load and clean data
-excel_url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Artigos_totais_ANOS.xlsx"
-df = pd.read_excel(excel_url, sheet_name="Resumo", engine="openpyxl")
-df.columns = df.columns.str.strip().str.upper()
-df['MES'] = df['MÊS'].str.capitalize().str.strip()
-df['ANO'] = pd.to_numeric(df['ANO'], errors='coerce').astype('Int64')
-df['KGS'] = pd.to_numeric(df['KGS'], errors='coerce')
-df['PM'] = pd.to_numeric(df['PM'], errors='coerce')
+# Cache the data loading function
+@st.cache_data
+def load_data():
+    excel_url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Artigos_totais_ANOS.xlsx"
+    df = pd.read_excel(excel_url, sheet_name="Resumo", engine="openpyxl")
+    df.columns = df.columns.str.strip().str.upper()
+    df['MES'] = df['MÊS'].str.capitalize().str.strip()
+    df['ANO'] = pd.to_numeric(df['ANO'], errors='coerce').astype('Int64')
+    df['KGS'] = pd.to_numeric(df['KGS'], errors='coerce')
+    df['PM'] = pd.to_numeric(df['PM'], errors='coerce')
+    return df
+
+# Load data
+df = load_data()
 
 # Validate month names
 invalid_months = df[~df['MES'].isin(ordered_months)]['MES'].unique()
@@ -33,6 +39,12 @@ anos = sorted(df['ANO'].dropna().unique())
 selected_produto = st.sidebar.multiselect("Produto", options=produtos, default=produtos)
 selected_mes = st.sidebar.multiselect("Mês", options=meses, default=meses)
 selected_ano = st.sidebar.multiselect("Ano", options=anos, default=anos)
+
+# Refresh button
+if st.sidebar.button("🔄 Atualizar Dados"):
+    st.cache_data.clear()  # Clear the cache
+    df = load_data()  # Reload the data
+    st.sidebar.success("Dados atualizados com sucesso!")
 
 # Filter data
 filtered_df = df[
@@ -115,7 +127,7 @@ if 'KGS' in filtered_df.columns and filtered_df['KGS'].notnull().any():
             # Calculate average KGS for the year (total KGS / number of articles)
             avg_kgs_year = year_data['KGS'].mean()
             
-            # Get top 15 and bottom 10 articles
+            # Get top 15 and bottom 15 articles
             top_15 = year_data.nlargest(15, 'KGS')[['PRODUTO', 'KGS']].round(2)
             bottom_15 = year_data.nsmallest(15, 'KGS')[['PRODUTO', 'KGS']].round(2)
             
