@@ -3,7 +3,7 @@ import pandas as pd
 import io
 
 # -------------------------------
-# 🔐 Sidebar Login System
+# 🔐 Sistema de Login na Sidebar
 # -------------------------------
 users = {
     "paulojt": "1234",
@@ -20,54 +20,54 @@ if not st.session_state.logged_in:
     if st.sidebar.button("Login"):
         if username in users and users[username] == password:
             st.session_state.logged_in = True
-            st.sidebar.success("✅ Login successful!")
+            st.sidebar.success("✅ Login bem-sucedido!")
         else:
-            st.sidebar.error("❌ Invalid credentials")
+            st.sidebar.error("❌ Credenciais inválidas")
     st.stop()
 
 # -------------------------------
-# 📊 Main App
+# 📊 Aplicação Principal
 # -------------------------------
-st.title("📂 Filtro e Exportação de Dados")
+st.title("📂 Filtro por Mês e Ano + Exportação")
 
-# Load Excel file from GitHub
+# 📥 Carregar ficheiro Excel do GitHub
 url = "https://github.com/paulom40/PFonseca.py/raw/main/Perc2025_Com.xlsx"
 try:
     df = pd.read_excel(url)
     df.columns = df.columns.str.strip()
 except Exception as e:
-    st.error("❌ Erro ao carregar o ficheiro do GitHub.")
+    st.error("❌ Erro ao carregar o ficheiro. Verifica o link ou o formato.")
     st.stop()
 
-# Show available columns
+# 📋 Mostrar colunas disponíveis
 st.sidebar.subheader("📋 Colunas disponíveis")
 st.sidebar.write(df.columns.tolist())
 
-# Check for required columns
+# ✅ Verificar colunas obrigatórias
 if "Mes" in df.columns and "Ano" in df.columns:
-    # Sidebar filters
-    selected_mes = st.sidebar.multiselect("📅 Selecione o Mês", options=df["Mes"].dropna().unique())
-    selected_ano = st.sidebar.multiselect("📆 Selecione o Ano", options=df["Ano"].dropna().unique())
+    # 📅 Filtros na barra lateral
+    selected_mes = st.sidebar.multiselect("📅 Selecione o(s) Mês(es)", sorted(df["Mes"].dropna().unique()))
+    selected_ano = st.sidebar.multiselect("📆 Selecione o(s) Ano(s)", sorted(df["Ano"].dropna().unique()))
 
-    # Filter data
+    # 🔍 Aplicar filtros
     filtered_df = df.copy()
     if selected_mes:
         filtered_df = filtered_df[filtered_df["Mes"].isin(selected_mes)]
     if selected_ano:
         filtered_df = filtered_df[filtered_df["Ano"].isin(selected_ano)]
 
-    # Show filtered data
+    # 📄 Mostrar dados filtrados
     st.subheader("📄 Dados Filtrados")
     st.dataframe(filtered_df, use_container_width=True)
 
-    # Export filtered data to Excel
+    # 📤 Exportar dados filtrados para Excel
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        filtered_df.to_excel(writer, index=False, sheet_name='FilteredData')
+        filtered_df.to_excel(writer, index=False, sheet_name='DadosFiltrados')
     processed_data = output.getvalue()
 
     st.download_button(
-        label="📥 Download dos dados filtrados em Excel",
+        label="📥 Download dos dados filtrados (.xlsx)",
         data=processed_data,
         file_name="dados_filtrados.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
