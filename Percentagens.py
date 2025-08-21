@@ -2,14 +2,14 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
-# Page configuration
+# --- Page Configuration ---
 st.set_page_config(layout="wide")
 st.image("https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png", width=100)
 
 # --- Login System ---
 users = {
     "paulojt": "yourpassword",
-    "guest": "guest123" ,
+    "guest": "guest123",
     "paulo": "teste"
 }
 
@@ -78,7 +78,6 @@ if "Mes" in df.columns:
 else:
     selected_mes = []
 
-
 # --- Apply Filters ---
 filtered_df = df.copy()
 
@@ -91,16 +90,21 @@ if selected_comercial:
 if selected_mes:
     filtered_df = filtered_df[filtered_df["Mes"].isin(selected_mes)]
 
-
 # --- Format Percentages ---
 for col in filtered_df.select_dtypes(include='number').columns:
     if col != "Ano":
         filtered_df[col] = filtered_df[col].apply(lambda x: f"{x:.2%}")
 
-# --- Display ---
+# --- Display Data ---
 st.title("📈 2025 Percentage Dashboard")
 st.write(f"Bem vindo, **{st.session_state['username']}**!")
 st.dataframe(filtered_df, use_container_width=True)
+
+# --- Bar Chart: Comparação por Comercial ---
+st.subheader("📊 Comparação por Comercial")
+if "Comercial" in filtered_df.columns:
+    comercial_avg = filtered_df.groupby("Comercial")[filter_columns].mean()
+    st.bar_chart(comercial_avg)
 
 # --- Download Button ---
 def to_excel(df):
