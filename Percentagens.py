@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 import io
 
 # -------------------------------
@@ -27,12 +26,12 @@ if not st.session_state.logged_in:
     st.stop()
 
 # -------------------------------
-# 📊 Main App
+# 📊 Main App (No Chart)
 # -------------------------------
-st.title("📊 Análise de Vendas por Categoria")
+st.title("📂 Filtro e Exportação de Dados")
 
 # Upload Excel file
-uploaded_file = st.file_uploader("📂 Carregue o ficheiro Excel", type=["xlsx"])
+uploaded_file = st.file_uploader("Carregue o ficheiro Excel", type=["xlsx"])
 
 if uploaded_file:
     # Load and clean data
@@ -56,46 +55,23 @@ if uploaded_file:
         if selected_ano:
             filtered_df = filtered_df[filtered_df["Ano"].isin(selected_ano)]
 
-        # Define categorias
-        categorias = ["Congelados", "Frescos", "Leitão", "Peixe", "Transf"]
-        available_categorias = [cat for cat in categorias if cat in filtered_df.columns]
+        # Show filtered data
+        st.subheader("📄 Dados Filtrados")
+        st.dataframe(filtered_df)
 
-        if available_categorias:
-            # Melt data for visualization
-            melted_df = filtered_df.melt(
-                id_vars=["Mes", "Ano"],
-                value_vars=available_categorias,
-                var_name="Categoria",
-                value_name="Valor"
-            )
+        # Export filtered data to Excel
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            filtered_df.to_excel(writer, index=False, sheet_name='FilteredData')
+            writer.save()
+            processed_data = output.getvalue()
 
-            # Plot chart
-            fig = px.bar(
-                melted_df,
-                x="Mes",
-                y="Valor",
-                color="Categoria",
-                barmode="group",
-                facet_col="Ano",
-                title="📈 Vendas por Categoria"
-            )
-            st.plotly_chart(fig, use_container_width=True)
-
-            # Export filtered data to Excel
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                filtered_df.to_excel(writer, index=False, sheet_name='FilteredData')
-                writer.save()
-                processed_data = output.getvalue()
-
-            st.download_button(
-                label="📥 Download dos dados filtrados em Excel",
-                data=processed_data,
-                file_name="dados_filtrados.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-        else:
-            st.warning("⚠️ Nenhuma das categorias esperadas foi encontrada no ficheiro.")
+        st.download_button(
+            label="📥 Download dos dados filtrados em Excel",
+            data=processed_data,
+            file_name="dados_filtrados.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
     else:
         st.error("❌ As colunas 'Mes' e 'Ano' são obrigatórias no ficheiro.")
 else:
