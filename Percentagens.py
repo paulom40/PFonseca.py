@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-# --- Simple login system ---
+# --- Login System ---
 users = {
     "paulojt": "yourpassword",
     "guest": "guest123"
@@ -35,12 +35,36 @@ def load_data():
 
 df = load_data()
 
-# --- Format and Display ---
-st.title("📊 2025 Percentage Dashboard")
+# --- Format "Ano" as integer ---
+if "Ano" in df.columns:
+    df["Ano"] = df["Ano"].astype(int)
+
+# --- Sidebar Filters ---
+st.sidebar.title("📊 Filter Percentages")
+
+filter_columns = ["Congelados", "Frescos", "Leitão", "Peixe", "Transf"]
+filters = {}
+
+for col in filter_columns:
+    if col in df.columns:
+        min_val = float(df[col].min())
+        max_val = float(df[col].max())
+        filters[col] = st.sidebar.slider(
+            f"{col} (%)", min_value=0.0, max_value=1.0,
+            value=(min_val, max_val), step=0.01
+        )
+
+# --- Apply Filters ---
+filtered_df = df.copy()
+for col, (min_val, max_val) in filters.items():
+    filtered_df = filtered_df[(filtered_df[col] >= min_val) & (filtered_df[col] <= max_val)]
+
+# --- Format Percentages ---
+for col in filtered_df.select_dtypes(include='number').columns:
+    if col != "Ano":
+        filtered_df[col] = filtered_df[col].apply(lambda x: f"{x:.2%}")
+
+# --- Display ---
+st.title("📈 2025 Percentage Dashboard")
 st.write(f"Welcome, **{st.session_state['username']}**!")
-
-# Format numeric columns as percentages
-for col in df.select_dtypes(include='number').columns:
-    df[col] = df[col].apply(lambda x: f"{x:.2%}")
-
-st.dataframe(df, use_container_width=True)
+st.dataframe(filtered_df, use_container_width=True)
