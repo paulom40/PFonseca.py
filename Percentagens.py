@@ -7,10 +7,9 @@ USERNAME = "admin"
 PASSWORD = "12345"
 
 # Function to parse the document string into DataFrame
-def load_data():
-    # Extract rows
+def parse_document_string(document):
     row_pattern = re.compile(r'row\d+: (.*)')
-    rows = row_pattern.findall(st.secrets["document"])
+    rows = row_pattern.findall(document)
     
     data_list = []
     header = ['Cliente', 'Congelados', 'Frescos', 'Leitão', 'Peixe', 'Transf', 'Comercial', 'Mes', 'Ano']
@@ -54,6 +53,38 @@ def load_data():
     
     return df
 
+# Function to load data (from secrets or uploaded file)
+def load_data():
+    try:
+        # Try loading from st.secrets
+        document = st.secrets["document"]
+        return parse_document_string(document)
+    except KeyError:
+        # Fallback to file upload
+        st.warning("No 'document' key found in st.secrets. Please upload the Excel file 'Perc2025_Com.xlsx'.")
+        uploaded_file = st.file_uploader("Upload Perc2025_Com.xlsx", type=["xlsx"])
+        if uploaded_file is not None:
+            try:
+                df = pd.read_excel(uploaded_file)
+                # Ensure expected columns
+                expected_columns = ['Cliente', 'Congelados', 'Frescos', 'Leitão', 'Peixe', 'Transf', 'Comercial', 'Mes', 'Ano']
+                if not all(col in df.columns for col in expected_columns):
+                    st.error(f"Uploaded file must contain columns: {', '.join(expected_columns)}")
+                    return pd.DataFrame()
+                # Map months to numbers
+                month_map = {
+                    'Janeiro': 1, 'Fevereiro': 2, 'Março': 3, 'Abril': 4, 'Maio': 5, 'Junho': 6,
+                    'Julho': 7, 'Agosto': 8, 'Setembro': 9, 'Outubro': 10, 'Novembro': 11, 'Dezembro': 12
+                }
+                df['MonthNum'] = df['Mes'].map(month_map)
+                df['Date'] = pd.to_datetime(df['Ano'].astype(str) + '-' + df['MonthNum'].astype(str) + '-01')
+                return df
+            except Exception as e:
+                st.error(f"Error reading Excel file: {e}")
+                return pd.DataFrame()
+        else:
+            return pd.DataFrame()
+
 # Login system
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
@@ -74,6 +105,10 @@ if not st.session_state.logged_in:
 
 # Load data
 df = load_data()
+
+if df.empty:
+    st.error("No data loaded. Please configure st.secrets['document'] or upload the Excel file.")
+    st.stop()
 
 # Sidebars
 with st.sidebar:
