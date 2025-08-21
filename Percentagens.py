@@ -108,11 +108,15 @@ st.title("📈 2025 Percentage Dashboard")
 st.write(f"Bem vindo, **{st.session_state['username']}**!")
 st.dataframe(filtered_df, use_container_width=True)
 
-# --- Heatmap Chart: Comparação por Comercial ---
+# --- Heatmap Chart: Comparação por Comercial (Sorted Descending) ---
 st.subheader("🔥 Heatmap de Percentagens por Comercial")
 
 if "Comercial" in numeric_df.columns:
     comercial_avg = numeric_df.groupby("Comercial")[filter_columns].mean()
+
+    # Sort Comerciais by total average percentage descending
+    comercial_avg["Total"] = comercial_avg.sum(axis=1)
+    comercial_avg = comercial_avg.sort_values("Total", ascending=False).drop(columns="Total")
 
     fig, ax = plt.subplots(figsize=(10, 6))
     sns.heatmap(
@@ -125,8 +129,9 @@ if "Comercial" in numeric_df.columns:
         ax=ax
     )
 
-    ax.set_title("Comparação de Categorias por Comercial", fontsize=14)
+    ax.set_title("Comparação de Categorias por Comercial (Ordenado)", fontsize=14)
     st.pyplot(fig)
+
 
 # --- Download Button ---
 def to_excel(df):
