@@ -11,7 +11,7 @@ def login():
     # Replace with your own credentials
     valid_users = {
         "paulojt": "braga2025",
-        "admin": "admin123"
+        "admin": "12345"
     }
 
     if login_btn:
