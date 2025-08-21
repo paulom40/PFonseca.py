@@ -108,7 +108,7 @@ for col in filtered_df.select_dtypes(include='number').columns:
         filtered_df[col] = filtered_df[col].apply(lambda x: f"{x:.2%}")
 
 # --- Display Data ---
-st.title("📈 2025 Percentage Dashboard")
+st.title("📈 2025 Percentagem Dashboard")
 st.write(f"Bem-vindo, **{st.session_state['username']}**!")
 st.dataframe(filtered_df, use_container_width=True)
 
