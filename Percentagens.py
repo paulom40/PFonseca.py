@@ -71,6 +71,14 @@ if "Comercial" in df.columns:
 else:
     selected_comercial = []
 
+# --- Mes Filter ---
+if "Mes" in df.columns:
+    mes_options = df["Mes"].dropna().unique().tolist()
+    selected_mes = st.sidebar.multiselect("🗓️ Mês", mes_options, default=mes_options)
+else:
+    selected_mes = []
+
+
 # --- Apply Filters ---
 filtered_df = df.copy()
 
@@ -79,6 +87,10 @@ for col, (min_val, max_val) in filters.items():
 
 if selected_comercial:
     filtered_df = filtered_df[filtered_df["Comercial"].isin(selected_comercial)]
+
+if selected_mes:
+    filtered_df = filtered_df[filtered_df["Mes"].isin(selected_mes)]
+
 
 # --- Format Percentages ---
 for col in filtered_df.select_dtypes(include='number').columns:
