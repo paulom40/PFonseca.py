@@ -1,48 +1,63 @@
 import streamlit as st
 import pandas as pd
 
-# Load data from GitHub
+# --- USER AUTHENTICATION ---
+def login():
+    st.sidebar.title("🔐 Login")
+    username = st.sidebar.text_input("Username")
+    password = st.sidebar.text_input("Password", type="password")
+    login_btn = st.sidebar.button("Login")
+
+    # Replace with your own credentials
+    valid_users = {
+        "paulojt": "braga2025",
+        "admin": "admin123"
+    }
+
+    if login_btn:
+        if username in valid_users and password == valid_users[username]:
+            st.session_state["authenticated"] = True
+            st.success(f"✅ Welcome, {username}!")
+        else:
+            st.error("❌ Invalid username or password")
+
+# --- INITIALIZE SESSION STATE ---
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+# --- LOGIN GATE ---
+if not st.session_state["authenticated"]:
+    login()
+    st.stop()
+
+# --- LOAD DATA ---
 @st.cache_data
 def load_data():
     url = "https://github.com/paulom40/PFonseca.py/raw/main/Perc2025_Com.xlsx"
     df = pd.read_excel(url)
-    df.columns = df.columns.str.strip()  # Clean column names
+    df.columns = df.columns.str.strip()
     return df
 
 df = load_data()
 
 st.title("📊 Perc2025 Commercial Dashboard")
 
-# Show available columns for debugging
-st.expander("📋 Show Available Columns").write(df.columns.tolist())
-
-# Helper to check column existence
-def safe_multiselect(label, col_name):
-    if col_name in df.columns:
-        return st.sidebar.multiselect(label, options=df[col_name].dropna().unique())
-    else:
-        st.sidebar.warning(f"⚠️ Column '{col_name}' not found.")
-        return []
-
-# Sidebar filters
+# --- SIDEBAR FILTERS ---
 st.sidebar.header("🔍 Filters")
-cliente = safe_multiselect("Cliente", "Cliente")
-comercial = safe_multiselect("Comercial", "Comercial")
-categoria = safe_multiselect("Categoria", "Categoria")
-mes = safe_multiselect("Mes", "Mes")
+cliente = st.sidebar.multiselect("Cliente", options=df["Cliente"].dropna().unique())
+comercial = st.sidebar.multiselect("Comercial", options=df["Comercial"].dropna().unique())
+mes = st.sidebar.multiselect("Mes", options=df["Mes"].dropna().unique())
 
 update = st.sidebar.button("🔄 Update")
 refresh = st.sidebar.button("♻️ Refresh")
 
-# Apply filters
+# --- FILTER FUNCTION ---
 def filter_data():
     filtered = df.copy()
     if cliente:
         filtered = filtered[filtered["Cliente"].isin(cliente)]
     if comercial:
         filtered = filtered[filtered["Comercial"].isin(comercial)]
-    if categoria:
-        filtered = filtered[filtered["Categoria"].isin(categoria)]
     if mes:
         filtered = filtered[filtered["Mes"].isin(mes)]
     return filtered
@@ -50,21 +65,23 @@ def filter_data():
 if update:
     filtered_df = filter_data()
 elif refresh:
-    cliente = comercial = categoria = mes = []
+    cliente = comercial = mes = []
     filtered_df = df.copy()
 else:
     filtered_df = df.copy()
 
-# Format numeric columns as percentages
-numeric_cols = filtered_df.select_dtypes(include="number").columns
-filtered_df[numeric_cols] = filtered_df[numeric_cols].applymap(lambda x: f"{x:.2%}")
+# --- FORMAT NUMERIC COLUMNS ---
+numeric_cols = ["Congelados", "Frescos", "Leitão", "Peixe", "Transf"]
+for col in numeric_cols:
+    if col in filtered_df.columns:
+        filtered_df[col] = filtered_df[col].map(lambda x: f"{x:.2%}")
 
-# Display filtered table
+# --- DISPLAY TABLE ---
 st.subheader("📈 Filtered Results")
 st.dataframe(filtered_df, use_container_width=True)
 
-# Alert for clients missing purchases in any month
-if "Cliente" in df.columns and "Mes" in df.columns and cliente:
+# --- ALERT FOR MISSING MONTHS ---
+if cliente:
     all_months = set(df["Mes"].dropna().unique())
     missing_clients = []
     for c in cliente:
