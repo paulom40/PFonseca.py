@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from io import BytesIO
 
 # --- Login System ---
 users = {
@@ -33,6 +34,10 @@ def load_data():
     df = pd.read_excel(url)
     return df
 
+# --- Refresh Button ---
+if st.sidebar.button("🔄 Refresh"):
+    st.cache_data.clear()
+
 df = load_data()
 
 # --- Format "Ano" as integer ---
@@ -54,10 +59,21 @@ for col in filter_columns:
             value=(min_val, max_val), step=0.01
         )
 
+# --- Comercial Filter ---
+if "Comercial" in df.columns:
+    comercial_options = df["Comercial"].dropna().unique().tolist()
+    selected_comercial = st.sidebar.multiselect("🏷️ Comercial", comercial_options, default=comercial_options)
+else:
+    selected_comercial = []
+
 # --- Apply Filters ---
 filtered_df = df.copy()
+
 for col, (min_val, max_val) in filters.items():
     filtered_df = filtered_df[(filtered_df[col] >= min_val) & (filtered_df[col] <= max_val)]
+
+if selected_comercial:
+    filtered_df = filtered_df[filtered_df["Comercial"].isin(selected_comercial)]
 
 # --- Format Percentages ---
 for col in filtered_df.select_dtypes(include='number').columns:
@@ -68,3 +84,18 @@ for col in filtered_df.select_dtypes(include='number').columns:
 st.title("📈 2025 Percentage Dashboard")
 st.write(f"Welcome, **{st.session_state['username']}**!")
 st.dataframe(filtered_df, use_container_width=True)
+
+# --- Download Button ---
+def to_excel(df):
+    output = BytesIO()
+    df.to_excel(output, index=False, engine='openpyxl')
+    return output.getvalue()
+
+excel_data = to_excel(filtered_df)
+
+st.download_button(
+    label="📥 Download filtered data as Excel",
+    data=excel_data,
+    file_name="filtered_data.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
