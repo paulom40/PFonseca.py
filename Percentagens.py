@@ -46,11 +46,17 @@ try:
     st.sidebar.write(df.columns.tolist())
 
     # 🛠️ Renomear colunas semelhantes a 'Mes' e 'Ano'
-    for col in df.columns:
-        if "mes" in col.lower():
-            df.rename(columns={col: "Mes"}, inplace=True)
-        if "ano" in col.lower():
-            df.rename(columns={col: "Ano"}, inplace=True)
+    mes_col = next((col for col in df.columns if "mes" in col.lower()), None)
+    ano_col = next((col for col in df.columns if "ano" in col.lower()), None)
+
+    if mes_col:
+        df.rename(columns={mes_col: "Mes"}, inplace=True)
+    if ano_col:
+        df.rename(columns={ano_col: "Ano"}, inplace=True)
+
+    # Debugging: Show renamed columns
+    st.sidebar.subheader("📋 Colunas após renomeação")
+    st.sidebar.write(df.columns.tolist())
 
 except Exception as e:
     st.error(f"❌ Erro ao carregar o ficheiro: {e}")
