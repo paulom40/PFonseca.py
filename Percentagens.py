@@ -3,8 +3,8 @@ import pandas as pd
 import re
 
 # Hardcoded login credentials (replace with your own or use st.secrets)
-USERNAME = "user"
-PASSWORD = "pass"
+USERNAME = "admin"
+PASSWORD = "12345"
 
 # Function to parse the document string into DataFrame
 def load_data():
