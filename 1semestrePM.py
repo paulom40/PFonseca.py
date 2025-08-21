@@ -1,76 +1,119 @@
 import streamlit as st
 import pandas as pd
-import io
 
-# 🚀 Page configuration
-st.set_page_config(page_title="Sales Dashboard", layout="wide")
+# Hardcoded login credentials (replace with your own or use environment variables)
+USERNAME = "admin"
+PASSWORD = "12345"
 
-# 🖼️ Display logo in top-left corner
-col_logo, _ = st.columns([1, 5])
-with col_logo:
-    st.image("https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png", width=150)
-
-# 📥 Load data from Excel file hosted on GitHub
-url = "https://github.com/paulom40/PFonseca.py/raw/main/1semestrePM.xlsx"
-
-@st.cache_data
+# Function to load data from URL
 def load_data():
-    df = pd.read_excel(url)
-    df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
-    return df
+    url = "https://github.com/paulom40/PFonseca.py/raw/main/Perc2025_Com.xlsx"
+    try:
+        df = pd.read_excel(url)
+        # Ensure expected columns
+        expected_columns = ['Cliente', 'Congelados', 'Frescos', 'Leitão', 'Peixe', 'Transf', 'Comercial', 'Mes', 'Ano']
+        if not all(col in df.columns for col in expected_columns):
+            st.error(f"Excel file must contain columns: {', '.join(expected_columns)}")
+            return pd.DataFrame()
+        # Convert numeric columns to percentages
+        for col in ['Congelados', 'Frescos', 'Leitão', 'Peixe', 'Transf']:
+            df[col] = df[col] * 100  # Convert decimal to percentage
+        # Map months to numbers
+        month_map = {
+            'Janeiro': 1, 'Fevereiro': 2, 'Março': 3, 'Abril': 4, 'Maio': 5, 'Junho': 6,
+            'Julho': 7, 'Agosto': 8, 'Setembro': 9, 'Outubro': 10, 'Novembro': 11, 'Dezembro': 12
+        }
+        df['MonthNum'] = df['Mes'].map(month_map)
+        df['Date'] = pd.to_datetime(df['Ano'].astype(str) + '-' + df['MonthNum'].astype(str) + '-01')
+        return df
+    except Exception as e:
+        st.error(f"Error loading Excel file from URL: {e}")
+        return pd.DataFrame()
 
+# Login system
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+
+with st.sidebar:
+    st.header("Login")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    if st.button("Login"):
+        if username == USERNAME and password == PASSWORD:
+            st.session_state.logged_in = True
+            st.success("Logged in successfully!")
+        else:
+            st.error("Incorrect username or password")
+
+if not st.session_state.logged_in:
+    st.stop()
+
+# Load data
 df = load_data()
 
-# 🎛️ Sidebar filters
-st.sidebar.header("🧩 Filtros")
+if df.empty:
+    st.error("No data loaded. Please check the Excel file URL or try again later.")
+    st.stop()
 
-ano_options = sorted(df['ano'].unique())
-selected_ano = st.sidebar.multiselect("Ano", ano_options, default=ano_options)
+# Sidebars
+with st.sidebar:
+    st.header("Filtros")
+    
+    # Cliente multiselect
+    clientes = sorted(df['Cliente'].unique())
+    selected_clientes = st.multiselect("Cliente", clientes, default=[])
+    
+    # Comercial multiselect
+    comerciais = sorted(df['Comercial'].unique())
+    selected_comerciais = st.multiselect("Comercial", comerciais, default=[])
+    
+    # Product multiselect
+    products = ['Congelados', 'Frescos', 'Leitão', 'Peixe', 'Transf']
+    selected_products = st.multiselect("Categoria", products, default=products)
+    
+    # Timeline sidebar (months)
+    months = sorted(df['Mes'].unique())
+    selected_month = st.selectbox("Mes", ['Todos'] + months)
+    
+    # Buttons
+    if st.button("Update Data"):
+        df = load_data()
+        st.success("Data updated!")
+    
+    if st.button("Clear Cache"):
+        st.cache_clear()
+        st.success("Cache cleared!")
 
-mes_options = sorted(df['mês'].unique())
-selected_mes = st.sidebar.multiselect("Mês", mes_options, default=mes_options)
+# Filter data
+filtered_df = df.copy()
 
-artigo_options = sorted(df['artigo'].unique())
-selected_artigo = st.sidebar.multiselect("Artigo", artigo_options, default=artigo_options)
+if selected_clientes:
+    filtered_df = filtered_df[filtered_df['Cliente'].isin(selected_clientes)]
 
-# 🔍 Filter data based on selections
-filtered_df = df[
-    (df['ano'].isin(selected_ano)) &
-    (df['mês'].isin(selected_mes)) &
-    (df['artigo'].isin(selected_artigo))
-]
+if selected_comerciais:
+    filtered_df = filtered_df[filtered_df['Comercial'].isin(selected_comerciais)]
 
-# 📊 KPIs section
-st.header("📊 KPIs")
-col1, col2, col3 = st.columns(3)
+if selected_month != 'Todos':
+    filtered_df = filtered_df[filtered_df['Mes'] == selected_month]
 
-avg_pm = filtered_df['pm'].mean() if not filtered_df.empty else 0
-avg_quantidade = filtered_df['quantidade'].mean() if not filtered_df.empty else 0
-avg_valor_liquido = filtered_df['valor_liquido'].mean() if not filtered_df.empty else 0
+# Format percentages for display
+display_df = filtered_df.copy()
+for col in ['Congelados', 'Frescos', 'Leitão', 'Peixe', 'Transf']:
+    display_df[col] = display_df[col].apply(lambda x: f"{x:.2f}%")
 
-with col1:
-    st.metric("🧮 Média PM", f"{avg_pm:.2f}")
-with col2:
-    st.metric("📦 Média Quantidade", f"{avg_quantidade:.2f}")
-with col3:
-    st.metric("💰 Média Valor Liquido", f"{avg_valor_liquido:.2f}")
+# Main content
+st.title("Dashboard de Vendas")
 
-# 📋 Display filtered data
-st.header("📋 Dados Filtrados")
-st.dataframe(filtered_df)
+# Show filtered table
+st.subheader("Dados Filtrados")
+st.dataframe(display_df)
 
-# 📤 Export filtered data to Excel using openpyxl
-def to_excel(df):
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Dados Filtrados')
-    return output.getvalue()
-
-excel_data = to_excel(filtered_df)
-
-st.download_button(
-    label="📥 Exportar para Excel",
-    data=excel_data,
-    file_name="dados_filtrados.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
+# Summary table for selected products
+if not filtered_df.empty and selected_products:
+    st.subheader("Resumo das Categorias Selecionadas")
+    summary_data = filtered_df.groupby('Mes')[selected_products].sum().reset_index()
+    # Format summary table percentages
+    display_summary = summary_data.copy()
+    for col in selected_products:
+        display_summary[col] = display_summary[col].apply(lambda x: f"{x:.2f}%")
+    st.dataframe(display_summary)
