@@ -113,7 +113,7 @@ st.write(f"Bem-vindo, **{st.session_state['username']}**!")
 st.dataframe(filtered_df, use_container_width=True)
 
 # --- Heatmap Chart: Sorted from High to Low (Top to Bottom) ---
-st.subheader("🔥 Heatmap de Percentagens por Comercial (Top → Bottom)")
+st.subheader("🔥 Percentagens por Comercial")
 
 if "Comercial" in numeric_df.columns:
     comercial_avg = numeric_df.groupby("Comercial")[filter_columns].mean()
