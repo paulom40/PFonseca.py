@@ -5,7 +5,8 @@ from io import BytesIO
 # --- Login System ---
 users = {
     "paulojt": "yourpassword",
-    "guest": "guest123"
+    "guest": "guest123" ,
+    "paulo": "teste"
 }
 
 def login():
