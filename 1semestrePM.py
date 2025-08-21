@@ -111,7 +111,7 @@ st.dataframe(display_df)
 # Summary table for selected products
 if not filtered_df.empty and selected_products:
     st.subheader("Resumo das Categorias Selecionadas")
-    summary_data = filtered_df.groupby('Mes')[selected_products].sum().reset_index()
+    summary_data = filtered_df.groupby('Mes')[selected_products].mean().reset_index()
     # Format summary table percentages
     display_summary = summary_data.copy()
     for col in selected_products:
