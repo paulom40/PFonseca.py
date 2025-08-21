@@ -31,11 +31,11 @@ def parse_document_string(document):
             congelados, frescos, leitao, peixe, transf, comercial, mes, ano = remaining
             data_list.append({
                 'Cliente': client,
-                'Congelados': float(congelados),
-                'Frescos': float(frescos),
-                'Leitão': float(leitao),
-                'Peixe': float(peixe),
-                'Transf': float(transf),
+                'Congelados': float(congelados) * 100,  # Convert to percentage
+                'Frescos': float(frescos) * 100,        # Convert to percentage
+                'Leitão': float(leitao) * 100,          # Convert to percentage
+                'Peixe': float(peixe) * 100,            # Convert to percentage
+                'Transf': float(transf) * 100,          # Convert to percentage
                 'Comercial': comercial.strip(),
                 'Mes': mes.strip(),
                 'Ano': int(ano.strip())
@@ -49,7 +49,7 @@ def parse_document_string(document):
         'Julho': 7, 'Agosto': 8, 'Setembro': 9, 'Outubro': 10, 'Novembro': 11, 'Dezembro': 12
     }
     df['MonthNum'] = df['Mes'].map(month_map)
-    df['Date'] = pd.to_datetime(df['Ano'].astype(str) + '-' + df['MonthNum'].astype(str) + '-01')
+    df['Date'] = pd.to_datetime(df['Ano'].astype.str() + '-' + df['MonthNum'].astype(str) + '-01')
     
     return df
 
@@ -71,6 +71,9 @@ def load_data():
                 if not all(col in df.columns for col in expected_columns):
                     st.error(f"Uploaded file must contain columns: {', '.join(expected_columns)}")
                     return pd.DataFrame()
+                # Convert numeric columns to percentages
+                for col in ['Congelados', 'Frescos', 'Leitão', 'Peixe', 'Transf']:
+                    df[col] = df[col] * 100
                 # Map months to numbers
                 month_map = {
                     'Janeiro': 1, 'Fevereiro': 2, 'Março': 3, 'Abril': 4, 'Maio': 5, 'Junho': 6,
