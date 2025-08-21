@@ -3,7 +3,7 @@ import pandas as pd
 import io
 
 # -------------------------------
-# 🔐 Simple Login System
+# 🔐 Sidebar Login System
 # -------------------------------
 users = {
     "paulojt": "1234",
@@ -14,19 +14,19 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
 if not st.session_state.logged_in:
-    st.title("🔐 Login")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
+    st.sidebar.title("🔐 Login")
+    username = st.sidebar.text_input("Username")
+    password = st.sidebar.text_input("Password", type="password")
+    if st.sidebar.button("Login"):
         if username in users and users[username] == password:
             st.session_state.logged_in = True
-            st.success("✅ Login successful!")
+            st.sidebar.success("✅ Login successful!")
         else:
-            st.error("❌ Invalid credentials")
+            st.sidebar.error("❌ Invalid credentials")
     st.stop()
 
 # -------------------------------
-# 📊 Main App (No Chart)
+# 📂 Main App (No Chart)
 # -------------------------------
 st.title("📂 Filtro e Exportação de Dados")
 
@@ -63,8 +63,7 @@ if uploaded_file:
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             filtered_df.to_excel(writer, index=False, sheet_name='FilteredData')
-            writer.save()
-            processed_data = output.getvalue()
+        processed_data = output.getvalue()
 
         st.download_button(
             label="📥 Download dos dados filtrados em Excel",
