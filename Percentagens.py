@@ -73,12 +73,9 @@ if "Comercial" in df.columns:
 else:
     selected_comercial = []
 
-# --- Mes Filter ---
-if "Mes" in df.columns:
-    mes_options = df["Mes"].dropna().unique().tolist()
-    selected_mes = st.sidebar.multiselect("🗓️ Mês", mes_options, default=mes_options)
-else:
-    selected_mes = []
+if selected_mes and mes_column:
+    filtered_df = filtered_df[filtered_df[mes_column].astype(str).isin(selected_mes)]
+
 
 # --- Apply Filters ---
 filtered_df = df.copy()
