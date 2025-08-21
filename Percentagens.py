@@ -28,50 +28,72 @@ if not st.session_state.logged_in:
 # -------------------------------
 # 📊 Aplicação Principal
 # -------------------------------
-st.title("📂 Filtro por Mês e Ano + Exportação")
+st.title("📂 Filtro por Mês e Ano + Totais Médios")
 
 # 📥 Carregar ficheiro Excel do GitHub
 url = "https://github.com/paulom40/PFonseca.py/raw/main/Perc2025_Com.xlsx"
 try:
     df = pd.read_excel(url)
     df.columns = df.columns.str.strip()
+    df.columns = df.columns.str.replace('\n', '', regex=True)
+    df.columns = df.columns.str.replace('\r', '', regex=True)
+    df.columns = df.columns.str.replace('\t', '', regex=True)
 except Exception as e:
-    st.error("❌ Erro ao carregar o ficheiro. Verifica o link ou o formato.")
+    st.error("❌ Erro ao carregar o ficheiro.")
+    st.stop()
+
+# ✅ Verificar colunas obrigatórias
+required_cols = {"Mes", "Ano"}
+actual_cols = set(df.columns)
+missing = required_cols - actual_cols
+
+if missing:
+    st.error(f"❌ O ficheiro precisa conter as colunas: {missing}")
     st.stop()
 
 # 📋 Mostrar colunas disponíveis
 st.sidebar.subheader("📋 Colunas disponíveis")
 st.sidebar.write(df.columns.tolist())
 
-# ✅ Verificar colunas obrigatórias
-required_cols = {"Mes", "Ano"}
-if required_cols.issubset(df.columns):
-    # 📅 Filtros
-    selected_mes = st.sidebar.multiselect("📅 Selecione o(s) Mês(es)", sorted(df["Mes"].dropna().unique()))
-    selected_ano = st.sidebar.multiselect("📆 Selecione o(s) Ano(s)", sorted(df["Ano"].dropna().unique()))
+# 📅 Filtros
+selected_mes = st.sidebar.multiselect("📅 Selecione o(s) Mês(es)", sorted(df["Mes"].dropna().unique()))
+selected_ano = st.sidebar.multiselect("📆 Selecione o(s) Ano(s)", sorted(df["Ano"].dropna().unique()))
 
-    # 🔍 Aplicar filtros
-    filtered_df = df.copy()
-    if selected_mes:
-        filtered_df = filtered_df[filtered_df["Mes"].isin(selected_mes)]
-    if selected_ano:
-        filtered_df = filtered_df[filtered_df["Ano"].isin(selected_ano)]
+# 🔍 Aplicar filtros
+filtered_df = df.copy()
+if selected_mes:
+    filtered_df = filtered_df[filtered_df["Mes"].isin(selected_mes)]
+if selected_ano:
+    filtered_df = filtered_df[filtered_df["Ano"].isin(selected_ano)]
 
-    # 📄 Mostrar dados filtrados
-    st.subheader("📄 Dados Filtrados")
-    st.dataframe(filtered_df, use_container_width=True)
+# 📄 Mostrar dados filtrados
+st.subheader("📄 Dados Filtrados")
+st.dataframe(filtered_df, use_container_width=True)
 
-    # 📤 Exportar para Excel
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        filtered_df.to_excel(writer, index=False, sheet_name='DadosFiltrados')
-    processed_data = output.getvalue()
+# 📊 Calcular médias por Mês
+categoria_cols = [col for col in df.columns if col not in ["Cliente", "Mes", "Ano"]]
+media_por_mes = (
+    filtered_df.groupby("Mes")[categoria_cols]
+    .mean()
+    .round(2)
+    .sort_index()
+)
 
-    st.download_button(
-        label="📥 Download dos dados filtrados (.xlsx)",
-        data=processed_data,
-        file_name="dados_filtrados.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-else:
-    st.error("❌ O ficheiro precisa conter as colunas 'Mes' e 'Ano'.")
+st.subheader("📊 Médias por Mês (%)")
+st.dataframe(media_por_mes)
+
+# 📈 Gráfico de barras
+st.bar_chart(media_por_mes)
+
+# 📤 Exportar médias para Excel
+output = io.BytesIO()
+with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+    media_por_mes.to_excel(writer, sheet_name='MediasPorMes')
+processed_data = output.getvalue()
+
+st.download_button(
+    label="📥 Download das médias por Mês (.xlsx)",
+    data=processed_data,
+    file_name="medias_por_mes.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
