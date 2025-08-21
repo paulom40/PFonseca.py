@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
 import re
 
 # Hardcoded login credentials (replace with your own or use st.secrets)
@@ -8,18 +7,10 @@ USERNAME = "user"
 PASSWORD = "pass"
 
 # Function to parse the document string into DataFrame
-@st.cache_data
 def load_data():
-    # The full document string should be pasted here. Use the updated one with 'Mes'.
-    document = """<DOCUMENT filename="Perc2025_Com.xlsx">
-<SHEET id="0" name="Sheet1">row1: Cliente,Congelados,Frescos,Leitão,Peixe,Transf,Comercial,Mes,Ano
-row2: Manuel Correia Silva & Filhos, Lda,0.031558224924986604,0.913660703998878,0,0,0.054781071076135474,Bruno Brito,Janeiro,2025
-# ... paste all other rows here ...
-</SHEET></DOCUMENT>"""
-    
     # Extract rows
     row_pattern = re.compile(r'row\d+: (.*)')
-    rows = row_pattern.findall(document)
+    rows = row_pattern.findall(st.secrets["document"])
     
     data_list = []
     header = ['Cliente', 'Congelados', 'Frescos', 'Leitão', 'Peixe', 'Transf', 'Comercial', 'Mes', 'Ano']
@@ -88,17 +79,17 @@ df = load_data()
 with st.sidebar:
     st.header("Filtros")
     
-    # Cliente sidebar
+    # Cliente multiselect
     clientes = sorted(df['Cliente'].unique())
-    selected_cliente = st.selectbox("Cliente", ['Todos'] + clientes)
+    selected_clientes = st.multiselect("Cliente", clientes, default=[])
     
-    # Comercial sidebar
+    # Comercial multiselect
     comerciais = sorted(df['Comercial'].unique())
-    selected_comercial = st.selectbox("Comercial", ['Todos'] + comerciais)
+    selected_comerciais = st.multiselect("Comercial", comerciais, default=[])
     
-    # Product choices
+    # Product multiselect
     products = ['Congelados', 'Frescos', 'Leitão', 'Peixe', 'Transf']
-    selected_product = st.selectbox("Categoria", products)
+    selected_products = st.multiselect("Categoria", products, default=products)
     
     # Timeline sidebar (months)
     months = sorted(df['Mes'].unique())
@@ -106,7 +97,6 @@ with st.sidebar:
     
     # Buttons
     if st.button("Update Data"):
-        st.cache_data.clear()
         df = load_data()
         st.success("Data updated!")
     
@@ -117,11 +107,11 @@ with st.sidebar:
 # Filter data
 filtered_df = df.copy()
 
-if selected_cliente != 'Todos':
-    filtered_df = filtered_df[filtered_df['Cliente'] == selected_cliente]
+if selected_clientes:
+    filtered_df = filtered_df[filtered_df['Cliente'].isin(selected_clientes)]
 
-if selected_comercial != 'Todos':
-    filtered_df = filtered_df[filtered_df['Comercial'] == selected_comercial]
+if selected_comerciais:
+    filtered_df = filtered_df[filtered_df['Comercial'].isin(selected_comerciais)]
 
 if selected_month != 'Todos':
     filtered_df = filtered_df[filtered_df['Mes'] == selected_month]
@@ -130,33 +120,11 @@ if selected_month != 'Todos':
 st.title("Dashboard de Vendas")
 
 # Show filtered table
+st.subheader("Dados Filtrados")
 st.dataframe(filtered_df)
 
-# Chart example: bar chart for selected product
-if not filtered_df.empty:
-    st.subheader(f"Gráfico de {selected_product}")
-    chart_data = filtered_df.groupby('Mes')[selected_product].sum().reset_index()
-    st.bar_chart(chart_data.set_index('Mes'))
-
-# Alert for clients not buying >30 days
-current_date = datetime(2025, 8, 21)  # Updated to August 21, 2025
-
-def check_no_buy(client):
-    client_df = df[df['Cliente'] == client]
-    if client_df.empty:
-        return False
-    # Assume purchase if sum of products > 0 in any category except Transf perhaps, but as per original
-    client_df = client_df[(client_df['Congelados'] + client_df['Frescos'] + client_df['Leitão'] + client_df['Peixe'] + client_df['Transf']) > 0]
-    if client_df.empty:
-        return True
-    last_purchase = client_df['Date'].max()
-    days_since = (current_date - last_purchase).days
-    return days_since > 30
-
-if selected_cliente != 'Todos':
-    if check_no_buy(selected_cliente):
-        st.warning(f"Alerta: O cliente {selected_cliente} não comprou há mais de 30 dias!")
-else:
-    inactive_clients = [c for c in clientes if check_no_buy(c)]
-    if inactive_clients:
-        st.warning(f"Clientes inativos (>30 dias): {', '.join(inactive_clients)}")
+# Summary table for selected products
+if not filtered_df.empty and selected_products:
+    st.subheader("Resumo das Categorias Selecionadas")
+    summary_data = filtered_df.groupby('Mes')[selected_products].sum().reset_index()
+    st.dataframe(summary_data)
