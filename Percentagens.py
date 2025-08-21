@@ -3,7 +3,7 @@ import pandas as pd
 import io
 
 # -------------------------------
-# 🔐 Sistema de Login na Sidebar
+# 🔐 Login na Sidebar
 # -------------------------------
 users = {
     "paulojt": "1234",
@@ -44,8 +44,9 @@ st.sidebar.subheader("📋 Colunas disponíveis")
 st.sidebar.write(df.columns.tolist())
 
 # ✅ Verificar colunas obrigatórias
-if "Mes" in df.columns and "Ano" in df.columns:
-    # 📅 Filtros na barra lateral
+required_cols = {"Mes", "Ano"}
+if required_cols.issubset(df.columns):
+    # 📅 Filtros
     selected_mes = st.sidebar.multiselect("📅 Selecione o(s) Mês(es)", sorted(df["Mes"].dropna().unique()))
     selected_ano = st.sidebar.multiselect("📆 Selecione o(s) Ano(s)", sorted(df["Ano"].dropna().unique()))
 
@@ -60,7 +61,7 @@ if "Mes" in df.columns and "Ano" in df.columns:
     st.subheader("📄 Dados Filtrados")
     st.dataframe(filtered_df, use_container_width=True)
 
-    # 📤 Exportar dados filtrados para Excel
+    # 📤 Exportar para Excel
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         filtered_df.to_excel(writer, index=False, sheet_name='DadosFiltrados')
@@ -73,4 +74,4 @@ if "Mes" in df.columns and "Ano" in df.columns:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 else:
-    st.error("❌ As colunas 'Mes' e 'Ano' são obrigatórias no ficheiro.")
+    st.error("❌ O ficheiro precisa conter as colunas 'Mes' e 'Ano'.")
