@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from io import BytesIO
+import matplotlib.pyplot as plt
 
 # --- Page Configuration ---
 st.set_page_config(layout="wide")
@@ -106,11 +107,26 @@ st.title("📈 2025 Percentage Dashboard")
 st.write(f"Bem vindo, **{st.session_state['username']}**!")
 st.dataframe(filtered_df, use_container_width=True)
 
-# --- Bar Chart: Comparação por Comercial ---
-st.subheader("📊 Comparação por Comercial")
+# --- Line Chart: Comparação por Comercial ---
+st.subheader("📈 Evolução por Comercial")
+
 if "Comercial" in numeric_df.columns:
     comercial_avg = numeric_df.groupby("Comercial")[filter_columns].mean()
-    st.bar_chart(comercial_avg)
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    for col in comercial_avg.columns:
+        ax.plot(comercial_avg.index, comercial_avg[col], marker='o', label=col)
+
+        # Add red labels to each point
+        for i, val in enumerate(comercial_avg[col]):
+            ax.text(comercial_avg.index[i], val, f"{val:.2%}", color='red', fontsize=8, ha='center', va='bottom')
+
+    ax.set_title("Comparação por Comercial", fontsize=14)
+    ax.set_ylabel("Percentagem")
+    ax.legend(title="Categoria")
+    ax.grid(True)
+
+    st.pyplot(fig)
 
 # --- Download Button ---
 def to_excel(df):
