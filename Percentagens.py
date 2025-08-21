@@ -34,10 +34,24 @@ st.title("📂 Filtro por Mês e Ano + Totais Médios")
 url = "https://github.com/paulom40/PFonseca.py/raw/main/Perc2025_Com.xlsx"
 try:
     df = pd.read_excel(url)
+
+    # 🔧 Limpar nomes de colunas
     df.columns = df.columns.str.strip()
     df.columns = df.columns.str.replace('\n', '', regex=True)
     df.columns = df.columns.str.replace('\r', '', regex=True)
     df.columns = df.columns.str.replace('\t', '', regex=True)
+
+    # 🧪 Diagnóstico: mostrar colunas reais
+    st.sidebar.subheader("📋 Colunas encontradas")
+    st.sidebar.write(df.columns.tolist())
+
+    # 🛠️ Renomear colunas semelhantes a 'Mes' e 'Ano'
+    for col in df.columns:
+        if "mes" in col.lower():
+            df.rename(columns={col: "Mes"}, inplace=True)
+        if "ano" in col.lower():
+            df.rename(columns={col: "Ano"}, inplace=True)
+
 except Exception as e:
     st.error("❌ Erro ao carregar o ficheiro.")
     st.stop()
@@ -50,10 +64,6 @@ missing = required_cols - actual_cols
 if missing:
     st.error(f"❌ O ficheiro precisa conter as colunas: {missing}")
     st.stop()
-
-# 📋 Mostrar colunas disponíveis
-st.sidebar.subheader("📋 Colunas disponíveis")
-st.sidebar.write(df.columns.tolist())
 
 # 📅 Filtros
 selected_mes = st.sidebar.multiselect("📅 Selecione o(s) Mês(es)", sorted(df["Mes"].dropna().unique()))
@@ -85,15 +95,16 @@ st.dataframe(media_por_mes)
 # 📈 Gráfico de barras
 st.bar_chart(media_por_mes)
 
-# 📤 Exportar médias para Excel
+# 📤 Exportar dados filtrados e médias
 output = io.BytesIO()
 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+    filtered_df.to_excel(writer, index=False, sheet_name='DadosFiltrados')
     media_por_mes.to_excel(writer, sheet_name='MediasPorMes')
 processed_data = output.getvalue()
 
 st.download_button(
-    label="📥 Download das médias por Mês (.xlsx)",
+    label="📥 Download (.xlsx) dos dados e médias",
     data=processed_data,
-    file_name="medias_por_mes.xlsx",
+    file_name="dados_e_medias.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
