@@ -38,8 +38,7 @@ url = "https://github.com/paulom40/PFonseca.py/raw/main/Perc2025_Com.xlsx"
 
 @st.cache_data
 def load_data():
-    df = pd.read_excel(url)
-    return df
+    return pd.read_excel(url)
 
 # --- Refresh Button ---
 if st.sidebar.button("🔄 Refresh"):
@@ -67,16 +66,23 @@ for col in filter_columns:
         )
 
 # --- Comercial Filter ---
+selected_comercial = []
 if "Comercial" in df.columns:
     comercial_options = df["Comercial"].dropna().unique().tolist()
     selected_comercial = st.sidebar.multiselect("🏷️ Comercial", comercial_options, default=comercial_options)
-else:
-    selected_comercial = []
 
-if selected_mes and mes_column:
-    filtered_df = filtered_df[filtered_df[mes_column].astype(str).isin(selected_mes)]
+# --- Mes Filter (handles "Mes" or "Mês") ---
+mes_column = None
+selected_mes = []
 
+for col in df.columns:
+    if col.lower().strip() in ["mes", "mês"]:
+        mes_column = col
+        break
 
+if mes_column:
+    mes_options = df[mes_column].dropna().astype(str).unique().tolist()
+    selected_mes = st.sidebar.multiselect("🗓️ Mês", mes_options, default=mes_options)
 
 # --- Apply Filters ---
 filtered_df = df.copy()
@@ -87,8 +93,8 @@ for col, (min_val, max_val) in filters.items():
 if selected_comercial:
     filtered_df = filtered_df[filtered_df["Comercial"].isin(selected_comercial)]
 
-if selected_mes:
-    filtered_df = filtered_df[filtered_df["Mes"].isin(selected_mes)]
+if mes_column and selected_mes:
+    filtered_df = filtered_df[filtered_df[mes_column].astype(str).isin(selected_mes)]
 
 # --- Create Numeric Copy for Charting ---
 numeric_df = filtered_df.copy()
@@ -103,7 +109,7 @@ for col in filtered_df.select_dtypes(include='number').columns:
 
 # --- Display Data ---
 st.title("📈 2025 Percentage Dashboard")
-st.write(f"Bem vindo, **{st.session_state['username']}**!")
+st.write(f"Bem-vindo, **{st.session_state['username']}**!")
 st.dataframe(filtered_df, use_container_width=True)
 
 # --- Heatmap Chart: Sorted from High to Low (Top to Bottom) ---
@@ -111,8 +117,6 @@ st.subheader("🔥 Heatmap de Percentagens por Comercial (Top → Bottom)")
 
 if "Comercial" in numeric_df.columns:
     comercial_avg = numeric_df.groupby("Comercial")[filter_columns].mean()
-
-    # Sort Comerciais by total average percentage descending
     comercial_avg["Total"] = comercial_avg.sum(axis=1)
     comercial_avg = comercial_avg.sort_values("Total", ascending=False).drop(columns="Total")
 
@@ -126,11 +130,8 @@ if "Comercial" in numeric_df.columns:
         linecolor='white',
         ax=ax
     )
-
     ax.set_title("Comparação de Categorias por Comercial (Ordenado de Cima para Baixo)", fontsize=14)
     st.pyplot(fig)
-
-
 
 # --- Download Button ---
 def to_excel(df):
