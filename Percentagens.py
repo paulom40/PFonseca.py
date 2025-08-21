@@ -53,7 +53,7 @@ try:
             df.rename(columns={col: "Ano"}, inplace=True)
 
 except Exception as e:
-    st.error("❌ Erro ao carregar o ficheiro.")
+    st.error(f"❌ Erro ao carregar o ficheiro: {e}")
     st.stop()
 
 # ✅ Verificar colunas obrigatórias
@@ -63,6 +63,15 @@ missing = required_cols - actual_cols
 
 if missing:
     st.error(f"❌ O ficheiro precisa conter as colunas: {missing}")
+    st.stop()
+
+# Definir colunas de categorias (percentagens numéricas)
+categoria_cols = ['Congelados', 'Frescos', 'Leitão', 'Peixe', 'Transf']
+
+# Verificar se as colunas de categorias existem
+missing_cats = set(categoria_cols) - actual_cols
+if missing_cats:
+    st.error(f"❌ Colunas de categorias ausentes: {missing_cats}")
     st.stop()
 
 # 📅 Filtros
@@ -80,8 +89,7 @@ if selected_ano:
 st.subheader("📄 Dados Filtrados")
 st.dataframe(filtered_df, use_container_width=True)
 
-# 📊 Calcular médias por Mês
-categoria_cols = [col for col in df.columns if col not in ["Cliente", "Mes", "Ano"]]
+# 📊 Calcular médias por Mês (apenas colunas numéricas de categorias)
 media_por_mes = (
     filtered_df.groupby("Mes")[categoria_cols]
     .mean()
