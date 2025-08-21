@@ -82,7 +82,7 @@ for col in filtered_df.select_dtypes(include='number').columns:
 
 # --- Display ---
 st.title("📈 2025 Percentage Dashboard")
-st.write(f"Welcome, **{st.session_state['username']}**!")
+st.write(f"Bem vindo, **{st.session_state['username']}**!")
 st.dataframe(filtered_df, use_container_width=True)
 
 # --- Download Button ---
