@@ -90,7 +90,13 @@ if selected_comercial:
 if selected_mes:
     filtered_df = filtered_df[filtered_df["Mes"].isin(selected_mes)]
 
-# --- Format Percentages ---
+# --- Create Numeric Copy for Charting ---
+numeric_df = filtered_df.copy()
+for col in filter_columns:
+    if col in numeric_df.columns:
+        numeric_df[col] = pd.to_numeric(numeric_df[col], errors='coerce')
+
+# --- Format Percentages for Display ---
 for col in filtered_df.select_dtypes(include='number').columns:
     if col != "Ano":
         filtered_df[col] = filtered_df[col].apply(lambda x: f"{x:.2%}")
@@ -102,8 +108,8 @@ st.dataframe(filtered_df, use_container_width=True)
 
 # --- Bar Chart: Comparação por Comercial ---
 st.subheader("📊 Comparação por Comercial")
-if "Comercial" in filtered_df.columns:
-    comercial_avg = filtered_df.groupby("Comercial")[filter_columns].mean()
+if "Comercial" in numeric_df.columns:
+    comercial_avg = numeric_df.groupby("Comercial")[filter_columns].mean()
     st.bar_chart(comercial_avg)
 
 # --- Download Button ---
