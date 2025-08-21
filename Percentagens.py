@@ -1,92 +1,102 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
+import io
 
-# --- USER AUTHENTICATION ---
-def login():
-    st.sidebar.title("🔐 Login")
-    username = st.sidebar.text_input("Username")
-    password = st.sidebar.text_input("Password", type="password")
-    login_btn = st.sidebar.button("Login")
+# -------------------------------
+# 🔐 Simple Login System
+# -------------------------------
+users = {
+    "paulojt": "1234",
+    "admin": "adminpass"
+}
 
-    # Replace with your own credentials
-    valid_users = {
-        "paulojt": "braga2025",
-        "admin": "12345"
-    }
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
 
-    if login_btn:
-        if username in valid_users and password == valid_users[username]:
-            st.session_state["authenticated"] = True
-            st.success(f"✅ Welcome, {username}!")
+if not st.session_state.logged_in:
+    st.title("🔐 Login")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    if st.button("Login"):
+        if username in users and users[username] == password:
+            st.session_state.logged_in = True
+            st.success("✅ Login successful!")
         else:
-            st.error("❌ Invalid username or password")
-
-# --- INITIALIZE SESSION STATE ---
-if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
-
-# --- LOGIN GATE ---
-if not st.session_state["authenticated"]:
-    login()
+            st.error("❌ Invalid credentials")
     st.stop()
 
-# --- LOAD DATA ---
-@st.cache_data
-def load_data():
-    url = "https://github.com/paulom40/PFonseca.py/raw/main/Perc2025_Com.xlsx"
-    df = pd.read_excel(url)
+# -------------------------------
+# 📊 Main App
+# -------------------------------
+st.title("📊 Análise de Vendas por Categoria")
+
+# Upload Excel file
+uploaded_file = st.file_uploader("📂 Carregue o ficheiro Excel", type=["xlsx"])
+
+if uploaded_file:
+    # Load and clean data
+    df = pd.read_excel(uploaded_file)
     df.columns = df.columns.str.strip()
-    return df
 
-df = load_data()
+    # Show available columns
+    st.sidebar.subheader("📋 Colunas disponíveis")
+    st.sidebar.write(df.columns.tolist())
 
-st.title("📊 Perc2025 Commercial Dashboard")
+    # Check for required columns
+    if "Mes" in df.columns and "Ano" in df.columns:
+        # Sidebar filters
+        selected_mes = st.sidebar.multiselect("📅 Selecione o Mês", options=df["Mes"].dropna().unique())
+        selected_ano = st.sidebar.multiselect("📆 Selecione o Ano", options=df["Ano"].dropna().unique())
 
-# --- SIDEBAR FILTERS ---
-st.sidebar.header("🔍 Filters")
-cliente = st.sidebar.multiselect("Cliente", options=df["Cliente"].dropna().unique())
-comercial = st.sidebar.multiselect("Comercial", options=df["Comercial"].dropna().unique())
-mes = st.sidebar.multiselect("Mes", options=df["Mes"].dropna().unique())
+        # Filter data
+        filtered_df = df.copy()
+        if selected_mes:
+            filtered_df = filtered_df[filtered_df["Mes"].isin(selected_mes)]
+        if selected_ano:
+            filtered_df = filtered_df[filtered_df["Ano"].isin(selected_ano)]
 
-update = st.sidebar.button("🔄 Update")
-refresh = st.sidebar.button("♻️ Refresh")
+        # Define categorias
+        categorias = ["Congelados", "Frescos", "Leitão", "Peixe", "Transf"]
+        available_categorias = [cat for cat in categorias if cat in filtered_df.columns]
 
-# --- FILTER FUNCTION ---
-def filter_data():
-    filtered = df.copy()
-    if cliente:
-        filtered = filtered[filtered["Cliente"].isin(cliente)]
-    if comercial:
-        filtered = filtered[filtered["Comercial"].isin(comercial)]
-    if mes:
-        filtered = filtered[filtered["Mes"].isin(mes)]
-    return filtered
+        if available_categorias:
+            # Melt data for visualization
+            melted_df = filtered_df.melt(
+                id_vars=["Mes", "Ano"],
+                value_vars=available_categorias,
+                var_name="Categoria",
+                value_name="Valor"
+            )
 
-if update:
-    filtered_df = filter_data()
-elif refresh:
-    cliente = comercial = mes = []
-    filtered_df = df.copy()
+            # Plot chart
+            fig = px.bar(
+                melted_df,
+                x="Mes",
+                y="Valor",
+                color="Categoria",
+                barmode="group",
+                facet_col="Ano",
+                title="📈 Vendas por Categoria"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+            # Export filtered data to Excel
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                filtered_df.to_excel(writer, index=False, sheet_name='FilteredData')
+                writer.save()
+                processed_data = output.getvalue()
+
+            st.download_button(
+                label="📥 Download dos dados filtrados em Excel",
+                data=processed_data,
+                file_name="dados_filtrados.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        else:
+            st.warning("⚠️ Nenhuma das categorias esperadas foi encontrada no ficheiro.")
+    else:
+        st.error("❌ As colunas 'Mes' e 'Ano' são obrigatórias no ficheiro.")
 else:
-    filtered_df = df.copy()
-
-# --- FORMAT NUMERIC COLUMNS ---
-numeric_cols = ["Congelados", "Frescos", "Leitão", "Peixe", "Transf"]
-for col in numeric_cols:
-    if col in filtered_df.columns:
-        filtered_df[col] = filtered_df[col].map(lambda x: f"{x:.2%}")
-
-# --- DISPLAY TABLE ---
-st.subheader("📈 Filtered Results")
-st.dataframe(filtered_df, use_container_width=True)
-
-# --- ALERT FOR MISSING MONTHS ---
-if cliente:
-    all_months = set(df["Mes"].dropna().unique())
-    missing_clients = []
-    for c in cliente:
-        client_months = set(df[df["Cliente"] == c]["Mes"].dropna().unique())
-        if client_months != all_months:
-            missing_clients.append(c)
-    if missing_clients:
-        st.warning(f"⚠️ These clients did not buy in every month: {', '.join(missing_clients)}")
+    st.info("👆 Por favor, carregue um ficheiro Excel para começar.")
