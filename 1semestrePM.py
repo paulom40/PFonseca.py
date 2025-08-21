@@ -1,119 +1,65 @@
 import streamlit as st
 import pandas as pd
 
-# Hardcoded login credentials (replace with your own or use environment variables)
-USERNAME = "admin"
-PASSWORD = "12345"
-
-# Function to load data from URL
+# Load data from GitHub
+@st.cache_data
 def load_data():
     url = "https://github.com/paulom40/PFonseca.py/raw/main/Perc2025_Com.xlsx"
-    try:
-        df = pd.read_excel(url)
-        # Ensure expected columns
-        expected_columns = ['Cliente', 'Congelados', 'Frescos', 'Leitão', 'Peixe', 'Transf', 'Comercial', 'Mes', 'Ano']
-        if not all(col in df.columns for col in expected_columns):
-            st.error(f"Excel file must contain columns: {', '.join(expected_columns)}")
-            return pd.DataFrame()
-        # Convert numeric columns to percentages
-        for col in ['Congelados', 'Frescos', 'Leitão', 'Peixe', 'Transf']:
-            df[col] = df[col] * 100  # Convert decimal to percentage
-        # Map months to numbers
-        month_map = {
-            'Janeiro': 1, 'Fevereiro': 2, 'Março': 3, 'Abril': 4, 'Maio': 5, 'Junho': 6,
-            'Julho': 7, 'Agosto': 8, 'Setembro': 9, 'Outubro': 10, 'Novembro': 11, 'Dezembro': 12
-        }
-        df['MonthNum'] = df['Mes'].map(month_map)
-        df['Date'] = pd.to_datetime(df['Ano'].astype(str) + '-' + df['MonthNum'].astype(str) + '-01')
-        return df
-    except Exception as e:
-        st.error(f"Error loading Excel file from URL: {e}")
-        return pd.DataFrame()
+    df = pd.read_excel(url)
+    return df
 
-# Login system
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
-
-with st.sidebar:
-    st.header("Login")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        if username == USERNAME and password == PASSWORD:
-            st.session_state.logged_in = True
-            st.success("Logged in successfully!")
-        else:
-            st.error("Incorrect username or password")
-
-if not st.session_state.logged_in:
-    st.stop()
-
-# Load data
 df = load_data()
 
-if df.empty:
-    st.error("No data loaded. Please check the Excel file URL or try again later.")
-    st.stop()
+st.title("📊 Perc2025 Commercial Dashboard")
 
-# Sidebars
+# Sidebar filters
 with st.sidebar:
-    st.header("Filtros")
+    st.header("🔍 Filters")
+    cliente = st.multiselect("Cliente", options=df["Cliente"].unique())
+    comercial = st.multiselect("Comercial", options=df["Comercial"].unique())
+    categoria = st.multiselect("Categoria", options=df["Categoria"].unique())
+    mes = st.multiselect("Mes", options=df["Mes"].unique())
     
-    # Cliente multiselect
-    clientes = sorted(df['Cliente'].unique())
-    selected_clientes = st.multiselect("Cliente", clientes, default=[])
-    
-    # Comercial multiselect
-    comerciais = sorted(df['Comercial'].unique())
-    selected_comerciais = st.multiselect("Comercial", comerciais, default=[])
-    
-    # Product multiselect
-    products = ['Congelados', 'Frescos', 'Leitão', 'Peixe', 'Transf']
-    selected_products = st.multiselect("Categoria", products, default=products)
-    
-    # Timeline sidebar (months)
-    months = sorted(df['Mes'].unique())
-    selected_month = st.selectbox("Mes", ['Todos'] + months)
-    
-    # Buttons
-    if st.button("Update Data"):
-        df = load_data()
-        st.success("Data updated!")
-    
-    if st.button("Clear Cache"):
-        st.cache_clear()
-        st.success("Cache cleared!")
+    update = st.button("🔄 Update")
+    refresh = st.button("♻️ Refresh")
 
-# Filter data
-filtered_df = df.copy()
+# Apply filters
+def filter_data():
+    filtered = df.copy()
+    if cliente:
+        filtered = filtered[filtered["Cliente"].isin(cliente)]
+    if comercial:
+        filtered = filtered[filtered["Comercial"].isin(comercial)]
+    if categoria:
+        filtered = filtered[filtered["Categoria"].isin(categoria)]
+    if mes:
+        filtered = filtered[filtered["Mes"].isin(mes)]
+    return filtered
 
-if selected_clientes:
-    filtered_df = filtered_df[filtered_df['Cliente'].isin(selected_clientes)]
+if update:
+    filtered_df = filter_data()
+elif refresh:
+    cliente = comercial = categoria = mes = []
+    filtered_df = df.copy()
+else:
+    filtered_df = df.copy()
 
-if selected_comerciais:
-    filtered_df = filtered_df[filtered_df['Comercial'].isin(selected_comerciais)]
+# Convert numeric columns to percentage format
+numeric_cols = filtered_df.select_dtypes(include="number").columns
+filtered_df[numeric_cols] = filtered_df[numeric_cols].applymap(lambda x: f"{x:.2%}")
 
-if selected_month != 'Todos':
-    filtered_df = filtered_df[filtered_df['Mes'] == selected_month]
+# Display filtered table
+st.subheader("📈 Filtered Results")
+st.dataframe(filtered_df, use_container_width=True)
 
-# Format percentages for display
-display_df = filtered_df.copy()
-for col in ['Congelados', 'Frescos', 'Leitão', 'Peixe', 'Transf']:
-    display_df[col] = display_df[col].apply(lambda x: f"{x:.2f}%")
-
-# Main content
-st.title("Dashboard de Vendas")
-
-# Show filtered table
-st.subheader("Dados Filtrados")
-st.dataframe(display_df)
-
-# Summary table for selected products
-if not filtered_df.empty and selected_products:
-    st.subheader("Resumo das Categorias Selecionadas")
-    summary_data = filtered_df.groupby('Mes')[selected_products].mean().reset_index()
-    # Format summary table percentages
-    display_summary = summary_data.copy()
-    for col in selected_products:
-        display_summary[col] = display_summary[col].apply(lambda x: f"{x:.2f}%")
-    st.dataframe(display_summary)
+# Alert for clients missing purchases in any month
+if cliente:
+    missing_clients = []
+    for c in cliente:
+        client_data = df[df["Cliente"] == c]
+        all_months = set(df["Mes"].unique())
+        client_months = set(client_data["Mes"].unique())
+        if client_months != all_months:
+            missing_clients.append(c)
+    if missing_clients:
+        st.warning(f"⚠️ These clients did not buy in every month: {', '.join(missing_clients)}")
