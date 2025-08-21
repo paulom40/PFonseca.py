@@ -4,8 +4,8 @@ from datetime import datetime, timedelta
 import re
 
 # Hardcoded login credentials (replace with your own or use st.secrets)
-USERNAME = "user"
-PASSWORD = "pass"
+USERNAME = "admin"
+PASSWORD = "1234"
 
 # Function to parse the document string into DataFrame
 @st.cache_data
