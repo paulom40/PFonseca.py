@@ -2,6 +2,10 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
+# Page configuration
+st.set_page_config(layout="wide")
+st.image("https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png", width=100)
+
 # --- Login System ---
 users = {
     "paulojt": "yourpassword",
