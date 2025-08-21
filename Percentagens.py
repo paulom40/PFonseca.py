@@ -108,8 +108,8 @@ st.title("📈 2025 Percentage Dashboard")
 st.write(f"Bem vindo, **{st.session_state['username']}**!")
 st.dataframe(filtered_df, use_container_width=True)
 
-# --- Heatmap Chart: Comparação por Comercial (Sorted Descending) ---
-st.subheader("🔥 Heatmap de Percentagens por Comercial")
+# --- Heatmap Chart: Sorted from High to Low (Top to Bottom) ---
+st.subheader("🔥 Heatmap de Percentagens por Comercial (Top → Bottom)")
 
 if "Comercial" in numeric_df.columns:
     comercial_avg = numeric_df.groupby("Comercial")[filter_columns].mean()
@@ -120,7 +120,7 @@ if "Comercial" in numeric_df.columns:
 
     fig, ax = plt.subplots(figsize=(10, 6))
     sns.heatmap(
-        comercial_avg.T,
+        comercial_avg,
         annot=True,
         fmt=".2%",
         cmap="Reds",
@@ -129,8 +129,9 @@ if "Comercial" in numeric_df.columns:
         ax=ax
     )
 
-    ax.set_title("Comparação de Categorias por Comercial (Ordenado)", fontsize=14)
+    ax.set_title("Comparação de Categorias por Comercial (Ordenado de Cima para Baixo)", fontsize=14)
     st.pyplot(fig)
+
 
 
 # --- Download Button ---
