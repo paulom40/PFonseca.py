@@ -4,18 +4,17 @@ from datetime import datetime, timedelta
 import re
 
 # Hardcoded login credentials (replace with your own or use st.secrets)
-USERNAME = "admin"
-PASSWORD = "1234"
+USERNAME = "user"
+PASSWORD = "pass"
 
 # Function to parse the document string into DataFrame
 @st.cache_data
 def load_data():
-    # The full document string should be pasted here. Since it's truncated in the prompt, placeholders are used.
-    # In practice, copy the entire <DOCUMENT> content here.
-    document = """## Paste the full document string here from the user message ##
-<DOCUMENT filename="Perc2025_Com.xlsx">
-<SHEET id="0" name="Sheet1">row1: Cliente,Congelados,Frescos,Leitão,Peixe,Transf,Comercial,Mês,Ano
-# ... all rows ...
+    # The full document string should be pasted here. Use the updated one with 'Mes'.
+    document = """<DOCUMENT filename="Perc2025_Com.xlsx">
+<SHEET id="0" name="Sheet1">row1: Cliente,Congelados,Frescos,Leitão,Peixe,Transf,Comercial,Mes,Ano
+row2: Manuel Correia Silva & Filhos, Lda,0.031558224924986604,0.913660703998878,0,0,0.054781071076135474,Bruno Brito,Janeiro,2025
+# ... paste all other rows here ...
 </SHEET></DOCUMENT>"""
     
     # Extract rows
@@ -23,7 +22,7 @@ def load_data():
     rows = row_pattern.findall(document)
     
     data_list = []
-    header = ['Cliente', 'Congelados', 'Frescos', 'Leitão', 'Peixe', 'Transf', 'Comercial', 'Mês', 'Ano']
+    header = ['Cliente', 'Congelados', 'Frescos', 'Leitão', 'Peixe', 'Transf', 'Comercial', 'Mes', 'Ano']
     
     for row_str in rows[1:]:  # Skip header row1
         parts = row_str.split(',')
@@ -48,7 +47,7 @@ def load_data():
                 'Peixe': float(peixe),
                 'Transf': float(transf),
                 'Comercial': comercial.strip(),
-                'Mês': mes.strip(),
+                'Mes': mes.strip(),
                 'Ano': int(ano.strip())
             })
     
@@ -59,7 +58,7 @@ def load_data():
         'Janeiro': 1, 'Fevereiro': 2, 'Março': 3, 'Abril': 4, 'Maio': 5, 'Junho': 6,
         'Julho': 7, 'Agosto': 8, 'Setembro': 9, 'Outubro': 10, 'Novembro': 11, 'Dezembro': 12
     }
-    df['MonthNum'] = df['Mês'].map(month_map)
+    df['MonthNum'] = df['Mes'].map(month_map)
     df['Date'] = pd.to_datetime(df['Ano'].astype(str) + '-' + df['MonthNum'].astype(str) + '-01')
     
     return df
@@ -102,8 +101,8 @@ with st.sidebar:
     selected_product = st.selectbox("Categoria", products)
     
     # Timeline sidebar (months)
-    months = sorted(df['Mês'].unique())
-    selected_month = st.selectbox("Mês", ['Todos'] + months)
+    months = sorted(df['Mes'].unique())
+    selected_month = st.selectbox("Mes", ['Todos'] + months)
     
     # Buttons
     if st.button("Update Data"):
@@ -125,7 +124,7 @@ if selected_comercial != 'Todos':
     filtered_df = filtered_df[filtered_df['Comercial'] == selected_comercial]
 
 if selected_month != 'Todos':
-    filtered_df = filtered_df[filtered_df['Mês'] == selected_month]
+    filtered_df = filtered_df[filtered_df['Mes'] == selected_month]
 
 # Main content
 st.title("Dashboard de Vendas")
@@ -136,17 +135,17 @@ st.dataframe(filtered_df)
 # Chart example: bar chart for selected product
 if not filtered_df.empty:
     st.subheader(f"Gráfico de {selected_product}")
-    chart_data = filtered_df.groupby('Mês')[selected_product].sum().reset_index()
-    st.bar_chart(chart_data.set_index('Mês'))
+    chart_data = filtered_df.groupby('Mes')[selected_product].sum().reset_index()
+    st.bar_chart(chart_data.set_index('Mes'))
 
 # Alert for clients not buying >30 days
-current_date = datetime(2025, 8, 21)  # As per the prompt
+current_date = datetime(2025, 8, 21)  # Updated to August 21, 2025
 
 def check_no_buy(client):
     client_df = df[df['Cliente'] == client]
     if client_df.empty:
         return False
-    # Assume purchase if sum of products > 0
+    # Assume purchase if sum of products > 0 in any category except Transf perhaps, but as per original
     client_df = client_df[(client_df['Congelados'] + client_df['Frescos'] + client_df['Leitão'] + client_df['Peixe'] + client_df['Transf']) > 0]
     if client_df.empty:
         return True
