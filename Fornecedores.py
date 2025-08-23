@@ -15,17 +15,24 @@ def excel_to_datetime(date_value):
         # Handle Excel serial dates (numeric)
         if isinstance(date_value, (int, float)):
             return pd.to_datetime(date_value - 2, unit='d', origin='1899-12-30')
-        # Handle string dates
+        # Handle string dates with multiple formats
         elif isinstance(date_value, str):
+            # Try common date formats
+            for fmt in ['%d/%m/%Y', '%Y-%m-%d', '%m/%d/%Y', '%Y.%m.%d']:
+                try:
+                    return pd.to_datetime(date_value, format=fmt, errors='coerce')
+                except ValueError:
+                    continue
+            # Fallback to pandas' general parsing with dayfirst=True
             return pd.to_datetime(date_value, errors='coerce', dayfirst=True)
         # Handle already datetime
         elif pd.api.types.is_datetime64_any_dtype(date_value):
             return date_value
         else:
-            logger.error(f"Unsupported date format: {date_value}")
+            logger.warning(f"Unsupported date format: {date_value} (type: {type(date_value)})")
             return None
     except Exception as e:
-        logger.error(f"Error converting date {date_value}: {e}")
+        logger.warning(f"Error converting date {date_value}: {e}")
         return None
 
 # Set page config at the very start
@@ -70,8 +77,10 @@ try:
     df.columns = df.columns.str.strip()
     logger.debug(f"Columns found: {df.columns.tolist()}")
     
-    # Log sample of Data Venc. for debugging
-    logger.debug(f"Sample 'Data Venc.' values: {df['Data Venc.'].head().tolist()}")
+    # Log sample of Data Venc. for debugging (up to 10 rows or all if fewer)
+    sample_size = min(10, len(df))
+    logger.debug(f"Sample 'Data Venc.' values (first {sample_size}): {df['Data Venc.'].head(sample_size).tolist()}")
+    logger.debug(f"Sample 'Data Venc.' types: {[type(x).__name__ for x in df['Data Venc.'].head(sample_size)]}")
     
     # Check if required columns exist
     required_columns = ["Entidade", "Data Venc.", "Dias", "Valor Pendente"]
@@ -91,8 +100,9 @@ try:
     df["Data Doc."] = df["Data Doc."].apply(excel_to_datetime)
     
     # Check for invalid dates
-    if df["Data Venc."].isnull().any():
-        st.warning("Algumas datas em 'Data Venc.' não puderam ser convertidas e foram ignoradas.")
+    invalid_venc_count = df["Data Venc."].isnull().sum()
+    if invalid_venc_count > 0:
+        st.warning(f"{invalid_venc_count} datas em 'Data Venc.' não puderam ser convertidas e foram ignoradas.")
         logger.debug(f"Invalid 'Data Venc.' values: {df[df['Data Venc.'].isnull()]['Data Venc.'].tolist()}")
         df = df.dropna(subset=["Data Venc.", "Dias"])
     
@@ -100,6 +110,9 @@ try:
     if not pd.api.types.is_datetime64_any_dtype(df["Data Venc."]):
         st.error(f"A coluna 'Data Venc.' não está em formato datetime após conversão. Tipo encontrado: {df['Data Venc.'].dtype}")
         logger.error(f"Data Venc. column is not datetime: {df['Data Venc.'].dtype}")
+        # Fallback: display raw data for debugging
+        st.write("Dados brutos da coluna 'Data Venc.':")
+        st.write(df[["Data Venc."]].head(10))
         st.stop()
     
     st.success("Dados carregados com sucesso!")
