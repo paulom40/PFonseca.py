@@ -9,12 +9,23 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-# Function to convert Excel serial date to datetime
-def excel_to_datetime(serial_date):
+# Function to convert Excel serial date or string to datetime
+def excel_to_datetime(date_value):
     try:
-        return pd.to_datetime(serial_date - 2, unit='d', origin='1899-12-30')
+        # Handle Excel serial dates (numeric)
+        if isinstance(date_value, (int, float)):
+            return pd.to_datetime(date_value - 2, unit='d', origin='1899-12-30')
+        # Handle string dates
+        elif isinstance(date_value, str):
+            return pd.to_datetime(date_value, errors='coerce', dayfirst=True)
+        # Handle already datetime
+        elif pd.api.types.is_datetime64_any_dtype(date_value):
+            return date_value
+        else:
+            logger.error(f"Unsupported date format: {date_value}")
+            return None
     except Exception as e:
-        logger.error(f"Error converting serial date {serial_date}: {e}")
+        logger.error(f"Error converting date {date_value}: {e}")
         return None
 
 # Set page config at the very start
@@ -59,6 +70,9 @@ try:
     df.columns = df.columns.str.strip()
     logger.debug(f"Columns found: {df.columns.tolist()}")
     
+    # Log sample of Data Venc. for debugging
+    logger.debug(f"Sample 'Data Venc.' values: {df['Data Venc.'].head().tolist()}")
+    
     # Check if required columns exist
     required_columns = ["Entidade", "Data Venc.", "Dias", "Valor Pendente"]
     missing_columns = [col for col in required_columns if col not in df.columns]
@@ -66,17 +80,27 @@ try:
         st.error(f"Colunas ausentes no arquivo Excel: {missing_columns}")
         st.stop()
     
+    # Process data
     df["Entidade"] = df["Entidade"].astype(str).str.strip()
     df["Dias"] = pd.to_numeric(df["Dias"], errors="coerce")
-    df = df.dropna(subset=["Dias", "Data Venc."])
-    df["Dias"] = df["Dias"].astype(int)
     df["Valor Pendente"] = pd.to_numeric(df["Valor Pendente"], errors="coerce")
+    df["Valor Total"] = pd.to_numeric(df["Valor Total"], errors="coerce")
     
-    # Convert Data Venc. to datetime
+    # Convert Data Venc. and Data Doc. to datetime
     df["Data Venc."] = df["Data Venc."].apply(excel_to_datetime)
+    df["Data Doc."] = df["Data Doc."].apply(excel_to_datetime)
+    
+    # Check for invalid dates
     if df["Data Venc."].isnull().any():
         st.warning("Algumas datas em 'Data Venc.' não puderam ser convertidas e foram ignoradas.")
-        df = df.dropna(subset=["Data Venc."])
+        logger.debug(f"Invalid 'Data Venc.' values: {df[df['Data Venc.'].isnull()]['Data Venc.'].tolist()}")
+        df = df.dropna(subset=["Data Venc.", "Dias"])
+    
+    # Verify Data Venc. is datetime
+    if not pd.api.types.is_datetime64_any_dtype(df["Data Venc."]):
+        st.error(f"A coluna 'Data Venc.' não está em formato datetime após conversão. Tipo encontrado: {df['Data Venc.'].dtype}")
+        logger.error(f"Data Venc. column is not datetime: {df['Data Venc.'].dtype}")
+        st.stop()
     
     st.success("Dados carregados com sucesso!")
     logger.debug("Data processing completed")
@@ -159,15 +183,17 @@ Exibindo resultados para:
 - **Dias:** {dias_min} – {dias_max}
 """)
 
-# Styled dataframe
+# Styled dataframe with all columns
 try:
     st.dataframe(
         df_filtrado.style
         .applymap(color_dias, subset=["Dias"])
         .format({
             "Valor Pendente": "{:.2f}",
+            "Valor Total": "{:.2f}",
             "Data Venc.": "{:%d/%m/%Y}",
-            "Data Doc.": lambda x: f"{int(x)}" if pd.notnull(x) else ""
+            "Data Doc.": lambda x: "{:%d/%m/%Y}".format(x) if pd.notnull(x) else "",
+            "Dias": "{:.0f}"
         }),
         use_container_width=True
     )
