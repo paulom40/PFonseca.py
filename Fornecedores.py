@@ -163,3 +163,28 @@ Exibindo resultados para:
 try:
     st.dataframe(
         df_filtrado.style
+        .applymap(color_dias, subset=["Dias"])
+        .format({
+            "Valor Pendente": "{:.2f}",
+            "Data Venc.": "{:%d/%m/%Y}",
+            "Data Doc.": lambda x: f"{int(x)}" if pd.notnull(x) else ""
+        }),
+        use_container_width=True
+    )
+    logger.debug("DataFrame rendered successfully")
+except Exception as e:
+    st.error(f"Erro ao exibir a tabela: {e}")
+    logger.error(f"DataFrame rendering error: {e}")
+    st.stop()
+
+# Summary metrics
+total_registros = len(df_filtrado)
+media_dias = df_filtrado["Dias"].mean() if total_registros > 0 else 0
+valor_total = df_filtrado["Valor Pendente"].sum() if total_registros > 0 else 0
+
+col1, col2, col3 = st.columns(3)
+col1.metric("📌 Total de Registros", total_registros)
+col2.metric("📆 Dias Médios", f"{media_dias:.1f}")
+col3.metric("💰 Valor Pendente Total", f"€ {valor_total:,.2f}")
+
+logger.debug("App rendering completed")
