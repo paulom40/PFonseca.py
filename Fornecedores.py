@@ -51,7 +51,7 @@ try:
     st.success("Dados carregados com sucesso!")
 
 except Exception as e:
-    st.error(f"Erro ao carregar os dados: {e}")
+    st.error(f"Erro ao carregar os dados: Entidade")
     st.stop()
 
 # Sidebar for filters
