@@ -60,13 +60,13 @@ try:
     logger.debug(f"Columns found: {df.columns.tolist()}")
     
     # Check if required columns exist
-    required_columns = ["Entidade (Nome)", "Data Venc.", "Dias", "Valor Pendente"]
+    required_columns = ["Entidade", "Data Venc.", "Dias", "Valor Pendente"]
     missing_columns = [col for col in required_columns if col not in df.columns]
     if missing_columns:
         st.error(f"Colunas ausentes no arquivo Excel: {missing_columns}")
         st.stop()
     
-    df["Entidade (Nome)"] = df["Entidade (Nome)"].astype(str).str.strip()
+    df["Entidade"] = df["Entidade"].astype(str).str.strip()
     df["Dias"] = pd.to_numeric(df["Dias"], errors="coerce")
     df = df.dropna(subset=["Dias", "Data Venc."])
     df["Dias"] = df["Dias"].astype(int)
@@ -98,7 +98,7 @@ except Exception as e:
 st.sidebar.header("🔎 Filtros")
 
 # Entidade filter
-entidades_unicas = sorted(df["Entidade (Nome)"].dropna().unique())
+entidades_unicas = sorted(df["Entidade"].dropna().unique())
 selected_entidades = st.sidebar.multiselect(
     "Selecione Entidades:", 
     entidades_unicas, 
@@ -130,7 +130,7 @@ dias_min, dias_max = st.sidebar.slider(
 
 # Filter the dataframe
 df_filtrado = df[
-    (df["Entidade (Nome)"].isin(selected_entidades)) &
+    (df["Entidade"].isin(selected_entidades)) &
     (df["Data Venc."].dt.date >= start_date) &
     (df["Data Venc."].dt.date <= end_date) &
     (df["Dias"] >= dias_min) &
