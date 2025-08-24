@@ -3,9 +3,10 @@ import pandas as pd
 import requests
 import io
 from datetime import datetime
+import numpy as np
 
 # Set page configuration for a wide layout and custom title
-st.set_page_config(page_title="Excel Data Viewer", layout="wide", page_icon="📊")
+st.set_page_config(page_title="Fornecedores Debt Viewer", layout="wide", page_icon="📊")
 
 # Custom CSS for a vibrant, beautiful UI
 st.markdown("""
@@ -56,15 +57,39 @@ st.markdown("""
         color: white !important;
         font-family: 'Segoe UI', sans-serif;
     }
+    .stDataFrame table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .stDataFrame th {
+        background-color: #3b82f6;
+        color: white;
+        font-weight: bold;
+        padding: 10px;
+    }
+    .stDataFrame td {
+        padding: 10px;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    .stDataFrame tr:nth-child(even) {
+        background-color: #f9fafb;
+    }
+    .stDataFrame tr:hover {
+        background-color: #e6f0fa;
+    }
     </style>
 """, unsafe_allow_html=True)
 
+@st.cache_data
 def download_excel_file(url):
     """Download and read an Excel file from a URL."""
     try:
         response = requests.get(url)
         response.raise_for_status()
-        return pd.read_excel(io.BytesIO(response.content))
+        df = pd.read_excel(io.BytesIO(response.content))
+        # Convert Excel serial dates to datetime
+        df['Data Venc'] = pd.to_datetime(df['Data Venc'].apply(lambda x: pd.Timestamp('1899-12-30') + pd.Timedelta(days=x)))
+        return df
     except Exception as e:
         st.error(f"Failed to download or read Excel file: {e}")
         return None
@@ -92,57 +117,61 @@ def main():
             url = "https://github.com/paulom40/PFonseca.py/raw/main/Fornecedores_Deb.xlsx"
             df = download_excel_file(url)
             if df is not None:
-                # Entidade filter (assuming 'Entidade' column exists)
-                if "Entidade" in df.columns:
-                    entidades = ["All"] + sorted(df["Entidade"].unique().tolist())
+                # Entidade filter
+                if "Entidade " in df.columns:
+                    entidades = ["All"] + sorted(df["Entidade "].dropna().unique().tolist())
                     selected_entidade = st.selectbox("Select Entidade", entidades, index=0)
                 else:
-                    st.warning("Column 'Entidade' not found in Excel file.")
+                    st.warning("Column 'Entidade ' not found in Excel file.")
                     selected_entidade = "All"
 
-                # Date range filter (assuming a date column, e.g., 'Data')
-                date_columns = df.select_dtypes(include=['datetime64', 'object']).columns
-                date_column = next((col for col in date_columns if "data" in col.lower()), None)
-                if date_column:
-                    st.subheader("Select Date Range")
-                    start_date = st.date_input("Start Date", value=datetime(2023, 1, 1))
-                    end_date = st.date_input("End Date", value=datetime.today())
-                else:
-                    st.warning("No date column found in Excel file.")
-                    start_date, end_date = None, None
+                # Date range filter for Data Venc
+                st.subheader("Select Date Range")
+                min_date = df["Data Venc"].min().date() if df is not None and not df["Data Venc"].empty else datetime(2023, 1, 1)
+                max_date = df["Data Venc"].max().date() if df is not None and not df["Data Venc"].empty else datetime.today()
+                start_date = st.date_input("Start Date", value=min_date, min_value=min_date, max_value=max_date)
+                end_date = st.date_input("End Date", value=max_date, min_value=min_date, max_value=max_date)
             else:
                 selected_entidade, start_date, end_date = "All", None, None
 
     # Main content
-    st.title("Excel Data Viewer")
+    st.title("Fornecedores Debt Viewer")
     
     if st.session_state.get("logged_in", False):
         url = "https://github.com/paulom40/PFonseca.py/raw/main/Fornecedores_Deb.xlsx"
         df = download_excel_file(url)
         if df is not None:
             # Apply filters
-            filtered_df = df.copy()
-            if selected_entidade != "All" and "Entidade" in df.columns:
-                filtered_df = filtered_df[filtered_df["Entidade"] == selected_entidade]
-            if date_column and start_date and end_date:
+            filtered_df = df[["Entidade ", "Data Venc", "Dias", "Valor Pendente"]].copy()
+            if selected_entidade != "All" and "Entidade " in df.columns:
+                filtered_df = filtered_df[filtered_df["Entidade "] == selected_entidade]
+            if start_date and end_date:
                 try:
-                    filtered_df[date_column] = pd.to_datetime(filtered_df[date_column])
                     filtered_df = filtered_df[
-                        (filtered_df[date_column] >= pd.to_datetime(start_date)) &
-                        (filtered_df[date_column] <= pd.to_datetime(end_date))
+                        (filtered_df["Data Venc"] >= pd.to_datetime(start_date)) &
+                        (filtered_df["Data Venc"] <= pd.to_datetime(end_date))
                     ]
                 except Exception as e:
                     st.error(f"Error filtering by date: {e}")
 
-            st.subheader("Filtered Data from Fornecedores_Deb.xlsx")
+            st.subheader("Filtered Supplier Debt Data")
+            # Format Data Venc for display
+            filtered_df["Data Venc"] = filtered_df["Data Venc"].dt.strftime("%Y-%m-%d")
+            # Format Valor Pendente as currency
+            filtered_df["Valor Pendente"] = filtered_df["Valor Pendente"].apply(lambda x: f"€{x:,.2f}")
             # Display DataFrame with custom styling
             st.dataframe(
                 filtered_df,
                 use_container_width=True,
-                column_config={col: st.column_config.Column(width="medium") for col in filtered_df.columns}
+                column_config={
+                    "Entidade ": st.column_config.TextColumn("Entidade", width="large"),
+                    "Data Venc": st.column_config.TextColumn("Due Date", width="medium"),
+                    "Dias": st.column_config.NumberColumn("Days", width="small", format="%d"),
+                    "Valor Pendente": st.column_config.TextColumn("Pending Value", width="medium")
+                }
             )
     else:
-        st.info("Please log in to view the Excel data.")
+        st.info("Please log in to view the supplier debt data.")
 
 if __name__ == "__main__":
     # Initialize session state for login
