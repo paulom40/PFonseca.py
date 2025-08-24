@@ -77,6 +77,18 @@ st.markdown("""
     .stDataFrame tr:hover {
         background-color: #e6f0fa;
     }
+    .summary-box {
+        background-color: #ffffff;
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .summary-box p {
+        margin: 5px 0;
+        font-size: 16px;
+        color: #1e3a8a;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -176,6 +188,23 @@ def main():
                     "Valor Pendente": st.column_config.TextColumn("Pending Value", width="medium")
                 }
             )
+
+            # Summary section
+            if not filtered_df.empty:
+                total_valor_pendente = filtered_df["Valor Pendente"].str.replace("€", "").str.replace(",", "").astype(float).sum()
+                num_records = len(filtered_df)
+                st.markdown("### Summary")
+                st.markdown(
+                    f"""
+                    <div class="summary-box">
+                        <p><strong>Total Valor Pendente:</strong> €{total_valor_pendente:,.2f}</p>
+                        <p><strong>Number of Records:</strong> {num_records}</p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+            else:
+                st.warning("No data available for the selected filters.")
     else:
         st.info("Please log in to view the supplier debt data.")
 
