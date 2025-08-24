@@ -87,8 +87,14 @@ def download_excel_file(url):
         response = requests.get(url)
         response.raise_for_status()
         df = pd.read_excel(io.BytesIO(response.content))
-        # Convert Excel serial dates to datetime
-        df['Data Venc'] = pd.to_datetime(df['Data Venc'].apply(lambda x: pd.Timestamp('1899-12-30') + pd.Timedelta(days=x)))
+        # Check if Data Venc is already datetime-like
+        if not pd.api.types.is_datetime64_any_dtype(df['Data Venc']):
+            # Convert Excel serial dates to datetime if numeric
+            if df['Data Venc'].dtype in [np.float64, np.int64]:
+                df['Data Venc'] = pd.to_datetime(df['Data Venc'].apply(lambda x: pd.Timestamp('1899-12-30') + pd.Timedelta(days=x)))
+            else:
+                # Attempt to parse as string dates if not numeric
+                df['Data Venc'] = pd.to_datetime(df['Data Venc'], errors='coerce')
         return df
     except Exception as e:
         st.error(f"Failed to download or read Excel file: {e}")
