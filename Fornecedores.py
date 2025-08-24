@@ -1,82 +1,82 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
+import requests
+import io
 
-# 🧠 Sample DataFrame (replace with your Excel import)
-df = pd.DataFrame({
-    'Entidade': ['Empresa A', 'Empresa B', 'Empresa C', 'Empresa A'],
-    'Data Venc': [datetime.today() + timedelta(days=i*15) for i in range(4)],
-    'Valor': [1000, 1500, 2000, 1200]
-})
+# Set page configuration for a wide layout and custom title
+st.set_page_config(page_title="Excel Data Viewer", layout="wide", page_icon="📊")
 
-# ✅ Ensure datetime format
-df['Data Venc'] = pd.to_datetime(df['Data Venc'], errors='coerce')
-
-# 🎨 Page config
-st.set_page_config(page_title="Gestão de Fornecedores", layout="wide")
-
-# 🎨 Custom CSS
+# Custom CSS for a modern, beautiful UI
 st.markdown("""
-<style>
-    .sidebar .sidebar-content { background-color: #f0f4f8; }
-    .stSlider > div { background-color: #e0f7fa; border-radius: 10px; padding: 10px; }
-    .stSelectbox > div { border-radius: 10px; }
-    .stButton > button { border-radius: 20px; background-color: #0077b6; color: white; }
-    .metric-box { background-color: #e3f2fd; padding: 10px; border-radius: 10px; margin-bottom: 10px; }
-</style>
+    <style>
+    .main { background-color: #f0f2f5; padding: 20px; }
+    .sidebar .sidebar-content { background-color: #2c3e50; padding: 20px; color: white; }
+    .stButton>button {
+        background-color: #3498db;
+        color: white;
+        border-radius: 5px;
+        padding: 10px 20px;
+        font-weight: bold;
+    }
+    .stButton>button:hover {
+        background-color: #2980b9;
+    }
+    .stTextInput>div>input {
+        border-radius: 5px;
+        padding: 8px;
+    }
+    .dataframe { border: none; border-radius: 5px; }
+    h1, h2, h3 { color: #2c3e50; }
+    .stAlert { border-radius: 5px; }
+    </style>
 """, unsafe_allow_html=True)
 
-# 🧭 Sidebar 1: Entidade
-with st.sidebar:
-    st.header("🔍 Filtrar por Entidade")
-    entidade_selected = st.selectbox("Escolha a Entidade", df['Entidade'].unique())
+def download_excel_file(url):
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        return pd.read_excel(io.BytesIO(response.content))
+    except Exception as e:
+        st.error(f"Failed to download or read Excel file: {e}")
+        return None
 
-# 🗓️ Sidebar 2: Data Vencimento
-with st.sidebar:
-    st.header("📅 Intervalo de Vencimento")
-    min_date = df['Data Venc'].min().to_pydatetime()
-    max_date = df['Data Venc'].max().to_pydatetime()
-    date_range = st.slider("Selecione o intervalo de datas",
-                           min_value=min_date,
-                           max_value=max_date,
-                           value=(min_date, max_date),
-                           format="DD/MM/YYYY")
+def main():
+    # Sidebar for login
+    with st.sidebar:
+        st.header("Login")
+        username = st.text_input("Username", placeholder="Enter username")
+        password = st.text_input("Password", type="password", placeholder="Enter password")
+        login_button = st.button("Login")
 
-# 📆 Dias Range
-dias_range = st.slider("📈 Dias até vencimento", 0, 90, (0, 30))
+        # Simple login logic (replace with real authentication in production)
+        if login_button:
+            if username == "admin" and password == "password":
+                st.session_state["logged_in"] = True
+                st.success("Login successful!")
+            else:
+                st.error("Invalid username or password")
 
-# 🔎 Filter Logic
-today = datetime.today()
-filtered_df = df[
-    (df['Entidade'] == entidade_selected) &
-    (df['Data Venc'] >= date_range[0]) &
-    (df['Data Venc'] <= date_range[1]) &
-    (df['Data Venc'] >= today + timedelta(days=dias_range[0])) &
-    (df['Data Venc'] <= today + timedelta(days=dias_range[1]))
-]
+    # Main content
+    st.title("Excel Data Viewer")
+    
+    if st.session_state.get("logged_in", False):
+        # Load and display Excel data
+        url = "https://github.com/paulom40/PFonseca.py/raw/main/Fornecedores_Deb.xlsx"
+        df = download_excel_file(url)
+        if df is not None:
+            st.subheader("Data from Fornecedores_Deb.xlsx")
+            # Display DataFrame with custom styling
+            st.dataframe(
+                df,
+                use_container_width=True,
+                column_config={col: st.column_config.Column(width="medium") for col in df.columns}
+            )
+    else:
+        st.info("Please log in to view the Excel data.")
 
-# 📋 Summary Table
-st.markdown("### 🎛️ Filtros Ativos")
-summary_df = pd.DataFrame({
-    "Filtro": ["Entidade", "Data Inicial", "Data Final", "Dias Mínimos", "Dias Máximos"],
-    "Selecionado": [
-        entidade_selected,
-        date_range[0].strftime("%d/%m/%Y"),
-        date_range[1].strftime("%d/%m/%Y"),
-        dias_range[0],
-        dias_range[1]
-    ]
-})
-st.table(summary_df)
-
-# 📊 Resultados
-st.markdown("### 📁 Resultados Filtrados")
-st.dataframe(filtered_df.style.highlight_max(axis=0, color='lightgreen'))
-
-# 📈 Métricas
-st.markdown("### 📊 Métricas")
-col1, col2 = st.columns(2)
-with col1:
-    st.metric(label="Total de Registros", value=len(filtered_df))
-with col2:
-    st.metric(label="Valor Total", value=f"€ {filtered_df['Valor'].sum():,.2f}")
+if __name__ == "__main__":
+    # Initialize session state for login
+    if "logged_in" not in st.session_state:
+        st.session_state["logged_in"] = False
+    main()
+```
