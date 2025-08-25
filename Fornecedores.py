@@ -8,6 +8,7 @@ import numpy as np
 # Set page configuration for a wide layout and custom title
 st.set_page_config(page_title="Fornecedores Debt Viewer", layout="wide", page_icon="📊")
 
+
 # Custom CSS for a vibrant, beautiful UI
 st.markdown("""
     <style>
@@ -96,38 +97,20 @@ st.markdown("""
 def download_excel_file(url):
     """Download and read an Excel file from a URL."""
     try:
-        # Download the file
         response = requests.get(url)
-        response.raise_for_status()  # Raise an error for bad HTTP status
-        # Read the Excel file
+        response.raise_for_status()
         df = pd.read_excel(io.BytesIO(response.content))
-        
-        # Log column names for debugging
-        st.write("Columns in Excel file:", df.columns.tolist())
-        
-        # Check if 'Data Venc' exists
-        if 'Data Venc' not in df.columns:
-            st.error("Column 'Data Venc' not found in the Excel file. Available columns: " + ", ".join(df.columns))
-            return None
-        
-        # Process 'Data Venc' column
+        # Check if Data Venc is already datetime-like
         if not pd.api.types.is_datetime64_any_dtype(df['Data Venc']):
+            # Convert Excel serial dates to datetime if numeric
             if df['Data Venc'].dtype in [np.float64, np.int64]:
-                # Convert Excel serial dates
-                df['Data Venc'] = pd.to_datetime(df['Data Venc'].apply(lambda x: pd.Timestamp('1899-12-30') + pd.Timedelta(days=x) if pd.notnull(x) else x))
+                df['Data Venc'] = pd.to_datetime(df['Data Venc'].apply(lambda x: pd.Timestamp('1899-12-30') + pd.Timedelta(days=x)))
             else:
-                # Convert string dates
+                # Attempt to parse as string dates if not numeric
                 df['Data Venc'] = pd.to_datetime(df['Data Venc'], errors='coerce')
-        
         return df
-    except requests.exceptions.RequestException as e:
-        st.error(f"Failed to download Excel file from URL: {e}")
-        return None
-    except pd.errors.ParserError as e:
-        st.error(f"Failed to parse Excel file: {e}")
-        return None
     except Exception as e:
-        st.error(f"Unexpected error while processing Excel file: {e}")
+        st.error(f"Failed to download or read Excel file: {e}")
         return None
 
 def main():
@@ -149,8 +132,8 @@ def main():
         # Filters (visible only after login)
         if st.session_state.get("logged_in", False):
             st.header("Filters")
-            # Load Excel data from Dropbox for filter options
-            url = "https://www.dropbox.com/scl/fi/378p5bzv5oejc9e2omvp5/Fornecedores_Deb.xlsx?rlkey=e27iy6mdtadqlxnrr2fn220r1&st=d6vw2de0&dl=1"
+            # Load Excel data for filter options
+            url = "https://github.com/paulom40/PFonseca.py/raw/main/Fornecedores_Deb.xlsx"
             df = download_excel_file(url)
             if df is not None:
                 # Entidade filter
@@ -174,8 +157,7 @@ def main():
     st.title("Fornecedores Bracar")
     
     if st.session_state.get("logged_in", False):
-        # Load Excel data from Dropbox
-        url = "https://www.dropbox.com/scl/fi/378p5bzv5oejc9e2omvp5/Fornecedores_Deb.xlsx?rlkey=e27iy6mdtadqlxnrr2fn220r1&st=d6vw2de0&dl=1"
+        url = "https://github.com/paulom40/PFonseca.py/raw/main/Fornecedores_Deb.xlsx"
         df = download_excel_file(url)
         if df is not None:
             # Apply filters
