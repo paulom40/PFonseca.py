@@ -122,7 +122,7 @@ def main():
 
         # Simple login logic (replace with real authentication in production)
         if login_button:
-            if username == "admin" and password == "password":
+            if username == "paulo" and password == "teste":
                 st.session_state["logged_in"] = True
                 st.success("Login successful!")
             else:
