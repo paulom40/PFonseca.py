@@ -5,6 +5,15 @@ from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 
+st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+
+
 # Page setup
 st.set_page_config(page_title="Relatório Interativo", layout="wide")
 st.title("📈 Relatório Interativo - KPIs do 1º Semestre 2025")
