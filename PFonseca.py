@@ -3,6 +3,15 @@ import requests
 from io import BytesIO
 import streamlit as st
 
+st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+
+
 # -------------------------------
 # 📥 Load Excel file from GitHub
 # -------------------------------
@@ -81,6 +90,7 @@ col1, col2, col3 = st.columns(3)
 col1.metric("🔴 Total A Vencer", len(df_a_vencer))
 col2.metric("🕒 Média Dias", f"{df_a_vencer['Dias'].mean():.1f}" if len(df_a_vencer) > 0 else "0")
 col3.metric("💸 Valor A Vencer Total", f"€ {df_a_vencer['Valor Pendente'].sum():,.2f}")
+
 
 
 
