@@ -3,6 +3,15 @@ import requests
 from io import BytesIO
 import streamlit as st
 
+st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+
+
 st.set_page_config(layout="wide")
 
 # -------------------------------
