@@ -153,7 +153,7 @@ def main():
                 selected_entidade, start_date, end_date = "All", None, None
 
     # Main content
-    st.title("Fornecedores Debt Viewer")
+    st.title("Fornecedores Bracar")
     
     if st.session_state.get("logged_in", False):
         url = "https://github.com/paulom40/PFonseca.py/raw/main/Fornecedores_Deb.xlsx"
@@ -172,7 +172,7 @@ def main():
                 except Exception as e:
                     st.error(f"Error filtering by date: {e}")
 
-            st.subheader("Filtered Supplier Debt Data")
+            st.subheader("Dados Filtrados")
             # Format Data Venc for display
             filtered_df["Data Venc"] = filtered_df["Data Venc"].dt.strftime("%Y-%m-%d")
             # Format Valor Pendente as currency
