@@ -4,6 +4,15 @@ from io import BytesIO
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+
+
 # --- Page Configuration ---
 st.set_page_config(layout="wide")
 st.image("https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png", width=100)
