@@ -193,7 +193,7 @@ def main():
             if not filtered_df.empty:
                 total_valor_pendente = filtered_df["Valor Pendente"].str.replace("€", "").str.replace(",", "").astype(float).sum()
                 num_records = len(filtered_df)
-                st.markdown("### Summary")
+                st.markdown("### Sumario")
                 st.markdown(
                     f"""
                     <div class="summary-box">
