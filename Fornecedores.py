@@ -150,7 +150,7 @@ def main():
         if st.session_state.get("logged_in", False):
             st.header("Filters")
             # Load Excel data from Dropbox for filter options
-            url = "https://www.dropbox.com/scl/fi/378p5bzv5oejc9e2omvp5/Fornecedores_Deb.xlsx?rlkey=e27iy6mdtadqlxnrr2fn220r1&st=y76pe09o&dl=1"
+            url = "https://www.dropbox.com/scl/fi/378p5bzv5oejc9e2omvp5/Fornecedores_Deb.xlsx?rlkey=e27iy6mdtadqlxnrr2fn220r1&st=d6vw2de0&dl=1"
             df = download_excel_file(url)
             if df is not None:
                 # Entidade filter
@@ -175,7 +175,7 @@ def main():
     
     if st.session_state.get("logged_in", False):
         # Load Excel data from Dropbox
-        url = "https://www.dropbox.com/scl/fi/378p5bzv5oejc9e2omvp5/Fornecedores_Deb.xlsx?rlkey=e27iy6mdtadqlxnrr2fn220r1&st=y76pe09o&dl=1"
+        url = "https://www.dropbox.com/scl/fi/378p5bzv5oejc9e2omvp5/Fornecedores_Deb.xlsx?rlkey=e27iy6mdtadqlxnrr2fn220r1&st=d6vw2de0&dl=1"
         df = download_excel_file(url)
         if df is not None:
             # Apply filters
