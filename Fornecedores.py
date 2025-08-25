@@ -5,11 +5,10 @@ import io
 from datetime import datetime
 import numpy as np
 
-# Set page configuration for a wide layout and custom title
+# Set page configuration
 st.set_page_config(page_title="Fornecedores Debt Viewer", layout="wide", page_icon="📊")
 
-
-# Custom CSS for a vibrant, beautiful UI
+# Custom CSS styling
 st.markdown("""
     <style>
     .main {
@@ -54,7 +53,7 @@ st.markdown("""
         background-color: #fef3c7;
         color: #92400e;
     }
-    .css-1d391kg {  /* Streamlit sidebar title */
+    .css-1d391kg {
         color: white !important;
         font-family: 'Segoe UI', sans-serif;
     }
@@ -100,13 +99,10 @@ def download_excel_file(url):
         response = requests.get(url)
         response.raise_for_status()
         df = pd.read_excel(io.BytesIO(response.content))
-        # Check if Data Venc is already datetime-like
         if not pd.api.types.is_datetime64_any_dtype(df['Data Venc']):
-            # Convert Excel serial dates to datetime if numeric
             if df['Data Venc'].dtype in [np.float64, np.int64]:
                 df['Data Venc'] = pd.to_datetime(df['Data Venc'].apply(lambda x: pd.Timestamp('1899-12-30') + pd.Timedelta(days=x)))
             else:
-                # Attempt to parse as string dates if not numeric
                 df['Data Venc'] = pd.to_datetime(df['Data Venc'], errors='coerce')
         return df
     except Exception as e:
@@ -114,14 +110,12 @@ def download_excel_file(url):
         return None
 
 def main():
-    # Sidebar for login and filters
     with st.sidebar:
         st.header("Login")
         username = st.text_input("Username", placeholder="Enter username")
         password = st.text_input("Password", type="password", placeholder="Enter password")
         login_button = st.button("Login")
 
-        # Simple login logic (replace with real authentication in production)
         if login_button:
             if username == "paulo" and password == "teste":
                 st.session_state["logged_in"] = True
@@ -129,14 +123,11 @@ def main():
             else:
                 st.error("Invalid username or password")
 
-        # Filters (visible only after login)
         if st.session_state.get("logged_in", False):
             st.header("Filters")
-            # Load Excel data for filter options
-            url = "https://github.com/paulom40/PFonseca.py/raw/main/Fornecedores_Deb.xlsx"
+            url = "https://www.dropbox.com/scl/fi/378p5bzv5oejc9e2omvp5/Fornecedores_Deb.xlsx?rlkey=e27iy6mdtadqlxnrr2fn220r1&st=mplutmqb&dl=1"
             df = download_excel_file(url)
             if df is not None:
-                # Entidade filter
                 if "Entidade " in df.columns:
                     entidades = ["All"] + sorted(df["Entidade "].dropna().unique().tolist())
                     selected_entidade = st.selectbox("Select Entidade", entidades, index=0)
@@ -144,23 +135,20 @@ def main():
                     st.warning("Column 'Entidade ' not found in Excel file.")
                     selected_entidade = "All"
 
-                # Date range filter for Data Venc
                 st.subheader("Select Date Range")
-                min_date = df["Data Venc"].min().date() if df is not None and not df["Data Venc"].empty else datetime(2023, 1, 1)
-                max_date = df["Data Venc"].max().date() if df is not None and not df["Data Venc"].empty else datetime.today()
+                min_date = df["Data Venc"].min().date() if not df["Data Venc"].empty else datetime(2023, 1, 1)
+                max_date = df["Data Venc"].max().date() if not df["Data Venc"].empty else datetime.today()
                 start_date = st.date_input("Start Date", value=min_date, min_value=min_date, max_value=max_date)
                 end_date = st.date_input("End Date", value=max_date, min_value=min_date, max_value=max_date)
             else:
                 selected_entidade, start_date, end_date = "All", None, None
 
-    # Main content
     st.title("Fornecedores Bracar")
-    
+
     if st.session_state.get("logged_in", False):
-        url = "https://github.com/paulom40/PFonseca.py/raw/main/Fornecedores_Deb.xlsx"
+        url = "https://www.dropbox.com/scl/fi/378p5bzv5oejc9e2omvp5/Fornecedores_Deb.xlsx?rlkey=e27iy6mdtadqlxnrr2fn220r1&st=mplutmqb&dl=1"
         df = download_excel_file(url)
         if df is not None:
-            # Apply filters
             filtered_df = df[["Entidade ", "Data Venc", "Dias", "Valor Pendente"]].copy()
             if selected_entidade != "All" and "Entidade " in df.columns:
                 filtered_df = filtered_df[filtered_df["Entidade "] == selected_entidade]
@@ -174,11 +162,8 @@ def main():
                     st.error(f"Error filtering by date: {e}")
 
             st.subheader("Dados Filtrados")
-            # Format Data Venc for display
             filtered_df["Data Venc"] = filtered_df["Data Venc"].dt.strftime("%Y-%m-%d")
-            # Format Valor Pendente as currency
             filtered_df["Valor Pendente"] = filtered_df["Valor Pendente"].apply(lambda x: f"€{x:,.2f}")
-            # Display DataFrame with custom styling
             st.dataframe(
                 filtered_df,
                 use_container_width=True,
@@ -190,7 +175,6 @@ def main():
                 }
             )
 
-            # Summary section
             if not filtered_df.empty:
                 total_valor_pendente = filtered_df["Valor Pendente"].str.replace("€", "").str.replace(",", "").astype(float).sum()
                 num_records = len(filtered_df)
@@ -210,7 +194,6 @@ def main():
         st.info("Please log in to view the supplier debt data.")
 
 if __name__ == "__main__":
-    # Initialize session state for login
     if "logged_in" not in st.session_state:
         st.session_state["logged_in"] = False
     main()
