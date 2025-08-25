@@ -8,7 +8,6 @@ import numpy as np
 # Set page configuration for a wide layout and custom title
 st.set_page_config(page_title="Fornecedores Debt Viewer", layout="wide", page_icon="📊")
 
-
 # Custom CSS for a vibrant, beautiful UI
 st.markdown("""
     <style>
@@ -132,8 +131,8 @@ def main():
         # Filters (visible only after login)
         if st.session_state.get("logged_in", False):
             st.header("Filters")
-            # Load Excel data for filter options
-            url = "https://github.com/paulom40/PFonseca.py/raw/main/Fornecedores_Deb.xlsx"
+            # Load Excel data from Dropbox for filter options
+            url = "https://www.dropbox.com/scl/fi/378p5bzv5oejc9e2omvp5/Fornecedores_Deb.xlsx?rlkey=e27iy6mdtadqlxnrr2fn220r1&st=306y68z4&dl=1"
             df = download_excel_file(url)
             if df is not None:
                 # Entidade filter
@@ -157,7 +156,8 @@ def main():
     st.title("Fornecedores Bracar")
     
     if st.session_state.get("logged_in", False):
-        url = "https://github.com/paulom40/PFonseca.py/raw/main/Fornecedores_Deb.xlsx"
+        # Load Excel data from Dropbox
+        url = "https://www.dropbox.com/scl/fi/378p5bzv5oejc9e2omvp5/Fornecedores_Deb.xlsx?rlkey=e27iy6mdtadqlxnrr2fn220r1&st=306y68z4&dl=1"
         df = download_excel_file(url)
         if df is not None:
             # Apply filters
