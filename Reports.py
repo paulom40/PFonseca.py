@@ -10,6 +10,15 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
+st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+
+
 # ------------------ 🔐 LOGIN SYSTEM ------------------
 USER_CREDENTIALS = {
     "admin": "1234",
