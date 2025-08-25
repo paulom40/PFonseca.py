@@ -8,6 +8,13 @@ import numpy as np
 # Set page configuration for a wide layout and custom title
 st.set_page_config(page_title="Fornecedores Debt Viewer", layout="wide", page_icon="📊")
 
+hide_github_icon = """
+#GithubIcon {
+  visibility: hidden;
+}
+"""
+st.markdown(hide_github_icon, unsafe_allow_html=True)
+
 
 # Custom CSS for a vibrant, beautiful UI
 st.markdown("""
