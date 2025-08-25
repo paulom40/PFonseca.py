@@ -8,6 +8,15 @@ import numpy as np
 # Set page configuration
 st.set_page_config(page_title="Fornecedores Debt Viewer", layout="wide", page_icon="📊")
 
+st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+
+
 # Custom CSS styling
 st.markdown("""
     <style>
