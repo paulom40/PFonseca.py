@@ -6,6 +6,15 @@ import uuid
 # 🚀 Page configuration
 st.set_page_config(page_title="Sales Dashboard", layout="wide", page_icon="📊")
 
+st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+
+
 # Custom CSS for colorful and stylish design
 st.markdown("""
     <style>
