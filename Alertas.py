@@ -188,13 +188,13 @@ def dashboard_page():
 
     # Define the ranges and labels with colorful emojis
     ranges = [
-        (-30, -20, "20-30 dias 🟧"),
-        (-20, -10, "10-20 dias 🟨"),
-        (-10, 0, "0-10 dias 🟩"),
+         
+        (-15, 0, "0-15 dias 🟩"),
         (0, 15, "0-15 dias 🟦"),
         (16, 30, "16 to 30 dias 🟫"),
         (31, 60, "31 to 60 dias 🟧"),
-        (61, 300, "61 to 300 dias 🟥")
+        (61, 90, "61 to 90 dias 🟨"),
+        (91, 365, "91 to 365 dias 🟥")
     ]
 
     # Sidebar for filters
