@@ -17,7 +17,7 @@ username = st.sidebar.text_input("Username")
 password = st.sidebar.text_input("Password", type="password")
 login_button = st.sidebar.button("Login")
 
-if login_button and username == "admin" and password == "1234":
+if login_button and username == "pedro" and password == "pedro":
     st.success("✅ Login successful")
 
     # --- Filters Sidebar ---
