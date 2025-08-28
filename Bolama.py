@@ -2,11 +2,12 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-# Load your Excel data
+# Load and prepare data
 @st.cache_data
 def load_data():
     df = pd.read_excel("Bolama_Vendas.xlsx")
     df["Data"] = pd.to_datetime(df["Data"])
+    df["Mês"] = df["Data"].dt.strftime("%Y-%m")  # Extract month in YYYY-MM format
     return df
 
 df = load_data()
@@ -22,8 +23,8 @@ if login_button and username == "pedro" and password == "pedro":
 
     # --- Filters Sidebar ---
     st.sidebar.title("📦 Filtros")
-    selected_artigo = st.sidebar.multiselect("Artigo", options=df["Artigo"].unique())
-    selected_mes = st.sidebar.multiselect("Mês", options=df["Mês"].unique())
+    selected_artigo = st.sidebar.multiselect("Artigo", options=sorted(df["Artigo"].unique()))
+    selected_mes = st.sidebar.multiselect("Mês", options=sorted(df["Mês"].unique()))
 
     # --- Filtered Data ---
     filtered_df = df.copy()
