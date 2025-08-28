@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 
 # Load and prepare data
 @st.cache_data
@@ -12,15 +11,24 @@ def load_data():
 
 df = load_data()
 
+# --- Session State for Login ---
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
 # --- Login Sidebar ---
 st.sidebar.title("🔐 Login")
-username = st.sidebar.text_input("Username")
-password = st.sidebar.text_input("Password", type="password")
-login_button = st.sidebar.button("Login")
+if not st.session_state.logged_in:
+    username = st.sidebar.text_input("Username")
+    password = st.sidebar.text_input("Password", type="password")
+    login_button = st.sidebar.button("Login")
 
-if login_button and username == "pedro" and password == "pedro":
-    st.success("✅ Login successful")
-
+    if login_button:
+        if username == "pedro" and password == "pedro":
+            st.session_state.logged_in = True
+            st.success("✅ Login successful")
+        else:
+            st.error("❌ Invalid credentials")
+else:
     # --- Filters Sidebar ---
     st.sidebar.title("📦 Filtros")
     selected_artigo = st.sidebar.multiselect("Artigo", options=sorted(df["Artigo"].unique()))
@@ -77,6 +85,3 @@ if login_button and username == "pedro" and password == "pedro":
         }),
         use_container_width=True
     )
-
-else:
-    st.warning("🔒 Please log in to access the dashboard.")
