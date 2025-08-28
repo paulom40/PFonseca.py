@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 
+# 🚀 Page configuration
+st.set_page_config(page_title="Sales Dashboard", layout="wide", page_icon="📊")
+
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
