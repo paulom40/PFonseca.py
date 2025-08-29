@@ -53,7 +53,7 @@ else:
         filtered_df = filtered_df[filtered_df["Mês"].isin(selected_mes)]
 
     # --- KPIs ---
-    st.title("📊 Reis & Pacheco Vendas Dashboard")
+    st.title("📊 Casa dos Frangos Vendas Dashboard")
     st.markdown("### Indicadores por Mês")
 
     kpi_df = filtered_df.groupby("Mês").agg({
