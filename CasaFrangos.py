@@ -34,7 +34,7 @@ if not st.session_state.logged_in:
     login_button = st.sidebar.button("Login")
 
     if login_button:
-        if username == "vania" and password == "vania":
+        if username == "pedro" and password == "pedro":
             st.session_state.logged_in = True
             st.success("✅ Login successful")
         else:
