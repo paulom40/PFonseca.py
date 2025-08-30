@@ -43,7 +43,7 @@ if username == "paulo" and password == "teste":
     url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
     try:
         df = pd.read_excel(url)
-        df.columns = df.columns.str.strip()  # Clean column names
+        df.columns = df.columns.str.strip()
     except Exception as e:
         st.error("❌ Erro ao carregar o ficheiro Excel.")
         st.stop()
@@ -76,6 +76,10 @@ if username == "paulo" and password == "teste":
             .sort_values(["Ano", "Mês"])
         )
 
+        # Ensure numeric values
+        monthly_summary["V. Líquido"] = pd.to_numeric(monthly_summary["V. Líquido"], errors="coerce")
+
+        # Calculate percentage variation
         monthly_summary["Variação (%)"] = monthly_summary["V. Líquido"].pct_change().round(2) * 100
 
         # -------------------- DISPLAY TABLE --------------------
