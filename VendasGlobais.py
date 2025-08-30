@@ -87,7 +87,7 @@ if username == "paulo" and password == "teste":
     df["Qtd."] = pd.to_numeric(df["Qtd."], errors="coerce")
 
     # -------------------- SIDEBAR MULTISELECT FILTERS --------------------
-    st.sidebar.header("🔎 Filtros")
+    st.sidebar.header("🔽 Filtros")
     selected_clientes = st.sidebar.multiselect("🧑 Cliente", df["Cliente"].unique(), default=df["Cliente"].unique())
     selected_artigos = st.sidebar.multiselect("📦 Artigo", df["Artigo"].unique(), default=df["Artigo"].unique())
     selected_comerciais = st.sidebar.multiselect("💼 Comercial", df["Comercial"].unique(), default=df["Comercial"].unique())
@@ -190,10 +190,30 @@ if username == "paulo" and password == "teste":
             markers=True,
             title="Qtd. Mensais",
             labels={"Qtd.": "Quantidade", "Mês": "Mês"},
-            color_discrete_sequence=px.colors.qualitative.Set1
+            color_discrete_sequence=px.colors.qualitative.Set1,
+            text="Qtd."  # Add Qtd. values as text labels
         )
         # Ensure x-axis respects the categorical month order
         fig.update_xaxes(categoryorder="array", categoryarray=month_order)
+        # Customize text labels
+        fig.update_traces(
+            mode="lines+markers+text",
+            textposition="top center",
+            texttemplate="%{text:.0f}",  # Format as integers
+            textfont=dict(
+                size=12,
+                color="#D81B60"  # Vibrant pink for contrast, matches Set1 theme
+            )
+        )
+        # Adjust layout for better label visibility
+        fig.update_layout(
+            showlegend=True,
+            margin=dict(t=50, b=50),
+            yaxis=dict(title="Quantidade"),
+            xaxis=dict(title="Mês"),
+            plot_bgcolor="#FFFFFF",
+            paper_bgcolor="#f0f4f8"
+        )
         st.plotly_chart(fig, use_container_width=True)
 
         # -------------------- EXPORT BUTTON --------------------
