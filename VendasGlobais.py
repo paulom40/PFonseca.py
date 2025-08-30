@@ -106,6 +106,12 @@ if username == "paulo" and password == "teste":
     if filtered_df.empty:
         st.warning("⚠️ Nenhum dado encontrado com os filtros selecionados.")
     else:
+        # Define month order
+        month_order = [
+            "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+            "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+        ]
+
         # -------------------- MONTHLY SUMMARY FOR QTD --------------------
         monthly_summary = (
             filtered_df.groupby(["Ano", "Mês"])["Qtd."]
@@ -116,6 +122,13 @@ if username == "paulo" and password == "teste":
 
         # Ensure numeric values
         monthly_summary["Qtd."] = pd.to_numeric(monthly_summary["Qtd."], errors="coerce")
+
+        # Set Mês as categorical with defined order
+        monthly_summary["Mês"] = pd.Categorical(
+            monthly_summary["Mês"], categories=month_order, ordered=True
+        )
+        # Sort by Ano and Mês to respect categorical order
+        monthly_summary = monthly_summary.sort_values(["Ano", "Mês"])
 
         # Calculate percentage variation
         monthly_summary["Variação (%)"] = monthly_summary["Qtd."].pct_change().round(2) * 100
@@ -170,10 +183,17 @@ if username == "paulo" and password == "teste":
 
         # -------------------- INTERACTIVE CHART --------------------
         st.subheader("📊 Gráfico de Qtd. Mensais")
-        fig = px.line(monthly_summary, x="Mês", y="Qtd.", markers=True,
-                      title="Qtd. Mensais",
-                      labels={"Qtd.": "Quantidade", "Mês": "Mês"},
-                      color_discrete_sequence=px.colors.qualitative.Set1)
+        fig = px.line(
+            monthly_summary,
+            x="Mês",
+            y="Qtd.",
+            markers=True,
+            title="Qtd. Mensais",
+            labels={"Qtd.": "Quantidade", "Mês": "Mês"},
+            color_discrete_sequence=px.colors.qualitative.Set1
+        )
+        # Ensure x-axis respects the categorical month order
+        fig.update_xaxes(categoryorder="array", categoryarray=month_order)
         st.plotly_chart(fig, use_container_width=True)
 
         # -------------------- EXPORT BUTTON --------------------
