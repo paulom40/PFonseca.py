@@ -1,15 +1,16 @@
-# app.py
-
 import streamlit as st
 import streamlit_authenticator as stauth
 import pandas as pd
 
 # -------------------- LOGIN SETUP --------------------
+# Generate hashed password using: stauth.Hasher(["your_password"]).generate()
+hashed_passwords = stauth.Hasher(["teste"]).generate()
+
 credentials = {
     "usernames": {
         "paulojt": {
-            "name": "paulo",
-            "password": stauth.Hasher(["teste"]).generate()[0]
+            "name": "Paulo",
+            "password": hashed_passwords[0]
         }
     }
 }
@@ -21,7 +22,7 @@ authenticator = stauth.Authenticate(
     cookie_expiry_days=1
 )
 
-name, authentication_status, username = authenticator.login("Login", "main")
+name, authentication_status, username = authenticator.login("🔐 Login", "main")
 
 # -------------------- CUSTOM CSS --------------------
 st.markdown("""
@@ -51,7 +52,11 @@ if authentication_status:
 
     # Load Excel data from GitHub
     url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
-    df = pd.read_excel(url)
+    try:
+        df = pd.read_excel(url)
+    except Exception as e:
+        st.error("❌ Erro ao carregar o ficheiro Excel.")
+        st.stop()
 
     # -------------------- SIDEBAR FILTERS --------------------
     st.sidebar.header("🔎 Filtros")
@@ -82,8 +87,7 @@ if authentication_status:
     st.subheader("📈 Evolução Mensal do Artigo")
     st.dataframe(monthly_summary)
 
-else:
-    if authentication_status is False:
-        st.error("Usuário ou senha incorretos")
-    elif authentication_status is None:
-        st.warning("Por favor, insira suas credenciais")
+elif authentication_status is False:
+    st.error("❌ Usuário ou senha incorretos")
+elif authentication_status is None:
+    st.warning("⚠️ Por favor, insira suas credenciais")
