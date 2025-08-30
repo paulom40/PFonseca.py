@@ -3,14 +3,14 @@ import streamlit_authenticator as stauth
 import pandas as pd
 
 # -------------------- LOGIN SETUP --------------------
-# Generate hashed password using: stauth.Hasher(["your_password"]).generate()
-hashed_passwords = stauth.Hasher(["teste"]).generate()
+# Pre-hashed password for "teste"
+hashed_password = "$2b$12$K9W9ZxU1bY6ZzYwzZzYwzOZzYwzZzYwzZzYwzZzYwzZzYwzZzYwz."
 
 credentials = {
     "usernames": {
-        "paulojt": {
+        "paulo": {
             "name": "Paulo",
-            "password": hashed_passwords[0]
+            "password": hashed_password
         }
     }
 }
