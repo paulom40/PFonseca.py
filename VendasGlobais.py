@@ -159,7 +159,7 @@ if username == "paulo" and password == "teste":
             st.error(f"❌ Erro ao exibir a tabela pivô: {str(e)}")
 
         # -------------------- KPIs --------------------
-        st.subheader("📊 KPIs por Artigo, Cliente e Mês")
+        st.subheader("📊 KPIs por Artigo, Cliente e Mês/Ano")
 
         # KPI: Total Qtd por Artigo
         kpi_artigo = filtered_df.groupby("Artigo")["Qtd."].sum().reset_index()
@@ -169,11 +169,15 @@ if username == "paulo" and password == "teste":
         kpi_cliente = filtered_df.groupby("Cliente")["Qtd."].sum().reset_index()
         kpi_cliente.columns = ["Cliente", "Total Qtd."]
 
-        # KPI: Total Qtd por Mês
-        kpi_mes = filtered_df.groupby("Mês")["Qtd."].sum().reset_index()
-        kpi_mes.columns = ["Mês", "Total Qtd."]
-        kpi_mes["Mês"] = pd.Categorical(kpi_mes["Mês"], categories=month_order, ordered=True)
-        kpi_mes = kpi_mes.sort_values("Mês")
+        # KPI: Total Qtd por Mês/Ano
+        kpi_mes_ano = filtered_df.groupby(["Mês", "Ano"])["Qtd."].sum().reset_index()
+        kpi_mes_ano["Mês/Ano"] = kpi_mes_ano["Mês"] + "/" + kpi_mes_ano["Ano"].astype(str)
+        kpi_mes_ano = kpi_mes_ano[["Mês/Ano", "Qtd."]]
+        kpi_mes_ano.columns = ["Mês/Ano", "Total Qtd."]
+        kpi_mes_ano["Mês"] = pd.Categorical(
+            kpi_mes_ano["Mês/Ano"].str.split("/").str[0], categories=month_order, ordered=True
+        )
+        kpi_mes_ano = kpi_mes_ano.sort_values(["Ano", "Mês"])
 
         # Display KPIs in cards
         cols = st.columns(3)
@@ -188,9 +192,9 @@ if username == "paulo" and password == "teste":
                 st.markdown(f'<div class="kpi-card"><div class="kpi-title">{row["Cliente"]}</div><div class="kpi-value">{int(row["Total Qtd."])}</div></div>', unsafe_allow_html=True)
 
         with cols[2]:
-            st.markdown('<div class="kpi-card"><div class="kpi-title">KPIs por Mês</div></div>', unsafe_allow_html=True)
-            for _, row in kpi_mes.iterrows():
-                st.markdown(f'<div class="kpi-card"><div class="kpi-title">{row["Mês"]}</div><div class="kpi-value">{int(row["Total Qtd."])}</div></div>', unsafe_allow_html=True)
+            st.markdown('<div class="kpi-card"><div class="kpi-title">KPIs por Mês/Ano</div></div>', unsafe_allow_html=True)
+            for _, row in kpi_mes_ano.iterrows():
+                st.markdown(f'<div class="kpi-card"><div class="kpi-title">{row["Mês/Ano"]}</div><div class="kpi-value">{int(row["Total Qtd."])}</div></div>', unsafe_allow_html=True)
 
         # -------------------- INTERACTIVE CHART --------------------
         st.subheader("📊 Gráfico de Qtd. Mensais")
@@ -247,7 +251,7 @@ if username == "paulo" and password == "teste":
             pivot_table.to_excel(writer, sheet_name="Pivot Tabela", index=True)
             kpi_artigo.to_excel(writer, sheet_name="KPI Artigo", index=False)
             kpi_cliente.to_excel(writer, sheet_name="KPI Cliente", index=False)
-            kpi_mes.to_excel(writer, sheet_name="KPI Mês", index=False)
+            kpi_mes_ano.to_excel(writer, sheet_name="KPI Mês-Ano", index=False)
         output.seek(0)
         st.download_button("📥 Baixar Excel", data=output, file_name="vendas_mensais.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
