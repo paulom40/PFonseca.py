@@ -87,7 +87,7 @@ if username == "paulo" and password == "teste":
     df["Qtd."] = pd.to_numeric(df["Qtd."], errors="coerce")
 
     # -------------------- SIDEBAR MULTISELECT FILTERS --------------------
-    st.sidebar.header("🔽 Filtros")
+    st.sidebar.header("🔎 Filtros")
     selected_clientes = st.sidebar.multiselect("🧑 Cliente", df["Cliente"].unique(), default=df["Cliente"].unique())
     selected_artigos = st.sidebar.multiselect("📦 Artigo", df["Artigo"].unique(), default=df["Artigo"].unique())
     selected_comerciais = st.sidebar.multiselect("💼 Comercial", df["Comercial"].unique(), default=df["Comercial"].unique())
@@ -202,17 +202,18 @@ if username == "paulo" and password == "teste":
             texttemplate="%{text:.0f}",  # Format as integers
             textfont=dict(
                 size=12,
-                color="#D81B60"  # Vibrant pink for contrast, matches Set1 theme
+                color="#FFFFFF"  # White labels for contrast
             )
         )
-        # Adjust layout for better label visibility
+        # Adjust layout for dark background
         fig.update_layout(
             showlegend=True,
             margin=dict(t=50, b=50),
-            yaxis=dict(title="Quantidade"),
-            xaxis=dict(title="Mês"),
-            plot_bgcolor="#FFFFFF",
-            paper_bgcolor="#f0f4f8"
+            yaxis=dict(title="Quantidade", titlefont=dict(color="#FFFFFF"), tickfont=dict(color="#FFFFFF")),
+            xaxis=dict(title="Mês", titlefont=dict(color="#FFFFFF"), tickfont=dict(color="#FFFFFF")),
+            plot_bgcolor="#1F2937",  # Dark gray background
+            paper_bgcolor="#1F2937",  # Dark gray background
+            font=dict(color="#FFFFFF")  # White font for general text
         )
         st.plotly_chart(fig, use_container_width=True)
 
