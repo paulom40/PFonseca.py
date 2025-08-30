@@ -1,6 +1,7 @@
 import streamlit as st
 import streamlit_authenticator as stauth
 import pandas as pd
+import plotly.express as px
 
 # -------------------- LOGIN SETUP --------------------
 # Pre-hashed password for "teste"
@@ -8,10 +9,8 @@ hashed_password = "$2b$12$K9W9ZxU1bY6ZzYwzZzYwzOZzYwzZzYwzZzYwzZzYwzZzYwzZzYwz."
 
 credentials = {
     "usernames": {
-        "paulo": {
-            "name": "Paulo",
-            "password": hashed_password
-        }
+        "paulo": {"name": "Paulo", "password": hashed_password},
+        "admin": {"name": "Admin", "password": hashed_password}  # Optional second user
     }
 }
 
@@ -22,7 +21,7 @@ authenticator = stauth.Authenticate(
     cookie_expiry_days=1
 )
 
-name, authentication_status, username = authenticator.login("🔐 Login", location="main")
+name, authentication_status, username = authenticator.login("🔐 Login")
 
 # -------------------- CUSTOM CSS --------------------
 st.markdown("""
@@ -86,6 +85,18 @@ if authentication_status:
     # -------------------- DISPLAY TABLE --------------------
     st.subheader("📈 Evolução Mensal do Artigo")
     st.dataframe(monthly_summary)
+
+    # -------------------- INTERACTIVE CHART --------------------
+    st.subheader("📊 Gráfico de Vendas Mensais")
+    fig = px.line(monthly_summary, x="Mês", y="Valor", markers=True,
+                  title=f"Vendas Mensais - {artigo} ({cliente})",
+                  labels={"Valor": "Valor (€)", "Mês": "Mês"})
+    st.plotly_chart(fig, use_container_width=True)
+
+    # -------------------- EXPORT BUTTON --------------------
+    st.subheader("📤 Exportar Dados")
+    csv = monthly_summary.to_csv(index=False).encode("utf-8")
+    st.download_button("📥 Baixar CSV", data=csv, file_name="vendas_mensais.csv", mime="text/csv")
 
 elif authentication_status is False:
     st.error("❌ Usuário ou senha incorretos")
