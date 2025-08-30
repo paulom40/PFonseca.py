@@ -20,7 +20,7 @@ url = "https://github.com/paulom40/PFonseca.py/raw/main/PCosta.xlsx"
 st.set_page_config(page_title="Vencimentos Paulo Costa", layout="centered")
 
 st.title("📊 Vencimentos Paulo Costa")
-st.caption("📅 Última atualização: 22/08/2025")
+st.caption("📅 Última atualização: 29/08/2025")
 
 with st.spinner("Carregando dados..."):
     try:
