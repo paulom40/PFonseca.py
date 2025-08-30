@@ -9,8 +9,7 @@ hashed_password = "$2b$12$K9W9ZxU1bY6ZzYwzZzYwzOZzYwzZzYwzZzYwzZzYwzZzYwzZzYwz."
 
 credentials = {
     "usernames": {
-        "paulo": {"name": "Paulo", "password": hashed_password},
-        "admin": {"name": "Admin", "password": hashed_password}  # Optional second user
+        "paulo": {"name": "Paulo", "password": hashed_password}
     }
 }
 
@@ -21,7 +20,8 @@ authenticator = stauth.Authenticate(
     cookie_expiry_days=1
 )
 
-name, authentication_status, username = authenticator.login("🔐 Login")
+# ✅ Correct login call with location specified
+name, authentication_status, username = authenticator.login("🔐 Login", location="main")
 
 # -------------------- CUSTOM CSS --------------------
 st.markdown("""
