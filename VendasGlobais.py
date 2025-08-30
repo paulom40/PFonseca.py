@@ -4,7 +4,7 @@ import pandas as pd
 
 # -------------------- LOGIN SETUP --------------------
 # Pre-hashed password for "teste"
-hashed_password = "$2b$12$K9W9ZxU1bY6ZzYwzZzYwzOZzYwzZzYwzZzYwzZzYwzZzYwzZzYwz."
+hashed_password = "$2b$12$K9W9ZxU1bY6ZzYwzZzYwzOZzYwzZzYwzZzYwzZzYwzZzYwzZzYwz."  # Replace with actual hash
 
 credentials = {
     "usernames": {
@@ -22,7 +22,7 @@ authenticator = stauth.Authenticate(
     cookie_expiry_days=1
 )
 
-name, authentication_status, username = authenticator.login("🔐 Login", "main")
+name, authentication_status, username = authenticator.login("🔐 Login", location="main")
 
 # -------------------- CUSTOM CSS --------------------
 st.markdown("""
