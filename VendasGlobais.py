@@ -9,7 +9,7 @@ credentials = {
     "usernames": {
         "paulojt": {
             "name": "paulo",
-            "password": stauth.Hasher(["teste"]).generate()[0]  # Replace with your actual password
+            "password": stauth.Hasher(["teste"]).generate()[0]
         }
     }
 }
