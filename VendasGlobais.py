@@ -120,8 +120,8 @@ if username == "paulo" and password == "teste":
             .sort_values(["Ano", "Mês"])
         )
 
-        # Ensure numeric values
-        monthly_summary["Qtd."] = pd.to_numeric(monthly_summary["Qtd."], errors="coerce")
+        # Ensure numeric values and handle NaNs
+        monthly_summary["Qtd."] = pd.to_numeric(monthly_summary["Qtd."], errors="coerce").fillna(0)
 
         # Set Mês as categorical with defined order
         monthly_summary["Mês"] = pd.Categorical(
@@ -183,39 +183,50 @@ if username == "paulo" and password == "teste":
 
         # -------------------- INTERACTIVE CHART --------------------
         st.subheader("📊 Gráfico de Qtd. Mensais")
-        fig = px.line(
-            monthly_summary,
-            x="Mês",
-            y="Qtd.",
-            markers=True,
-            title="Qtd. Mensais",
-            labels={"Qtd.": "Quantidade", "Mês": "Mês"},
-            color_discrete_sequence=px.colors.qualitative.Set1,
-            text="Qtd."  # Add Qtd. values as text labels
-        )
-        # Ensure x-axis respects the categorical month order
-        fig.update_xaxes(categoryorder="array", categoryarray=month_order)
-        # Customize text labels
-        fig.update_traces(
-            mode="lines+markers+text",
-            textposition="top center",
-            texttemplate="%{text:.0f}",  # Format as integers
-            textfont=dict(
-                size=12,
-                color="#FFFFFF"  # White labels for contrast
+        try:
+            fig = px.line(
+                monthly_summary,
+                x="Mês",
+                y="Qtd.",
+                markers=True,
+                title="Qtd. Mensais",
+                labels={"Qtd.": "Quantidade", "Mês": "Mês"},
+                color_discrete_sequence=px.colors.qualitative.Set1,
+                text="Qtd."  # Add Qtd. values as text labels
             )
-        )
-        # Adjust layout for dark background
-        fig.update_layout(
-            showlegend=True,
-            margin=dict(t=50, b=50),
-            yaxis=dict(title="Quantidade", titlefont=dict(color="#FFFFFF"), tickfont=dict(color="#FFFFFF")),
-            xaxis=dict(title="Mês", titlefont=dict(color="#FFFFFF"), tickfont=dict(color="#FFFFFF")),
-            plot_bgcolor="#1F2937",  # Dark gray background
-            paper_bgcolor="#1F2937",  # Dark gray background
-            font=dict(color="#FFFFFF")  # White font for general text
-        )
-        st.plotly_chart(fig, use_container_width=True)
+            # Ensure x-axis respects the categorical month order
+            fig.update_xaxes(categoryorder="array", categoryarray=month_order)
+            # Customize text labels
+            fig.update_traces(
+                mode="lines+markers+text",
+                textposition="top center",
+                texttemplate="%{text:.0f}",  # Format as integers
+                textfont=dict(
+                    size=12,
+                    color="#FFFFFF"  # White labels for contrast
+                )
+            )
+            # Adjust layout for dark background
+            fig.update_layout(
+                showlegend=True,
+                margin=dict(t=50, b=50),
+                yaxis=dict(
+                    title="Quantidade",
+                    titlefont=dict(color="#FFFFFF"),
+                    tickfont=dict(color="#FFFFFF")
+                ),
+                xaxis=dict(
+                    title="Mês",
+                    titlefont=dict(color="#FFFFFF"),
+                    tickfont=dict(color="#FFFFFF")
+                ),
+                plot_bgcolor="#1F2937",  # Dark gray background
+                paper_bgcolor="#1F2937"  # Dark gray background
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        except Exception as e:
+            st.error(f"❌ Erro ao renderizar o gráfico: {str(e)}")
+            st.write("Dados do resumo mensal:", monthly_summary.head())
 
         # -------------------- EXPORT BUTTON --------------------
         st.subheader("📤 Exportar Dados")
