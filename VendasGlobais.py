@@ -1,27 +1,6 @@
 import streamlit as st
-import streamlit_authenticator as stauth
 import pandas as pd
 import plotly.express as px
-
-# -------------------- LOGIN SETUP --------------------
-# Pre-hashed password for "teste"
-hashed_password = "$2b$12$K9W9ZxU1bY6ZzYwzZzYwzOZzYwzZzYwzZzYwzZzYwzZzYwzZzYwz."  # Replace with actual hash
-
-credentials = {
-    "usernames": {
-        "paulo": {"name": "Paulo", "password": hashed_password}
-    }
-}
-
-authenticator = stauth.Authenticate(
-    credentials,
-    "vendas_app",
-    "auth_token",
-    cookie_expiry_days=1
-)
-
-# ✅ Correct login call with location specified
-name, authentication_status, username = authenticator.login("🔐 Login", location="main")
 
 # -------------------- CUSTOM CSS --------------------
 st.markdown("""
@@ -44,12 +23,15 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# -------------------- APP LOGIC --------------------
-if authentication_status:
-    st.title("📊 Vendas Globais Dashboard")
-    st.write(f"Bem-vindo, {name} 👋")
+# -------------------- SIMPLE LOGIN --------------------
+st.title("🔐 Login")
+username = st.text_input("Usuário")
+password = st.text_input("Senha", type="password")
 
-    # Load Excel data from GitHub
+if username == "paulo" and password == "teste":
+    st.success("Login bem-sucedido! 👋")
+
+    # -------------------- LOAD DATA --------------------
     url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
     try:
         df = pd.read_excel(url)
@@ -98,7 +80,5 @@ if authentication_status:
     csv = monthly_summary.to_csv(index=False).encode("utf-8")
     st.download_button("📥 Baixar CSV", data=csv, file_name="vendas_mensais.csv", mime="text/csv")
 
-elif authentication_status is False:
+elif username or password:
     st.error("❌ Usuário ou senha incorretos")
-elif authentication_status is None:
-    st.warning("⚠️ Por favor, insira suas credenciais")
