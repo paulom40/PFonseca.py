@@ -124,14 +124,14 @@ if username == "paulo" and password == "teste":
         st.subheader("📈 Evolução Mensal do Artigo")
         st.dataframe(monthly_summary)
 
-        # -------------------- PIVOT TABLE FOR ARTIGO, CLIENTE, QTD BY MÊS --------------------
-        st.subheader("📊 Tabela de Qtd. por Artigo, Cliente e Mês")
+        # -------------------- PIVOT TABLE FOR ARTIGO, CLIENTE, QTD BY MÊS AND ANO --------------------
+        st.subheader("📊 Tabela de Qtd. por Artigo, Cliente, Mês e Ano")
         try:
             pivot_table = pd.pivot_table(
                 filtered_df,
                 values="Qtd.",
                 index=["Artigo", "Cliente"],
-                columns="Mês",
+                columns=["Ano", "Mês"],
                 aggfunc="sum",
                 fill_value=0
             )
