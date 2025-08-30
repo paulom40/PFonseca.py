@@ -8,8 +8,8 @@ import pandas as pd
 credentials = {
     "usernames": {
         "paulojt": {
-            "name": "Paulo",
-            "password": stauth.Hasher(["your_password"]).generate()[0]  # Replace with your actual password
+            "name": "paulo",
+            "password": stauth.Hasher(["teste"]).generate()[0]  # Replace with your actual password
         }
     }
 }
