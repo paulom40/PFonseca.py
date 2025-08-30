@@ -3,28 +3,12 @@ import pandas as pd
 import plotly.express as px
 from io import BytesIO
 
+# -------------------- CUSTOM CSS --------------------
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
     footer {visibility: hidden;}
-    </style>
-""", unsafe_allow_html=True)
-
-
-st.set_page_config(layout="wide")
-
-# -------------------- LOGO + HEADER --------------------
-st.markdown("""
-    <div style="display: flex; align-items: center; background-color: #4CAF50; padding: 10px; border-radius: 10px;">
-        <img src="https://github.com/paulom40/PFonseca.py/raw/main/Bracar.png" width="120" style="margin-right: 20px;" />
-        <h1 style="margin: 0; font-family: 'Segoe UI', sans-serif; color: white;">Vendas Globais Dashboard</h1>
-    </div>
-""", unsafe_allow_html=True)
-
-# -------------------- CUSTOM CSS --------------------
-st.markdown("""
-    <style>
     .main {background-color: #f0f4f8;}
     .sidebar .sidebar-content {
         background-color: #1E3A8A;
@@ -74,6 +58,14 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# -------------------- LOGO + HEADER --------------------
+st.markdown("""
+    <div style="display: flex; align-items: center; background-color: #4CAF50; padding: 10px; border-radius: 10px;">
+        <img src="https://github.com/paulom40/PFonseca.py/raw/main/Bracar.png" width="120" style="margin-right: 20px;" />
+        <h1 style="margin: 0; font-family: 'Segoe UI', sans-serif; color: white;">Vendas Globais Dashboard</h1>
+    </div>
+""", unsafe_allow_html=True)
+
 # -------------------- SIMPLE LOGIN --------------------
 st.subheader("🔐 Login")
 username = st.text_input("Usuário")
@@ -88,12 +80,14 @@ if username == "paulo" and password == "teste":
         df = pd.read_excel(url)
         df.columns = df.columns.str.strip()
     except Exception as e:
-        st.error("❌ Erro ao carregar o ficheiro Excel.")
+        st.error(f"❌ Erro ao carregar o ficheiro Excel: {str(e)}")
         st.stop()
+
+    # Ensure Qtd. is numeric
+    df["Qtd."] = pd.to_numeric(df["Qtd."], errors="coerce")
 
     # -------------------- SIDEBAR MULTISELECT FILTERS --------------------
     st.sidebar.header("🔎 Filtros")
-
     selected_clientes = st.sidebar.multiselect("🧑 Cliente", df["Cliente"].unique(), default=df["Cliente"].unique())
     selected_artigos = st.sidebar.multiselect("📦 Artigo", df["Artigo"].unique(), default=df["Artigo"].unique())
     selected_comerciais = st.sidebar.multiselect("💼 Comercial", df["Comercial"].unique(), default=df["Comercial"].unique())
@@ -132,15 +126,24 @@ if username == "paulo" and password == "teste":
 
         # -------------------- PIVOT TABLE FOR ARTIGO, CLIENTE, QTD BY MÊS --------------------
         st.subheader("📊 Tabela de Qtd. por Artigo, Cliente e Mês")
-        pivot_table = pd.pivot_table(
-            filtered_df,
-            values="Qtd.",
-            index=["Artigo", "Cliente"],
-            columns="Mês",
-            aggfunc="sum",
-            fill_value=0
-        )
-        st.dataframe(pivot_table)
+        try:
+            pivot_table = pd.pivot_table(
+                filtered_df,
+                values="Qtd.",
+                index=["Artigo", "Cliente"],
+                columns="Mês",
+                aggfunc="sum",
+                fill_value=0
+            )
+            # Flatten the MultiIndex for display
+            pivot_table = pivot_table.reset_index()
+            # Ensure all Qtd. columns are numeric
+            for col in pivot_table.columns:
+                if col not in ["Artigo", "Cliente"]:
+                    pivot_table[col] = pd.to_numeric(pivot_table[col], errors="coerce").fillna(0)
+            st.dataframe(pivot_table)
+        except Exception as e:
+            st.error(f"❌ Erro ao exibir a tabela pivô: {str(e)}")
 
         # -------------------- KPIs --------------------
         st.subheader("📊 KPIs por Artigo e Cliente")
@@ -158,12 +161,12 @@ if username == "paulo" and password == "teste":
         with cols[0]:
             st.markdown('<div class="kpi-card"><div class="kpi-title">KPIs por Artigo</div></div>', unsafe_allow_html=True)
             for _, row in kpi_artigo.iterrows():
-                st.markdown(f'<div class="kpi-card"><div class="kpi-title">{row["Artigo"]}</div><div class="kpi-value">{row["Total Qtd."]}</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="kpi-card"><div class="kpi-title">{row["Artigo"]}</div><div class="kpi-value">{int(row["Total Qtd."])}</div></div>', unsafe_allow_html=True)
 
         with cols[1]:
             st.markdown('<div class="kpi-card"><div class="kpi-title">KPIs por Cliente</div></div>', unsafe_allow_html=True)
             for _, row in kpi_cliente.iterrows():
-                st.markdown(f'<div class="kpi-card"><div class="kpi-title">{row["Cliente"]}</div><div class="kpi-value">{row["Total Qtd."]}</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="kpi-card"><div class="kpi-title">{row["Cliente"]}</div><div class="kpi-value">{int(row["Total Qtd."])}</div></div>', unsafe_allow_html=True)
 
         # -------------------- INTERACTIVE CHART --------------------
         st.subheader("📊 Gráfico de Qtd. Mensais")
@@ -178,7 +181,7 @@ if username == "paulo" and password == "teste":
         output = BytesIO()
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
             monthly_summary.to_excel(writer, sheet_name="Evolucao Mensal", index=False)
-            pivot_table.to_excel(writer, sheet_name="Pivot Tabela")
+            pivot_table.to_excel(writer, sheet_name="Pivot Tabela", index=True)
             kpi_artigo.to_excel(writer, sheet_name="KPI Artigo", index=False)
             kpi_cliente.to_excel(writer, sheet_name="KPI Cliente", index=False)
         output.seek(0)
