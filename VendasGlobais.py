@@ -172,12 +172,11 @@ if username == "paulo" and password == "teste":
         # KPI: Total Qtd por Mês/Ano
         kpi_mes_ano = filtered_df.groupby(["Mês", "Ano"])["Qtd."].sum().reset_index()
         kpi_mes_ano["Mês/Ano"] = kpi_mes_ano["Mês"] + "/" + kpi_mes_ano["Ano"].astype(str)
+        kpi_mes_ano["Qtd."] = pd.to_numeric(kpi_mes_ano["Qtd."], errors="coerce").fillna(0)
+        kpi_mes_ano["Mês"] = pd.Categorical(kpi_mes_ano["Mês"], categories=month_order, ordered=True)
+        kpi_mes_ano = kpi_mes_ano.sort_values(["Ano", "Mês"])
         kpi_mes_ano = kpi_mes_ano[["Mês/Ano", "Qtd."]]
         kpi_mes_ano.columns = ["Mês/Ano", "Total Qtd."]
-        kpi_mes_ano["Mês"] = pd.Categorical(
-            kpi_mes_ano["Mês/Ano"].str.split("/").str[0], categories=month_order, ordered=True
-        )
-        kpi_mes_ano = kpi_mes_ano.sort_values(["Ano", "Mês"])
 
         # Display KPIs in cards
         cols = st.columns(3)
