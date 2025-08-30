@@ -7,3 +7,4 @@ matplotlib
 XlsxWriter
 seaborn
 streamlit-authenticator
+plotly.express
