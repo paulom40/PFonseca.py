@@ -2,6 +2,17 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
+st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+
+
+st.set_page_config(layout="wide")
+
 # -------------------- LOGO + HEADER --------------------
 st.markdown("""
     <div style="display: flex; align-items: center;">
