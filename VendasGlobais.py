@@ -159,7 +159,7 @@ if username == "paulo" and password == "teste":
             st.error(f"❌ Erro ao exibir a tabela pivô: {str(e)}")
 
         # -------------------- KPIs --------------------
-        st.subheader("📊 KPIs por Artigo e Cliente")
+        st.subheader("📊 KPIs por Artigo, Cliente e Mês")
 
         # KPI: Total Qtd por Artigo
         kpi_artigo = filtered_df.groupby("Artigo")["Qtd."].sum().reset_index()
@@ -169,8 +169,14 @@ if username == "paulo" and password == "teste":
         kpi_cliente = filtered_df.groupby("Cliente")["Qtd."].sum().reset_index()
         kpi_cliente.columns = ["Cliente", "Total Qtd."]
 
+        # KPI: Total Qtd por Mês
+        kpi_mes = filtered_df.groupby("Mês")["Qtd."].sum().reset_index()
+        kpi_mes.columns = ["Mês", "Total Qtd."]
+        kpi_mes["Mês"] = pd.Categorical(kpi_mes["Mês"], categories=month_order, ordered=True)
+        kpi_mes = kpi_mes.sort_values("Mês")
+
         # Display KPIs in cards
-        cols = st.columns(2)
+        cols = st.columns(3)
         with cols[0]:
             st.markdown('<div class="kpi-card"><div class="kpi-title">KPIs por Artigo</div></div>', unsafe_allow_html=True)
             for _, row in kpi_artigo.iterrows():
@@ -180,6 +186,11 @@ if username == "paulo" and password == "teste":
             st.markdown('<div class="kpi-card"><div class="kpi-title">KPIs por Cliente</div></div>', unsafe_allow_html=True)
             for _, row in kpi_cliente.iterrows():
                 st.markdown(f'<div class="kpi-card"><div class="kpi-title">{row["Cliente"]}</div><div class="kpi-value">{int(row["Total Qtd."])}</div></div>', unsafe_allow_html=True)
+
+        with cols[2]:
+            st.markdown('<div class="kpi-card"><div class="kpi-title">KPIs por Mês</div></div>', unsafe_allow_html=True)
+            for _, row in kpi_mes.iterrows():
+                st.markdown(f'<div class="kpi-card"><div class="kpi-title">{row["Mês"]}</div><div class="kpi-value">{int(row["Total Qtd."])}</div></div>', unsafe_allow_html=True)
 
         # -------------------- INTERACTIVE CHART --------------------
         st.subheader("📊 Gráfico de Qtd. Mensais")
@@ -236,6 +247,7 @@ if username == "paulo" and password == "teste":
             pivot_table.to_excel(writer, sheet_name="Pivot Tabela", index=True)
             kpi_artigo.to_excel(writer, sheet_name="KPI Artigo", index=False)
             kpi_cliente.to_excel(writer, sheet_name="KPI Cliente", index=False)
+            kpi_mes.to_excel(writer, sheet_name="KPI Mês", index=False)
         output.seek(0)
         st.download_button("📥 Baixar Excel", data=output, file_name="vendas_mensais.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
