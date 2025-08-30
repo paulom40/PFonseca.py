@@ -212,12 +212,12 @@ if username == "paulo" and password == "teste":
                 margin=dict(t=50, b=50),
                 yaxis=dict(
                     title="Quantidade",
-                    titlefont=dict(color="#FFFFFF"),
+                    title_font=dict(color="#FFFFFF"),
                     tickfont=dict(color="#FFFFFF")
                 ),
                 xaxis=dict(
                     title="Mês",
-                    titlefont=dict(color="#FFFFFF"),
+                    title_font=dict(color="#FFFFFF"),
                     tickfont=dict(color="#FFFFFF")
                 ),
                 plot_bgcolor="#1F2937",  # Dark gray background
