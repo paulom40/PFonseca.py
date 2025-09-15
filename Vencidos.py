@@ -17,7 +17,7 @@ st.set_page_config(layout="wide")
 # -------------------------------
 # 📥 Load Excel file from GitHub
 # -------------------------------
-url = "https://github.com/paulom40/PFonseca.py/blob/main/VVencidos.xlsx"
+url = "https://github.com/paulom40/PFonseca.py/raw/main//VVencidos.xlsx"
 
 try:
     response = requests.get(url)
