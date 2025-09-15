@@ -251,7 +251,7 @@ def dashboard_page():
     for low, high, label in ranges:
         if label in selected_ranges:
             st.markdown(f"<h3>{label}</h3>", unsafe_allow_html=True)
-            range_filtered = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] < high)]
+            range_filtered = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)]
             if not range_filtered.empty:
                 st.dataframe(range_filtered, use_container_width=True)
             else:
