@@ -27,7 +27,7 @@ except Exception as e:
     st.error(f"Erro ao carregar os dados: {e}")
     st.stop()
 
-st.write("📅 Last Update 29/08/2025")
+st.write("📅 Last Update 13/09/2025")
 
 # -------------------------------
 # 🧹 Clean and prepare data
