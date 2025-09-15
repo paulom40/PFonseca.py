@@ -230,7 +230,7 @@ def dashboard_page():
 
     for low, high, label in ranges:
         if label in selected_ranges:
-            range_filtered = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] < high)]
+            range_filtered = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)]
             count = len(range_filtered)
             total_pending = range_filtered['Valor Pendente'].sum() if 'Valor Pendente' in df.columns else 0
             summary.append({
