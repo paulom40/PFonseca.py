@@ -171,7 +171,7 @@ def login_page():
 # Dashboard page
 def dashboard_page():
     # URL to the Excel file
-    url = "https://github.com/paulom40/PFonseca.py/blob/main/V0808.xlsx"
+    url = "https://github.com/paulom40/PFonseca.py/raw/refs/heads/main/V0808.xlsx"
 
     # Load the data
     try:
