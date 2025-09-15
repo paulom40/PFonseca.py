@@ -63,7 +63,7 @@ dias_min, dias_max = st.sidebar.slider(
 df_cliente = df[df["Entidade"] == entidade_selecionada]
 df_filtrado = df_cliente[(df_cliente["Dias"] >= dias_min) & (df_cliente["Dias"] <= dias_max)]
 
-st.title("📊 Vencimentos Bruno Brito")
+st.title("📊 Vencimentos Renato Ferreira")
 st.markdown(f"**Cliente:** {entidade_selecionada} | **Intervalo de dias:** {dias_min}–{dias_max}")
 
 cols_exibir = ["Documento", "Data Venc.", "Dias", "Valor Pendente"]
