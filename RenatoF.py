@@ -17,9 +17,9 @@ st.markdown("""
 # ---------------------------------------
 @st.cache_data(ttl=3600)
 def load_data():
-    url = "https://github.com/paulom40/PFonseca.py/blob/main/RFerreira.xlsx"
+    url = "url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/RFerreira.xlsx"
     response = requests.get(url)
-    df = pd.read_excel(BytesIO(response.content), sheet_name="BBrito")
+    df = pd.read_excel(BytesIO(response.content), sheet_name="RFerreira")
     return df
 
 try:
