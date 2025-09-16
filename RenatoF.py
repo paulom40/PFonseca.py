@@ -6,18 +6,6 @@ from io import BytesIO
 st.markdown("""
     <style>
     #MainMenu, header, footer {visibility: hidden;}
-    .sidebar-hint {
-        animation: pulse 1.5s infinite;
-        color: #888;
-        font-size: 14px;
-        text-align: center;
-        margin-bottom: 10px;
-    }
-    @keyframes pulse {
-        0% {opacity: 0.4;}
-        50% {opacity: 1;}
-        100% {opacity: 0.4;}
-    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -27,8 +15,8 @@ st.set_page_config(page_title="Renato Ferreira", layout="centered", page_icon="�
 # 📊 Title
 st.title("📊 Renato Ferreira")
 
-# 📱 Mobile tip with animation
-st.markdown("<div class='sidebar-hint'>📱 Toque no ícone <strong>≡</strong> no canto superior esquerdo para abrir os filtros</div>", unsafe_allow_html=True)
+# 📱 Mobile tip
+st.markdown("<div style='text-align:center; font-size:14px; color:gray;'>📱 Em dispositivos móveis, deslize para ver os filtros à esquerda</div>", unsafe_allow_html=True)
 
 # 📥 Load data
 url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/RFerreira.xlsx"
@@ -51,8 +39,11 @@ ranges = [
     (91, 365, "91 a 365 dias 🟥")
 ]
 
-# 🎨 Collapsible filter section
-with st.expander("🎨 Filtros (alternativo ao menu lateral)", expanded=False):
+# 🧭 Layout: Left filters, right content
+left, right = st.columns([1, 2])
+
+with left:
+    st.markdown("### 🎨 Filtros")
     selected_comercial = st.multiselect(
         "👨‍💼 Comercial",
         sorted(df['Comercial'].unique()),
@@ -68,56 +59,55 @@ with st.expander("🎨 Filtros (alternativo ao menu lateral)", expanded=False):
         [r[2] for r in ranges],
         default=[r[2] for r in ranges]
     )
+    if st.button("🔄 Atualizar Dados"):
+        st.rerun()
 
-# 🔍 Filter data
-filtered_df = df[
-    df['Comercial'].isin(selected_comercial) &
-    df['Entidade'].isin(selected_entidade)
-]
+with right:
+    # 🔍 Filter data
+    filtered_df = df[
+        df['Comercial'].isin(selected_comercial) &
+        df['Entidade'].isin(selected_entidade)
+    ]
 
-# 🔄 Refresh button
-if st.button("🔄 Atualizar Dados"):
-    st.rerun()
+    # 📋 Summary
+    st.subheader("📋 Resumo")
+    summary = []
+    for low, high, label in ranges:
+        if label in selected_ranges:
+            range_df = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)]
+            summary.append({
+                "Intervalo": label,
+                "Quantidade": len(range_df),
+                "Valor Pendente": range_df['Valor Pendente'].sum()
+            })
+    if summary:
+        st.dataframe(pd.DataFrame(summary), use_container_width=True)
+    else:
+        st.warning("⚠️ Nenhum dado nos intervalos selecionados")
 
-# 📋 Summary
-st.subheader("📋 Resumo")
-summary = []
-for low, high, label in ranges:
-    if label in selected_ranges:
-        range_df = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)]
-        summary.append({
-            "Intervalo": label,
-            "Quantidade": len(range_df),
-            "Valor Pendente": range_df['Valor Pendente'].sum()
-        })
-if summary:
-    st.dataframe(pd.DataFrame(summary), use_container_width=True)
-else:
-    st.warning("⚠️ Nenhum dado nos intervalos selecionados")
+    # 📂 Detalhes por intervalo
+    for low, high, label in ranges:
+        if label in selected_ranges:
+            st.subheader(label)
+            range_df = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)]
+            if not range_df.empty:
+                st.dataframe(range_df, use_container_width=True)
+            else:
+                st.info("⚠️ Nenhum alerta neste intervalo")
 
-# 📂 Detalhes por intervalo
-for low, high, label in ranges:
-    if label in selected_ranges:
-        st.subheader(label)
-        range_df = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)]
-        if not range_df.empty:
-            st.dataframe(range_df, use_container_width=True)
-        else:
-            st.info("⚠️ Nenhum alerta neste intervalo")
-
-# 📥 Download Excel
-if not filtered_df.empty:
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        filtered_df.to_excel(writer, index=False, sheet_name='Dados Filtrados')
-    st.download_button(
-        label="📥 Baixar dados filtrados em Excel",
-        data=output.getvalue(),
-        file_name="dados_filtrados.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-else:
-    st.warning("⚠️ Nenhum dado disponível para download")
+    # 📥 Download Excel
+    if not filtered_df.empty:
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            filtered_df.to_excel(writer, index=False, sheet_name='Dados Filtrados')
+        st.download_button(
+            label="📥 Baixar dados filtrados em Excel",
+            data=output.getvalue(),
+            file_name="dados_filtrados.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    else:
+        st.warning("⚠️ Nenhum dado disponível para download")
 
 # ❤️ Footer
 st.markdown("---")
