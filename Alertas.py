@@ -1,38 +1,62 @@
 import streamlit as st
 import pandas as pd
+from io import BytesIO
 
-# Page config
+# 🚀 Page configuration
 st.set_page_config(page_title="Vendas Dashboard", layout="wide", page_icon="📊")
 
-# Session state for login and sidebar toggle
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
-if 'show_filters' not in st.session_state:
-    st.session_state.show_filters = True
-
-# Login credentials
+# 🔒 Credentials (demo only)
 credentials = {
     "admin": "password123",
     "paulo": "teste",
     "user2": "dashboard456"
 }
 
-# Login page
+# 🧠 Session state
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+
+# 🎨 Minimal CSS (no layout interference)
+st.markdown("""
+<style>
+    #MainMenu, header, footer {visibility: hidden;}
+    h1, h2, h3 {
+        font-family: 'Poppins', sans-serif;
+    }
+    .stButton>button {
+        background: linear-gradient(90deg, #ff6b6b, #ff8a65);
+        color: white;
+        border-radius: 12px;
+        padding: 10px 20px;
+        font-weight: 600;
+        transition: 0.3s ease;
+    }
+    .stButton>button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# 🔐 Login page
 def login_page():
+    st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
     st.image("https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png", width=150)
-    st.title("🔐 Login to Sales Dashboard")
+    st.markdown("<h2>🔐 Login to Sales Dashboard</h2>", unsafe_allow_html=True)
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
     if st.button("Login 🚀"):
         if credentials.get(username) == password:
             st.session_state.logged_in = True
+            st.success("✅ Login successful! Redirecting...")
             st.rerun()
         else:
             st.error("❌ Invalid username or password.")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-# Dashboard page
+# 📊 Dashboard page
 def dashboard_page():
-    st.title("📊 Alertas Vencimentos")
+    st.markdown("<h1 style='text-align:center;'>📊 Alertas Vencimentos</h1>", unsafe_allow_html=True)
 
     # Load data
     url = "https://github.com/paulom40/PFonseca.py/raw/refs/heads/main/V0808.xlsx"
@@ -54,23 +78,23 @@ def dashboard_page():
         (91, 365, "91 a 365 dias 🟥")
     ]
 
-    # Toggle filter panel
-    toggle_label = "🔽 Hide Filters" if st.session_state.show_filters else "🔼 Show Filters"
-    if st.button(toggle_label):
-        st.session_state.show_filters = not st.session_state.show_filters
-
-    # Filters panel
-    if st.session_state.show_filters:
-        with st.container():
-            st.subheader("🎨 Filters")
-            selected_comercial = st.multiselect("👨‍💼 Comercial", sorted(df['Comercial'].unique()), default=sorted(df['Comercial'].unique()))
-            selected_entidade = st.multiselect("🏢 Entidade", sorted(df['Entidade'].unique()), default=sorted(df['Entidade'].unique()))
-            selected_ranges = st.multiselect("📅 Ranges", [r[2] for r in ranges], default=[r[2] for r in ranges])
-    else:
-        # Use default filters when hidden
-        selected_comercial = sorted(df['Comercial'].unique())
-        selected_entidade = sorted(df['Entidade'].unique())
-        selected_ranges = [r[2] for r in ranges]
+    # 🎛️ Sidebar filters
+    st.sidebar.header("🎨 Filtros")
+    selected_comercial = st.sidebar.multiselect(
+        "👨‍💼 Comercial",
+        options=sorted(df['Comercial'].unique()),
+        default=sorted(df['Comercial'].unique())
+    )
+    selected_entidade = st.sidebar.multiselect(
+        "🏢 Entidade",
+        options=sorted(df['Entidade'].unique()),
+        default=sorted(df['Entidade'].unique())
+    )
+    selected_ranges = st.sidebar.multiselect(
+        "📅 Intervalos de Dias",
+        options=[r[2] for r in ranges],
+        default=[r[2] for r in ranges]
+    )
 
     # Filter data
     filtered_df = df[
@@ -78,7 +102,11 @@ def dashboard_page():
         df['Entidade'].isin(selected_entidade)
     ]
 
-    # Summary
+    # 🔄 Refresh
+    if st.button("🔄 Refresh Data"):
+        st.rerun()
+
+    # 📋 Summary
     st.subheader("📋 Summary")
     summary = []
     for low, high, label in ranges:
@@ -94,7 +122,7 @@ def dashboard_page():
     else:
         st.warning("⚠️ No data in selected ranges")
 
-    # Details
+    # 📂 Details
     for low, high, label in ranges:
         if label in selected_ranges:
             st.subheader(label)
@@ -104,12 +132,30 @@ def dashboard_page():
             else:
                 st.info("⚠️ No alerts in this range")
 
-    # Logout
+    # 📥 Download
+    if not filtered_df.empty:
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            filtered_df.to_excel(writer, index=False, sheet_name='Filtered_Data')
+        st.download_button(
+            label="📥 Download Filtered Data as Excel",
+            data=output.getvalue(),
+            file_name="filtered_data.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    else:
+        st.warning("⚠️ No data available to download")
+
+    # 🔓 Logout
     if st.button("🔓 Logout"):
         st.session_state.logged_in = False
         st.rerun()
 
-# App logic
+    # ❤️ Footer
+    st.markdown("---")
+    st.markdown("<p style='text-align:center;'>Created with ❤️ using Streamlit</p>", unsafe_allow_html=True)
+
+# 🧠 App logic
 if st.session_state.logged_in:
     dashboard_page()
 else:
