@@ -1,7 +1,6 @@
-import pandas as pd
-import requests
-from io import BytesIO
 import streamlit as st
+import pandas as pd
+from io import BytesIO
 
 st.markdown("""
     <style>
@@ -11,82 +10,108 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# 🚀 Page configuration
+st.set_page_config(page_title="Vania Silva", layout="centered", page_icon="📊")
 
-# -------------------------------
-# 📥 Load Excel file from GitHub
-# -------------------------------
-url = "https://github.com/paulom40/PFonseca.py/raw/main/VSilva.xlsx"
+# 📊 Title
+st.title("📊 Vania Silva")
 
+# 📱 Mobile tip
+st.markdown("""
+<div style='text-align:center; font-size:14px; color:gray;'>
+📱 Em dispositivos móveis, toque no ícone <strong>≡</strong> no canto superior esquerdo para abrir os filtros.
+</div>
+""", unsafe_allow_html=True)
+
+# 📥 Load data
+url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/VSilva.xlsx"
 try:
-    response = requests.get(url)
-    response.raise_for_status()
-    df = pd.read_excel(BytesIO(response.content), sheet_name="VSilva")
-    df["Data Venc."] = pd.to_datetime(df["Data Venc."], errors="coerce").dt.date
-    st.success("📥 Dados carregados com sucesso!")
+    df = pd.read_excel(url)
 except Exception as e:
-    st.error(f"Erro ao carregar os dados: {e}")
+    st.error(f"❌ Erro ao carregar o ficheiro: {e}")
     st.stop()
 
-st.write("📅 Last Update 13/09/2025")
+# 🧼 Clean data
+df['Dias'] = pd.to_numeric(df['Dias'], errors='coerce')
+df.dropna(subset=['Dias'], inplace=True)
 
-# -------------------------------
-# 🧹 Clean and prepare data
-# -------------------------------
-df.columns = df.columns.str.strip()
-df["Entidade"] = df["Entidade"].astype(str).str.strip()
-df["Dias"] = pd.to_numeric(df["Dias"], errors="coerce")
-df = df.dropna(subset=["Dias"])
-df["Dias"] = df["Dias"].astype(int)
-df["Valor Pendente"] = pd.to_numeric(df["Valor Pendente"], errors="coerce")
+# 📅 Define ranges
+ranges = [
+    (0, 15, "0 a 15 dias 🟦"),
+    (16, 30, "16 a 30 dias 🟫"),
+    (31, 60, "31 a 60 dias 🟧"),
+    (61, 90, "61 a 90 dias 🟨"),
+    (91, 365, "91 a 365 dias 🟥")
+]
 
-# -------------------------------
-# 🎛️ Sidebar: Filters
-# -------------------------------
-st.sidebar.header("🔎 Filtros")
-
-entidades_unicas = sorted(df["Entidade"].dropna().unique())
-entidade_selecionada = st.sidebar.selectbox("Selecione o Cliente:", entidades_unicas)
-
-st.sidebar.markdown("### ⏳ Filtro por Dias até Vencimento")
-dias_min, dias_max = st.sidebar.slider(
-    "Selecione o intervalo de Dias:",
-    min_value=1,
-    max_value=180,
-    value=(1, 180),
-    step=1
+# 🎛️ Sidebar filters
+st.sidebar.header("🎨 Filtros")
+selected_comercial = st.sidebar.multiselect(
+    "👨‍💼 Comercial",
+    sorted(df['Comercial'].unique()),
+    default=sorted(df['Comercial'].unique())
+)
+selected_entidade = st.sidebar.multiselect(
+    "🏢 Entidade",
+    sorted(df['Entidade'].unique()),
+    default=sorted(df['Entidade'].unique())
+)
+selected_ranges = st.sidebar.multiselect(
+    "📅 Intervalos de Dias",
+    [r[2] for r in ranges],
+    default=[r[2] for r in ranges]
 )
 
-# -------------------------------
-# 🔍 Apply filters
-# -------------------------------
-df_cliente = df[df["Entidade"] == entidade_selecionada]
-df_filtrado = df_cliente[(df_cliente["Dias"] >= dias_min) & (df_cliente["Dias"] <= dias_max)]
+# 🔍 Filter data
+filtered_df = df[
+    df['Comercial'].isin(selected_comercial) &
+    df['Entidade'].isin(selected_entidade)
+]
 
-# Columns to display
-cols_exibir = ["Entidade", "Documento", "Data Venc.", "Dias", "Valor Pendente"]
+# 🔄 Refresh button
+if st.button("🔄 Atualizar Dados"):
+    st.rerun()
 
-# -------------------------------
-# 📊 Main filtered table
-# -------------------------------
-st.title("📊 Vencimentos Vânia Silva")
-st.markdown(f"Exibindo resultados para **{entidade_selecionada}** com **{dias_min}–{dias_max} dias** vencidos.")
-st.dataframe(df_filtrado[cols_exibir], use_container_width=True)
+# 📋 Summary
+st.subheader("📋 Resumo")
+summary = []
+for low, high, label in ranges:
+    if label in selected_ranges:
+        range_df = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)]
+        summary.append({
+            "Intervalo": label,
+            "Quantidade": len(range_df),
+            "Valor Pendente": range_df['Valor Pendente'].sum()
+        })
+if summary:
+    st.dataframe(pd.DataFrame(summary), use_container_width=True)
+else:
+    st.warning("⚠️ Nenhum dado nos intervalos selecionados")
 
-# 📈 Summary metrics
-col1, col2, col3 = st.columns(3)
-col1.metric("📌 Total de Registros", len(df_filtrado))
-col2.metric("📆 Dias Médios", f"{df_filtrado['Dias'].mean():.1f}" if len(df_filtrado) > 0 else "0")
-col3.metric("💰 Valor Pendente Total", f"€ {df_filtrado['Valor Pendente'].sum():,.2f}")
+# 📂 Detalhes por intervalo
+for low, high, label in ranges:
+    if label in selected_ranges:
+        st.subheader(label)
+        range_df = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)]
+        if not range_df.empty:
+            st.dataframe(range_df, use_container_width=True)
+        else:
+            st.info("⚠️ Nenhum alerta neste intervalo")
 
-# -------------------------------
-# 📉 Overdue Table (-20 a -1 Dias)
-# -------------------------------
-st.subheader("📉 Registros Por Vencer nos proximos 20 Dias")
-df_a_vencer = df_cliente[(df_cliente["Dias"] >= -20) & (df_cliente["Dias"] <= -1)]
-st.dataframe(df_a_vencer[cols_exibir], use_container_width=True)
+# 📥 Download Excel
+if not filtered_df.empty:
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        filtered_df.to_excel(writer, index=False, sheet_name='Dados Filtrados')
+    st.download_button(
+        label="📥 Baixar dados filtrados em Excel",
+        data=output.getvalue(),
+        file_name="dados_filtrados.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+else:
+    st.warning("⚠️ Nenhum dado disponível para download")
 
-# 📈 Overdue summary metrics
-col1, col2, col3 = st.columns(3)
-col1.metric("🔴 Total A Vencer", len(df_a_vencer))
-col2.metric("🕒 Média Dias", f"{df_a_vencer['Dias'].mean():.1f}" if len(df_a_vencer) > 0 else "0")
-col3.metric("💸 Valor A Vencer Total", f"€ {df_a_vencer['Valor Pendente'].sum():,.2f}")
+# ❤️ Footer
+st.markdown("---")
+st.markdown("<p style='text-align:center;'>Feito com ❤️ em Streamlit</p>", unsafe_allow_html=True)
