@@ -6,7 +6,7 @@ from io import BytesIO
 st.set_page_config(page_title="Renato Ferreira", layout="wide", page_icon="📊")
 
 # 📊 Title
-st.title("📊 Alertas Vencimentos")
+st.title("📊 Renato Ferreira")
 
 # 📱 Mobile tip
 st.markdown("""
