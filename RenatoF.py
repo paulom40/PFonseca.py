@@ -11,10 +11,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 🚀 Page configuration
-st.set_page_config(page_title="Bruno Brito", layout="centered", page_icon="📊")
+st.set_page_config(page_title="Renato Ferreira", layout="centered", page_icon="📊")
 
 # 📊 Title
-st.title("📊 Bruno Brito")
+st.title("📊 Renato Ferreira")
 
 # 📱 Mobile tip
 st.markdown("""
