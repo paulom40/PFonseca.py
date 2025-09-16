@@ -8,10 +8,7 @@ st.set_page_config(page_title="Vendas Dashboard", layout="wide", page_icon="📊
 # 📊 Title
 st.title("📊 Alertas Vencimentos")
 
-# 📥 Load data
-url = "import streamlit as st
-import pandas as pd
-from io import BytesIO
+
 
 # 🚀 Page configuration
 st.set_page_config(page_title="Vendas Dashboard", layout="wide", page_icon="📊")
