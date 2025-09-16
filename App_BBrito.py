@@ -16,7 +16,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 📥 Load data
-url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/RFerreira.xlsx"
+url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/BBrito.xlsx"
 try:
     df = pd.read_excel(url)
 except Exception as e:
