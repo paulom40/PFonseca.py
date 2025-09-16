@@ -31,7 +31,7 @@ st.set_page_config(page_title="Vendas Dashboard", layout="wide", page_icon="📊
 st.title("📊 Alertas Vencimentos")
 
 # 📥 Load data
-url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/RFerreira.xlsx"
+url = "url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/RFerreira.xlsx"
 try:
     df = pd.read_excel(url)
 except Exception as e:
