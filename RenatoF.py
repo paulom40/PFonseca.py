@@ -2,11 +2,22 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
+# 🔧 Hide default Streamlit UI elements
 st.markdown("""
     <style>
-    #MainMenu {visibility: hidden;}
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
+    #MainMenu, header, footer {visibility: hidden;}
+    .sidebar-hint {
+        animation: pulse 1.5s infinite;
+        color: #888;
+        font-size: 14px;
+        text-align: center;
+        margin-bottom: 10px;
+    }
+    @keyframes pulse {
+        0% {opacity: 0.4;}
+        50% {opacity: 1;}
+        100% {opacity: 0.4;}
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -16,12 +27,8 @@ st.set_page_config(page_title="Renato Ferreira", layout="centered", page_icon="�
 # 📊 Title
 st.title("📊 Renato Ferreira")
 
-# 📱 Mobile tip
-st.markdown("""
-<div style='text-align:center; font-size:14px; color:gray;'>
-📱 Em dispositivos móveis, toque no ícone <strong>≡</strong> no canto superior esquerdo para abrir os filtros.
-</div>
-""", unsafe_allow_html=True)
+# 📱 Mobile tip with animation
+st.markdown("<div class='sidebar-hint'>📱 Toque no ícone <strong>≡</strong> no canto superior esquerdo para abrir os filtros</div>", unsafe_allow_html=True)
 
 # 📥 Load data
 url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/RFerreira.xlsx"
@@ -44,23 +51,23 @@ ranges = [
     (91, 365, "91 a 365 dias 🟥")
 ]
 
-# 🎛️ Sidebar filters
-st.sidebar.header("🎨 Filtros")
-selected_comercial = st.sidebar.multiselect(
-    "👨‍💼 Comercial",
-    sorted(df['Comercial'].unique()),
-    default=sorted(df['Comercial'].unique())
-)
-selected_entidade = st.sidebar.multiselect(
-    "🏢 Entidade",
-    sorted(df['Entidade'].unique()),
-    default=sorted(df['Entidade'].unique())
-)
-selected_ranges = st.sidebar.multiselect(
-    "📅 Intervalos de Dias",
-    [r[2] for r in ranges],
-    default=[r[2] for r in ranges]
-)
+# 🎨 Collapsible filter section
+with st.expander("🎨 Filtros (alternativo ao menu lateral)", expanded=False):
+    selected_comercial = st.multiselect(
+        "👨‍💼 Comercial",
+        sorted(df['Comercial'].unique()),
+        default=sorted(df['Comercial'].unique())
+    )
+    selected_entidade = st.multiselect(
+        "🏢 Entidade",
+        sorted(df['Entidade'].unique()),
+        default=sorted(df['Entidade'].unique())
+    )
+    selected_ranges = st.multiselect(
+        "📅 Intervalos de Dias",
+        [r[2] for r in ranges],
+        default=[r[2] for r in ranges]
+    )
 
 # 🔍 Filter data
 filtered_df = df[
