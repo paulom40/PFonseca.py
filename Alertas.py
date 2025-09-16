@@ -2,41 +2,26 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
-# 🚀 Page configuration
+# 🚀 Page config
 st.set_page_config(page_title="Vendas Dashboard", layout="wide", page_icon="📊")
 
-# 🔒 Hardcoded credentials (demo only)
+# 🔒 Credentials (demo only)
 credentials = {
     "admin": "password123",
     "paulo": "teste",
     "user2": "dashboard456"
 }
 
-# 🧠 Session state for login
+# 🧠 Session state
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 
-# 🎨 Custom CSS
+# 🎨 Minimal CSS (no layout interference)
 st.markdown("""
 <style>
     #MainMenu, header, footer {visibility: hidden;}
-    .main {
-        background: linear-gradient(135deg, #ff6b6b 0%, #4ecdc4 100%);
-        padding: 20px;
-    }
-    .sidebar .sidebar-content {
-        background: #ffffff;
-        border-radius: 10px;
-        padding: 20px;
-    }
     h1, h2, h3 {
         font-family: 'Poppins', sans-serif;
-    }
-    h1 {
-        color: #ffffff;
-        text-align: center;
-        font-size: 2.5em;
-        text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.3);
     }
     .stButton>button {
         background: linear-gradient(90deg, #ff6b6b, #ff8a65);
@@ -50,35 +35,14 @@ st.markdown("""
         transform: translateY(-2px);
         box-shadow: 0 6px 12px rgba(0,0,0,0.3);
     }
-    .login-card {
-        background: #f0f4f8;
-        padding: 40px;
-        border-radius: 20px;
-        max-width: 450px;
-        margin: auto;
-        text-align: center;
-    }
-    .login-title {
-        font-size: 28px;
-        font-weight: 700;
-        margin-bottom: 30px;
-    }
-    .error-message {
-        color: #d32f2f;
-        font-weight: 600;
-    }
-    .success-message {
-        color: #2ecc71;
-        font-weight: 600;
-    }
 </style>
 """, unsafe_allow_html=True)
 
 # 🔐 Login page
 def login_page():
-    st.markdown("<div class='login-card'>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align:center;'>", unsafe_allow_html=True)
     st.image("https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png", width=150)
-    st.markdown("<h2 class='login-title'>🔐 Login to Sales Dashboard</h2>", unsafe_allow_html=True)
+    st.markdown("<h2>🔐 Login to Sales Dashboard</h2>", unsafe_allow_html=True)
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
     if st.button("Login 🚀"):
@@ -90,11 +54,11 @@ def login_page():
             st.error("❌ Invalid username or password.")
     st.markdown("</div>", unsafe_allow_html=True)
 
-# 📊 Dashboard page
+# 📊 Dashboard
 def dashboard_page():
-    st.markdown("<h1>📊 Alertas Vencimentos</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align:center;'>📊 Alertas Vencimentos</h1>", unsafe_allow_html=True)
 
-    # Load Excel data
+    # Load data
     url = "https://github.com/paulom40/PFonseca.py/raw/refs/heads/main/V0808.xlsx"
     try:
         df = pd.read_excel(url)
@@ -105,7 +69,7 @@ def dashboard_page():
     df['Dias'] = pd.to_numeric(df['Dias'], errors='coerce')
     df.dropna(subset=['Dias'], inplace=True)
 
-    # Define ranges
+    # Ranges
     ranges = [
         (0, 15, "0 a 15 dias 🟦"),
         (16, 30, "16 a 30 dias 🟫"),
@@ -126,7 +90,7 @@ def dashboard_page():
         df['Entidade'].isin(selected_entidade)
     ]
 
-    # 🔄 Refresh button
+    # 🔄 Refresh
     if st.button("🔄 Refresh Data"):
         st.rerun()
 
@@ -146,7 +110,7 @@ def dashboard_page():
     else:
         st.warning("⚠️ No data in selected ranges")
 
-    # 📂 Detailed tables
+    # 📂 Details
     for low, high, label in ranges:
         if label in selected_ranges:
             st.subheader(label)
@@ -156,7 +120,7 @@ def dashboard_page():
             else:
                 st.info("⚠️ No alerts in this range")
 
-    # 📥 Download filtered data
+    # 📥 Download
     if not filtered_df.empty:
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -177,7 +141,7 @@ def dashboard_page():
 
     # ❤️ Footer
     st.markdown("---")
-    st.markdown("<p style='text-align: center; color: #ffffff;'>Created with ❤️ using Streamlit</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center;'>Created with ❤️ using Streamlit</p>", unsafe_allow_html=True)
 
 # 🧠 App logic
 if st.session_state.logged_in:
