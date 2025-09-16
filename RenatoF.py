@@ -3,10 +3,17 @@ import pandas as pd
 from io import BytesIO
 
 # 🚀 Page configuration
-st.set_page_config(page_title="Vendas Dashboard", layout="wide", page_icon="📊")
+st.set_page_config(page_title="Renato Ferreira", layout="wide", page_icon="📊")
 
 # 📊 Title
 st.title("📊 Alertas Vencimentos")
+
+# 📱 Mobile tip
+st.markdown("""
+<div style='text-align:center; font-size:14px; color:gray;'>
+📱 Em dispositivos móveis, toque no ícone <strong>≡</strong> no canto superior esquerdo para abrir os filtros.
+</div>
+""", unsafe_allow_html=True)
 
 # 📥 Load data
 url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/RFerreira.xlsx"
