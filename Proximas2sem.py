@@ -15,14 +15,14 @@ if venc_col is None:
 
 df[venc_col] = pd.to_datetime(df[venc_col], errors='coerce')
 
-# Sidebar filters
+# Sidebar filter for Comercial
 st.sidebar.header("🔍 Filtros")
-unique_empresas = df['Empresa'].dropna().unique() if 'Empresa' in df.columns else []
-selected_empresas = st.sidebar.multiselect("Empresa", unique_empresas, default=unique_empresas)
+unique_comerciais = df['Comercial'].dropna().unique() if 'Comercial' in df.columns else []
+selected_comerciais = st.sidebar.multiselect("Comercial", unique_comerciais, default=unique_comerciais)
 
-# Apply filters
-if 'Empresa' in df.columns:
-    df = df[df['Empresa'].isin(selected_empresas)]
+# Apply filter
+if 'Comercial' in df.columns:
+    df = df[df['Comercial'].isin(selected_comerciais)]
 
 # Date ranges
 today = datetime.today().date()
@@ -39,7 +39,7 @@ def to_excel_bytes(df):
         df.to_excel(writer, index=False, sheet_name='Vencimentos')
     return output.getvalue()
 
-# Conditional formatting helper
+# Conditional formatting
 def highlight_rows(row):
     overdue = row[venc_col].date() < today
     high_value = row['Valor'] > 10000 if 'Valor' in row else False
