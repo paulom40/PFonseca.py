@@ -1,7 +1,9 @@
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 from io import BytesIO
+import base64
 
 # Layout mobile
 st.set_page_config(layout="centered")
@@ -54,6 +56,14 @@ def highlight_rows(row):
     else:
         return [''] * len(row)
 
+def export_figure(fig, filename):
+    buf = BytesIO()
+    fig.savefig(buf, format="png")
+    buf.seek(0)
+    b64 = base64.b64encode(buf.read()).decode()
+    href = f'<a href="data:image/png;base64,{b64}" download="{filename}">📥 Baixar gráfico como imagem</a>'
+    st.markdown(href, unsafe_allow_html=True)
+
 # Abas
 tab1, tab2, tab3, tab4 = st.tabs(["📋 Resumo", "📊 Gráficos", "📅 Vencimentos", "📈 Histórico"])
 
@@ -66,8 +76,11 @@ with tab1:
         resumo_total = pd.concat([resumo_week1, resumo_week2], axis=1).fillna(0)
         resumo_total['Total'] = resumo_total['Semana 1'] + resumo_total['Semana 2']
         resumo_total = resumo_total.sort_values(by='Total', ascending=False)
-        st.dataframe(resumo_total.style.format({'Semana 1': '€ {:,.2f}', 'Semana 2': '€ {:,.2f}', 'Total': '€ {:,.2f}'}),
-                     use_container_width=True)
+        st.dataframe(resumo_total.style.format({
+            'Semana 1': '€ {:,.2f}',
+            'Semana 2': '€ {:,.2f}',
+            'Total': '€ {:,.2f}'
+        }), use_container_width=True)
     else:
         st.info("ℹ️ Dados insuficientes para gerar a tabela resumo.")
 
@@ -91,17 +104,40 @@ with tab2:
             chart_df = pd.concat([df_week1_chart, df_week2_chart], axis=1).fillna(0)
             chart_df['Total'] = chart_df['Semana 1'] + chart_df['Semana 2']
             chart_df = chart_df.sort_values(by='Total', ascending=False).drop(columns='Total')
-            st.bar_chart(chart_df)
+
+            fig, ax = plt.subplots(figsize=(8, 5))
+            chart_df.plot(kind='bar', ax=ax)
+            for container in ax.containers:
+                ax.bar_label(container, fmt='€ %.2f', label_type='edge')
+            st.pyplot(fig)
+            export_figure(fig, "grafico_barra_comparativa.png")
 
         elif chart_type == "Pizza total":
             pie_data = df_combined.groupby('Cliente')['Valor'].sum()
-            st.pyplot(pie_data.plot.pie(autopct='%1.1f%%', figsize=(5, 5), ylabel='').figure)
+            fig, ax = plt.subplots(figsize=(5, 5))
+            ax.pie(
+                pie_data,
+                labels=pie_data.index,
+                autopct=lambda pct: f"€ {pct * pie_data.sum() / 100:,.2f}",
+                startangle=90
+            )
+            ax.set_ylabel('')
+            st.pyplot(fig)
+            export_figure(fig, "grafico_pizza_total.png")
 
         elif chart_type == "Pizza pendente":
             if 'Comercial' in df.columns and 'Valor pendente' in df.columns:
                 pie_pendente = df.groupby('Comercial')['Valor pendente'].sum()
-                st.subheader("🥧 Valor Pendente por Comercial")
-                st.pyplot(pie_pendente.plot.pie(autopct='%1.1f%%', figsize=(5, 5), ylabel='').figure)
+                fig, ax = plt.subplots(figsize=(5, 5))
+                ax.pie(
+                    pie_pendente,
+                    labels=pie_pendente.index,
+                    autopct=lambda pct: f"€ {pct * pie_pendente.sum() / 100:,.2f}",
+                    startangle=90
+                )
+                ax.set_ylabel('')
+                st.pyplot(fig)
+                export_figure(fig, "grafico_pizza_pendente.png")
             else:
                 st.info("ℹ️ Coluna 'Valor pendente' não encontrada nos dados.")
     else:
@@ -129,6 +165,4 @@ with tab4:
     if 'Cliente' in df.columns and venc_col:
         historico = df.groupby(['Cliente', venc_col])['Valor'].sum().reset_index()
         historico = historico.sort_values(by=venc_col)
-        st.line_chart(historico.pivot(index=venc_col, columns='Cliente', values='Valor'))
-    else:
-        st.info("ℹ️ Dados insuficientes para gerar histórico.")
+        pivot = historico
