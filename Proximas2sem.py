@@ -3,8 +3,9 @@ import pandas as pd
 from datetime import datetime, timedelta
 from io import BytesIO
 
-# Load data
-df = pd.read_excel("V19.xlsx")
+# Load Excel from GitHub
+url = "https://github.com/paulom40/PFonseca.py/raw/main/V0808.xlsx"
+df = pd.read_excel(url)
 
 # Ensure date column is datetime
 df['Vencimento'] = pd.to_datetime(df['Vencimento'], errors='coerce')
@@ -23,16 +24,16 @@ week2_end = week2_start + timedelta(days=6)
 df_week1 = df[(df['Vencimento'].dt.date >= week1_start) & (df['Vencimento'].dt.date <= week1_end)]
 df_week2 = df[(df['Vencimento'].dt.date >= week2_start) & (df['Vencimento'].dt.date <= week2_end)]
 
-# Layout
-st.set_page_config(layout="centered")
-st.title("📅 Vencimentos nas Próximas Duas Semanas")
-
 # Helper to convert DataFrame to XLSX
 def to_excel_bytes(df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df.to_excel(writer, index=False, sheet_name='Vencimentos')
     return output.getvalue()
+
+# Layout
+st.set_page_config(layout="centered")
+st.title("📅 Vencimentos nas Próximas Duas Semanas")
 
 # Week 1
 st.subheader(f"🗓 Semana 1: {week1_start.strftime('%d/%m/%Y')} até {week1_end.strftime('%d/%m/%Y')}")
