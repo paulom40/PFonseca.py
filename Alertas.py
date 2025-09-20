@@ -32,7 +32,7 @@ def login_page():
 # 📊 Dashboard page
 def dashboard_page():
     st.title("📊 Alertas Vencimentos")
-
+    st.write("📅 Last Update 19/09/2025")
     # Load data
     url = "https://github.com/paulom40/PFonseca.py/raw/refs/heads/main/V0808.xlsx"
     try:
