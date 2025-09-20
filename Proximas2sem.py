@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from io import BytesIO
 
-# Layout básico
+# Layout mobile
 st.set_page_config(layout="centered")
 st.markdown("<style>div.block-container{padding-top:1rem;padding-bottom:1rem}</style>", unsafe_allow_html=True)
 st.title("📱 Dashboard de Vencimentos")
@@ -71,11 +71,19 @@ with tab1:
     else:
         st.info("ℹ️ Dados insuficientes para gerar a tabela resumo.")
 
+    st.subheader("📋 Valor Pendente por Comercial")
+    if 'Comercial' in df.columns and 'Valor pendente' in df.columns:
+        resumo_pendente = df.groupby('Comercial')['Valor pendente'].sum().sort_values(ascending=False)
+        st.dataframe(resumo_pendente.reset_index().style.format({'Valor pendente': '€ {:,.2f}'}), use_container_width=True)
+    else:
+        st.info("ℹ️ Coluna 'Valor pendente' não encontrada nos dados.")
+
 # 📊 GRÁFICOS
 with tab2:
     st.subheader("Visualização por Cliente")
-    chart_type = st.radio("Tipo de gráfico:", ["Barra comparativa", "Pizza total"], horizontal=True)
+    chart_type = st.radio("Tipo de gráfico:", ["Barra comparativa", "Pizza total", "Pizza pendente"], horizontal=True)
     df_combined = pd.concat([df_week1, df_week2])
+
     if 'Cliente' in df_combined.columns and 'Valor' in df_combined.columns:
         if chart_type == "Barra comparativa":
             df_week1_chart = df_week1.groupby('Cliente')['Valor'].sum().rename('Semana 1')
@@ -84,9 +92,18 @@ with tab2:
             chart_df['Total'] = chart_df['Semana 1'] + chart_df['Semana 2']
             chart_df = chart_df.sort_values(by='Total', ascending=False).drop(columns='Total')
             st.bar_chart(chart_df)
-        else:
+
+        elif chart_type == "Pizza total":
             pie_data = df_combined.groupby('Cliente')['Valor'].sum()
             st.pyplot(pie_data.plot.pie(autopct='%1.1f%%', figsize=(5, 5), ylabel='').figure)
+
+        elif chart_type == "Pizza pendente":
+            if 'Comercial' in df.columns and 'Valor pendente' in df.columns:
+                pie_pendente = df.groupby('Comercial')['Valor pendente'].sum()
+                st.subheader("🥧 Valor Pendente por Comercial")
+                st.pyplot(pie_pendente.plot.pie(autopct='%1.1f%%', figsize=(5, 5), ylabel='').figure)
+            else:
+                st.info("ℹ️ Coluna 'Valor pendente' não encontrada nos dados.")
     else:
         st.info("ℹ️ Dados insuficientes para gerar o gráfico.")
 
