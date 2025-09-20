@@ -71,7 +71,7 @@ filtered_df = df[
 # 🔄 Refresh button
 if st.button("🔄 Atualizar Dados"):
     st.rerun()
-st.write("📅 Last Update 29/08/2025")
+st.write("📅 Last Update 19/09/2025")
 # 📋 Summary
 st.subheader("📋 Resumo")
 summary = []
