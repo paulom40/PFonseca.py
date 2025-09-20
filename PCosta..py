@@ -71,7 +71,7 @@ cols_exibir = ["Entidade", "Documento", "Data Venc.", "Dias", "Valor Pendente"]
 st.title("📊 Vencimentos Paulo Costa")
 st.markdown(f"Exibindo resultados para **{entidade_selecionada}** com **{dias_min}–{dias_max} dias** vencidos.")
 st.dataframe(df_filtrado[cols_exibir], use_container_width=True)
-
+st.write("📅 Last Update 19/09/2025")
 # 📈 Summary metrics
 col1, col2, col3 = st.columns(3)
 col1.metric("📌 Total de Registros", len(df_filtrado))
