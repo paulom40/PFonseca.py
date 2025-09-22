@@ -154,7 +154,17 @@ with tab2:
             chart_df['Total'] = chart_df['Semana 1'] + chart_df['Semana 2']
             chart_df = chart_df.sort_values(by='Total', ascending=False).drop(columns='Total')
 
-            # Agrupar menores como "Outros"
             top_n = 5
             top_chart = chart_df.head(top_n)
             outros = chart_df.iloc[top_n:].sum()
+            if outros.sum() > 0:
+                outros_df = pd.DataFrame({
+                    'Semana 1': [outros['Semana 1']],
+                    'Semana 2': [outros['Semana 2']]
+                }, index=['Outros'])
+                chart_df = pd.concat([top_chart, outros_df])
+
+            fig, ax = plt.subplots(figsize=(8, 5))
+            chart_df.plot(kind='bar', ax=ax)
+            for container in ax.containers:
+                ax.bar_label(container, fmt='€ %.2f
