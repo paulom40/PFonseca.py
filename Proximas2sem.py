@@ -83,7 +83,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Funções auxiliares
+# Função para exportar gráfico
 def export_figure(fig, filename):
     buf = BytesIO()
     fig.savefig(buf, format="png")
@@ -97,13 +97,26 @@ tab1, tab2 = st.tabs(["📋 Resumo", "📊 Gráficos"])
 
 # 📋 RESUMO
 with tab1:
-    st.subheader("Totais por Cliente")
+    st.subheader("Totais por Cliente (Top 5 + Outros)")
     if cliente_col and valor_col:
         resumo_week1 = df_week1.groupby(cliente_col)[valor_col].sum().rename('Semana 1')
         resumo_week2 = df_week2.groupby(cliente_col)[valor_col].sum().rename('Semana 2')
         resumo_total = pd.concat([resumo_week1, resumo_week2], axis=1).fillna(0)
         resumo_total['Total'] = resumo_total['Semana 1'] + resumo_total['Semana 2']
         resumo_total = resumo_total.sort_values(by='Total', ascending=False)
+
+        # Agrupar os menores como "Outros"
+        top_n = 5
+        top_clientes = resumo_total.head(top_n)
+        outros = resumo_total.iloc[top_n:].sum()
+        if outros['Total'] > 0:
+            outros_df = pd.DataFrame({
+                'Semana 1': [outros['Semana 1']],
+                'Semana 2': [outros['Semana 2']],
+                'Total': [outros['Total']]
+            }, index=['Outros'])
+            resumo_total = pd.concat([top_clientes, outros_df])
+
         st.dataframe(resumo_total.style.format({
             'Semana 1': '€ {:,.2f}',
             'Semana 2': '€ {:,.2f}',
@@ -116,22 +129,16 @@ with tab1:
     if valor_pendente_col and 'Comercial' in df.columns:
         resumo_pendente = df.groupby('Comercial')[valor_pendente_col].sum().sort_values(ascending=False)
         st.dataframe(resumo_pendente.reset_index().style.format({valor_pendente_col: '€ {:,.2f}'}), use_container_width=True)
-    else:
-        st.info("ℹ️ Coluna 'Valor Pendente' não encontrada nos dados.")
 
     st.subheader("📋 Valor Pendente por Entidade — Semana 1")
     if entidade_col and valor_pendente_col and not df_week1.empty:
         resumo_entidade_sem1 = df_week1.groupby(entidade_col)[valor_pendente_col].sum().sort_values(ascending=False)
         st.dataframe(resumo_entidade_sem1.reset_index().style.format({valor_pendente_col: '€ {:,.2f}'}), use_container_width=True)
-    else:
-        st.info("ℹ️ Coluna 'Entidade' ou 'Valor Pendente' não encontrada nos dados da Semana 1.")
 
     st.subheader("📋 Valor Pendente por Entidade — Semana 2")
     if entidade_col and valor_pendente_col and not df_week2.empty:
         resumo_entidade_sem2 = df_week2.groupby(entidade_col)[valor_pendente_col].sum().sort_values(ascending=False)
         st.dataframe(resumo_entidade_sem2.reset_index().style.format({valor_pendente_col: '€ {:,.2f}'}), use_container_width=True)
-    else:
-        st.info("ℹ️ Coluna 'Entidade' ou 'Valor Pendente' não encontrada nos dados da Semana 2.")
 
 # 📊 GRÁFICOS
 with tab2:
@@ -147,19 +154,7 @@ with tab2:
             chart_df['Total'] = chart_df['Semana 1'] + chart_df['Semana 2']
             chart_df = chart_df.sort_values(by='Total', ascending=False).drop(columns='Total')
 
-            fig, ax = plt.subplots(figsize=(8, 5))
-            chart_df.plot(kind='bar', ax=ax)
-            for container in ax.containers:
-                ax.bar_label(container, fmt='€ %.2f', label_type='edge')
-            st.pyplot(fig)
-            export_figure(fig, "grafico_barra_comparativa.png")
-
-        elif chart_type == "Pizza total":
-            pie_data = df_combined.groupby(cliente_col)[valor_col].sum()
-            fig, ax = plt.subplots(figsize=(5, 5))
-            ax.pie(
-                pie_data,
-                labels=pie_data.index,
-                autopct=lambda pct: f"€ {pct * pie_data.sum() / 100:,.2f}"
-
-                                        
+            # Agrupar menores como "Outros"
+            top_n = 5
+            top_chart = chart_df.head(top_n)
+            outros = chart_df.iloc[top_n:].sum()
