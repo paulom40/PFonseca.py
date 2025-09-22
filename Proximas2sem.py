@@ -180,4 +180,5 @@ with tab2:
             else:
                 st.info(f"ℹ️ Nenhum dado disponível para a semana {semana}.")
 
-    df_ref = df_2025[df_2025["
+    df_ref = df_2025[df_2025["Semana"] == semana_referencia]
+
