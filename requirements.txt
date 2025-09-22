@@ -9,3 +9,4 @@ seaborn
 streamlit-authenticator
 plotly.express
 bcrypt
+fpdf  
