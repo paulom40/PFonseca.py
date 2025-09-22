@@ -96,7 +96,7 @@ def tabela_por_entidade(df_semana, titulo):
     st.subheader(titulo)
     if entidade_col and valor_pendente_col and venc_col and 'Comercial' in df.columns:
         df_temp = df_semana[[entidade_col, venc_col, valor_pendente_col, 'Comercial']].copy()
-        df_temp["Dias"] = (df_temp[venc_col].dt.date - datetime.today().date()).dt.days
+        df_temp["Dias"] = (df_temp[venc_col] - pd.Timestamp(datetime.today())).dt.days
         df_temp = df_temp.rename(columns={
             entidade_col: "Entidade",
             venc_col: "Data de Vencimento",
