@@ -162,4 +162,17 @@ with tab3:
     st.subheader(f"🗓 Semana 1: {week1_start.strftime('%d/%m')} → {week1_end.strftime('%d/%m')}")
     if 'Valor' in df.columns and not df_week1.empty:
         st.metric("Total Semana 1", f"€ {df_week1['Valor'].sum():,.2f}")
-    st.dataframe(df_week1.style.apply(highlight_rows, axis=1), use_container_width=True)
+        st.dataframe(df_week1.style.apply(highlight_rows, axis=1), use_container_width=True)
+        st.download_button("📥 Baixar Semana 1", data=to_excel_bytes(df_week1),
+                           file_name="vencimentos_semana1.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    else:
+        st.info("ℹ️ Nenhum dado disponível para a Semana 1.")
+
+    st.subheader(f"🗓 Semana 2: {week2_start.strftime('%d/%m')} → {week2_end.strftime('%d/%m')}")
+    if 'Valor' in df.columns and not df_week2.empty:
+        st.metric("Total Semana 2", f"€ {df_week2['Valor'].sum():,.2f}")
+        st.dataframe(df_week2.style.apply(highlight_rows, axis=1), use_container_width=True)
+        st.download_button("📥 Baixar Semana 2", data=to_excel_bytes(df_week2),
+                           file_name="vencimentos_semana2.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    else:
+        st.info("ℹ️ Nenhum dado disponível para a Semana 2.")
