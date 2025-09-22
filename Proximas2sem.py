@@ -80,7 +80,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Função para destacar vencimentos
+# Estilo condicional por vencimento
 def estilo_dias(val):
     if isinstance(val, int):
         if val < 0:
@@ -91,7 +91,7 @@ def estilo_dias(val):
             return "background-color: #d4edda"
     return ""
 
-# Função para montar tabela por semana
+# Tabela por entidade com destaque visual
 def tabela_por_entidade(df_semana, titulo):
     st.subheader(titulo)
     if entidade_col and valor_pendente_col and venc_col and 'Comercial' in df.columns:
@@ -123,7 +123,7 @@ st.subheader("📤 Exportar dados por entidade para Excel")
 
 def preparar_df_export(df_semana):
     df_temp = df_semana[[entidade_col, venc_col, valor_pendente_col, 'Comercial']].copy()
-    df_temp["Dias"] = (df_temp[venc_col].dt.date - datetime.today().date()).dt.days
+    df_temp["Dias"] = (df_temp[venc_col] - pd.Timestamp(datetime.today())).dt.days
     df_temp = df_temp.rename(columns={
         entidade_col: "Entidade",
         venc_col: "Data de Vencimento",
