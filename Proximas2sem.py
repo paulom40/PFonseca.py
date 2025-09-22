@@ -24,7 +24,12 @@ if venc_col is None:
 df[venc_col] = pd.to_datetime(df[venc_col], errors='coerce')
 
 # Separadores
-tab1, tab2 = st.tabs(["📅 Dashboard Semanal", "📆 Relatório Anual 2025"])
+tab1, tab2, tab3, tab4 = st.tabs([
+    "📅 Dashboard Semanal",
+    "📆 Relatório Anual 2025",
+    "🗓 Relatório Mensal 2025",
+    "📈 Comparativo Mensal"
+])
 
 with tab1:
     # Filtro por comercial
@@ -39,12 +44,13 @@ with tab1:
         st.warning(f"⚠️ Nenhum dado encontrado para o comercial '{comercial_selecionado}'.")
         st.stop()
 
-    # Intervalos dinâmicos
-    datas_validas = df[venc_col].dropna().dt.date
-    datas_futuras = datas_validas[datas_validas >= datetime.today().date()]
-    base_date = datas_futuras.min() if not datas_futuras.empty else datas_validas.min()
+    # Semana base = semana atual - 2
+    semana_atual = datetime.today().isocalendar().week
+    semana_base = max(1, semana_atual - 2)
+    ano_atual = datetime.today().year
+    data_base = datetime.strptime(f'{ano_atual}-W{semana_base}-1', "%Y-W%W-%w").date()
 
-    week1_start = base_date
+    week1_start = data_base
     week1_end = week1_start + timedelta(days=6)
     week2_start = week1_end + timedelta(days=1)
     week2_end = week2_start + timedelta(days=6)
@@ -55,7 +61,6 @@ with tab1:
     df_week1 = df[(df[venc_col].dt.date >= week1_start) & (df[venc_col].dt.date <= week1_end)]
     df_week2 = df[(df[venc_col].dt.date >= week2_start) & (df[venc_col].dt.date <= week2_end)]
 
-    # Estilo condicional
     def estilo_dias(val):
         if isinstance(val, int):
             if val < 0:
@@ -66,7 +71,6 @@ with tab1:
                 return "background-color: #d4edda"
         return ""
 
-    # Tabela por entidade
     def tabela_por_entidade(df_semana, titulo):
         st.subheader(titulo)
         if entidade_col and valor_pendente_col and venc_col and 'Comercial' in df.columns:
@@ -90,7 +94,6 @@ with tab1:
     tabela_por_entidade(df_week1, "📋 Semana 1")
     tabela_por_entidade(df_week2, "📋 Semana 2")
 
-    # Resumo por entidade e comercial
     def resumo_por_semana(df_semana, titulo):
         st.subheader(titulo)
         if entidade_col and valor_pendente_col and 'Comercial' in df.columns and not df_semana.empty:
@@ -109,7 +112,6 @@ with tab1:
     resumo_por_semana(df_week1, "📊 Totais — Semana 1")
     resumo_por_semana(df_week2, "📊 Totais — Semana 2")
 
-    # Exportação detalhada
     st.subheader("📤 Exportar dados detalhados para Excel")
 
     def preparar_df_export(df_semana):
@@ -172,7 +174,4 @@ with tab2:
                 )
                 resumo.to_excel(writer, sheet_name=f"Semana {semana}", index=False)
             else:
-                st.info(f"ℹ️ Nenhum dado disponível para a semana {semana}.")
-
-    output.seek(0)
-    b64
+                st.info(f"ℹ️ Nenhum dado disponível para a semana
