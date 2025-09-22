@@ -11,3 +11,4 @@ plotly.express
 bcrypt
 fpdf  
 yagmail
+json
