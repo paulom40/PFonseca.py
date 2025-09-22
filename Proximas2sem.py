@@ -31,13 +31,43 @@ with st.sidebar:
 # Filtrar dados
 df = df[df['Comercial'] == comercial_selecionado]
 
-# Intervalos de datas
-today = datetime.today().date()
-week1_start, week1_end = today, today + timedelta(days=6)
-week2_start, week2_end = week1_end + timedelta(days=1), week1_end + timedelta(days=7)
+# Detectar datas futuras
+datas_validas = df[venc_col].dropna().dt.date
+datas_futuras = datas_validas[datas_validas >= datetime.today().date()]
+base_date = datas_futuras.min() if not datas_futuras.empty else datas_validas.min()
 
+# Intervalos dinâmicos
+week1_start = base_date
+week1_end = week1_start + timedelta(days=6)
+week2_start = week1_end + timedelta(days=1)
+week2_end = week2_start + timedelta(days=6)
+
+# Filtro por semana
 df_week1 = df[(df[venc_col].dt.date >= week1_start) & (df[venc_col].dt.date <= week1_end)]
 df_week2 = df[(df[venc_col].dt.date >= week2_start) & (df[venc_col].dt.date <= week2_end)]
+
+# Cartão fixo com intervalos
+st.markdown(f"""
+<style>
+.fixed-card {{
+    position: sticky;
+    top: 0;
+    z-index: 999;
+    background-color: #f0f8ff;
+    padding: 1rem;
+    border-radius: 8px;
+    border-left: 5px solid #4682B4;
+    margin-bottom: 1rem;
+}}
+</style>
+<div class="fixed-card">
+    <h4 style="margin-top:0">📅 Intervalos com base nos dados disponíveis</h4>
+    <ul style="padding-left:1rem">
+        <li><strong>🗓 Semana 1:</strong> {week1_start.strftime('%d/%m/%Y')} → {week1_end.strftime('%d/%m/%Y')}</li>
+        <li><strong>🗓 Semana 2:</strong> {week2_start.strftime('%d/%m/%Y')} → {week2_end.strftime('%d/%m/%Y')}</li>
+    </ul>
+</div>
+""", unsafe_allow_html=True)
 
 # Funções auxiliares
 def to_excel_bytes(df):
@@ -47,7 +77,7 @@ def to_excel_bytes(df):
     return output.getvalue()
 
 def highlight_rows(row):
-    overdue = row[venc_col].date() < today
+    overdue = row[venc_col].date() < datetime.today().date()
     high_value = row['Valor'] > 10000 if 'Valor' in row else False
     if overdue:
         return ['background-color: #ffcccc'] * len(row)
@@ -132,47 +162,4 @@ with tab2:
             ax.pie(
                 pie_data,
                 labels=pie_data.index,
-                autopct=lambda pct: f"€ {pct * pie_data.sum() / 100:,.2f}",
-                startangle=90
-            )
-            ax.set_ylabel('')
-            st.pyplot(fig)
-            export_figure(fig, "grafico_pizza_total.png")
-
-        elif chart_type == "Pizza pendente":
-            if 'Comercial' in df.columns and 'Valor pendente' in df.columns:
-                pie_pendente = df.groupby('Comercial')['Valor pendente'].sum()
-                fig, ax = plt.subplots(figsize=(5, 5))
-                ax.pie(
-                    pie_pendente,
-                    labels=pie_pendente.index,
-                    autopct=lambda pct: f"€ {pct * pie_pendente.sum() / 100:,.2f}",
-                    startangle=90
-                )
-                ax.set_ylabel('')
-                st.pyplot(fig)
-                export_figure(fig, "grafico_pizza_pendente.png")
-            else:
-                st.info("ℹ️ Coluna 'Valor pendente' não encontrada nos dados.")
-    else:
-        st.info("ℹ️ Dados insuficientes para gerar o gráfico.")
-
-# 📅 VENCIMENTOS
-with tab3:
-    st.subheader(f"🗓 Semana 1: {week1_start.strftime('%d/%m')} → {week1_end.strftime('%d/%m')}")
-    if 'Valor' in df.columns and not df_week1.empty:
-        st.metric("Total Semana 1", f"€ {df_week1['Valor'].sum():,.2f}")
-        st.dataframe(df_week1.style.apply(highlight_rows, axis=1), use_container_width=True)
-        st.download_button("📥 Baixar Semana 1", data=to_excel_bytes(df_week1),
-                           file_name="vencimentos_semana1.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    else:
-        st.info("ℹ️ Nenhum dado disponível para a Semana 1.")
-
-    st.subheader(f"🗓 Semana 2: {week2_start.strftime('%d/%m')} → {week2_end.strftime('%d/%m')}")
-    if 'Valor' in df.columns and not df_week2.empty:
-        st.metric("Total Semana 2", f"€ {df_week2['Valor'].sum():,.2f}")
-        st.dataframe(df_week2.style.apply(highlight_rows, axis=1), use_container_width=True)
-        st.download_button("📥 Baixar Semana 2", data=to_excel_bytes(df_week2),
-                           file_name="vencimentos_semana2.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    else:
-        st.info("ℹ️ Nenhum dado disponível para a Semana 2.")
+                autopct=lambda pct: f"€ {pct * pie_data.sum() / 100:
