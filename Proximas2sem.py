@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 from io import BytesIO
 import base64
+import io
 
 # Layout mobile
 st.set_page_config(layout="centered")
@@ -79,68 +80,78 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Função para exportar gráfico
-def export_figure(fig, filename):
-    buf = BytesIO()
-    fig.savefig(buf, format="png")
-    buf.seek(0)
-    b64 = base64.b64encode(buf.read()).decode()
-    href = f'<a href="data:image/png;base64,{b64}" download="{filename}">📥 Baixar gráfico como imagem</a>'
-    st.markdown(href, unsafe_allow_html=True)
+# Função para destacar vencimentos
+def estilo_dias(val):
+    if isinstance(val, int):
+        if val < 0:
+            return "color: red; font-weight: bold"
+        elif val == 0:
+            return "background-color: #fff3cd"
+        else:
+            return "background-color: #d4edda"
+    return ""
 
-# 📋 Resumo por Entidade
-st.subheader("📋 Valor Pendente por Entidade — Semana 0")
-if entidade_col and valor_pendente_col and not df_week0.empty:
-    resumo_entidade_sem0 = df_week0.groupby(entidade_col)[valor_pendente_col].sum().sort_values(ascending=False)
-    st.dataframe(resumo_entidade_sem0.reset_index().style.format({valor_pendente_col: '€ {:,.2f}'}), use_container_width=True)
-else:
-    st.info("ℹ️ Nenhum dado disponível para Semana 0.")
+# Função para montar tabela por semana
+def tabela_por_entidade(df_semana, titulo):
+    st.subheader(titulo)
+    if entidade_col and valor_pendente_col and venc_col and 'Comercial' in df.columns:
+        df_temp = df_semana[[entidade_col, venc_col, valor_pendente_col, 'Comercial']].copy()
+        df_temp["Dias"] = (df_temp[venc_col].dt.date - datetime.today().date()).dt.days
+        df_temp = df_temp.rename(columns={
+            entidade_col: "Entidade",
+            venc_col: "Data de Vencimento",
+            valor_pendente_col: "Valor Pendente",
+            "Comercial": "Comercial"
+        })
+        df_temp = df_temp[["Entidade", "Data de Vencimento", "Dias", "Valor Pendente", "Comercial"]]
+        st.dataframe(
+            df_temp.style
+            .format({"Valor Pendente": "€ {:,.2f}", "Dias": "{:+d}"})
+            .applymap(estilo_dias, subset=["Dias"]),
+            use_container_width=True
+        )
+    else:
+        st.info("ℹ️ Dados insuficientes para gerar a tabela.")
 
-st.subheader("📋 Valor Pendente por Entidade — Semana 1")
-if entidade_col and valor_pendente_col and not df_week1.empty:
-    resumo_entidade_sem1 = df_week1.groupby(entidade_col)[valor_pendente_col].sum().sort_values(ascending=False)
-    st.dataframe(resumo_entidade_sem1.reset_index().style.format({valor_pendente_col: '€ {:,.2f}'}), use_container_width=True)
-else:
-    st.info("ℹ️ Nenhum dado disponível para Semana 1.")
+# Mostrar tabelas por semana
+tabela_por_entidade(df_week0, "📋 Valor Pendente por Entidade — Semana 0")
+tabela_por_entidade(df_week1, "📋 Valor Pendente por Entidade — Semana 1")
+tabela_por_entidade(df_week2, "📋 Valor Pendente por Entidade — Semana 2")
 
-st.subheader("📋 Valor Pendente por Entidade — Semana 2")
-if entidade_col and valor_pendente_col and not df_week2.empty:
-    resumo_entidade_sem2 = df_week2.groupby(entidade_col)[valor_pendente_col].sum().sort_values(ascending=False)
-    st.dataframe(resumo_entidade_sem2.reset_index().style.format({valor_pendente_col: '€ {:,.2f}'}), use_container_width=True)
-else:
-    st.info("ℹ️ Nenhum dado disponível para Semana 2.")
+# Exportação para Excel com totais
+st.subheader("📤 Exportar dados por entidade para Excel")
 
-# 📊 Gráfico comparativo por entidade
-st.subheader("📊 Comparativo por Entidade — Semana 0, 1 e 2")
-if entidade_col and valor_pendente_col:
-    sem0 = df_week0.groupby(entidade_col)[valor_pendente_col].sum().rename("Semana 0")
-    sem1 = df_week1.groupby(entidade_col)[valor_pendente_col].sum().rename("Semana 1")
-    sem2 = df_week2.groupby(entidade_col)[valor_pendente_col].sum().rename("Semana 2")
+def preparar_df_export(df_semana):
+    df_temp = df_semana[[entidade_col, venc_col, valor_pendente_col, 'Comercial']].copy()
+    df_temp["Dias"] = (df_temp[venc_col].dt.date - datetime.today().date()).dt.days
+    df_temp = df_temp.rename(columns={
+        entidade_col: "Entidade",
+        venc_col: "Data de Vencimento",
+        valor_pendente_col: "Valor Pendente",
+        "Comercial": "Comercial"
+    })
+    df_temp = df_temp[["Entidade", "Data de Vencimento", "Dias", "Valor Pendente", "Comercial"]]
 
-    comparativo = pd.concat([sem0, sem1, sem2], axis=1).fillna(0)
-    comparativo["Total"] = comparativo.sum(axis=1)
-    comparativo = comparativo.sort_values(by="Total", ascending=False).drop(columns="Total")
+    totais = df_temp.groupby("Entidade")["Valor Pendente"].sum().reset_index()
+    totais["Data de Vencimento"] = ""
+    totais["Dias"] = ""
+    totais["Comercial"] = "—"
+    totais = totais[["Entidade", "Data de Vencimento", "Dias", "Valor Pendente", "Comercial"]]
+    totais["Entidade"] = totais["Entidade"] + " (Total)"
 
-    top_n = 8
-    top_entidades = comparativo.head(top_n)
-    outros = comparativo.iloc[top_n:].sum()
-    if outros.sum() > 0:
-        outros_df = pd.DataFrame({
-            "Semana 0": [outros["Semana 0"]],
-            "Semana 1": [outros["Semana 1"]],
-            "Semana 2": [outros["Semana 2"]],
-        }, index=["Outros"])
-        comparativo = pd.concat([top_entidades, outros_df])
+    return pd.concat([df_temp, totais], ignore_index=True)
 
-    fig, ax = plt.subplots(figsize=(10, 6))
-    comparativo.plot(kind="bar", ax=ax)
-    ax.set_ylabel("Valor Pendente (€)")
-    ax.set_title("Comparativo por Entidade")
-    ax.legend(title="Semana")
-    for container in ax.containers:
-        ax.bar_label(container, fmt="€ %.0f")
+df_export0 = preparar_df_export(df_week0)
+df_export1 = preparar_df_export(df_week1)
+df_export2 = preparar_df_export(df_week2)
 
-    st.pyplot(fig)
-    export_figure(fig, "comparativo_entidades.png")
-else:
-    st.info("ℹ️ Dados insuficientes para gerar o gráfico comparativo por entidade.")
+output = io.BytesIO()
+with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+    df_export0.to_excel(writer, sheet_name='Semana 0', index=False)
+    df_export1.to_excel(writer, sheet_name='Semana 1', index=False)
+    df_export2.to_excel(writer, sheet_name='Semana 2', index=False)
+output.seek(0)
+
+b64 = base64.b64encode(output.read()).decode()
+href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="Resumo_Entidades.xlsx">📥 Baixar Excel com dados por entidade</a>'
+st.markdown(href, unsafe_allow_html=True)
