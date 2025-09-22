@@ -18,11 +18,16 @@ st.markdown("""
 
 # 📥 Load data
 url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/RFerreira.xlsx"
+
 try:
     df = pd.read_excel(url)
+    st.success("✅ Ficheiro carregado com sucesso")
+    st.write(f"🔢 {len(df)} linhas carregadas")
 except Exception as e:
-    st.error(f"❌ Erro ao carregar o ficheiro: {e}")
+    st.error("❌ Erro ao carregar o ficheiro Excel.")
+    st.exception(e)
     st.stop()
+
 
 # 🧼 Clean data
 df['Dias'] = pd.to_numeric(df['Dias'], errors='coerce')
