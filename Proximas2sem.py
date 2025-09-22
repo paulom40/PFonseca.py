@@ -167,5 +167,6 @@ with tab2:
             fig, ax = plt.subplots(figsize=(8, 5))
             chart_df.plot(kind='bar', ax=ax)
             for container in ax.containers:
-               ax.bar_label(container, fmt='€ %.2f')
+            ax.bar_label(container, fmt='€ %.2f')
+   
 
