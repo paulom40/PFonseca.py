@@ -91,6 +91,14 @@ with tab1:
     else:
         st.info("ℹ️ Coluna 'Valor pendente' não encontrada nos dados.")
 
+            st.subheader("📋 Valor Pendente por Entidade")
+    if 'Entidade' in df.columns and 'Valor pendente' in df.columns:
+        resumo_entidade = df.groupby('Entidade')['Valor pendente'].sum().sort_values(ascending=False)
+        st.dataframe(resumo_entidade.reset_index().style.format({'Valor pendente': '€ {:,.2f}'}), use_container_width=True)
+    else:
+        st.info("ℹ️ Coluna 'Entidade' ou 'Valor pendente' não encontrada nos dados.")
+
+
 # 📊 GRÁFICOS
 with tab2:
     st.subheader("Visualização por Cliente")
