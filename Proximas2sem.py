@@ -174,4 +174,5 @@ with tab2:
                 )
                 resumo.to_excel(writer, sheet_name=f"Semana {semana}", index=False)
             else:
-                st.info(f"ℹ️ Nenhum dado disponível para a semana
+                st.info(f"ℹ️ Nenhum dado disponível para a semana {semana}.")
+
