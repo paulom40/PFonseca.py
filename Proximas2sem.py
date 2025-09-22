@@ -162,5 +162,5 @@ with tab2:
             ax.pie(
                 pie_data,
                 labels=pie_data.index,
-                autopct=lambda pct: f"€ {pct * pie_data.sum() / 100:,.2f}"
+                autopct=lambda pct: f"€ {pct * pie_data.sum() / 100:,.2f}")
 
