@@ -162,4 +162,4 @@ with tab3:
     st.subheader(f"🗓 Semana 1: {week1_start.strftime('%d/%m')} → {week1_end.strftime('%d/%m')}")
     if 'Valor' in df.columns and not df_week1.empty:
         st.metric("Total Semana 1", f"€ {df_week1['Valor'].sum():,.2f}")
-    st.dataframe(df_week1.style.apply(highlight_rows, axis)
+    st.dataframe(df_week1.style.apply(highlight_rows, axis=1), use_container_width=True)
