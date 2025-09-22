@@ -5,62 +5,56 @@ from datetime import datetime, timedelta
 from io import BytesIO
 import base64
 
-# Layout mobile
+# 📱 Configuração de layout
 st.set_page_config(layout="centered")
 st.markdown("<style>div.block-container{padding-top:1rem;padding-bottom:1rem}</style>", unsafe_allow_html=True)
 st.title("📱 Dashboard de Vencimentos")
 
-# Carregar dados
+# 📥 Carregar dados
 url = "https://github.com/paulom40/PFonseca.py/raw/main/V0808.xlsx"
 df = pd.read_excel(url)
-
-# Padronizar nomes de colunas
 df.rename(columns=lambda x: x.strip(), inplace=True)
 
-# Detectar colunas principais
+# 🔍 Detectar colunas principais
 venc_col = next((col for col in df.columns if 'venc' in col.lower()), None)
 valor_pendente_col = next((col for col in df.columns if 'valor pendente' in col.lower()), None)
 entidade_col = next((col for col in df.columns if 'entidade' in col.lower()), None)
 cliente_col = next((col for col in df.columns if 'cliente' in col.lower()), None)
 valor_col = next((col for col in df.columns if 'valor' in col.lower() and 'pendente' not in col.lower()), None)
 
-# Validar coluna de vencimento
+# ⛔ Validar coluna de vencimento
 if venc_col is None:
     st.error("❌ Nenhuma coluna de vencimento encontrada.")
     st.stop()
 df[venc_col] = pd.to_datetime(df[venc_col], errors='coerce')
 
-# Sidebar: filtro por comercial com opção "Todos"
+# 🎛️ Filtro por comercial
 with st.sidebar:
     st.header("🔍 Filtro por Comercial")
     comerciais = df['Comercial'].dropna().unique() if 'Comercial' in df.columns else []
     comercial_selecionado = st.selectbox("Selecione o comercial", ["Todos"] + list(comerciais))
 
-# Aplicar filtro se necessário
 if comercial_selecionado != "Todos":
     df = df[df['Comercial'] == comercial_selecionado]
 
-# Verificar se há dados após o filtro
 if df.empty:
     st.warning(f"⚠️ Nenhum dado encontrado para o comercial '{comercial_selecionado}'.")
     st.stop()
 
-# Detectar datas futuras
+# 📅 Intervalos dinâmicos
 datas_validas = df[venc_col].dropna().dt.date
 datas_futuras = datas_validas[datas_validas >= datetime.today().date()]
 base_date = datas_futuras.min() if not datas_futuras.empty else datas_validas.min()
 
-# Intervalos dinâmicos
 week1_start = base_date
 week1_end = week1_start + timedelta(days=6)
 week2_start = week1_end + timedelta(days=1)
 week2_end = week2_start + timedelta(days=6)
 
-# Filtro por semana
 df_week1 = df[(df[venc_col].dt.date >= week1_start) & (df[venc_col].dt.date <= week1_end)]
 df_week2 = df[(df[venc_col].dt.date >= week2_start) & (df[venc_col].dt.date <= week2_end)]
 
-# Cartão fixo com intervalos
+# 📌 Cartão fixo com intervalos
 st.markdown(f"""
 <style>
 .fixed-card {{
@@ -83,7 +77,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Função para exportar gráfico
+# 📤 Exportar gráfico como imagem
 def export_figure(fig, filename):
     buf = BytesIO()
     fig.savefig(buf, format="png")
@@ -92,7 +86,7 @@ def export_figure(fig, filename):
     href = f'<a href="data:image/png;base64,{b64}" download="{filename}">📥 Baixar gráfico como imagem</a>'
     st.markdown(href, unsafe_allow_html=True)
 
-# Abas
+# 🧭 Abas
 tab1, tab2 = st.tabs(["📋 Resumo", "📊 Gráficos"])
 
 # 📋 RESUMO
@@ -105,7 +99,6 @@ with tab1:
         resumo_total['Total'] = resumo_total['Semana 1'] + resumo_total['Semana 2']
         resumo_total = resumo_total.sort_values(by='Total', ascending=False)
 
-        # Agrupar os menores como "Outros"
         top_n = 5
         top_clientes = resumo_total.head(top_n)
         outros = resumo_total.iloc[top_n:].sum()
@@ -154,9 +147,8 @@ with tab2:
             chart_df['Total'] = chart_df['Semana 1'] + chart_df['Semana 2']
             chart_df = chart_df.sort_values(by='Total', ascending=False).drop(columns='Total')
 
-            top_n = 5
-            top_chart = chart_df.head(top_n)
-            outros = chart_df.iloc[top_n:].sum()
+            top_chart = chart_df.head(5)
+            outros = chart_df.iloc[5:].sum()
             if outros.sum() > 0:
                 outros_df = pd.DataFrame({
                     'Semana 1': [outros['Semana 1']],
@@ -167,9 +159,6 @@ with tab2:
             fig, ax = plt.subplots(figsize=(8, 5))
             chart_df.plot(kind='bar', ax=ax)
             for container in ax.containers:
-            ax.bar_label(container, fmt='€ %.2f')
-
-
-
-   
-
+                ax.bar_label(container, fmt='€ %.2f')
+            st.pyplot(fig)
+            export_figure(fig, "grafico_clientes.png")
