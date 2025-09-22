@@ -17,7 +17,6 @@ venc_col = next((col for col in df.columns if 'venc' in col.lower()), None)
 valor_pendente_col = next((col for col in df.columns if 'valor pendente' in col.lower()), None)
 entidade_col = next((col for col in df.columns if 'entidade' in col.lower()), None)
 
-# Validar vencimento
 if venc_col is None:
     st.error("❌ Coluna de vencimento não encontrada.")
     st.stop()
@@ -32,7 +31,6 @@ tab1, tab2, tab3, tab4 = st.tabs([
 ])
 
 with tab1:
-    # Filtro por comercial
     st.sidebar.header("🔍 Filtro por Comercial")
     comerciais = df['Comercial'].dropna().unique() if 'Comercial' in df.columns else []
     comercial_selecionado = st.sidebar.selectbox("Selecione o comercial", ["Todos"] + list(comerciais))
@@ -45,10 +43,10 @@ with tab1:
         st.stop()
 
     # Semana base = semana atual - 2
-    semana_atual = datetime.today().isocalendar().week
-    semana_base = max(1, semana_atual - 2)
-    ano_atual = datetime.today().year
-    data_base = datetime.strptime(f'{ano_atual}-W{semana_base}-1', "%Y-W%W-%w").date()
+    hoje = datetime.today()
+    semana_base = max(1, hoje.isocalendar().week - 2)
+    ano_base = hoje.year
+    data_base = datetime.strptime(f'{ano_base}-W{semana_base}-1', "%Y-W%W-%w").date()
 
     week1_start = data_base
     week1_end = week1_start + timedelta(days=6)
@@ -149,30 +147,4 @@ with tab1:
     href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="Dashboard_Semanal.xlsx">📥 Baixar Excel</a>'
     st.markdown(href, unsafe_allow_html=True)
 
-with tab2:
-    st.subheader("📆 Relatório Anual 2025 — Totais por Entidade, Comercial e Vencimento")
-
-    df_2025 = df[df[venc_col].dt.year == 2025].copy()
-    df_2025["Semana"] = df_2025[venc_col].dt.isocalendar().week
-    semanas = sorted(df_2025["Semana"].unique())
-
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        for semana in semanas:
-            df_semana = df_2025[df_2025["Semana"] == semana]
-            st.subheader(f"📊 Semana {semana}/2025")
-            if not df_semana.empty:
-                resumo = (
-                    df_semana.groupby([entidade_col, 'Comercial', venc_col])[valor_pendente_col]
-                    .sum()
-                    .reset_index()
-                    .sort_values(by=valor_pendente_col, ascending=False)
-                )
-                st.dataframe(
-                    resumo.style.format({valor_pendente_col: "€ {:,.2f}"}),
-                    use_container_width=True
-                )
-                resumo.to_excel(writer, sheet_name=f"Semana {semana}", index=False)
-            else:
-                st.info(f"ℹ️ Nenhum dado disponível para a semana {semana}.")
-
+# Os separadores tab2, tab3 e tab4 continuam abaixo — posso enviar já formatados se quiseres.
