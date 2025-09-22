@@ -161,3 +161,4 @@ with tab2:
                 pie_data,
                 labels=pie_data.index,
                 autopct=lambda pct: f"€ {pct * pie_data.sum()
+                                        }
