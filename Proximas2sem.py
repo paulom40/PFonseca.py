@@ -91,17 +91,19 @@ with tab1:
     else:
         st.info("ℹ️ Coluna 'Valor pendente' não encontrada nos dados.")
 
-        st.subheader("📋 Valor Pendente por Entidade")
-    if 'Entidade' in df.columns and 'Valor pendente' in df.columns:
-        resumo_entidade = df.groupby('Entidade')['Valor pendente'].sum().sort_values(ascending=False)
-        st.dataframe(
-            resumo_entidade.reset_index().style.format({'Valor pendente': '€ {:,.2f}'}),
-            use_container_width=True
-        )
+    st.subheader("📋 Valor Pendente por Entidade — Semana 1")
+    if 'Entidade' in df_week1.columns and 'Valor pendente' in df_week1.columns:
+        resumo_entidade_sem1 = df_week1.groupby('Entidade')['Valor pendente'].sum().sort_values(ascending=False)
+        st.dataframe(resumo_entidade_sem1.reset_index().style.format({'Valor pendente': '€ {:,.2f}'}), use_container_width=True)
     else:
-        st.info("ℹ️ Coluna 'Entidade' ou 'Valor pendente' não encontrada nos dados.")
+        st.info("ℹ️ Coluna 'Entidade' ou 'Valor pendente' não encontrada nos dados da Semana 1.")
 
-
+    st.subheader("📋 Valor Pendente por Entidade — Semana 2")
+    if 'Entidade' in df_week2.columns and 'Valor pendente' in df_week2.columns:
+        resumo_entidade_sem2 = df_week2.groupby('Entidade')['Valor pendente'].sum().sort_values(ascending=False)
+        st.dataframe(resumo_entidade_sem2.reset_index().style.format({'Valor pendente': '€ {:,.2f}'}), use_container_width=True)
+    else:
+        st.info("ℹ️ Coluna 'Entidade' ou 'Valor pendente' não encontrada nos dados da Semana 2.")
 
 # 📊 GRÁFICOS
 with tab2:
@@ -160,21 +162,4 @@ with tab3:
     st.subheader(f"🗓 Semana 1: {week1_start.strftime('%d/%m')} → {week1_end.strftime('%d/%m')}")
     if 'Valor' in df.columns and not df_week1.empty:
         st.metric("Total Semana 1", f"€ {df_week1['Valor'].sum():,.2f}")
-    st.dataframe(df_week1.style.apply(highlight_rows, axis=1), use_container_width=True)
-    st.download_button("📥 Baixar Semana 1", data=to_excel_bytes(df_week1),
-                       file_name="vencimentos_semana1.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
-    st.subheader(f"🗓 Semana 2: {week2_start.strftime('%d/%m')} → {week2_end.strftime('%d/%m')}")
-    if 'Valor' in df.columns and not df_week2.empty:
-        st.metric("Total Semana 2", f"€ {df_week2['Valor'].sum():,.2f}")
-    st.dataframe(df_week2.style.apply(highlight_rows, axis=1), use_container_width=True)
-    st.download_button("📥 Baixar Semana 2", data=to_excel_bytes(df_week2),
-                       file_name="vencimentos_semana2.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
-# 📈 HISTÓRICO
-with tab4:
-    st.subheader("📈 Histórico por Cliente")
-    if 'Cliente' in df.columns and venc_col:
-        historico = df.groupby(['Cliente', venc_col])['Valor'].sum().reset_index()
-        historico = historico.sort_values(by=venc_col)
-        pivot = historico
+    st.dataframe(df_week1.style.apply(highlight_rows, axis
