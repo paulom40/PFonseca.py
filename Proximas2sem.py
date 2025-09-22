@@ -169,5 +169,6 @@ with tab2:
             for container in ax.containers:
             ax.bar_label(container, fmt='€ %.2f')
 
+
    
 
