@@ -21,6 +21,8 @@ df.rename(columns=lambda x: x.strip(), inplace=True)
 venc_col = next((col for col in df.columns if 'venc' in col.lower()), None)
 valor_pendente_col = next((col for col in df.columns if 'valor pendente' in col.lower()), None)
 entidade_col = next((col for col in df.columns if 'entidade' in col.lower()), None)
+cliente_col = next((col for col in df.columns if 'cliente' in col.lower()), None)
+valor_col = next((col for col in df.columns if 'valor' in col.lower() and 'pendente' not in col.lower()), None)
 
 # Validar coluna de vencimento
 if venc_col is None:
@@ -82,12 +84,6 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # Funções auxiliares
-def to_excel_bytes(df):
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Vencimentos')
-    return output.getvalue()
-
 def export_figure(fig, filename):
     buf = BytesIO()
     fig.savefig(buf, format="png")
@@ -102,9 +98,9 @@ tab1, tab2 = st.tabs(["📋 Resumo", "📊 Gráficos"])
 # 📋 RESUMO
 with tab1:
     st.subheader("Totais por Cliente")
-    if 'Cliente' in df.columns and 'Valor' in df.columns:
-        resumo_week1 = df_week1.groupby('Cliente')['Valor'].sum().rename('Semana 1')
-        resumo_week2 = df_week2.groupby('Cliente')['Valor'].sum().rename('Semana 2')
+    if cliente_col and valor_col:
+        resumo_week1 = df_week1.groupby(cliente_col)[valor_col].sum().rename('Semana 1')
+        resumo_week2 = df_week2.groupby(cliente_col)[valor_col].sum().rename('Semana 2')
         resumo_total = pd.concat([resumo_week1, resumo_week2], axis=1).fillna(0)
         resumo_total['Total'] = resumo_total['Semana 1'] + resumo_total['Semana 2']
         resumo_total = resumo_total.sort_values(by='Total', ascending=False)
@@ -143,10 +139,10 @@ with tab2:
     chart_type = st.radio("Tipo de gráfico:", ["Barra comparativa", "Pizza total"], horizontal=True)
     df_combined = pd.concat([df_week1, df_week2])
 
-    if 'Cliente' in df_combined.columns and 'Valor' in df_combined.columns:
+    if cliente_col and valor_col:
         if chart_type == "Barra comparativa":
-            df_week1_chart = df_week1.groupby('Cliente')['Valor'].sum().rename('Semana 1')
-            df_week2_chart = df_week2.groupby('Cliente')['Valor'].sum().rename('Semana 2')
+            df_week1_chart = df_week1.groupby(cliente_col)[valor_col].sum().rename('Semana 1')
+            df_week2_chart = df_week2.groupby(cliente_col)[valor_col].sum().rename('Semana 2')
             chart_df = pd.concat([df_week1_chart, df_week2_chart], axis=1).fillna(0)
             chart_df['Total'] = chart_df['Semana 1'] + chart_df['Semana 2']
             chart_df = chart_df.sort_values(by='Total', ascending=False).drop(columns='Total')
@@ -159,4 +155,9 @@ with tab2:
             export_figure(fig, "grafico_barra_comparativa.png")
 
         elif chart_type == "Pizza total":
-            pie_data = df_combined.groupby('
+            pie_data = df_combined.groupby(cliente_col)[valor_col].sum()
+            fig, ax = plt.subplots(figsize=(5, 5))
+            ax.pie(
+                pie_data,
+                labels=pie_data.index,
+                autopct=lambda pct: f"€ {pct * pie_data.sum()
