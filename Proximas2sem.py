@@ -1,10 +1,8 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
-from io import BytesIO
-import base64
 import io
+import base64
 
 # Layout mobile
 st.set_page_config(layout="centered")
@@ -118,40 +116,49 @@ tabela_por_entidade(df_week0, "📋 Valor Pendente por Entidade — Semana 0")
 tabela_por_entidade(df_week1, "📋 Valor Pendente por Entidade — Semana 1")
 tabela_por_entidade(df_week2, "📋 Valor Pendente por Entidade — Semana 2")
 
-# Exportação para Excel com totais
-st.subheader("📤 Exportar dados por entidade para Excel")
+# Resumos por entidade e comercial
+def resumo_por_semana(df_semana, titulo):
+    st.subheader(titulo)
+    if entidade_col and valor_pendente_col and 'Comercial' in df.columns and not df_semana.empty:
+        resumo = (
+            df_semana.groupby([entidade_col, 'Comercial'])[valor_pendente_col]
+            .sum()
+            .reset_index()
+            .sort_values(by=valor_pendente_col, ascending=False)
+        )
+        st.dataframe(
+            resumo.style.format({valor_pendente_col: "€ {:,.2f}"}),
+            use_container_width=True
+        )
+    else:
+        st.info(f"ℹ️ Nenhum dado disponível para {titulo}.")
 
-def preparar_df_export(df_semana):
-    df_temp = df_semana[[entidade_col, venc_col, valor_pendente_col, 'Comercial']].copy()
-    df_temp["Dias"] = (df_temp[venc_col] - pd.Timestamp(datetime.today())).dt.days
-    df_temp = df_temp.rename(columns={
-        entidade_col: "Entidade",
-        venc_col: "Data de Vencimento",
-        valor_pendente_col: "Valor Pendente",
-        "Comercial": "Comercial"
-    })
-    df_temp = df_temp[["Entidade", "Data de Vencimento", "Dias", "Valor Pendente", "Comercial"]]
+resumo_por_semana(df_week0, "📊 Soma por Entidade e Comercial — Semana 0")
+resumo_por_semana(df_week1, "📊 Soma por Entidade e Comercial — Semana 1")
+resumo_por_semana(df_week2, "📊 Soma por Entidade e Comercial — Semana 2")
 
-    totais = df_temp.groupby("Entidade")["Valor Pendente"].sum().reset_index()
-    totais["Data de Vencimento"] = ""
-    totais["Dias"] = ""
-    totais["Comercial"] = "—"
-    totais = totais[["Entidade", "Data de Vencimento", "Dias", "Valor Pendente", "Comercial"]]
-    totais["Entidade"] = totais["Entidade"] + " (Total)"
+# Exportação dos resumos para Excel
+st.subheader("📤 Exportar totais por Entidade e Comercial para Excel")
 
-    return pd.concat([df_temp, totais], ignore_index=True)
+def resumo_excel(df_semana):
+    return (
+        df_semana.groupby([entidade_col, 'Comercial'])[valor_pendente_col]
+        .sum()
+        .reset_index()
+        .sort_values(by=valor_pendente_col, ascending=False)
+    )
 
-df_export0 = preparar_df_export(df_week0)
-df_export1 = preparar_df_export(df_week1)
-df_export2 = preparar_df_export(df_week2)
+resumo0 = resumo_excel(df_week0)
+resumo1 = resumo_excel(df_week1)
+resumo2 = resumo_excel(df_week2)
 
 output = io.BytesIO()
 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-    df_export0.to_excel(writer, sheet_name='Semana 0', index=False)
-    df_export1.to_excel(writer, sheet_name='Semana 1', index=False)
-    df_export2.to_excel(writer, sheet_name='Semana 2', index=False)
+    resumo0.to_excel(writer, sheet_name='Semana 0', index=False)
+    resumo1.to_excel(writer, sheet_name='Semana 1', index=False)
+    resumo2.to_excel(writer, sheet_name='Semana 2', index=False)
 output.seek(0)
 
 b64 = base64.b64encode(output.read()).decode()
-href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="Resumo_Entidades.xlsx">📥 Baixar Excel com dados por entidade</a>'
+href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="Totais_Entidade_Comercial.xlsx">📥 Baixar Excel com totais por entidade e comercial</a>'
 st.markdown(href, unsafe_allow_html=True)
