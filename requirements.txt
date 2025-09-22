@@ -10,3 +10,4 @@ streamlit-authenticator
 plotly.express
 bcrypt
 fpdf  
+yagmail
