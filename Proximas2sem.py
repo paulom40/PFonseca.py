@@ -175,4 +175,5 @@ with tab2:
         use_container_width=True
     )
 
-    st.subheader("📊 Evolução Sem
+    st.subheader("📊 Evolução Semanal do Valor Pendente")
+
