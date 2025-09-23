@@ -1,37 +1,3 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
-import io
-import base64
-
-st.set_page_config(layout="wide")
-st.title("📊 Painel de Vencimentos")
-
-# Carregar dados
-url = "https://github.com/paulom40/PFonseca.py/raw/main/V0808.xlsx"
-df = pd.read_excel(url)
-df.rename(columns=lambda x: x.strip(), inplace=True)
-
-# Detectar colunas
-venc_col = next((col for col in df.columns if 'venc' in col.lower()), None)
-valor_pendente_col = next((col for col in df.columns if 'valor pendente' in col.lower()), None)
-entidade_col = next((col for col in df.columns if 'entidade' in col.lower()), None)
-
-if venc_col is None:
-    st.error("❌ Coluna de vencimento não encontrada.")
-    st.stop()
-df[venc_col] = pd.to_datetime(df[venc_col], errors='coerce')
-
-# Separadores
-tab1, tab2, tab3, tab4 = st.tabs([
-    "📅 Dashboard Semanal",
-    "📆 Relatório Anual 2025",
-    "🗓 Relatório Mensal 2025",
-    "📈 Comparativo Mensal"
-])
-
-# TAB 1 — Dashboard Semanal
 with tab1:
     st.sidebar.header("🔍 Filtro por Comercial")
     comerciais = df['Comercial'].dropna().unique() if 'Comercial' in df.columns else []
@@ -39,10 +5,6 @@ with tab1:
 
     if comercial_selecionado != "Todos":
         df = df[df['Comercial'] == comercial_selecionado]
-
-    if df.empty:
-        st.warning(f"⚠️ Nenhum dado encontrado para o comercial '{comercial_selecionado}'.")
-        st.stop()
 
     hoje = datetime.today()
     semana_base = max(1, hoje.isocalendar().week - 2)
@@ -145,14 +107,11 @@ with tab1:
     b64 = base64.b64encode(output.read()).decode()
     href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="Dashboard_Semanal.xlsx">📥 Baixar Excel</a>'
     st.markdown(href, unsafe_allow_html=True)
-
-# TAB 2 — Relatório Anual 2025
 with tab2:
     st.header("📆 Relatório Anual 2025 — Evolução Semanal por Entidade e Comercial")
 
     df_2025 = df[df[venc_col].dt.year == 2025].copy()
     df_2025["Semana"] = df_2025[venc_col].dt.isocalendar().week
-
     semana_limite = max(1, datetime.today().isocalendar().week - 2)
 
     df_detalhado = (
@@ -170,9 +129,22 @@ with tab2:
         return ""
 
     st.dataframe(
-    df_detalhado.style
-    .format({valor_pendente_col: "€ {:,.2f}"})
-    .applymap(destaque_maior, subset=[valor_pendente_col]),
-    use_container_width=True
-)
+        df_detalhado.style
+        .format({valor_pendente_col: "€ {:,.2f}"})
+        .applymap(destaque_maior, subset=[valor_pendente_col]),
+        use_container_width=True
+    )
 
+    st.subheader("📊 Evolução Semanal do Valor Pendente (Total)")
+    df_total_semana = df_detalhado.groupby("Semana")[valor_pendente_col].sum().reset_index()
+    st.bar_chart(df_total_semana.set_index("Semana"))
+
+    output_detalhado = io.BytesIO()
+    with pd.ExcelWriter(output_detalhado, engine='xlsxwriter') as writer:
+        df_detalhado.to_excel(writer, sheet_name='Evolução Semanal Detalhada', index=False)
+        df_total_semana.to_excel(writer, sheet_name='Resumo Semanal Total', index=False)
+    output_detalhado.seek(0)
+
+    b64_detalhado = base64.b64encode(output_detalhado.read()).decode()
+    href_detalhado = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64_detalhado}" download="Relatorio_Anual_2025.xlsx">📥 Baixar Excel</a>'
+    st.markdown(href_detalhado, unsafe_allow_html=True)
