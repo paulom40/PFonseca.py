@@ -183,4 +183,5 @@ else:
             ws3 = writer.sheets['Crescimento']
             format_up = writer.book.add_format({'bg_color': '#C6EFCE', 'font_color': '#006100'})
             format_down = writer.book.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006'})
-            format_na = writer.book.add_format({'bg_color': '#D9
+            format_na = writer.book.add_format({'bg_color': '#D9D9D9', 'font_color': '#404040', 'italic': True})
+
