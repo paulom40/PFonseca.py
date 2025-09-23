@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import io
+from datetime import datetime
 
 # 🚀 Configuração da página
 st.set_page_config(page_title="Bolama Dashboard", layout="wide", page_icon="📊")
@@ -121,7 +123,6 @@ else:
 
         crescimento_df = pd.merge(pivot_qtd, pivot_vl, on=["Artigo", "Mês"])
 
-        # Crescimento com tratamento de nulos
         crescimento_df["Crescimento Qtd (%)"] = crescimento_df.apply(
             lambda row: ((row["Qtd 2025"] - row["Qtd 2024"]) / row["Qtd 2024"] * 100)
             if pd.notnull(row["Qtd 2024"]) and row["Qtd 2024"] != 0 else None,
@@ -133,50 +134,53 @@ else:
             axis=1
         )
 
-        crescimento_df["Crescimento Qtd (%)"] = crescimento_df["Crescimento Qtd (%)"].round(2).fillna("Sem dados")
-        crescimento_df["Crescimento Vendas (%)"] = crescimento_df["Crescimento Vendas (%)"].round(2).fillna("Sem dados")
+        crescimento_df["Crescimento Qtd (%)"] = crescimento_df["Crescimento Qtd (%)"].round(2).replace(np.nan, "Sem dados")
+        crescimento_df["Crescimento Vendas (%)"] = crescimento_df["Crescimento Vendas (%)"].round(2).replace(np.nan, "Sem dados")
 
-        st.dataframe(
-            crescimento_df.style.format({
-                "Qtd 2024": "{:.2f} KG",
-                "Qtd 2025": "{:.2f} KG",
-                "Vendas 2024": "€ {:.2f}",
-                "Vendas 2025": "€ {:.2f}",
-                "Crescimento Qtd (%)": "{:+}",
-                "Crescimento Vendas (%)": "{:+}"
-            }),
-            use_container_width=True
-        )
+        st.dataframe(crescimento_df, use_container_width=True)
 
-        # 📤 Exportar para Excel com estilo e gráficos
+        # 📤 Exportar para Excel
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            # Planilhas principais
             filtered_df.to_excel(writer, index=False, sheet_name='Dados Filtrados')
             top_artigos.to_excel(writer, index=False, sheet_name='Top Artigos')
             crescimento_df.to_excel(writer, index=False, sheet_name='Crescimento')
 
-            ws3 = writer.sheets['Crescimento']
-            ws3.set_column('A:Z', 18)
+            # Planilha de resumo
+            total_qtd = filtered_df["Quantidade"].sum()
+            total_vl = filtered_df["V Líquido"].sum()
+            total_2024 = df[df["Data"].dt.year == 2024]["V Líquido"].sum()
+            total_2025 = df[df["Data"].dt.year == 2025]["V Líquido"].sum()
+            crescimento_total = ((total_2025 - total_2024) / total_2024 * 100) if total_2024 else None
 
+            resumo_df = pd.DataFrame({
+                "Indicador": [
+                    "Total Quantidade Filtrada",
+                    "Total Vendas Líquidas Filtradas",
+                    "Vendas 2024",
+                    "Vendas 2025",
+                    "Crescimento Total (%)",
+                    "Data de Exportação"
+                ],
+                "Valor": [
+                    f"{total_qtd:,.2f} KG",
+                    f"€ {total_vl:,.2f}",
+                    f"€ {total_2024:,.2f}",
+                    f"€ {total_2025:,.2f}",
+                    f"{crescimento_total:.2f}%" if crescimento_total is not None else "Sem dados",
+                    datetime.now().strftime("%d/%m/%Y %H:%M")
+                ]
+            })
+            resumo_df.to_excel(writer, index=False, sheet_name='Resumo')
+
+            # Estilização
+            for sheet_name in ['Dados Filtrados', 'Top Artigos', 'Crescimento', 'Resumo']:
+                ws = writer.sheets[sheet_name]
+                ws.set_column('A:Z', 18)
+                ws.autofilter(0, 0, 1 + len(df), len(df.columns) - 1)
+
+            ws3 = writer.sheets['Crescimento']
             format_up = writer.book.add_format({'bg_color': '#C6EFCE', 'font_color': '#006100'})
             format_down = writer.book.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006'})
-            format_na = writer.book.add_format({'bg_color': '#D9D9D9', 'font_color': '#404040', 'italic': True})
-
-            ws3.conditional_format(f'G2:G{len(crescimento_df)+1}', {'type': 'cell', 'criteria': '>=', 'value': 0, 'format': format_up})
-            ws3.conditional_format(f'G2:G{len(crescimento_df)+1}', {'type': 'cell', 'criteria': '<', 'value': 0, 'format': format_down})
-            ws3.conditional_format(f'H2:H{len(crescimento_df)+1}', {'type': 'cell', 'criteria': '>=', 'value': 0, 'format': format_up})
-            ws3.conditional_format(f'H2:H{len(crescimento_df)+1}', {'type': 'cell', 'criteria': '<', 'value': 0, 'format': format_down})
-            ws3.conditional_format(f'G2:G{len(crescimento_df)+1}', {'type': 'text', 'criteria': 'containing', 'value': 'Sem dados', 'format': format_na})
-            ws3.conditional_format(f'H2:H{len(crescimento_df)+1}', {'type': 'text', 'criteria': 'containing', 'value': 'Sem dados', 'format': format_na})
-
-            chart_vendas = writer.book.add_chart({'type': 'column'})
-            chart_vendas.add_series({
-            'name': 'Crescimento Vendas (%)',
-            'categories': ['Crescimento', 1, 0, len(crescimento_df), 0],  # Artigo
-            'values': ['Crescimento', 1, 7, len(crescimento_df), 7],      # Crescimento Vendas (%)
-            })
-            chart_vendas.set_title({'name': 'Crescimento de Vendas (%) por Artigo'})
-            chart_vendas.set_x_axis({'name': 'Artigo'})
-            chart_vendas.set_y_axis({'name': 'Variação (%)'})
-            ws3.insert_chart('J2', chart_vendas)
-
+            format_na = writer.book.add_format({'bg_color': '#D9
