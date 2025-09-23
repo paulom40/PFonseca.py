@@ -175,4 +175,5 @@ with tab2:
     output_2025.seek(0)
 
     b64_2025 = base64.b64encode(output_2025.read()).decode()
-    href_2025 = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64_2025}" download="Relatorio_Anual_2025.xlsx
+    href_2025 = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64_2025}" download="Relatorio_Anual_2025.xlsx">📥 Baixar Excel</a>'
+
