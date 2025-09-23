@@ -172,4 +172,5 @@ else:
             })
             chart_qtd.set_title({'name': 'Crescimento de Quantidade (%) por Artigo'})
             chart_qtd.set_x_axis({'name': 'Artigo'})
-            chart_qtd.set_y_axis({'name': 'Variação
+            chart_qtd.set_y_axis({'name': 'Variação (%)'})
+
