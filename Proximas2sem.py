@@ -148,32 +148,28 @@ with tab1:
 
 # TAB 2 — Relatório Anual 2025
 with tab2:
-    st.header("📆 Relatório Anual 2025 — Soma por Semana com Destaques")
+    st.header("📆 Relatório Anual 2025 — Evolução Semanal por Entidade e Comercial")
 
     df_2025 = df[df[venc_col].dt.year == 2025].copy()
     df_2025["Semana"] = df_2025[venc_col].dt.isocalendar().week
+
     semana_limite = max(1, datetime.today().isocalendar().week - 2)
 
-    df_semanal = (
+    df_detalhado = (
         df_2025[df_2025["Semana"] <= semana_limite]
-        .groupby("Semana")[valor_pendente_col]
+        .groupby(["Semana", entidade_col, "Comercial"])[valor_pendente_col]
         .sum()
         .reset_index()
-        .sort_values(by="Semana")
+        .sort_values(by=["Semana", valor_pendente_col], ascending=[True, False])
     )
 
-    media = df_semanal[valor_pendente_col].mean()
-    def destaque_semana(val):
+    media = df_detalhado[valor_pendente_col].mean()
+    def destaque_maior(val):
         if isinstance(val, (int, float)) and val > media:
             return "background-color: #f8d7da; font-weight: bold"
         return ""
 
     st.dataframe(
-        df_semanal.style
+        df_detalhado.style
         .format({valor_pendente_col: "€ {:,.2f}"})
-        .applymap(destaque_semana, subset=[valor_pendente_col]),
-        use_container_width=True
-    )
-
-    st.subheader("📊 Evolução Semanal do Valor Pendente")
-
+        .applymap
