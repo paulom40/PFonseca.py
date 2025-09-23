@@ -170,6 +170,9 @@ with tab2:
         return ""
 
     st.dataframe(
-        df_detalhado.style
-        .format({valor_pendente_col: "€ {:,.2f}"})
-        .applymap
+    df_detalhado.style
+    .format({valor_pendente_col: "€ {:,.2f}"})
+    .applymap(destaque_maior, subset=[valor_pendente_col]),
+    use_container_width=True
+)
+
