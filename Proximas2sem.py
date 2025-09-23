@@ -142,7 +142,7 @@ with tab1:
     href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="Dashboard_Semanal.xlsx">📥 Baixar Excel</a>'
     st.markdown(href, unsafe_allow_html=True)
 with tab2:
-    st.header("📆 Relatório Anual 2025 — Evolução Semanal por Entidade e Comercial")
+    st.header("📆 Relatório semanal 2025 — Evolução Semanal por Entidade e Comercial")
 
     # Filtrar dados do ano de 2025
     df_2025 = df[df[venc_col].dt.year == 2025].copy()
