@@ -171,5 +171,12 @@ else:
 
             chart_vendas = writer.book.add_chart({'type': 'column'})
             chart_vendas.add_series({
-                'name': 'Crescimento Vendas (%)',
-                'categories': ['Cres
+            'name': 'Crescimento Vendas (%)',
+            'categories': ['Crescimento', 1, 0, len(crescimento_df), 0],  # Artigo
+            'values': ['Crescimento', 1, 7, len(crescimento_df), 7],      # Crescimento Vendas (%)
+            })
+            chart_vendas.set_title({'name': 'Crescimento de Vendas (%) por Artigo'})
+            chart_vendas.set_x_axis({'name': 'Artigo'})
+            chart_vendas.set_y_axis({'name': 'Variação (%)'})
+            ws3.insert_chart('J2', chart_vendas)
+
