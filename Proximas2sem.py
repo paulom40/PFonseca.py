@@ -28,7 +28,7 @@ df[venc_col] = pd.to_datetime(df[venc_col], errors='coerce')
 # Criar separadores
 tab1, tab2, tab3, tab4 = st.tabs([
     "📅 Dashboard Semanal",
-    "📆 Relatório Anual 2025",
+    "📆 Relatório semanal 2025",
     "🗓 Relatório Mensal 2025",
     "📈 Comparativo Mensal"
 ])
