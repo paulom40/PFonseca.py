@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 from datetime import datetime, timedelta
 import io
 import base64
@@ -147,4 +148,31 @@ with tab1:
     href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="Dashboard_Semanal.xlsx">📥 Baixar Excel</a>'
     st.markdown(href, unsafe_allow_html=True)
 
-# Os separadores tab2, tab3 e tab4 continuam abaixo — e já estão prontos para colar. Queres que eu envie agora o restante em sequência?
+# TAB 2 — Relatório Anual 2025
+with tab2:
+    st.header("📆 Relatório Anual 2025 — Somas Semanais")
+
+    df_2025 = df[df[venc_col].dt.year == 2025].copy()
+    df_2025["Semana"] = df_2025[venc_col].dt.isocalendar().week
+    semana_limite = max(1, datetime.today().isocalendar().week - 2)
+
+    df_semanal = (
+        df_2025[df_2025["Semana"] <= semana_limite]
+        .groupby(["Semana", entidade_col])[valor_pendente_col]
+        .sum()
+        .reset_index()
+        .sort_values(by=["Semana", valor_pendente_col], ascending=[True, False])
+    )
+
+    st.dataframe(
+        df_semanal.style.format({valor_pendente_col: "€ {:,.2f}"}),
+        use_container_width=True
+    )
+
+    output_2025 = io.BytesIO()
+    with pd.ExcelWriter(output_2025, engine='xlsxwriter') as writer:
+        df_semanal.to_excel(writer, sheet_name='Somas Semanais 2025', index=False)
+    output_2025.seek(0)
+
+    b64_2025 = base64.b64encode(output_2025.read()).decode()
+    href_2025 = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64_2025}" download="Relatorio_Anual_2025.xlsx
