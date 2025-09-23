@@ -31,9 +31,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "📈 Comparativo Mensal"
 ])
 
-# ===========================
-# 📅 TAB 1 — DASHBOARD SEMANAL
-# ===========================
+# TAB 1 — Dashboard Semanal
 with tab1:
     st.sidebar.header("🔍 Filtro por Comercial")
     comerciais = df['Comercial'].dropna().unique() if 'Comercial' in df.columns else []
@@ -150,7 +148,7 @@ with tab1:
 
 # TAB 2 — Relatório Anual 2025
 with tab2:
-    st.header("📆 Relatório Anual 2025 — Somas Semanais")
+    st.header("📆 Relatório Anual 2025 — Soma por Semana com Destaques")
 
     df_2025 = df[df[venc_col].dt.year == 2025].copy()
     df_2025["Semana"] = df_2025[venc_col].dt.isocalendar().week
@@ -158,22 +156,23 @@ with tab2:
 
     df_semanal = (
         df_2025[df_2025["Semana"] <= semana_limite]
-        .groupby(["Semana", entidade_col])[valor_pendente_col]
+        .groupby("Semana")[valor_pendente_col]
         .sum()
         .reset_index()
-        .sort_values(by=["Semana", valor_pendente_col], ascending=[True, False])
+        .sort_values(by="Semana")
     )
 
+    media = df_semanal[valor_pendente_col].mean()
+    def destaque_semana(val):
+        if isinstance(val, (int, float)) and val > media:
+            return "background-color: #f8d7da; font-weight: bold"
+        return ""
+
     st.dataframe(
-        df_semanal.style.format({valor_pendente_col: "€ {:,.2f}"}),
+        df_semanal.style
+        .format({valor_pendente_col: "€ {:,.2f}"})
+        .applymap(destaque_semana, subset=[valor_pendente_col]),
         use_container_width=True
     )
 
-    output_2025 = io.BytesIO()
-    with pd.ExcelWriter(output_2025, engine='xlsxwriter') as writer:
-        df_semanal.to_excel(writer, sheet_name='Somas Semanais 2025', index=False)
-    output_2025.seek(0)
-
-    b64_2025 = base64.b64encode(output_2025.read()).decode()
-    href_2025 = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64_2025}" download="Relatorio_Anual_2025.xlsx">📥 Baixar Excel</a>'
-
+    st.subheader("📊 Evolução Sem
