@@ -120,9 +120,21 @@ else:
         pivot_vl = pivot_vl.rename(columns={2024: "Vendas 2024", 2025: "Vendas 2025"})
 
         crescimento_df = pd.merge(pivot_qtd, pivot_vl, on=["Artigo", "Mês"])
-        crescimento_df["Crescimento Qtd (%)"] = ((crescimento_df["Qtd 2025"] - crescimento_df["Qtd 2024"]) / crescimento_df["Qtd 2024"]) * 100
-        crescimento_df["Crescimento Vendas (%)"] = ((crescimento_df["Vendas 2025"] - crescimento_df["Vendas 2024"]) / crescimento_df["Vendas 2024"]) * 100
-        crescimento_df = crescimento_df.round(2)
+
+        # Crescimento com tratamento de nulos
+        crescimento_df["Crescimento Qtd (%)"] = crescimento_df.apply(
+            lambda row: ((row["Qtd 2025"] - row["Qtd 2024"]) / row["Qtd 2024"] * 100)
+            if pd.notnull(row["Qtd 2024"]) and row["Qtd 2024"] != 0 else None,
+            axis=1
+        )
+        crescimento_df["Crescimento Vendas (%)"] = crescimento_df.apply(
+            lambda row: ((row["Vendas 2025"] - row["Vendas 2024"]) / row["Vendas 2024"] * 100)
+            if pd.notnull(row["Vendas 2024"]) and row["Vendas 2024"] != 0 else None,
+            axis=1
+        )
+
+        crescimento_df["Crescimento Qtd (%)"] = crescimento_df["Crescimento Qtd (%)"].round(2).fillna("Sem dados")
+        crescimento_df["Crescimento Vendas (%)"] = crescimento_df["Crescimento Vendas (%)"].round(2).fillna("Sem dados")
 
         st.dataframe(
             crescimento_df.style.format({
@@ -130,9 +142,9 @@ else:
                 "Qtd 2025": "{:.2f} KG",
                 "Vendas 2024": "€ {:.2f}",
                 "Vendas 2025": "€ {:.2f}",
-                "Crescimento Qtd (%)": "{:+.2f}%",
-                "Crescimento Vendas (%)": "{:+.2f}%"
-            }).background_gradient(cmap="RdYlGn", subset=["Crescimento Qtd (%)", "Crescimento Vendas (%)"]),
+                "Crescimento Qtd (%)": "{:+}",
+                "Crescimento Vendas (%)": "{:+}"
+            }),
             use_container_width=True
         )
 
@@ -148,29 +160,16 @@ else:
 
             format_up = writer.book.add_format({'bg_color': '#C6EFCE', 'font_color': '#006100'})
             format_down = writer.book.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006'})
+            format_na = writer.book.add_format({'bg_color': '#D9D9D9', 'font_color': '#404040', 'italic': True})
+
             ws3.conditional_format(f'G2:G{len(crescimento_df)+1}', {'type': 'cell', 'criteria': '>=', 'value': 0, 'format': format_up})
             ws3.conditional_format(f'G2:G{len(crescimento_df)+1}', {'type': 'cell', 'criteria': '<', 'value': 0, 'format': format_down})
             ws3.conditional_format(f'H2:H{len(crescimento_df)+1}', {'type': 'cell', 'criteria': '>=', 'value': 0, 'format': format_up})
             ws3.conditional_format(f'H2:H{len(crescimento_df)+1}', {'type': 'cell', 'criteria': '<', 'value': 0, 'format': format_down})
+            ws3.conditional_format(f'G2:G{len(crescimento_df)+1}', {'type': 'text', 'criteria': 'containing', 'value': 'Sem dados', 'format': format_na})
+            ws3.conditional_format(f'H2:H{len(crescimento_df)+1}', {'type': 'text', 'criteria': 'containing', 'value': 'Sem dados', 'format': format_na})
 
             chart_vendas = writer.book.add_chart({'type': 'column'})
             chart_vendas.add_series({
                 'name': 'Crescimento Vendas (%)',
-                'categories': ['Crescimento', 1, 0, len(crescimento_df), 0],
-                'values': ['Crescimento', 1, 7, len(crescimento_df), 7],
-            })
-            chart_vendas.set_title({'name': 'Crescimento de Vendas (%) por Artigo'})
-            chart_vendas.set_x_axis({'name': 'Artigo'})
-            chart_vendas.set_y_axis({'name': 'Variação (%)'})
-            ws3.insert_chart('J2', chart_vendas)
-
-            chart_qtd = writer.book.add_chart({'type': 'column'})
-            chart_qtd.add_series({
-                'name': 'Crescimento Quantidade (%)',
-                'categories': ['Crescimento', 1, 0, len(crescimento_df), 0],
-                'values': ['Crescimento', 1, 6, len(crescimento_df), 6],
-            })
-            chart_qtd.set_title({'name': 'Crescimento de Quantidade (%) por Artigo'})
-            chart_qtd.set_x_axis({'name': 'Artigo'})
-            chart_qtd.set_y_axis({'name': 'Variação (%)'})
-
+                'categories': ['Cres
