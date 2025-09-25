@@ -20,10 +20,12 @@ url = "https://github.com/paulom40/PFonseca.py/raw/main/frota.xlsx"
 try:
     df = pd.read_excel(url, sheet_name="Dados")
     df.columns = df.columns.str.strip()
-    df['Consumo'] = pd.to_numeric(df['Consumo'], errors='coerce')
-    df['Portagem'] = pd.to_numeric(df['Portagem'], errors='coerce')
-    df['Reparação'] = pd.to_numeric(df['Reparação'], errors='coerce')
-    df['Pneus'] = pd.to_numeric(df['Pneus'], errors='coerce')
+
+    # 🔄 Converter colunas numéricas
+    for col in ['Consumo', 'Portagem', 'Reparação', 'Pneus']:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+
     st.success("✅ Dados da frota carregados com sucesso!")
 except Exception as e:
     st.error(f"❌ Erro ao carregar os dados: {e}")
