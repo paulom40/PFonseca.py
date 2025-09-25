@@ -4,14 +4,20 @@ import altair as alt
 import io
 import base64
 
-# 🎨 Estilo visual
-st.set_page_config(layout="wide", page_title="Dashboard da Frota", page_icon="🚘")
+# 🎨 Configuração visual
+st.set_page_config(
+    layout="wide",
+    page_title="Dashboard da Frota",
+    page_icon="🚘",
+    initial_sidebar_state="expanded"
+)
+
+# 🌙 Modo escuro personalizado
 st.markdown("""
     <style>
-    #MainMenu {visibility: hidden;}
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
-    .metric {text-align: center !important;}
+    body, .stApp { background-color: #0e1117; color: #fafafa; }
+    .metric { color: #fafafa !important; }
+    .css-1v0mbdj, .css-1d391kg { background-color: #1c1f26 !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -63,7 +69,6 @@ if selected_matricula != "Todas":
 if selected_ano != "Todos":
     df_filtrado = df_filtrado[df_filtrado['Ano'] == int(selected_ano)]
 
-# 🗓️ Corrigir ordem dos meses no filtrado
 df_filtrado["Mês"] = pd.Categorical(df_filtrado["Mês"], categories=ordem_meses, ordered=True)
 
 # 🧭 Abas temáticas
