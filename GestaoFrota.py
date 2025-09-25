@@ -12,14 +12,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 🌙 Modo escuro personalizado
-st.markdown("""
-    <style>
-    body, .stApp { background-color: #0e1117; color: #fafafa; }
-    .metric { color: #fafafa !important; }
-    .css-1v0mbdj, .css-1d391kg { background-color: #1c1f26 !important; }
-    </style>
-""", unsafe_allow_html=True)
+
 
 # 📂 Carregar dados
 url = "https://github.com/paulom40/PFonseca.py/raw/main/frota.xlsx"
