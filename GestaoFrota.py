@@ -42,8 +42,8 @@ st.sidebar.header("🔍 Filtros")
 marcas = sorted(df['Marca'].dropna().unique())
 selected_marca = st.sidebar.selectbox("Marca", ["Todas"] + marcas)
 
-combustiveis = sorted(df['Combustivel'].dropna().unique())
-selected_combustivel = st.sidebar.selectbox("Combustível", ["Todos"] + combustiveis)
+matriculas = sorted(df['Matricula'].dropna().unique())
+selected_matricula = st.sidebar.selectbox("Matrícula", ["Todas"] + matriculas)
 
 anos = sorted(df['Ano'].dropna().unique())
 selected_ano = st.sidebar.selectbox("Ano", ["Todos"] + list(map(str, anos)))
@@ -51,8 +51,8 @@ selected_ano = st.sidebar.selectbox("Ano", ["Todos"] + list(map(str, anos)))
 df_filtrado = df.copy()
 if selected_marca != "Todas":
     df_filtrado = df_filtrado[df_filtrado['Marca'] == selected_marca]
-if selected_combustivel != "Todos":
-    df_filtrado = df_filtrado[df_filtrado['Combustivel'] == selected_combustivel]
+if selected_matricula != "Todas":
+    df_filtrado = df_filtrado[df_filtrado['Matricula'] == selected_matricula]
 if selected_ano != "Todos":
     df_filtrado = df_filtrado[df_filtrado['Ano'] == int(selected_ano)]
 
