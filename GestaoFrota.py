@@ -12,8 +12,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-
-
 # 📂 Carregar dados
 url = "https://github.com/paulom40/PFonseca.py/raw/main/frota.xlsx"
 try:
@@ -54,6 +52,10 @@ selected_matricula = st.sidebar.selectbox("Matrícula", ["Todas"] + matriculas)
 anos = sorted(df['Ano'].dropna().unique())
 selected_ano = st.sidebar.selectbox("Ano", ["Todos"] + list(map(str, anos)))
 
+meses_disponiveis = df['Mês'].dropna().unique().tolist()
+meses_ordenados = [mes for mes in ordem_meses if mes in meses_disponiveis]
+selected_mes = st.sidebar.selectbox("Mês", ["Todos"] + meses_ordenados)
+
 df_filtrado = df.copy()
 if selected_marca != "Todas":
     df_filtrado = df_filtrado[df_filtrado['Marca'] == selected_marca]
@@ -61,6 +63,8 @@ if selected_matricula != "Todas":
     df_filtrado = df_filtrado[df_filtrado['Matricula'] == selected_matricula]
 if selected_ano != "Todos":
     df_filtrado = df_filtrado[df_filtrado['Ano'] == int(selected_ano)]
+if selected_mes != "Todos":
+    df_filtrado = df_filtrado[df_filtrado['Mês'] == selected_mes]
 
 df_filtrado["Mês"] = pd.Categorical(df_filtrado["Mês"], categories=ordem_meses, ordered=True)
 
