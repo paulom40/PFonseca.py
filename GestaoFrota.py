@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import altair as alt
+import io
+import base64
 
 # 🎨 Estilo visual
 st.set_page_config(layout="wide", page_title="Dashboard da Frota", page_icon="🚘")
@@ -13,92 +15,116 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 📂 Carregar dados da folha "Dados"
+# 📂 Carregar dados
 url = "https://github.com/paulom40/PFonseca.py/raw/main/frota.xlsx"
 try:
     df = pd.read_excel(url, sheet_name="Dados")
     df.columns = df.columns.str.strip()
+    df['Consumo'] = pd.to_numeric(df['Consumo'], errors='coerce')
+    df['Portagem'] = pd.to_numeric(df['Portagem'], errors='coerce')
+    df['Reparação'] = pd.to_numeric(df['Reparação'], errors='coerce')
+    df['Pneus'] = pd.to_numeric(df['Pneus'], errors='coerce')
     st.success("✅ Dados da frota carregados com sucesso!")
 except Exception as e:
     st.error(f"❌ Erro ao carregar os dados: {e}")
     st.stop()
 
-# 📱🖥️ Separadores para versão mobile e desktop
-tab_mobile, tab_desktop = st.tabs(["📱 Versão Mobile", "🖥️ Versão Desktop"])
+# 🔧 Função reutilizável para métricas seguras
+def mostrar_metrica_segura(label, serie, unidade=""):
+    valor = pd.to_numeric(serie, errors='coerce').mean()
+    if pd.isna(valor):
+        st.metric(label, "—")
+    else:
+        st.metric(label, f"{valor:.2f} {unidade}")
 
-# 📱 Versão Mobile
-with tab_mobile:
-    st.header("📱 Dashboard Mobile")
+# 🎛️ Filtros
+st.sidebar.header("🔍 Filtros")
+marcas = sorted(df['Marca'].dropna().unique())
+selected_marca = st.sidebar.selectbox("Marca", ["Todas"] + marcas)
 
-    with st.expander("🔍 Filtros", expanded=False):
-        marcas = sorted(df['Marca'].dropna().unique())
-        selected_marca = st.selectbox("Marca", ["Todas"] + marcas)
+combustiveis = sorted(df['Combustivel'].dropna().unique())
+selected_combustivel = st.sidebar.selectbox("Combustível", ["Todos"] + combustiveis)
 
-        combustiveis = sorted(df['Combustivel'].dropna().unique())
-        selected_combustivel = st.selectbox("Combustível", ["Todos"] + combustiveis)
+anos = sorted(df['Ano'].dropna().unique())
+selected_ano = st.sidebar.selectbox("Ano", ["Todos"] + list(map(str, anos)))
 
-        anos = sorted(df['Ano'].dropna().unique())
-        selected_ano = st.selectbox("Ano", ["Todos"] + list(map(str, anos)))
+df_filtrado = df.copy()
+if selected_marca != "Todas":
+    df_filtrado = df_filtrado[df_filtrado['Marca'] == selected_marca]
+if selected_combustivel != "Todos":
+    df_filtrado = df_filtrado[df_filtrado['Combustivel'] == selected_combustivel]
+if selected_ano != "Todos":
+    df_filtrado = df_filtrado[df_filtrado['Ano'] == int(selected_ano)]
 
-    df_mobile = df.copy()
-    if selected_marca != "Todas":
-        df_mobile = df_mobile[df_mobile['Marca'] == selected_marca]
-    if selected_combustivel != "Todos":
-        df_mobile = df_mobile[df_mobile['Combustivel'] == selected_combustivel]
-    if selected_ano != "Todos":
-        df_mobile = df_mobile[df_mobile['Ano'] == int(selected_ano)]
+# 🧭 Abas temáticas
+aba_combustivel, aba_portagem, aba_reparacao, aba_manutencao, aba_pneus = st.tabs([
+    "⛽ Combustível", "🚧 Portagem", "🔧 Reparação", "🛠️ Manutenção", "🛞 Pneus"
+])
 
-    st.metric("🚗 Total de Veículos", len(df_mobile))
-    st.metric("🛠️ Manutenções Pendentes", df_mobile[df_mobile['Manutenção'] == 'Pendente'].shape[0])
-    st.metric("⛽ Consumo Médio", f"{df_mobile['Consumo'].mean():.2f} L/100km")
+# ⛽ Combustível
+with aba_combustivel:
+    st.header("⛽ Indicadores de Combustível")
+    mostrar_metrica_segura("Consumo Médio", df_filtrado['Consumo'], "L/100km")
 
-    tipo_df = df_mobile.groupby("Combustivel")["Matricula"].count().reset_index()
-    chart = alt.Chart(tipo_df).mark_bar(color="#4e79a7").encode(
-        x=alt.X("Combustivel", title="Tipo de Combustível"),
-        y=alt.Y("Matricula", title="Quantidade"),
-        tooltip=["Combustivel", "Matricula"]
-    ).properties(title="Distribuição por Combustível")
-
+    consumo_mes = df_filtrado.groupby("Mês")["Consumo"].sum().reset_index()
+    chart = alt.Chart(consumo_mes).mark_bar(color="#59a14f").encode(
+        x="Mês", y="Consumo", tooltip=["Mês", "Consumo"]
+    ).properties(title="Consumo Total por Mês")
     st.altair_chart(chart, use_container_width=True)
 
-    st.subheader("📋 Detalhes da Frota")
-    st.dataframe(df_mobile.style.set_properties(**{'font-size': '10pt'}), use_container_width=True)
+# 🚧 Portagem
+with aba_portagem:
+    st.header("🚧 Indicadores de Portagem")
+    mostrar_metrica_segura("Custo Médio de Portagem", df_filtrado['Portagem'], "€")
 
-# 🖥️ Versão Desktop
-with tab_desktop:
-    st.header("🖥️ Dashboard Desktop")
-
-    st.sidebar.header("🔍 Filtros")
-    marcas = sorted(df['Marca'].dropna().unique())
-    selected_marca = st.sidebar.selectbox("Marca", ["Todas"] + marcas)
-
-    combustiveis = sorted(df['Combustivel'].dropna().unique())
-    selected_combustivel = st.sidebar.selectbox("Combustível", ["Todos"] + combustiveis)
-
-    anos = sorted(df['Ano'].dropna().unique())
-    selected_ano = st.sidebar.selectbox("Ano", ["Todos"] + list(map(str, anos)))
-
-    df_desktop = df.copy()
-    if selected_marca != "Todas":
-        df_desktop = df_desktop[df_desktop['Marca'] == selected_marca]
-    if selected_combustivel != "Todos":
-        df_desktop = df_desktop[df_desktop['Combustivel'] == selected_combustivel]
-    if selected_ano != "Todos":
-        df_desktop = df_desktop[df_desktop['Ano'] == int(selected_ano)]
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric("🚗 Total de Veículos", len(df_desktop))
-    col2.metric("🛠️ Manutenções Pendentes", df_desktop[df_desktop['Manutenção'] == 'Pendente'].shape[0])
-    col3.metric("⛽ Consumo Médio", f"{df_desktop['Consumo'].mean():.2f} L/100km")
-
-    tipo_df = df_desktop.groupby("Combustivel")["Matricula"].count().reset_index()
-    chart = alt.Chart(tipo_df).mark_bar().encode(
-        x=alt.X("Combustivel", title="Tipo de Combustível"),
-        y=alt.Y("Matricula", title="Quantidade"),
-        tooltip=["Combustivel", "Matricula"]
-    ).properties(title="Distribuição por Combustível")
-
+    portagem_mes = df_filtrado.groupby("Mês")["Portagem"].sum().reset_index()
+    chart = alt.Chart(portagem_mes).mark_line(point=True, color="#f28e2b").encode(
+        x="Mês", y="Portagem", tooltip=["Mês", "Portagem"]
+    ).properties(title="Portagem Total por Mês")
     st.altair_chart(chart, use_container_width=True)
 
-    st.subheader("📋 Detalhes da Frota")
-    st.dataframe(df_desktop, use_container_width=True)
+# 🔧 Reparação
+with aba_reparacao:
+    st.header("🔧 Indicadores de Reparação")
+    mostrar_metrica_segura("Custo Médio de Reparação", df_filtrado['Reparação'], "€")
+
+    reparacao_mes = df_filtrado.groupby("Mês")["Reparação"].sum().reset_index()
+    chart = alt.Chart(reparacao_mes).mark_area(color="#e15759").encode(
+        x="Mês", y="Reparação", tooltip=["Mês", "Reparação"]
+    ).properties(title="Reparações por Mês")
+    st.altair_chart(chart, use_container_width=True)
+
+# 🛠️ Manutenção
+with aba_manutencao:
+    st.header("🛠️ Indicadores de Manutenção")
+    pendentes = df_filtrado[df_filtrado['Manutenção'] == 'Pendente'].shape[0]
+    st.metric("Manutenções Pendentes", pendentes)
+
+    manutencao_mes = df_filtrado.groupby("Mês")["Manutenção"].apply(lambda x: (x == 'Pendente').sum()).reset_index(name="Pendentes")
+    chart = alt.Chart(manutencao_mes).mark_bar(color="#9c755f").encode(
+        x="Mês", y="Pendentes", tooltip=["Mês", "Pendentes"]
+    ).properties(title="Manutenções Pendentes por Mês")
+    st.altair_chart(chart, use_container_width=True)
+
+# 🛞 Pneus
+with aba_pneus:
+    st.header("🛞 Indicadores de Pneus")
+    mostrar_metrica_segura("Custo Médio com Pneus", df_filtrado['Pneus'], "€")
+
+    pneus_mes = df_filtrado.groupby("Mês")["Pneus"].sum().reset_index()
+    chart = alt.Chart(pneus_mes).mark_bar(color="#76b7b2").encode(
+        x="Mês", y="Pneus", tooltip=["Mês", "Pneus"]
+    ).properties(title="Despesas com Pneus por Mês")
+    st.altair_chart(chart, use_container_width=True)
+
+# 📥 Exportação para Excel
+st.subheader("📥 Exportar dados da frota para Excel")
+
+output = io.BytesIO()
+with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+    df_filtrado.to_excel(writer, sheet_name='Frota Filtrada', index=False)
+output.seek(0)
+
+b64 = base64.b64encode(output.read()).decode()
+href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="Frota_Filtrada.xlsx">📥 Baixar Excel</a>'
+st.markdown(href, unsafe_allow_html=True)
