@@ -26,6 +26,11 @@ try:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
+    # 🗓️ Corrigir ordem dos meses
+    ordem_meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+                   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
+    df["Mês"] = pd.Categorical(df["Mês"], categories=ordem_meses, ordered=True)
+
     st.success("✅ Dados da frota carregados com sucesso!")
 except Exception as e:
     st.error(f"❌ Erro ao carregar os dados: {e}")
@@ -58,6 +63,9 @@ if selected_matricula != "Todas":
 if selected_ano != "Todos":
     df_filtrado = df_filtrado[df_filtrado['Ano'] == int(selected_ano)]
 
+# 🗓️ Corrigir ordem dos meses no filtrado
+df_filtrado["Mês"] = pd.Categorical(df_filtrado["Mês"], categories=ordem_meses, ordered=True)
+
 # 🧭 Abas temáticas
 aba_combustivel, aba_portagem, aba_reparacao, aba_manutencao, aba_pneus = st.tabs([
     "⛽ Combustível", "🚧 Portagem", "🔧 Reparação", "🛠️ Manutenção", "🛞 Pneus"
@@ -70,7 +78,7 @@ with aba_combustivel:
 
     consumo_mes = df_filtrado.groupby("Mês")["Consumo"].sum().reset_index()
     chart = alt.Chart(consumo_mes).mark_bar(color="#59a14f").encode(
-        x="Mês", y="Consumo", tooltip=["Mês", "Consumo"]
+        x=alt.X("Mês", sort=ordem_meses), y="Consumo", tooltip=["Mês", "Consumo"]
     ).properties(title="Consumo Total por Mês")
     st.altair_chart(chart, use_container_width=True)
 
@@ -81,7 +89,7 @@ with aba_portagem:
 
     portagem_mes = df_filtrado.groupby("Mês")["Portagem"].sum().reset_index()
     chart = alt.Chart(portagem_mes).mark_line(point=True, color="#f28e2b").encode(
-        x="Mês", y="Portagem", tooltip=["Mês", "Portagem"]
+        x=alt.X("Mês", sort=ordem_meses), y="Portagem", tooltip=["Mês", "Portagem"]
     ).properties(title="Portagem Total por Mês")
     st.altair_chart(chart, use_container_width=True)
 
@@ -92,7 +100,7 @@ with aba_reparacao:
 
     reparacao_mes = df_filtrado.groupby("Mês")["Reparação"].sum().reset_index()
     chart = alt.Chart(reparacao_mes).mark_area(color="#e15759").encode(
-        x="Mês", y="Reparação", tooltip=["Mês", "Reparação"]
+        x=alt.X("Mês", sort=ordem_meses), y="Reparação", tooltip=["Mês", "Reparação"]
     ).properties(title="Reparações por Mês")
     st.altair_chart(chart, use_container_width=True)
 
@@ -104,7 +112,7 @@ with aba_manutencao:
 
     manutencao_mes = df_filtrado.groupby("Mês")["Manutenção"].apply(lambda x: (x == 'Pendente').sum()).reset_index(name="Pendentes")
     chart = alt.Chart(manutencao_mes).mark_bar(color="#9c755f").encode(
-        x="Mês", y="Pendentes", tooltip=["Mês", "Pendentes"]
+        x=alt.X("Mês", sort=ordem_meses), y="Pendentes", tooltip=["Mês", "Pendentes"]
     ).properties(title="Manutenções Pendentes por Mês")
     st.altair_chart(chart, use_container_width=True)
 
@@ -115,7 +123,7 @@ with aba_pneus:
 
     pneus_mes = df_filtrado.groupby("Mês")["Pneus"].sum().reset_index()
     chart = alt.Chart(pneus_mes).mark_bar(color="#76b7b2").encode(
-        x="Mês", y="Pneus", tooltip=["Mês", "Pneus"]
+        x=alt.X("Mês", sort=ordem_meses), y="Pneus", tooltip=["Mês", "Pneus"]
     ).properties(title="Despesas com Pneus por Mês")
     st.altair_chart(chart, use_container_width=True)
 
