@@ -154,16 +154,14 @@ with aba_desvios:
         consumo_mes = df_filtrado.groupby("Mês")["Consumo"].sum().reindex(ordem_meses, fill_value=0)
         kpi_desvio("Consumo Total", consumo_mes, "L")
 
-        with col2:
-    portagem_mes = df_filtrado.groupby("Mês")["Portagem"].sum().reindex(ordem_meses, fill_value=0)
-    kpi_desvio("Portagem Total", portagem_mes, "€")
+    with col2:
+        portagem_mes = df_filtrado.groupby("Mês")["Portagem"].sum().reindex(ordem_meses, fill_value=0)
+        kpi_desvio("Portagem Total", portagem_mes, "€")
 
-with col3:
-    reparacao_mes = df_filtrado.groupby("Mês")["Reparação"].sum().reindex(ordem_meses, fill_value=0)
-    kpi_desvio("Reparação Total", reparacao_mes, "€")
+    with col3:
+        reparacao_mes = df_filtrado.groupby("Mês")["Reparação"].sum().reindex(ordem_meses, fill_value=0)
+        kpi_desvio("Reparação Total", reparacao_mes, "€")
 
-with col4:
-    pneus_mes = df_filtrado.groupby("Mês")["Pneus"].sum().reindex(ordem_meses, fill_value=0)
-    kpi_desvio("Pneus Total", pneus_mes, "€")
-
-
+    with col4:
+        pneus_mes = df_filtrado.groupby("Mês")["Pneus"].sum().reindex(ordem_meses, fill_value=0)
+        kpi_desvio("Pneus Total", pneus_mes, "€")
