@@ -18,12 +18,10 @@ try:
     df = pd.read_excel(url, sheet_name="Dados")
     df.columns = df.columns.str.strip()
 
-    # 🔄 Converter colunas numéricas
     for col in ['Consumo', 'Portagem', 'Reparação', 'Pneus']:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
-    # 🗓️ Corrigir ordem dos meses
     ordem_meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
                    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"]
     df["Mês"] = pd.Categorical(df["Mês"], categories=ordem_meses, ordered=True)
@@ -33,7 +31,7 @@ except Exception as e:
     st.error(f"❌ Erro ao carregar os dados: {e}")
     st.stop()
 
-# 🔧 Função reutilizável para métricas seguras
+# 🔧 Função para métricas seguras
 def mostrar_metrica_segura(label, serie, unidade=""):
     valor = pd.to_numeric(serie, errors='coerce').mean()
     if pd.isna(valor):
@@ -69,8 +67,8 @@ if selected_mes != "Todos":
 df_filtrado["Mês"] = pd.Categorical(df_filtrado["Mês"], categories=ordem_meses, ordered=True)
 
 # 🧭 Abas temáticas
-aba_combustivel, aba_portagem, aba_reparacao, aba_manutencao, aba_pneus = st.tabs([
-    "⛽ Combustível", "🚧 Portagem", "🔧 Reparação", "🛠️ Manutenção", "🛞 Pneus"
+aba_combustivel, aba_portagem, aba_reparacao, aba_manutencao, aba_pneus, aba_desvios = st.tabs([
+    "⛽ Combustível", "🚧 Portagem", "🔧 Reparação", "🛠️ Manutenção", "🛞 Pneus", "📊 Desvios"
 ])
 
 # ⛽ Combustível
@@ -78,7 +76,7 @@ with aba_combustivel:
     st.header("⛽ Indicadores de Combustível")
     mostrar_metrica_segura("Consumo Médio", df_filtrado['Consumo'], "L/100km")
 
-    consumo_mes = df_filtrado.groupby("Mês")["Consumo"].sum().reset_index()
+    consumo_mes = df_filtrado.groupby("Mês")["Consumo"].sum().reindex(ordem_meses, fill_value=0).reset_index()
     chart = alt.Chart(consumo_mes).mark_bar(color="#59a14f").encode(
         x=alt.X("Mês", sort=ordem_meses), y="Consumo", tooltip=["Mês", "Consumo"]
     ).properties(title="Consumo Total por Mês")
@@ -89,7 +87,7 @@ with aba_portagem:
     st.header("🚧 Indicadores de Portagem")
     mostrar_metrica_segura("Custo Médio de Portagem", df_filtrado['Portagem'], "€")
 
-    portagem_mes = df_filtrado.groupby("Mês")["Portagem"].sum().reset_index()
+    portagem_mes = df_filtrado.groupby("Mês")["Portagem"].sum().reindex(ordem_meses, fill_value=0).reset_index()
     chart = alt.Chart(portagem_mes).mark_line(point=True, color="#f28e2b").encode(
         x=alt.X("Mês", sort=ordem_meses), y="Portagem", tooltip=["Mês", "Portagem"]
     ).properties(title="Portagem Total por Mês")
@@ -100,7 +98,7 @@ with aba_reparacao:
     st.header("🔧 Indicadores de Reparação")
     mostrar_metrica_segura("Custo Médio de Reparação", df_filtrado['Reparação'], "€")
 
-    reparacao_mes = df_filtrado.groupby("Mês")["Reparação"].sum().reset_index()
+    reparacao_mes = df_filtrado.groupby("Mês")["Reparação"].sum().reindex(ordem_meses, fill_value=0).reset_index()
     chart = alt.Chart(reparacao_mes).mark_area(color="#e15759").encode(
         x=alt.X("Mês", sort=ordem_meses), y="Reparação", tooltip=["Mês", "Reparação"]
     ).properties(title="Reparações por Mês")
@@ -112,7 +110,7 @@ with aba_manutencao:
     pendentes = df_filtrado[df_filtrado['Manutenção'] == 'Pendente'].shape[0]
     st.metric("Manutenções Pendentes", pendentes)
 
-    manutencao_mes = df_filtrado.groupby("Mês")["Manutenção"].apply(lambda x: (x == 'Pendente').sum()).reset_index(name="Pendentes")
+    manutencao_mes = df_filtrado.groupby("Mês")["Manutenção"].apply(lambda x: (x == 'Pendente').sum()).reindex(ordem_meses, fill_value=0).reset_index(name="Pendentes")
     chart = alt.Chart(manutencao_mes).mark_bar(color="#9c755f").encode(
         x=alt.X("Mês", sort=ordem_meses), y="Pendentes", tooltip=["Mês", "Pendentes"]
     ).properties(title="Manutenções Pendentes por Mês")
@@ -123,20 +121,38 @@ with aba_pneus:
     st.header("🛞 Indicadores de Pneus")
     mostrar_metrica_segura("Custo Médio com Pneus", df_filtrado['Pneus'], "€")
 
-    pneus_mes = df_filtrado.groupby("Mês")["Pneus"].sum().reset_index()
+    pneus_mes = df_filtrado.groupby("Mês")["Pneus"].sum().reindex(ordem_meses, fill_value=0).reset_index()
     chart = alt.Chart(pneus_mes).mark_bar(color="#76b7b2").encode(
         x=alt.X("Mês", sort=ordem_meses), y="Pneus", tooltip=["Mês", "Pneus"]
     ).properties(title="Despesas com Pneus por Mês")
     st.altair_chart(chart, use_container_width=True)
 
-# 📥 Exportação para Excel
-st.subheader("📥 Exportar dados da frota para Excel")
+# 📊 Desvios
+with aba_desvios:
+    st.header("📊 Indicadores de Desvio Mensal")
 
-output = io.BytesIO()
-with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-    df_filtrado.to_excel(writer, sheet_name='Frota Filtrada', index=False)
-output.seek(0)
+    def kpi_desvio(label, serie, unidade=""):
+        serie = pd.to_numeric(serie, errors='coerce')
+        if serie.empty or serie.isna().all():
+            st.metric(label, "—")
+            return
 
-b64 = base64.b64encode(output.read()).decode()
-href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="Frota_Filtrada.xlsx">📥 Baixar Excel</a>'
-st.markdown(href, unsafe_allow_html=True)
+        media = serie.mean()
+        mes_filtro = selected_mes if selected_mes != "Todos" else ordem_meses[-1]
+        valor_mes = serie.get(mes_filtro, 0)
+        desvio = valor_mes - media
+        delta = f"{'🔺' if desvio > 0 else '🔻'} {desvio:.2f} {unidade}"
+        cor = "#fdd835" if desvio > 0 else "#66bb6a"
+
+        st.markdown(f"<div style='background-color:{cor};padding:10px;border-radius:8px;text-align:center'>", unsafe_allow_html=True)
+        st.metric(label, f"{valor_mes:.2f} {unidade}", delta=delta)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        consumo_mes = df_filtrado.groupby("Mês")["Consumo"].sum().reindex(ordem_meses, fill_value=0)
+        kpi_desvio("Consumo Total", consumo_mes, "L")
+
+    with col2:
+        portagem_mes =
