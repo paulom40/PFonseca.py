@@ -11,6 +11,7 @@ meses_pt = {
     5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
     9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
 }
+meses_pt_invertido = {v.lower(): k for k, v in meses_pt.items()}
 
 # Carregar Excel do GitHub
 @st.cache_data
@@ -19,7 +20,7 @@ def load_data():
     response = requests.get(url)
     xls = pd.ExcelFile(BytesIO(response.content))
     df = pd.read_excel(xls, sheet_name=0)
-    df.columns = df.columns.str.strip()  # Normalizar nomes
+    df.columns = df.columns.str.strip()
     return df
 
 df = load_data()
@@ -44,7 +45,7 @@ with tab1:
         meses_disponiveis = sorted(df['Mês'].unique())
         nomes_meses = [meses_pt[m] for m in meses_disponiveis]
         mes_selecionado_label = st.selectbox("Selecionar Mês", nomes_meses, key="month1")
-        mes_selecionado = {v: k for k, v in meses_pt.items()}[mes_selecionado_label]
+        mes_selecionado = meses_pt_invertido.get(mes_selecionado_label.lower())
 
         clientes = st.multiselect("Filtrar por Cliente", sorted(df['Cliente'].unique()), key="cliente1")
         artigos = st.multiselect("Filtrar por Artigo", sorted(df['Artigo'].unique()), key="artigo1")
@@ -65,7 +66,6 @@ with tab1:
     tabela = agrupado.pivot_table(index=['Cliente', 'Artigo'], columns='Ano', values='Qtd.', fill_value=0).reset_index()
     tabela['Diferença'] = tabela.get(ano_atual, 0) - tabela.get(ano_passado, 0)
 
-    # Cores para diferença
     def highlight_diff(val):
         if val > 0:
             return 'background-color: #d4f4dd'
@@ -78,7 +78,6 @@ with tab1:
     st.subheader(f"Mês: {mes_selecionado_label} | {ano_passado} vs {ano_atual}")
     st.dataframe(tabela_formatada, use_container_width=True)
 
-    # Exportar para Excel com formatação
     def to_excel(df):
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -105,7 +104,7 @@ with tab2:
 
     nomes_meses2 = [meses_pt[m] for m in sorted(df['Mês'].unique())]
     mes_label2 = st.selectbox("Selecionar Mês", nomes_meses2, key="month2")
-    mes2 = {v: k for k, v in meses_pt.items()}[mes_label2]
+    mes2 = meses_pt_invertido.get(mes_label2.lower())
 
     cliente2 = st.multiselect("Selecionar Cliente", sorted(df['Cliente'].unique()), key="cliente2")
     artigo2 = st.multiselect("Selecionar Artigo", sorted(df['Artigo'].unique()), key="artigo2")
@@ -119,16 +118,13 @@ with tab2:
     st.write(f"Resultados para o mês de {mes_label2}")
     st.dataframe(df_tab2[['Data', 'Cliente', 'Artigo', 'Qtd.']], use_container_width=True)
 
-    # Totais por Cliente
     st.markdown("### 📌 Totais por Cliente")
     totais_cliente = df_tab2.groupby('Cliente')['Qtd.'].sum().reset_index().sort_values(by='Qtd.', ascending=False)
     st.dataframe(totais_cliente, use_container_width=True)
 
-    # Totais por Artigo
     st.markdown("### 📌 Totais por Artigo")
     totais_artigo = df_tab2.groupby('Artigo')['Qtd.'].sum().reset_index().sort_values(by='Qtd.', ascending=False)
     st.dataframe(totais_artigo, use_container_width=True)
 
-    # Gráfico de barras
     st.markdown("### 📊 Gráfico de Vendas por Artigo")
     st.bar_chart(totais_artigo.set_index('Artigo'))
