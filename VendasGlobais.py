@@ -18,7 +18,8 @@ def obter_numero_mes(nome_mes):
         return None
     nome_mes = nome_mes.strip().lower()
     for k, v in meses_pt.items():
-        if v.strip().lower() == nome_mes:
+        nome_mes_ref = v.lower()
+        if nome_mes == nome_mes_ref or nome_mes.startswith(nome_mes_ref[:3]):
             return k
     return None
 
@@ -29,14 +30,22 @@ def load_data():
     xls = pd.ExcelFile(BytesIO(response.content))
     df = pd.read_excel(xls, sheet_name=0)
     df.columns = df.columns.str.strip()
+
+    if 'Mês' not in df.columns:
+        st.error("❌ A coluna 'Mês' não foi encontrada no ficheiro.")
+        st.stop()
+
+    df['Mês'] = pd.to_numeric(df['Mês'], errors='coerce')
+    df = df.dropna(subset=['Mês'])
+    df['Mês'] = df['Mês'].astype(int)
+
+    if 'Data' not in df.columns:
+        df['Data'] = pd.to_datetime(dict(year=df['Ano'], month=df['Mês'], day=1), errors='coerce')
+
+    df = df.dropna(subset=['Data', 'Qtd.', 'Cliente', 'Artigo'])
     return df
 
 df = load_data()
-
-if 'Data' not in df.columns:
-    df['Data'] = pd.to_datetime(dict(year=df['Ano'], month=df['Mês'], day=1), errors='coerce')
-
-df = df.dropna(subset=['Data', 'Qtd.', 'Cliente', 'Artigo'])
 
 tab1, tab2 = st.tabs(["📊 Comparativo Ano a Ano", "🔎 Filtro por Artigo e Cliente"])
 
@@ -78,17 +87,8 @@ with tab1:
     tabela = agrupado.pivot_table(index=['Cliente', 'Artigo'], columns='Ano', values='Qtd.', fill_value=0).reset_index()
     tabela['Diferença'] = tabela.get(ano_atual, 0) - tabela.get(ano_passado, 0)
 
-    def highlight_diff(val):
-        if val > 0:
-            return 'background-color: #d4f4dd'
-        elif val < 0:
-            return 'background-color: #fddddd'
-        return ''
-
-    tabela_formatada = tabela.style.applymap(highlight_diff, subset=['Diferença'])
-
     st.subheader(f"Mês: {mes_selecionado_label} | {ano_passado} vs {ano_atual}")
-    st.dataframe(tabela_formatada, use_container_width=True)
+    st.dataframe(tabela, use_container_width=True)
 
     def to_excel(df):
         output = BytesIO()
@@ -158,5 +158,3 @@ with tab2:
         mes_anterior = mes_num - 1 if mes_num > 1 else 12
         todos_clientes = sorted(df['Cliente'].unique())
         clientes_ativos = sorted(df[df['Mês'] == mes_anterior]['Cliente'].unique())
-        clientes_inativos = [c for c in todos_clientes if c not in clientes_ativos]
-        alertas_df = pd.DataFrame({'Cliente sem compras': clientes_inativos}) if clientes_inativos else pd.DataFrame
