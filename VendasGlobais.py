@@ -5,7 +5,14 @@ from io import BytesIO
 import requests
 import xlsxwriter
 
-# Load Excel from GitHub
+# Meses em português
+meses_pt = {
+    1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+    5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+    9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+}
+
+# Carregar Excel do GitHub
 @st.cache_data
 def load_data():
     url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
@@ -15,44 +22,49 @@ def load_data():
     return df
 
 df = load_data()
+df.columns = df.columns.str.strip()  # Normalizar nomes de colunas
 
-# Parse and clean
+# Preparar datas
 df['Data'] = pd.to_datetime(df.iloc[:, 0], errors='coerce')
 df['Ano'] = df['Data'].dt.year
 df['Mes'] = df['Data'].dt.month
 df = df.dropna(subset=['Data', 'Qtd.', 'Cliente', 'Artigo'])
 
 # Tabs
-tab1, tab2 = st.tabs(["📊 Year-over-Year Comparison", "🔎 Artigo & Cliente Filter"])
+tab1, tab2 = st.tabs(["📊 Comparativo Ano a Ano", "🔎 Filtro por Artigo e Cliente"])
 
 # -------------------- TAB 1 --------------------
 with tab1:
-    st.title("📊 Year-over-Year Comparison")
+    st.title("📊 Comparativo Ano a Ano")
 
-    # Sidebar filters
+    # Filtros na barra lateral
     with st.sidebar:
-        st.markdown("### 🔍 Filters")
-        selected_month = st.selectbox("Select Month", sorted(df['Mes'].unique()), key="month1")
-        clientes = st.multiselect("Filter by Cliente", sorted(df['Cliente'].unique()), key="cliente1")
-        artigos = st.multiselect("Filter by Artigo", sorted(df['Artigo'].unique()), key="artigo1")
+        st.markdown("### 🔍 Filtros")
+        meses_disponiveis = sorted(df['Mes'].unique())
+        nomes_meses = [meses_pt[m] for m in meses_disponiveis]
+        mes_selecionado_label = st.selectbox("Selecionar Mês", nomes_meses, key="month1")
+        mes_selecionado = {v: k for k, v in meses_pt.items()}[mes_selecionado_label]
 
-    # Apply filters
-    df_filtered = df[df['Mes'] == selected_month]
+        clientes = st.multiselect("Filtrar por Cliente", sorted(df['Cliente'].unique()), key="cliente1")
+        artigos = st.multiselect("Filtrar por Artigo", sorted(df['Artigo'].unique()), key="artigo1")
+
+    # Aplicar filtros
+    df_filtrado = df[df['Mes'] == mes_selecionado]
     if clientes:
-        df_filtered = df_filtered[df_filtered['Cliente'].isin(clientes)]
+        df_filtrado = df_filtrado[df_filtrado['Cliente'].isin(clientes)]
     if artigos:
-        df_filtered = df_filtered[df_filtered['Artigo'].isin(artigos)]
+        df_filtrado = df_filtrado[df_filtrado['Artigo'].isin(artigos)]
 
-    # Compare current vs last year
-    current_year = df_filtered['Ano'].max()
-    last_year = current_year - 1
-    df_compare = df_filtered[df_filtered['Ano'].isin([last_year, current_year])]
+    # Comparar ano atual vs anterior
+    ano_atual = df_filtrado['Ano'].max()
+    ano_passado = ano_atual - 1
+    df_comparativo = df_filtrado[df_filtrado['Ano'].isin([ano_passado, ano_atual])]
 
-    grouped = df_compare.groupby(['Cliente', 'Artigo', 'Ano'])['Qtd.'].sum().reset_index()
-    pivoted = grouped.pivot_table(index=['Cliente', 'Artigo'], columns='Ano', values='Qtd.', fill_value=0).reset_index()
-    pivoted['Diferença'] = pivoted.get(current_year, 0) - pivoted.get(last_year, 0)
+    agrupado = df_comparativo.groupby(['Cliente', 'Artigo', 'Ano'])['Qtd.'].sum().reset_index()
+    tabela = agrupado.pivot_table(index=['Cliente', 'Artigo'], columns='Ano', values='Qtd.', fill_value=0).reset_index()
+    tabela['Diferença'] = tabela.get(ano_atual, 0) - tabela.get(ano_passado, 0)
 
-    # Color-coded display
+    # Cores para diferença
     def highlight_diff(val):
         if val > 0:
             return 'background-color: #d4f4dd'
@@ -60,65 +72,62 @@ with tab1:
             return 'background-color: #fddddd'
         return ''
 
-    styled_df = pivoted.style.applymap(highlight_diff, subset=['Diferença'])
+    tabela_formatada = tabela.style.applymap(highlight_diff, subset=['Diferença'])
 
-    st.subheader(f"Month: {selected_month} | {last_year} vs {current_year}")
-    st.dataframe(styled_df, use_container_width=True)
+    st.subheader(f"Mês: {mes_selecionado_label} | {ano_passado} vs {ano_atual}")
+    st.dataframe(tabela_formatada, use_container_width=True)
 
-    # Export to Excel
+    # Exportar para Excel com formatação
     def to_excel(df):
         output = BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             df.to_excel(writer, index=False, sheet_name='Comparativo')
             workbook = writer.book
             worksheet = writer.sheets['Comparativo']
-            diff_col = df.columns.get_loc('Diferença')
-            format_pos = workbook.add_format({'bg_color': '#d4f4dd'})
-            format_neg = workbook.add_format({'bg_color': '#fddddd'})
-            worksheet.conditional_format(1, diff_col, len(df), diff_col, {
-                'type': 'cell',
-                'criteria': '>',
-                'value': 0,
-                'format': format_pos
+            col_dif = df.columns.get_loc('Diferença')
+            formato_pos = workbook.add_format({'bg_color': '#d4f4dd'})
+            formato_neg = workbook.add_format({'bg_color': '#fddddd'})
+            worksheet.conditional_format(1, col_dif, len(df), col_dif, {
+                'type': 'cell', 'criteria': '>', 'value': 0, 'format': formato_pos
             })
-            worksheet.conditional_format(1, diff_col, len(df), diff_col, {
-                'type': 'cell',
-                'criteria': '<',
-                'value': 0,
-                'format': format_neg
+            worksheet.conditional_format(1, col_dif, len(df), col_dif, {
+                'type': 'cell', 'criteria': '<', 'value': 0, 'format': formato_neg
             })
         return output.getvalue()
 
-    excel_data = to_excel(pivoted)
-    st.download_button("📥 Export to Excel", data=excel_data, file_name="Comparativo_YoY.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    excel_data = to_excel(tabela)
+    st.download_button("📥 Exportar para Excel", data=excel_data, file_name="Comparativo_YoY.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # -------------------- TAB 2 --------------------
 with tab2:
-    st.subheader("🔎 Filter by Artigo, Cliente, and Month")
+    st.subheader("🔎 Filtro por Artigo, Cliente e Mês")
 
-    selected_month2 = st.selectbox("Select Month", sorted(df['Mes'].unique()), key="month2")
-    selected_cliente2 = st.multiselect("Select Cliente", sorted(df['Cliente'].unique()), key="cliente2")
-    selected_artigo2 = st.multiselect("Select Artigo", sorted(df['Artigo'].unique()), key="artigo2")
+    nomes_meses2 = [meses_pt[m] for m in sorted(df['Mes'].unique())]
+    mes_label2 = st.selectbox("Selecionar Mês", nomes_meses2, key="month2")
+    mes2 = {v: k for k, v in meses_pt.items()}[mes_label2]
 
-    df_tab2 = df[df['Mes'] == selected_month2]
-    if selected_cliente2:
-        df_tab2 = df_tab2[df_tab2['Cliente'].isin(selected_cliente2)]
-    if selected_artigo2:
-        df_tab2 = df_tab2[df_tab2['Artigo'].isin(selected_artigo2)]
+    cliente2 = st.multiselect("Selecionar Cliente", sorted(df['Cliente'].unique()), key="cliente2")
+    artigo2 = st.multiselect("Selecionar Artigo", sorted(df['Artigo'].unique()), key="artigo2")
 
-    st.write(f"Showing results for Month {selected_month2}")
+    df_tab2 = df[df['Mes'] == mes2]
+    if cliente2:
+        df_tab2 = df_tab2[df_tab2['Cliente'].isin(cliente2)]
+    if artigo2:
+        df_tab2 = df_tab2[df_tab2['Artigo'].isin(artigo2)]
+
+    st.write(f"Resultados para o mês de {mes_label2}")
     st.dataframe(df_tab2[['Data', 'Cliente', 'Artigo', 'Qtd.']], use_container_width=True)
 
-    # Totals by Cliente
-    st.markdown("### 📌 Totals by Cliente")
-    cliente_totals = df_tab2.groupby('Cliente')['Qtd.'].sum().reset_index().sort_values(by='Qtd.', ascending=False)
-    st.dataframe(cliente_totals, use_container_width=True)
+    # Totais por Cliente
+    st.markdown("### 📌 Totais por Cliente")
+    totais_cliente = df_tab2.groupby('Cliente')['Qtd.'].sum().reset_index().sort_values(by='Qtd.', ascending=False)
+    st.dataframe(totais_cliente, use_container_width=True)
 
-    # Totals by Artigo
-    st.markdown("### 📌 Totals by Artigo")
-    artigo_totals = df_tab2.groupby('Artigo')['Qtd.'].sum().reset_index().sort_values(by='Qtd.', ascending=False)
-    st.dataframe(artigo_totals, use_container_width=True)
+    # Totais por Artigo
+    st.markdown("### 📌 Totais por Artigo")
+    totais_artigo = df_tab2.groupby('Artigo')['Qtd.'].sum().reset_index().sort_values(by='Qtd.', ascending=False)
+    st.dataframe(totais_artigo, use_container_width=True)
 
-    # Bar chart
-    st.markdown("### 📊 Artigo Sales Chart")
-    st.bar_chart(artigo_totals.set_index('Artigo'))
+    # Gráfico de barras
+    st.markdown("### 📊 Gráfico de Vendas por Artigo")
+    st.bar_chart(totais_artigo.set_index('Artigo'))
