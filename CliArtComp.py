@@ -1,0 +1,292 @@
+import streamlit as st
+import pandas as pd
+import requests
+from io import BytesIO
+import numpy as np
+from datetime import datetime
+
+# Custom CSS for modern, colorful UI
+custom_css = """
+<style>
+/* CSS Variables for colors */
+:root {
+    --primary: #4F46E5; /* Indigo */
+    --secondary: #EC4899; /* Pink */
+    --accent: #FBBF24; /* Amber */
+    --success: #10B981; /* Green */
+    --error: #EF4444; /* Red */
+    --bg: #F9FAFB; /* Light gray */
+    --text: #1F2937; /* Dark gray */
+    --card-bg: #FFFFFF;
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #111827;
+        --card-bg: #1F2937;
+        --text: #F9FAFB;
+    }
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+}
+
+.stApp {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+h1 {
+    background: linear-gradient(90deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+}
+
+.stButton > button {
+    background: linear-gradient(90deg, var(--primary), var(--secondary));
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    transition: transform 0.2s;
+}
+
+.stButton > button:hover {
+    transform: scale(1.05);
+}
+
+.stDataFrame {
+    background: var(--card-bg);
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    padding: 1rem;
+}
+
+.stMetric {
+    background: var(--card-bg);
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.alert-success {
+    background: var(--success);
+    color: white;
+    padding: 0.75rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.alert-error {
+    background: var(--error);
+    color: white;
+    padding: 0.75rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+</style>
+"""
+st.markdown(custom_css, unsafe_allow_html=True)
+
+# Meses em português
+meses_pt = {
+    1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+    5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+    9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+}
+
+def obter_numero_mes(nome_mes):
+    if not isinstance(nome_mes, str):
+        return None
+    nome_mes = nome_mes.strip().lower()
+    for k, v in meses_pt.items():
+        if nome_mes == v.lower() or nome_mes.startswith(v.lower()[:3]):
+            return k
+    return None
+
+def validar_colunas(df):
+    colunas_esperadas = {
+        'Código': ['código', 'codigo'],
+        'Cliente': ['cliente', 'cliente nome', 'nome cliente'],
+        'Qtd.': ['qtd.', 'quantidade', 'qtd', 'qtde'],
+        'Artigo': ['artigo', 'produto', 'item', 'artigo vendido'],
+        'Mês': ['mês', 'mes', 'mês de venda', 'month'],
+        'Ano': ['ano', 'year']
+    }
+    df.columns = df.columns.str.strip().str.lower()
+    renomear = {}
+    for padrao, alternativas in colunas_esperadas.items():
+        for alt in alternativas:
+            if alt.lower() in df.columns:
+                renomear[alt.lower()] = padrao
+                break
+    df = df.rename(columns=renomear)
+    faltando = [col for col in ['Cliente', 'Qtd.', 'Artigo', 'Mês', 'Ano'] if col not in df.columns]
+    return df, faltando
+
+@st.cache_data
+def load_data():
+    try:
+        url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
+        response = requests.get(url)
+        response.raise_for_status()
+        xls = pd.ExcelFile(BytesIO(response.content))
+        df_raw = pd.read_excel(xls, sheet_name=0)
+        df, faltando = validar_colunas(df_raw)
+        
+        if df['Mês'].dtype == 'object':
+            df['Mês'] = df['Mês'].apply(obter_numero_mes)
+        df['Mês'] = pd.to_numeric(df['Mês'], errors='coerce').astype('Int64')
+        df = df.dropna(subset=['Mês'])
+        df = df[df['Mês'].between(1, 12)]
+        
+        df['Ano'] = pd.to_numeric(df['Ano'], errors='coerce').astype('Int64')
+        df = df.dropna(subset=['Ano'])
+        
+        df['Qtd.'] = pd.to_numeric(df['Qtd.'], errors='coerce')
+        df = df.dropna(subset=['Cliente', 'Artigo', 'Qtd.', 'Mês', 'Ano'])
+        
+        return df, faltando
+    except Exception as e:
+        st.error(f"Erro ao carregar dados: {str(e)}")
+        return None, [str(e)]
+
+# Load data
+df, faltando = load_data()
+if df is None:
+    for erro in faltando:
+        st.error(erro)
+    st.stop()
+
+st.title("📊 Comparador de Vendas: Cliente/Artigo por Mês")
+
+# Seleção de ano e meses
+col1, col2 = st.columns(2)
+with col1:
+    anos_disponiveis = sorted(df['Ano'].unique())
+    ano_selecionado = st.selectbox("Selecionar Ano", anos_disponiveis, index=len(anos_disponiveis)-1 if anos_disponiveis else 0)
+
+with col2:
+    df_ano = df[df['Ano'] == ano_selecionado]
+    meses_disponiveis = sorted(df_ano['Mês'].unique())
+    nomes_meses = [meses_pt.get(int(m), f"Mês {m}") for m in meses_disponiveis]
+    selected_meses = st.multiselect("Selecionar Meses para Comparação", nomes_meses, default=nomes_meses[:3] if nomes_meses else [])
+
+if not selected_meses:
+    st.warning("Selecione pelo menos um mês para prosseguir.")
+    st.stop()
+
+meses_nums = [obter_numero_mes(m) for m in selected_meses if obter_numero_mes(m) is not None]
+df_filtrado = df_ano[df_ano['Mês'].isin(meses_nums)]
+
+# Filtros opcionais
+st.subheader("Filtros Opcionais")
+col3, col4 = st.columns(2)
+with col3:
+    clientes = st.multiselect("Filtrar por Cliente", sorted(df_filtrado['Cliente'].unique()))
+with col4:
+    artigos = st.multiselect("Filtrar por Artigo", sorted(df_filtrado['Artigo'].unique()))
+
+if clientes:
+    df_filtrado = df_filtrado[df_filtrado['Cliente'].isin(clientes)]
+if artigos:
+    df_filtrado = df_filtrado[df_filtrado['Artigo'].isin(artigos)]
+
+# Cálculo da matriz com variações
+st.subheader("Matriz de Quantidades por Cliente/Artigo")
+with st.spinner("Calculando..."):
+    pivot = df_filtrado.pivot_table(
+        index=['Cliente', 'Artigo'],
+        columns='Mês',
+        values='Qtd.',
+        aggfunc='sum',
+        fill_value=0
+    ).reset_index()
+    
+    # Renomear colunas para nomes de meses
+    month_map = {int(col): meses_pt.get(int(col), f"Mês {col}") for col in pivot.columns[2:]}
+    pivot = pivot.rename(columns=month_map)
+    
+    # Ordenar colunas por ordem cronológica
+    month_cols = [meses_pt[m] for m in sorted(meses_nums) if meses_pt[m] in pivot.columns]
+    other_cols = ['Cliente', 'Artigo']
+    pivot = pivot[other_cols + month_cols]
+    
+    # Adicionar totais e variações
+    if len(month_cols) > 1:
+        pivot['Total'] = pivot[month_cols].sum(axis=1)
+        for i in range(1, len(month_cols)):
+            prev = month_cols[i-1]
+            curr = month_cols[i]
+            var_col = f"Variação {curr} vs {prev} (%)"
+            pivot[var_col] = ((pivot[curr] - pivot[prev]) / pivot[prev].replace(0, np.nan) * 100).round(2).fillna(0)
+    
+    pivot = pivot.sort_values('Total' if 'Total' in pivot.columns else month_cols[-1], ascending=False)
+    
+    st.dataframe(pivot, use_container_width=True)
+
+# Alertas de variações significativas
+if len(month_cols) > 1:
+    st.subheader("🚨 Alertas de Variações")
+    threshold_aumento = 50
+    threshold_reducao = -50
+    alertas = []
+    for i in range(1, len(month_cols)):
+        prev = month_cols[i-1]
+        curr = month_cols[i]
+        var_col = f"Variação {curr} vs {prev} (%)"
+        significant = pivot[(pivot[var_col] > threshold_aumento) | (pivot[var_col] < threshold_reducao)]
+        for _, row in significant.iterrows():
+            var = row[var_col]
+            if var > threshold_aumento:
+                alertas.append(f"<div class='alert-success'>↑ Aumento significativo: {row['Cliente']} / {row['Artigo']} - {var:.1f}% em {curr}</div>")
+            elif var < threshold_reducao:
+                alertas.append(f"<div class='alert-error'>↓ Redução significativa: {row['Cliente']} / {row['Artigo']} - {var:.1f}% em {curr}</div>")
+    
+    if alertas:
+        for alerta in alertas:
+            st.markdown(alerta, unsafe_allow_html=True)
+    else:
+        st.info("Nenhuma variação significativa detectada.")
+
+# KPIs resumidos
+st.subheader("📈 KPIs Resumidos")
+col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
+total_qtd = df_filtrado['Qtd.'].sum()
+num_clientes = df_filtrado['Cliente'].nunique()
+num_artigos = df_filtrado['Artigo'].nunique()
+
+with col_kpi1:
+    st.metric("Quantidade Total", f"{total_qtd:.0f}")
+with col_kpi2:
+    st.metric("Clientes Únicos", num_clientes)
+with col_kpi3:
+    st.metric("Artigos Únicos", num_artigos)
+
+# Exportação
+def export_to_excel(pivot_df):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        pivot_df.to_excel(writer, index=False, sheet_name='Matriz_Cliente_Artigo')
+        workbook = writer.book
+        worksheet = writer.sheets['Matriz_Cliente_Artigo']
+        worksheet.set_column('A:Z', 20)
+    output.seek(0)
+    return output
+
+st.subheader("📥 Exportar Relatório")
+if st.button("Gerar Excel"):
+    excel_data = export_to_excel(pivot)
+    st.download_button(
+        label="Baixar Matriz em Excel",
+        data=excel_data,
+        file_name=f"Comparacao_Cliente_Artigo_{ano_selecionado}_{'_'.join(selected_meses)}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
