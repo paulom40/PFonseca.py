@@ -6,6 +6,151 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 
+# Custom CSS for professional and modern styling
+custom_css = """
+<style>
+/* General styling */
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #F3F4F6;
+    color: #1E293B;
+}
+
+/* Main container */
+.stApp {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Headers */
+h1, h2, h3 {
+    color: #1E3A8A;
+    font-weight: 600;
+    margin-bottom: 15px;
+}
+h1 {
+    font-size: 2.5rem;
+    border-bottom: 2px solid #F97316;
+    padding-bottom: 10px;
+}
+h2 {
+    font-size: 1.8rem;
+}
+h3 {
+    font-size: 1.4rem;
+}
+
+/* Cards for sections */
+.stMarkdown, .stDataFrame, .stMetric, .stExpander {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+/* Metrics */
+.stMetric {
+    border: 1px solid #E5E7EB;
+    transition: transform 0.2s;
+}
+.stMetric:hover {
+    transform: translateY(-2px);
+}
+.stMetric label {
+    font-size: 1rem;
+    color: #4B5563;
+}
+.stMetric .metric-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1E3A8A;
+}
+
+/* Buttons */
+button[kind="primary"] {
+    background-color: #1E3A8A;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+button[kind="primary"]:hover {
+    background-color: #3B82F6;
+}
+button[kind="secondary"] {
+    background-color: #E5E7EB;
+    color: #1E293B;
+    border-radius: 8px;
+    padding: 10px 20px;
+}
+
+/* Dataframe */
+.stDataFrame {
+    border: 1px solid #E5E7EB;
+}
+.stDataFrame table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.stDataFrame th {
+    background-color: #1E3A8A;
+    color: white;
+    padding: 12px;
+}
+.stDataFrame td {
+    padding: 12px;
+    border-bottom: 1px solid #E5E7EB;
+}
+
+/* Expander */
+.stExpander {
+    border: 1px solid #E5E7EB;
+}
+.stExpander summary {
+    background-color: #F9FAFB;
+    font-weight: 500;
+    color: #1E3A8A;
+}
+
+/* Alerts */
+.alert-success {
+    background-color: #DCFCE7;
+    color: #166534;
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+.alert-error {
+    background-color: #FEE2E2;
+    color: #991B1B;
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .stApp {
+        padding: 10px;
+    }
+    h1 {
+        font-size: 2rem;
+    }
+    h2 {
+        font-size: 1.5rem;
+    }
+    .stMetric {
+        padding: 15px;
+    }
+}
+</style>
+"""
+st.markdown(custom_css, unsafe_allow_html=True)
+
 # Meses em português
 meses_pt = {
     1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
@@ -168,6 +313,22 @@ def calcular_alertas(df, mes_num, ano, threshold_aumento=50, threshold_reducao=-
 
     return alertas_clientes, alertas_artigos
 
+# Configurar estilo dos gráficos
+plt.style.use('seaborn-v0_8-whitegrid')
+plt.rcParams.update({
+    'font.family': 'Inter',
+    'text.color': '#1E293B',
+    'axes.labelcolor': '#1E293B',
+    'xtick.color': '#1E293B',
+    'ytick.color': '#1E293B',
+    'axes.edgecolor': '#1E293B',
+    'axes.titleweight': 'bold',
+    'axes.titlesize': 14,
+    'axes.labelsize': 12,
+    'xtick.labelsize': 10,
+    'ytick.labelsize': 10
+})
+
 # Opção de comparação 2024 vs 2025
 st.subheader("Comparação de Dados")
 compare_years = st.checkbox("Comparar mesmo mês entre 2024 e 2025")
@@ -241,7 +402,7 @@ if compare_years:
     merged_clientes['Crescimento Qtd. (%)'] = ((merged_clientes['Qtd._2025'] - merged_clientes['Qtd._2024']) / merged_clientes['Qtd._2024'].replace(0, np.nan) * 100).round(2)
     kpi_df = merged_clientes[['Cliente', 'Qtd._2024', 'Qtd._2025', 'Crescimento Qtd. (%)']].fillna({'Qtd._2024': 0, 'Qtd._2025': 0})
 
-    # Calcular alertas para 2025 (comparado com mês anterior)
+    # Calcular alertas para 2025
     alertas_clientes, alertas_artigos = calcular_alertas(df, mes_num, 2025)
 
     st.subheader(f"🚨 Alertas de Quantidade: {mes_label} 2025 vs Mês Anterior")
@@ -249,18 +410,18 @@ if compare_years:
         st.markdown("**Clientes com variações significativas**")
         for _, row in alertas_clientes.iterrows():
             if row['Variação (%)'] > 50:
-                st.success(f"✔ {row['Cliente']}: Aumento de {row['Variação (%)']:.1f}% (Atual: {row['Qtd._Atual']:.0f}, Anterior: {row['Qtd._Anterior']:.0f})")
+                st.markdown(f"<div class='alert-success'>✔ {row['Cliente']}: Aumento de {row['Variação (%)']:.1f}% (Atual: {row['Qtd._Atual']:.0f}, Anterior: {row['Qtd._Anterior']:.0f})</div>", unsafe_allow_html=True)
             else:
-                st.error(f"❌ {row['Cliente']}: Redução de {row['Variação (%)']:.1f}% (Atual: {row['Qtd._Atual']:.0f}, Anterior: {row['Qtd._Anterior']:.0f})")
+                st.markdown(f"<div class='alert-error'>❌ {row['Cliente']}: Redução de {row['Variação (%)']:.1f}% (Atual: {row['Qtd._Atual']:.0f}, Anterior: {row['Qtd._Anterior']:.0f})</div>", unsafe_allow_html=True)
     else:
         st.info("Nenhum alerta para clientes.")
     if not alertas_artigos.empty:
         st.markdown("**Artigos com variações significativas**")
         for _, row in alertas_artigos.iterrows():
             if row['Variação (%)'] > 50:
-                st.success(f"✔ {row['Artigo']}: Aumento de {row['Variação (%)']:.1f}% (Atual: {row['Qtd._Atual']:.0f}, Anterior: {row['Qtd._Anterior']:.0f})")
+                st.markdown(f"<div class='alert-success'>✔ {row['Artigo']}: Aumento de {row['Variação (%)']:.1f}% (Atual: {row['Qtd._Atual']:.0f}, Anterior: {row['Qtd._Anterior']:.0f})</div>", unsafe_allow_html=True)
             else:
-                st.error(f"❌ {row['Artigo']}: Redução de {row['Variação (%)']:.1f}% (Atual: {row['Qtd._Atual']:.0f}, Anterior: {row['Qtd._Anterior']:.0f})")
+                st.markdown(f"<div class='alert-error'>❌ {row['Artigo']}: Redução de {row['Variação (%)']:.1f}% (Atual: {row['Qtd._Atual']:.0f}, Anterior: {row['Qtd._Anterior']:.0f})</div>", unsafe_allow_html=True)
     else:
         st.info("Nenhum alerta para artigos.")
     with st.expander("Detalhes dos Alertas"):
@@ -304,8 +465,8 @@ if compare_years:
             x = np.arange(len(clientes))
             qtd_2024 = [totais_cliente_2024[totais_cliente_2024['Cliente'] == c]['Qtd.'].sum() for c in clientes]
             qtd_2025 = [totais_cliente_2025[totais_cliente_2025['Cliente'] == c]['Qtd.'].sum() for c in clientes]
-            ax1.bar(x - width/2, qtd_2024, width, label='2024', color='#4e79a7')
-            ax1.bar(x + width/2, qtd_2025, width, label='2025', color='#f28e2b')
+            ax1.bar(x - width/2, qtd_2024, width, label='2024', color='#1E3A8A')
+            ax1.bar(x + width/2, qtd_2025, width, label='2025', color='#F97316')
             ax1.set_ylabel('Quantidade')
             ax1.set_title(f'Top Clientes por Quantidade - {mes_label}')
             ax1.set_xticks(x)
@@ -322,8 +483,8 @@ if compare_years:
             x = np.arange(len(categorias))
             valor_2024 = [totais_categoria_2024[totais_categoria_2024['Categoria'] == c]['V. Líquido'].sum() for c in categorias]
             valor_2025 = [totais_categoria_2025[totais_categoria_2025['Categoria'] == c]['V. Líquido'].sum() for c in categorias]
-            ax2.bar(x - width/2, valor_2024, width, label='2024', color='#4e79a7')
-            ax2.bar(x + width/2, valor_2025, width, label='2025', color='#f28e2b')
+            ax2.bar(x - width/2, valor_2024, width, label='2024', color='#1E3A8A')
+            ax2.bar(x + width/2, valor_2025, width, label='2025', color='#F97316')
             ax2.set_ylabel('Valor Líquido')
             ax2.set_title(f'Top Categorias por Valor Líquido - {mes_label}')
             ax2.set_xticks(x)
@@ -384,18 +545,18 @@ else:
         st.markdown("**Clientes com variações significativas**")
         for _, row in alertas_clientes.iterrows():
             if row['Variação (%)'] > 50:
-                st.success(f"✔ {row['Cliente']}: Aumento de {row['Variação (%)']:.1f}% (Atual: {row['Qtd._Atual']:.0f}, Anterior: {row['Qtd._Anterior']:.0f})")
+                st.markdown(f"<div class='alert-success'>✔ {row['Cliente']}: Aumento de {row['Variação (%)']:.1f}% (Atual: {row['Qtd._Atual']:.0f}, Anterior: {row['Qtd._Anterior']:.0f})</div>", unsafe_allow_html=True)
             else:
-                st.error(f"❌ {row['Cliente']}: Redução de {row['Variação (%)']:.1f}% (Atual: {row['Qtd._Atual']:.0f}, Anterior: {row['Qtd._Anterior']:.0f})")
+                st.markdown(f"<div class='alert-error'>❌ {row['Cliente']}: Redução de {row['Variação (%)']:.1f}% (Atual: {row['Qtd._Atual']:.0f}, Anterior: {row['Qtd._Anterior']:.0f})</div>", unsafe_allow_html=True)
     else:
         st.info("Nenhum alerta para clientes.")
     if not alertas_artigos.empty:
         st.markdown("**Artigos com variações significativas**")
         for _, row in alertas_artigos.iterrows():
             if row['Variação (%)'] > 50:
-                st.success(f"✔ {row['Artigo']}: Aumento de {row['Variação (%)']:.1f}% (Atual: {row['Qtd._Atual']:.0f}, Anterior: {row['Qtd._Anterior']:.0f})")
+                st.markdown(f"<div class='alert-success'>✔ {row['Artigo']}: Aumento de {row['Variação (%)']:.1f}% (Atual: {row['Qtd._Atual']:.0f}, Anterior: {row['Qtd._Anterior']:.0f})</div>", unsafe_allow_html=True)
             else:
-                st.error(f"❌ {row['Artigo']}: Redução de {row['Variação (%)']:.1f}% (Atual: {row['Qtd._Atual']:.0f}, Anterior: {row['Qtd._Anterior']:.0f})")
+                st.markdown(f"<div class='alert-error'>❌ {row['Artigo']}: Redução de {row['Variação (%)']:.1f}% (Atual: {row['Qtd._Atual']:.0f}, Anterior: {row['Qtd._Anterior']:.0f})</div>", unsafe_allow_html=True)
     else:
         st.info("Nenhum alerta para artigos.")
     with st.expander("Detalhes dos Alertas"):
@@ -446,7 +607,7 @@ else:
             st.markdown(f"**Totais por Cliente (Quantidade) - {mes_label} {ano_selecionado}**")
             fig1, ax1 = plt.subplots(figsize=(6, 4))
             top_clientes = totais_cliente.head(10)
-            ax1.barh(top_clientes['Cliente'], top_clientes['Qtd.'], color='#4e79a7')
+            ax1.barh(top_clientes['Cliente'], top_clientes['Qtd.'], color='#1E3A8A')
             ax1.set_xlabel('Quantidade')
             ax1.set_title(f'Top 10 Clientes por Quantidade')
             plt.tight_layout()
@@ -457,7 +618,7 @@ else:
             st.markdown(f"**Totais por Categoria (Valor Líquido) - {mes_label} {ano_selecionado}**")
             fig2, ax2 = plt.subplots(figsize=(6, 4))
             top_categorias = totais_categoria.head(8)
-            ax2.pie(top_categorias['V. Líquido'], labels=top_categorias['Categoria'], autopct='%1.1f%%', colors=['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948', '#b07aa1', '#ff9da7'])
+            ax2.pie(top_categorias['V. Líquido'], labels=top_categorias['Categoria'], autopct='%1.1f%%', colors=['#1E3A8A', '#F97316', '#EF4444', '#10B981', '#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899'])
             ax2.set_title(f'Top 8 Categorias por Valor Líquido')
             plt.tight_layout()
             st.pyplot(fig2)
