@@ -815,26 +815,48 @@ def exportar_excel_completo(dados_df, cliente_df, artigo_df, categoria_df, comer
     return output
 
 # Botão de exportação
+# No final do código, substitua a seção do botão de exportação por:
+
+# Botão de exportação
 if st.button("📥 Exportar Relatório para Excel"):
-    if compare_years:
-        excel_data = exportar_excel_completo(
-            df_2025, totais_cliente_2025, totais_artigo, totais_categoria_2025, totais_comercial,
-            kpi_df, alertas_clientes, alertas_artigos, mes_label, mes_num, 2025, compare_years=True,
-            df_2024=df_2024, df_2025=df_2025,
-            totais_cliente_2024=totais_cliente_2024, totais_cliente_2025=totais_cliente_2025,
-            totais_categoria_2024=totais_categoria_2024, totais_categoria_2025=totais_categoria_2025
+    try:
+        if compare_years:
+            # Preparar dados para exportação no modo de comparação
+            totais_artigo_2024 = df_2024.groupby('Artigo').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False)
+            totais_artigo_2025 = df_2025.groupby('Artigo').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False)
+            totais_comercial_2024 = df_2024.groupby('Comercial').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False) if 'Comercial' in df_2024.columns else pd.DataFrame()
+            totais_comercial_2025 = df_2025.groupby('Comercial').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False) if 'Comercial' in df_2025.columns else pd.DataFrame()
+            
+            excel_data = exportar_excel_completo(
+                df_2025, totais_cliente_2025, totais_artigo_2025, totais_categoria_2025, totais_comercial_2025,
+                kpi_df, alertas_clientes, alertas_artigos, mes_label, mes_num, 2025, compare_years=True,
+                df_2024=df_2024, df_2025=df_2025,
+                totais_cliente_2024=totais_cliente_2024, totais_cliente_2025=totais_cliente_2025,
+                totais_categoria_2024=totais_categoria_2024, totais_categoria_2025=totais_categoria_2025
+            )
+            file_name = f"Relatorio_Comercial_{mes_label}_2024_2025.xlsx"
+        else:
+            # Preparar dados para exportação no modo normal
+            totais_artigo = df_filtrado.groupby('Artigo').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False)
+            totais_categoria = df_filtrado.groupby('Categoria').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False) if 'Categoria' in df_filtrado.columns else pd.DataFrame()
+            totais_comercial = df_filtrado.groupby('Comercial').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False) if 'Comercial' in df_filtrado.columns else pd.DataFrame()
+            
+            excel_data = exportar_excel_completo(
+                df_filtrado, totais_cliente, totais_artigo, totais_categoria, totais_comercial,
+                kpi_df, alertas_clientes, alertas_artigos, mes_label, mes_num, ano_selecionado
+            )
+            file_name = f"Relatorio_Comercial_{mes_label}_{ano_selecionado}.xlsx"
+        
+        st.download_button(
+            label="Baixar Relatório",
+            data=excel_data,
+            file_name=file_name,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-        file_name = f"Relatorio_Comercial_{mes_label}_2024_2025.xlsx"
-    else:
-        excel_data = exportar_excel_completo(
-            df_filtrado, totais_cliente, totais_artigo, totais_categoria, totais_comercial,
-            kpi_df, alertas_clientes, alertas_artigos, mes_label, mes_num, ano_selecionado
-        )
-        file_name = f"Relatorio_Comercial_{mes_label}_{ano_selecionado}.xlsx"
+        st.success("✅ Relatório gerado com sucesso!")
+        
+    except Exception as e:
+        st.error(f"❌ Erro ao gerar relatório: {str(e)}")
+        st.info("💡 Dica: Verifique se todos os dados necessários estão disponíveis para a exportação.")
     
-    st.download_button(
-        label="Baixar Relatório",
-        data=excel_data,
-        file_name=file_name,
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    
