@@ -45,7 +45,15 @@ with tab1:
         meses_disponiveis = sorted(df['Mês'].unique())
         nomes_meses = [meses_pt[m] for m in meses_disponiveis]
         mes_selecionado_label = st.selectbox("Selecionar Mês", nomes_meses, key="month1")
-        mes_selecionado = meses_pt_invertido.get(mes_selecionado_label.lower())
+
+        if isinstance(mes_selecionado_label, str):
+            mes_selecionado = meses_pt_invertido.get(mes_selecionado_label.lower())
+            if mes_selecionado is None:
+                st.error("❌ Mês selecionado não reconhecido.")
+                st.stop()
+        else:
+            st.error("❌ Erro ao interpretar o mês selecionado.")
+            st.stop()
 
         clientes = st.multiselect("Filtrar por Cliente", sorted(df['Cliente'].unique()), key="cliente1")
         artigos = st.multiselect("Filtrar por Artigo", sorted(df['Artigo'].unique()), key="artigo1")
@@ -104,7 +112,15 @@ with tab2:
 
     nomes_meses2 = [meses_pt[m] for m in sorted(df['Mês'].unique())]
     mes_label2 = st.selectbox("Selecionar Mês", nomes_meses2, key="month2")
-    mes2 = meses_pt_invertido.get(mes_label2.lower())
+
+    if isinstance(mes_label2, str):
+        mes2 = meses_pt_invertido.get(mes_label2.lower())
+        if mes2 is None:
+            st.error("❌ Mês selecionado não reconhecido.")
+            st.stop()
+    else:
+        st.error("❌ Erro ao interpretar o mês selecionado.")
+        st.stop()
 
     cliente2 = st.multiselect("Selecionar Cliente", sorted(df['Cliente'].unique()), key="cliente2")
     artigo2 = st.multiselect("Selecionar Artigo", sorted(df['Artigo'].unique()), key="artigo2")
