@@ -11,9 +11,13 @@ meses_pt = {
     5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
     9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
 }
-meses_pt_invertido = {v.lower(): k for k, v in meses_pt.items()}
 
-# Carregar Excel do GitHub
+def obter_numero_mes(nome_mes):
+    for k, v in meses_pt.items():
+        if v == nome_mes:
+            return k
+    return None
+
 @st.cache_data
 def load_data():
     url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
@@ -29,43 +33,34 @@ df = load_data()
 if 'Data' not in df.columns:
     df['Data'] = pd.to_datetime(dict(year=df['Ano'], month=df['Mês'], day=1), errors='coerce')
 
-# Limpeza
 df = df.dropna(subset=['Data', 'Qtd.', 'Cliente', 'Artigo'])
 
-# Tabs
 tab1, tab2 = st.tabs(["📊 Comparativo Ano a Ano", "🔎 Filtro por Artigo e Cliente"])
 
 # -------------------- TAB 1 --------------------
 with tab1:
     st.title("📊 Comparativo Ano a Ano")
 
-    # Filtros na barra lateral
     with st.sidebar:
         st.markdown("### 🔍 Filtros")
         meses_disponiveis = sorted(df['Mês'].unique())
         nomes_meses = [meses_pt[m] for m in meses_disponiveis]
         mes_selecionado_label = st.selectbox("Selecionar Mês", nomes_meses, key="month1")
+        mes_selecionado = obter_numero_mes(mes_selecionado_label)
 
-        if isinstance(mes_selecionado_label, str):
-            mes_selecionado = meses_pt_invertido.get(mes_selecionado_label.lower())
-            if mes_selecionado is None:
-                st.error("❌ Mês selecionado não reconhecido.")
-                st.stop()
-        else:
-            st.error("❌ Erro ao interpretar o mês selecionado.")
+        if mes_selecionado is None:
+            st.error("❌ Mês selecionado não reconhecido.")
             st.stop()
 
         clientes = st.multiselect("Filtrar por Cliente", sorted(df['Cliente'].unique()), key="cliente1")
         artigos = st.multiselect("Filtrar por Artigo", sorted(df['Artigo'].unique()), key="artigo1")
 
-    # Aplicar filtros
     df_filtrado = df[df['Mês'] == mes_selecionado]
     if clientes:
         df_filtrado = df_filtrado[df_filtrado['Cliente'].isin(clientes)]
     if artigos:
         df_filtrado = df_filtrado[df_filtrado['Artigo'].isin(artigos)]
 
-    # Comparar ano atual vs anterior
     ano_atual = df_filtrado['Ano'].max()
     ano_passado = ano_atual - 1
     df_comparativo = df_filtrado[df_filtrado['Ano'].isin([ano_passado, ano_atual])]
@@ -112,14 +107,10 @@ with tab2:
 
     nomes_meses2 = [meses_pt[m] for m in sorted(df['Mês'].unique())]
     mes_label2 = st.selectbox("Selecionar Mês", nomes_meses2, key="month2")
+    mes2 = obter_numero_mes(mes_label2)
 
-    if isinstance(mes_label2, str):
-        mes2 = meses_pt_invertido.get(mes_label2.lower())
-        if mes2 is None:
-            st.error("❌ Mês selecionado não reconhecido.")
-            st.stop()
-    else:
-        st.error("❌ Erro ao interpretar o mês selecionado.")
+    if mes2 is None:
+        st.error("❌ Mês selecionado não reconhecido.")
         st.stop()
 
     cliente2 = st.multiselect("Selecionar Cliente", sorted(df['Cliente'].unique()), key="cliente2")
