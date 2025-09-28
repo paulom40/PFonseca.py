@@ -3,6 +3,7 @@ import pandas as pd
 from io import BytesIO
 import requests
 from datetime import datetime
+import matplotlib.pyplot as plt
 import numpy as np
 
 # Meses em português
@@ -93,9 +94,9 @@ def load_data():
         df['Ano'] = df['Ano'].astype(int)
 
         # Ensure other columns are properly typed
+        df['Código'] = df['Código'].astype(str)
         df['Cliente'] = df['Cliente'].astype(str)
         df['Artigo'] = df['Artigo'].astype(str)
-        df['Código'] = df['Código'].astype(str)
         df['Categoria'] = df['Categoria'].astype(str) if 'Categoria' in df.columns else ''
         df['Comercial'] = df['Comercial'].astype(str) if 'Comercial' in df.columns else ''
         df['Qtd.'] = pd.to_numeric(df['Qtd.'], errors='coerce')
@@ -150,14 +151,20 @@ with col2:
             st.error(f"❌ Mês '{mes_label}' não reconhecido.")
             st.stop()
     else:
-        st.warning("⚠️ Nenhum mês disponível nos dados.")
+        st.warning("⚠️ Nenhum mês disponível nos dados para o ano selecionado.")
         st.stop()
 
 # Filtros adicionais
-clientes = st.multiselect("Filtrar por Cliente", sorted(df_ano['Cliente'].unique()))
-artigos = st.multiselect("Filtrar por Artigo", sorted(df_ano['Artigo'].unique()))
-categorias = st.multiselect("Filtrar por Categoria", sorted(df_ano['Categoria'].unique())) if 'Categoria' in df_ano.columns else []
-comerciais = st.multiselect("Filtrar por Comercial", sorted(df_ano['Comercial'].unique())) if 'Comercial' in df_ano.columns else []
+st.subheader("Filtros Adicionais")
+col3, col4, col5, col6 = st.columns(4)
+with col3:
+    clientes = st.multiselect("Filtrar por Cliente", sorted(df_ano['Cliente'].unique()))
+with col4:
+    artigos = st.multiselect("Filtrar por Artigo", sorted(df_ano['Artigo'].unique()))
+with col5:
+    categorias = st.multiselect("Filtrar por Categoria", sorted(df_ano['Categoria'].unique())) if 'Categoria' in df_ano.columns else []
+with col6:
+    comerciais = st.multiselect("Filtrar por Comercial", sorted(df_ano['Comercial'].unique())) if 'Comercial' in df_ano.columns else []
 
 # Aplicar filtros
 df_filtrado = df_ano[df_ano['Mês'] == mes_num]
@@ -171,37 +178,135 @@ if comerciais:
     df_filtrado = df_filtrado[df_filtrado['Comercial'].isin(comerciais)]
 
 st.subheader("📋 Dados Filtrados")
-st.dataframe(df_filtrado[['Código', 'Cliente', 'Artigo', 'Qtd.', 'V. Líquido', 'Categoria', 'Comercial', 'Data']], use_container_width=True)
+st.dataframe(df_filtrado[['Código', 'Cliente', 'Artigo', 'Qtd.', 'V. Líquido', 'PM', 'UN', 'Categoria', 'Comercial', 'Mês', 'Ano']], use_container_width=True)
 
 # Totais
 totais_cliente = df_filtrado.groupby('Cliente').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False)
 totais_artigo = df_filtrado.groupby('Artigo').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False)
 totais_categoria = df_filtrado.groupby('Categoria').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False) if 'Categoria' in df_filtrado.columns else pd.DataFrame()
+totais_comercial = df_filtrado.groupby('Comercial').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False) if 'Comercial' in df_filtrado.columns else pd.DataFrame()
 
-# Visualizações com Chart.js
+# Visualizações com Matplotlib
 st.subheader("📈 Visualizações")
+col7, col8 = st.columns(2)
 
-# Chart: Quantidade por Cliente
-st.markdown("**Totais por Cliente (Quantidade)**")
-if not totais_cliente.empty:
-    ```chartjs
-    {
-        "type": "bar",
-        "data": {
-            "labels": [row["Cliente"] for row in totais_cliente.head(10).to_dict("records")],
-            "datasets": [{
-                "label": "Quantidade",
-                "data": [row["Qtd."] for row in totais_cliente.head(10).to_dict("records")],
-                "backgroundColor": "#4e79a7",
-                "borderColor": "#2e4977",
-                "borderWidth": 1
-            }]
-        },
-        "options": {
-            "indexAxis": "y",
-            "scales": {
-                "x": {"title": {"display": true, "text": "Quantidade"}}
-            },
-            "plugins": {"title": {"display": true, "text": "Top 10 Clientes por Quantidade"}}
-        }
-    }
+with col7:
+    if not totais_cliente.empty:
+        st.markdown("**Totais por Cliente (Quantidade)**")
+        fig1, ax1 = plt.subplots(figsize=(6, 4))
+        top_clientes = totais_cliente.head(10)
+        ax1.barh(top_clientes['Cliente'], top_clientes['Qtd.'], color='#4e79a7')
+        ax1.set_xlabel('Quantidade')
+        ax1.set_title('Top 10 Clientes por Quantidade')
+        plt.tight_layout()
+        st.pyplot(fig1)
+
+with col8:
+    if not totais_categoria.empty:
+        st.markdown("**Totais por Categoria (Valor Líquido)**")
+        fig2, ax2 = plt.subplots(figsize=(6, 4))
+        top_categorias = totais_categoria.head(8)
+        ax2.pie(top_categorias['V. Líquido'], labels=top_categorias['Categoria'], autopct='%1.1f%%', colors=['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948', '#b07aa1', '#ff9da7'])
+        ax2.set_title('Top 8 Categorias por Valor Líquido')
+        plt.tight_layout()
+        st.pyplot(fig2)
+
+def exportar_excel_completo(dados_df, cliente_df, artigo_df, categoria_df, comercial_df, nome_mes, mes_num, ano):
+    output = BytesIO()
+    try:
+        logo_url = "https://github.com/paulom40/PFonseca.py/raw/main/Bracar.png"
+        logo_data = requests.get(logo_url).content
+    except:
+        logo_data = None
+        st.warning("⚠️ Não foi possível carregar o logotipo para o relatório.")
+
+    # Variações por Cliente e Artigo
+    variacoes = dados_df.groupby(['Cliente', 'Artigo', 'Mês'])['Qtd.'].sum().reset_index()
+    variacoes_pivot = variacoes.pivot_table(index=['Cliente', 'Artigo'], columns='Mês', values='Qtd.', fill_value=0).reset_index()
+
+    # Variações por Comercial
+    variacoes_comercial = dados_df.groupby(['Comercial', 'Cliente', 'Mês'])['Qtd.'].sum().reset_index() if 'Comercial' in dados_df.columns else pd.DataFrame()
+    variacoes_comercial_pivot = variacoes_comercial.pivot_table(index=['Comercial', 'Cliente'], columns='Mês', values='Qtd.', fill_value=0).reset_index() if not variacoes_comercial.empty else pd.DataFrame({'Aviso': ['Coluna "Comercial" não encontrada.']})
+
+    # Alertas de clientes inativos
+    mes_anterior = mes_num - 1 if mes_num > 1 else 12
+    ano_anterior = ano if mes_num > 1 else ano - 1
+    todos_clientes = sorted(df['Cliente'].unique())
+    clientes_ativos = sorted(df[(df['Mês'] == mes_anterior) & (df['Ano'] == ano_anterior)]['Cliente'].unique())
+    clientes_inativos = [c for c in todos_clientes if c not in clientes_ativos]
+    alertas_df = pd.DataFrame({'Cliente sem compras': clientes_inativos}) if clientes_inativos else pd.DataFrame({'Todos os clientes compraram': ['✔']})
+
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        workbook = writer.book
+        bold = workbook.add_format({'bold': True})
+        italic = workbook.add_format({'italic': True})
+
+        # Dados Filtrados
+        dados_df.to_excel(writer, index=False, sheet_name='Dados_Filtrados')
+        ws1 = writer.sheets['Dados_Filtrados']
+        ws1.set_column('A:Z', 20)
+        if logo_data:
+            ws1.insert_image('A1', '', {'image_data': BytesIO(logo_data), 'x_scale': 0.5, 'y_scale': 0.5})
+        ws1.write('C1', f'Relatório Comercial – {nome_mes} {ano}', bold)
+        ws1.write('C2', f'Gerado em: {datetime.now().strftime("%d/%m/%Y %H:%M")}', italic)
+
+        # Totais Cliente
+        cliente_df.to_excel(writer, index=False, sheet_name='Totais_Cliente')
+        ws2 = writer.sheets['Totais_Cliente']
+        ws2.set_column('A:Z', 20)
+        ws2.write('A1', f'Totais por Cliente – {nome_mes} {ano}', bold)
+        ws2.write('A2', f'Gerado em: {datetime.now().strftime("%d/%m/%Y %H:%M")}', italic)
+
+        # Totais Artigo
+        artigo_df.to_excel(writer, index=False, sheet_name='Totais_Artigo')
+        ws3 = writer.sheets['Totais_Artigo']
+        ws3.set_column('A:Z', 20)
+        ws3.write('A1', f'Totais por Artigo – {nome_mes} {ano}', bold)
+        ws3.write('A2', f'Gerado em: {datetime.now().strftime("%d/%m/%Y %H:%M")}', italic)
+
+        # Totais Categoria
+        if not categoria_df.empty:
+            categoria_df.to_excel(writer, index=False, sheet_name='Totais_Categoria')
+            ws4 = writer.sheets['Totais_Categoria']
+            ws4.set_column('A:Z', 20)
+            ws4.write('A1', f'Totais por Categoria – {nome_mes} {ano}', bold)
+            ws4.write('A2', f'Gerado em: {datetime.now().strftime("%d/%m/%Y %H:%M")}', italic)
+
+        # Totais Comercial
+        if not comercial_df.empty:
+            comercial_df.to_excel(writer, index=False, sheet_name='Totais_Comercial')
+            ws5 = writer.sheets['Totais_Comercial']
+            ws5.set_column('A:Z', 20)
+            ws5.write('A1', f'Totais por Comercial – {nome_mes} {ano}', bold)
+            ws5.write('A2', f'Gerado em: {datetime.now().strftime("%d/%m/%Y %H:%M")}', italic)
+
+        # Variações Cliente e Artigo
+        variacoes_pivot.to_excel(writer, index=False, sheet_name='Variacoes_Cliente_Artigo')
+        ws6 = writer.sheets['Variacoes_Cliente_Artigo']
+        ws6.set_column('A:Z', 20)
+        ws6.write('A1', f'Variações por Cliente e Artigo', bold)
+
+        # Variações Comercial
+        variacoes_comercial_pivot.to_excel(writer, index=False, sheet_name='Variacoes_Comercial')
+        ws7 = writer.sheets['Variacoes_Comercial']
+        ws7.set_column('A:Z', 20)
+        ws7.write('A1', f'Variações por Comercial', bold)
+
+        # Alertas
+        alertas_df.to_excel(writer, index=False, sheet_name='Alertas_Clientes_Inativos')
+        ws8 = writer.sheets['Alertas_Clientes_Inativos']
+        ws8.set_column('A:Z', 20)
+        ws8.write('A1', f'Alertas de Clientes Inativos no Mês Anterior', bold)
+
+    output.seek(0)
+    return output
+
+# Botão de exportação
+if st.button("📥 Exportar Relatório para Excel"):
+    excel_data = exportar_excel_completo(df_filtrado, totais_cliente, totais_artigo, totais_categoria, totais_comercial, mes_label, mes_num, ano_selecionado)
+    st.download_button(
+        label="Baixar Relatório",
+        data=excel_data,
+        file_name=f"Relatorio_Comercial_{mes_label}_{ano_selecionado}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
