@@ -63,10 +63,11 @@ def load_data():
         df_raw = pd.read_excel(xls, sheet_name=0)
 
         # Debug: Show raw data
-        st.write("**Colunas no arquivo bruto**:")
-        st.write(df_raw.columns.tolist())
-        for col in df_raw.columns:
-            st.write(f"**{col} (valores únicos)**: {df_raw[col].dropna().unique()[:10]}")
+        if st.checkbox("Mostrar dados brutos para depuração"):
+            st.write("**Colunas no arquivo bruto**:")
+            st.write(df_raw.columns.tolist())
+            for col in df_raw.columns:
+                st.write(f"**{col} (valores únicos)**: {df_raw[col].dropna().unique()[:10]}")
 
         df, colunas_detectadas, faltando = validar_colunas(df_raw)
 
@@ -107,9 +108,10 @@ def load_data():
         df = df.dropna(subset=['Código', 'Cliente', 'Qtd.', 'Artigo', 'Mês', 'Ano'])
 
         # Debug: Show processed data
-        st.write("**Colunas após processamento**:")
-        for col in df.columns:
-            st.write(f"**{col} (valores únicos)**: {df[col].dropna().unique()[:10]}")
+        if st.checkbox("Mostrar dados processados para depuração"):
+            st.write("**Colunas após processamento**:")
+            for col in df.columns:
+                st.write(f"**{col} (valores únicos)**: {df[col].dropna().unique()[:10]}")
 
         return df
     except Exception as e:
@@ -134,84 +136,185 @@ with st.expander("📋 Ver valores únicos por coluna"):
             except Exception as e:
                 st.warning(f"⚠️ Não foi possível exibir valores únicos para '{col}': {str(e)}")
 
-# Filtros
-col1, col2 = st.columns(2)
-with col1:
-    anos_disponiveis = sorted(df['Ano'].unique())
-    ano_selecionado = st.selectbox("Selecionar Ano", anos_disponiveis) if len(anos_disponiveis) > 1 else anos_disponiveis[0]
+# Opção de comparação 2024 vs 2025
+st.subheader("Comparação de Dados")
+compare_years = st.checkbox("Comparar mesmo mês entre 2024 e 2025")
 
-with col2:
-    df_ano = df[df['Ano'] == ano_selecionado]
-    meses_disponiveis = sorted(df_ano['Mês'].unique())
+if compare_years:
+    meses_disponiveis = sorted(df[df['Ano'].isin([2024, 2025])]['Mês'].unique())
     nomes_meses = [meses_pt.get(m, f"Mês {m}") for m in meses_disponiveis]
     if nomes_meses:
-        mes_label = st.selectbox("Selecionar Mês", nomes_meses)
+        mes_label = st.selectbox("Selecionar Mês para Comparação", nomes_meses)
         mes_num = obter_numero_mes(mes_label)
         if mes_num is None:
             st.error(f"❌ Mês '{mes_label}' não reconhecido.")
             st.stop()
     else:
-        st.warning("⚠️ Nenhum mês disponível nos dados para o ano selecionado.")
+        st.warning("⚠️ Nenhum mês disponível para os anos 2024 e 2025.")
         st.stop()
 
-# Filtros adicionais
-st.subheader("Filtros Adicionais")
-col3, col4, col5, col6 = st.columns(4)
-with col3:
-    clientes = st.multiselect("Filtrar por Cliente", sorted(df_ano['Cliente'].unique()))
-with col4:
-    artigos = st.multiselect("Filtrar por Artigo", sorted(df_ano['Artigo'].unique()))
-with col5:
-    categorias = st.multiselect("Filtrar por Categoria", sorted(df_ano['Categoria'].unique())) if 'Categoria' in df_ano.columns else []
-with col6:
-    comerciais = st.multiselect("Filtrar por Comercial", sorted(df_ano['Comercial'].unique())) if 'Comercial' in df_ano.columns else []
+    # Dados para 2024 e 2025
+    df_2024 = df[(df['Mês'] == mes_num) & (df['Ano'] == 2024)]
+    df_2025 = df[(df['Mês'] == mes_num) & (df['Ano'] == 2025)]
 
-# Aplicar filtros
-df_filtrado = df_ano[df_ano['Mês'] == mes_num]
-if clientes:
-    df_filtrado = df_filtrado[df_filtrado['Cliente'].isin(clientes)]
-if artigos:
-    df_filtrado = df_filtrado[df_filtrado['Artigo'].isin(artigos)]
-if categorias:
-    df_filtrado = df_filtrado[df_filtrado['Categoria'].isin(categorias)]
-if comerciais:
-    df_filtrado = df_filtrado[df_filtrado['Comercial'].isin(comerciais)]
+    # Filtros adicionais
+    st.subheader("Filtros Adicionais")
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        clientes = st.multiselect("Filtrar por Cliente", sorted(df[df['Mês'] == mes_num]['Cliente'].unique()))
+    with col2:
+        artigos = st.multiselect("Filtrar por Artigo", sorted(df[df['Mês'] == mes_num]['Artigo'].unique()))
+    with col3:
+        categorias = st.multiselect("Filtrar por Categoria", sorted(df[df['Mês'] == mes_num]['Categoria'].unique())) if 'Categoria' in df.columns else []
+    with col4:
+        comerciais = st.multiselect("Filtrar por Comercial", sorted(df[df['Mês'] == mes_num]['Comercial'].unique())) if 'Comercial' in df.columns else []
 
-st.subheader("📋 Dados Filtrados")
-st.dataframe(df_filtrado[['Código', 'Cliente', 'Artigo', 'Qtd.', 'V. Líquido', 'PM', 'UN', 'Categoria', 'Comercial', 'Mês', 'Ano']], use_container_width=True)
+    # Aplicar filtros
+    if clientes:
+        df_2024 = df_2024[df_2024['Cliente'].isin(clientes)]
+        df_2025 = df_2025[df_2025['Cliente'].isin(clientes)]
+    if artigos:
+        df_2024 = df_2024[df_2024['Artigo'].isin(artigos)]
+        df_2025 = df_2025[df_2025['Artigo'].isin(artigos)]
+    if categorias:
+        df_2024 = df_2024[df_2024['Categoria'].isin(categorias)]
+        df_2025 = df_2025[df_2025['Categoria'].isin(categorias)]
+    if comerciais:
+        df_2024 = df_2024[df_2024['Comercial'].isin(comerciais)]
+        df_2025 = df_2025[df_2025['Comercial'].isin(comerciais)]
 
-# Totais
-totais_cliente = df_filtrado.groupby('Cliente').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False)
-totais_artigo = df_filtrado.groupby('Artigo').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False)
-totais_categoria = df_filtrado.groupby('Categoria').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False) if 'Categoria' in df_filtrado.columns else pd.DataFrame()
-totais_comercial = df_filtrado.groupby('Comercial').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False) if 'Comercial' in df_filtrado.columns else pd.DataFrame()
+    # Totais para comparação
+    totais_cliente_2024 = df_2024.groupby('Cliente').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False)
+    totais_cliente_2025 = df_2025.groupby('Cliente').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False)
+    totais_categoria_2024 = df_2024.groupby('Categoria').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False) if 'Categoria' in df_2024.columns else pd.DataFrame()
+    totais_categoria_2025 = df_2025.groupby('Categoria').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False) if 'Categoria' in df_2025.columns else pd.DataFrame()
 
-# Visualizações com Matplotlib
-st.subheader("📈 Visualizações")
-col7, col8 = st.columns(2)
+    # Exibir dados filtrados
+    st.subheader(f"📋 Dados Filtrados: {mes_label} 2024")
+    st.dataframe(df_2024[['Código', 'Cliente', 'Artigo', 'Qtd.', 'V. Líquido', 'PM', 'UN', 'Categoria', 'Comercial', 'Mês', 'Ano']], use_container_width=True)
+    st.subheader(f"📋 Dados Filtrados: {mes_label} 2025")
+    st.dataframe(df_2025[['Código', 'Cliente', 'Artigo', 'Qtd.', 'V. Líquido', 'PM', 'UN', 'Categoria', 'Comercial', 'Mês', 'Ano']], use_container_width=True)
 
-with col7:
-    if not totais_cliente.empty:
-        st.markdown("**Totais por Cliente (Quantidade)**")
-        fig1, ax1 = plt.subplots(figsize=(6, 4))
-        top_clientes = totais_cliente.head(10)
-        ax1.barh(top_clientes['Cliente'], top_clientes['Qtd.'], color='#4e79a7')
-        ax1.set_xlabel('Quantidade')
-        ax1.set_title('Top 10 Clientes por Quantidade')
-        plt.tight_layout()
-        st.pyplot(fig1)
+    # Visualizações comparativas
+    st.subheader("📈 Comparação 2024 vs 2025")
+    col5, col6 = st.columns(2)
 
-with col8:
-    if not totais_categoria.empty:
-        st.markdown("**Totais por Categoria (Valor Líquido)**")
-        fig2, ax2 = plt.subplots(figsize=(6, 4))
-        top_categorias = totais_categoria.head(8)
-        ax2.pie(top_categorias['V. Líquido'], labels=top_categorias['Categoria'], autopct='%1.1f%%', colors=['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948', '#b07aa1', '#ff9da7'])
-        ax2.set_title('Top 8 Categorias por Valor Líquido')
-        plt.tight_layout()
-        st.pyplot(fig2)
+    with col5:
+        if not totais_cliente_2024.empty or not totais_cliente_2025.empty:
+            st.markdown(f"**Quantidade por Cliente: {mes_label}**")
+            fig1, ax1 = plt.subplots(figsize=(8, 4))
+            width = 0.35
+            clientes = pd.concat([totais_cliente_2024['Cliente'], totais_cliente_2025['Cliente']]).unique()[:10]
+            x = np.arange(len(clientes))
+            qtd_2024 = [totais_cliente_2024[totais_cliente_2024['Cliente'] == c]['Qtd.'].sum() for c in clientes]
+            qtd_2025 = [totais_cliente_2025[totais_cliente_2025['Cliente'] == c]['Qtd.'].sum() for c in clientes]
+            ax1.bar(x - width/2, qtd_2024, width, label='2024', color='#4e79a7')
+            ax1.bar(x + width/2, qtd_2025, width, label='2025', color='#f28e2b')
+            ax1.set_ylabel('Quantidade')
+            ax1.set_title(f'Top Clientes por Quantidade - {mes_label}')
+            ax1.set_xticks(x)
+            ax1.set_xticklabels(clientes, rotation=45, ha='right')
+            ax1.legend()
+            plt.tight_layout()
+            st.pyplot(fig1)
 
-def exportar_excel_completo(dados_df, cliente_df, artigo_df, categoria_df, comercial_df, nome_mes, mes_num, ano):
+    with col6:
+        if not totais_categoria_2024.empty or not totais_categoria_2025.empty:
+            st.markdown(f"**Valor Líquido por Categoria: {mes_label}**")
+            fig2, ax2 = plt.subplots(figsize=(8, 4))
+            categorias = pd.concat([totais_categoria_2024['Categoria'], totais_categoria_2025['Categoria']]).unique()[:8]
+            x = np.arange(len(categorias))
+            valor_2024 = [totais_categoria_2024[totais_categoria_2024['Categoria'] == c]['V. Líquido'].sum() for c in categorias]
+            valor_2025 = [totais_categoria_2025[totais_categoria_2025['Categoria'] == c]['V. Líquido'].sum() for c in categorias]
+            ax2.bar(x - width/2, valor_2024, width, label='2024', color='#4e79a7')
+            ax2.bar(x + width/2, valor_2025, width, label='2025', color='#f28e2b')
+            ax2.set_ylabel('Valor Líquido')
+            ax2.set_title(f'Top Categorias por Valor Líquido - {mes_label}')
+            ax2.set_xticks(x)
+            ax2.set_xticklabels(categorias, rotation=45, ha='right')
+            ax2.legend()
+            plt.tight_layout()
+            st.pyplot(fig2)
+
+else:
+    # Modo normal (sem comparação)
+    col1, col2 = st.columns(2)
+    with col1:
+        anos_disponiveis = sorted(df['Ano'].unique())
+        ano_selecionado = st.selectbox("Selecionar Ano", anos_disponiveis) if len(anos_disponiveis) > 1 else anos_disponiveis[0]
+
+    with col2:
+        df_ano = df[df['Ano'] == ano_selecionado]
+        meses_disponiveis = sorted(df_ano['Mês'].unique())
+        nomes_meses = [meses_pt.get(m, f"Mês {m}") for m in meses_disponiveis]
+        if nomes_meses:
+            mes_label = st.selectbox("Selecionar Mês", nomes_meses)
+            mes_num = obter_numero_mes(mes_label)
+            if mes_num is None:
+                st.error(f"❌ Mês '{mes_label}' não reconhecido.")
+                st.stop()
+        else:
+            st.warning("⚠️ Nenhum mês disponível nos dados para o ano selecionado.")
+            st.stop()
+
+    # Filtros adicionais
+    st.subheader("Filtros Adicionais")
+    col3, col4, col5, col6 = st.columns(4)
+    with col3:
+        clientes = st.multiselect("Filtrar por Cliente", sorted(df_ano['Cliente'].unique()))
+    with col4:
+        artigos = st.multiselect("Filtrar por Artigo", sorted(df_ano['Artigo'].unique()))
+    with col5:
+        categorias = st.multiselect("Filtrar por Categoria", sorted(df_ano['Categoria'].unique())) if 'Categoria' in df_ano.columns else []
+    with col6:
+        comerciais = st.multiselect("Filtrar por Comercial", sorted(df_ano['Comercial'].unique())) if 'Comercial' in df_ano.columns else []
+
+    # Aplicar filtros
+    df_filtrado = df_ano[df_ano['Mês'] == mes_num]
+    if clientes:
+        df_filtrado = df_filtrado[df_filtrado['Cliente'].isin(clientes)]
+    if artigos:
+        df_filtrado = df_filtrado[df_filtrado['Artigo'].isin(artigos)]
+    if categorias:
+        df_filtrado = df_filtrado[df_filtrado['Categoria'].isin(categorias)]
+    if comerciais:
+        df_filtrado = df_filtrado[df_filtrado['Comercial'].isin(comerciais)]
+
+    st.subheader("📋 Dados Filtrados")
+    st.dataframe(df_filtrado[['Código', 'Cliente', 'Artigo', 'Qtd.', 'V. Líquido', 'PM', 'UN', 'Categoria', 'Comercial', 'Mês', 'Ano']], use_container_width=True)
+
+    # Totais
+    totais_cliente = df_filtrado.groupby('Cliente').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False)
+    totais_artigo = df_filtrado.groupby('Artigo').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False)
+    totais_categoria = df_filtrado.groupby('Categoria').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False) if 'Categoria' in df_filtrado.columns else pd.DataFrame()
+    totais_comercial = df_filtrado.groupby('Comercial').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False) if 'Comercial' in df_filtrado.columns else pd.DataFrame()
+
+    # Visualizações
+    st.subheader("📈 Visualizações")
+    col7, col8 = st.columns(2)
+
+    with col7:
+        if not totais_cliente.empty:
+            st.markdown(f"**Totais por Cliente (Quantidade) - {mes_label} {ano_selecionado}**")
+            fig1, ax1 = plt.subplots(figsize=(6, 4))
+            top_clientes = totais_cliente.head(10)
+            ax1.barh(top_clientes['Cliente'], top_clientes['Qtd.'], color='#4e79a7')
+            ax1.set_xlabel('Quantidade')
+            ax1.set_title(f'Top 10 Clientes por Quantidade')
+            plt.tight_layout()
+            st.pyplot(fig1)
+
+    with col8:
+        if not totais_categoria.empty:
+            st.markdown(f"**Totais por Categoria (Valor Líquido) - {mes_label} {ano_selecionado}**")
+            fig2, ax2 = plt.subplots(figsize=(6, 4))
+            top_categorias = totais_categoria.head(8)
+            ax2.pie(top_categorias['V. Líquido'], labels=top_categorias['Categoria'], autopct='%1.1f%%', colors=['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948', '#b07aa1', '#ff9da7'])
+            ax2.set_title(f'Top 8 Categorias por Valor Líquido')
+            plt.tight_layout()
+            st.pyplot(fig2)
+
+def exportar_excel_completo(dados_df, cliente_df, artigo_df, categoria_df, comercial_df, nome_mes, mes_num, ano, compare_years=False, df_2024=None, df_2025=None, totais_cliente_2024=None, totais_cliente_2025=None, totais_categoria_2024=None, totais_categoria_2025=None):
     output = BytesIO()
     try:
         logo_url = "https://github.com/paulom40/PFonseca.py/raw/main/Bracar.png"
@@ -298,15 +401,53 @@ def exportar_excel_completo(dados_df, cliente_df, artigo_df, categoria_df, comer
         ws8.set_column('A:Z', 20)
         ws8.write('A1', f'Alertas de Clientes Inativos no Mês Anterior', bold)
 
+        # Comparação 2024 vs 2025
+        if compare_years:
+            if not totais_cliente_2024.empty:
+                totais_cliente_2024.to_excel(writer, index=False, sheet_name='Comparacao_Cliente_2024')
+                ws9 = writer.sheets['Comparacao_Cliente_2024']
+                ws9.set_column('A:Z', 20)
+                ws9.write('A1', f'Comparação Clientes – {nome_mes} 2024', bold)
+            if not totais_cliente_2025.empty:
+                totais_cliente_2025.to_excel(writer, index=False, sheet_name='Comparacao_Cliente_2025')
+                ws10 = writer.sheets['Comparacao_Cliente_2025']
+                ws10.set_column('A:Z', 20)
+                ws10.write('A1', f'Comparação Clientes – {nome_mes} 2025', bold)
+            if not totais_categoria_2024.empty:
+                totais_categoria_2024.to_excel(writer, index=False, sheet_name='Comparacao_Categoria_2024')
+                ws11 = writer.sheets['Comparacao_Categoria_2024']
+                ws11.set_column('A:Z', 20)
+                ws11.write('A1', f'Comparação Categorias – {nome_mes} 2024', bold)
+            if not totais_categoria_2025.empty:
+                totais_categoria_2025.to_excel(writer, index=False, sheet_name='Comparacao_Categoria_2025')
+                ws12 = writer.sheets['Comparacao_Categoria_2025']
+                ws12.set_column('A:Z', 20)
+                ws12.write('A1', f'Comparação Categorias – {nome_mes} 2025', bold)
+
     output.seek(0)
     return output
 
 # Botão de exportação
 if st.button("📥 Exportar Relatório para Excel"):
-    excel_data = exportar_excel_completo(df_filtrado, totais_cliente, totais_artigo, totais_categoria, totais_comercial, mes_label, mes_num, ano_selecionado)
+    if compare_years:
+        excel_data = exportar_excel_completo(
+            df_2025, totais_cliente_2025, totais_artigo, totais_categoria_2025, totais_comercial,
+            mes_label, mes_num, 2025, compare_years=True,
+            df_2024=df_2024, df_2025=df_2025,
+            totais_cliente_2024=totais_cliente_2024, totais_cliente_2025=totais_cliente_2025,
+            totais_categoria_2024=totais_categoria_2024, totais_categoria_2025=totais_categoria_2025
+        )
+        file_name = f"Relatorio_Comercial_{mes_label}_2024_2025.xlsx"
+    else:
+        excel_data = exportar_excel_completo(
+            df_filtrado, totais_cliente, totais_artigo, totais_categoria, totais_comercial,
+            mes_label, mes_num, ano_selecionado
+        )
+        file_name = f"Relatorio_Comercial_{mes_label}_{ano_selecionado}.xlsx"
+    
     st.download_button(
         label="Baixar Relatório",
         data=excel_data,
-        file_name=f"Relatorio_Comercial_{mes_label}_{ano_selecionado}.xlsx",
+        file_name=file_name,
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
