@@ -19,15 +19,15 @@ def load_data():
     response = requests.get(url)
     xls = pd.ExcelFile(BytesIO(response.content))
     df = pd.read_excel(xls, sheet_name=0)
+    df.columns = df.columns.str.strip()  # Normalizar nomes
     return df
 
 df = load_data()
-df.columns = df.columns.str.strip()  # Normalizar nomes de colunas
 
 # Preparar datas
-df['Data'] = pd.to_datetime(df.iloc[:, 0], errors='coerce')
-df['Ano'] = df['Data'].dt.year
-df['Mes'] = df['Data'].dt.month
+df['Data'] = pd.to_datetime(df['Data'], errors='coerce')
+df['Ano'] = df['Ano'].astype(int)
+df['Mes'] = df['Mes'].astype(int)
 df = df.dropna(subset=['Data', 'Qtd.', 'Cliente', 'Artigo'])
 
 # Tabs
