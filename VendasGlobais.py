@@ -6,14 +6,50 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Custom CSS with fixed header styling
+# Custom CSS with advanced theming
 custom_css = """
 <style>
+/* CSS Variables for reusable colors */
+:root {
+    --primary-color: #1E3A8A; /* Dark blue */
+    --accent-color: #F97316; /* Orange */
+    --text-color: #1E293B; /* Dark gray */
+    --bg-color: #F3F4F6; /* Light gray background */
+    --card-bg: #FFFFFF; /* White for cards */
+    --success-bg: #DCFCE7; /* Green for success alerts */
+    --error-bg: #FEE2E2; /* Red for error alerts */
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-color: #1E293B; /* Dark gray background */
+        --card-bg: #2D3748; /* Darker card background */
+        --text-color: #F3F4F6; /* Light gray text */
+    }
+    body, .stApp {
+        background-color: var(--bg-color);
+        color: var(--text-color);
+    }
+    .stMarkdown, .stDataFrame, .stMetric, .stExpander {
+        background-color: var(--card-bg);
+        color: var(--text-color);
+    }
+    .stDataFrame th {
+        background-color: var(--primary-color);
+        color: #FFFFFF !important;
+    }
+    .stExpander summary {
+        background-color: #4B5563;
+        color: #F3F4F6 !important;
+    }
+}
+
 /* General styling */
 body {
     font-family: 'Inter', sans-serif;
-    background-color: #F3F4F6;
-    color: #1E293B;
+    background-color: var(--bg-color);
+    color: var(--text-color);
 }
 
 /* Main container */
@@ -24,16 +60,22 @@ body {
 }
 
 /* Headers */
-h1, h2, h3, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, 
-.st-emotion-cache-1wivap2, .st-emotion-cache-10trblm {
-    color: #1E3A8A !important;
+h1, h2, h3, 
+.stMarkdown h1, .stMarkdown h2, .stMarkdown h3,
+.st-emotion-cache-1wivap2, .st-emotion-cache-10trblm,
+[class*="emotion-cache"] h1, [class*="emotion-cache"] h2, [class*="emotion-cache"] h3 {
+    color: var(--primary-color) !important;
     font-weight: 600;
     margin-bottom: 15px;
+    transition: color 0.3s ease;
 }
 h1 {
     font-size: 2.5rem;
-    border-bottom: 2px solid #F97316;
+    background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
     padding-bottom: 10px;
+    border-bottom: 2px solid var(--accent-color);
 }
 h2 {
     font-size: 1.8rem;
@@ -44,49 +86,55 @@ h3 {
 
 /* Cards for sections */
 .stMarkdown, .stDataFrame, .stMetric, .stExpander {
-    background: white;
+    background: var(--card-bg);
     border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     padding: 20px;
     margin-bottom: 20px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.stMarkdown:hover, .stDataFrame:hover, .stMetric:hover, .stExpander:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
 }
 
 /* Metrics */
 .stMetric {
     border: 1px solid #E5E7EB;
-    transition: transform 0.2s;
-}
-.stMetric:hover {
-    transform: translateY(-2px);
 }
 .stMetric label {
     font-size: 1rem;
-    color: #4B5563;
+    color: var(--text-color);
 }
 .stMetric .metric-value {
     font-size: 1.5rem;
     font-weight: 700;
-    color: #1E3A8A;
+    color: var(--primary-color);
 }
 
 /* Buttons */
 button[kind="primary"] {
-    background-color: #1E3A8A;
-    color: white;
+    background: linear-gradient(90deg, var(--primary-color), #3B82F6);
+    color: #FFFFFF;
     border: none;
     border-radius: 8px;
     padding: 10px 20px;
     font-weight: 500;
-    transition: background-color 0.2s;
+    transition: background 0.3s ease, transform 0.2s ease;
 }
 button[kind="primary"]:hover {
-    background-color: #3B82F6;
+    background: linear-gradient(90deg, #3B82F6, var(--primary-color));
+    transform: scale(1.05);
 }
 button[kind="secondary"] {
     background-color: #E5E7EB;
-    color: #1E293B;
+    color: var(--text-color);
     border-radius: 8px;
     padding: 10px 20px;
+    transition: background 0.3s ease;
+}
+button[kind="secondary"]:hover {
+    background-color: #D1D5DB;
 }
 
 /* Dataframe */
@@ -98,8 +146,8 @@ button[kind="secondary"] {
     border-collapse: collapse;
 }
 .stDataFrame th {
-    background-color: #1E3A8A;
-    color: white !important;
+    background-color: var(--primary-color);
+    color: #FFFFFF !important;
     padding: 12px;
 }
 .stDataFrame td {
@@ -114,19 +162,21 @@ button[kind="secondary"] {
 .stExpander summary {
     background-color: #F9FAFB;
     font-weight: 500;
-    color: #1E3A8A !important;
+    color: var(--primary-color) !important;
+    padding: 10px;
+    border-radius: 8px;
 }
 
 /* Alerts */
 .alert-success {
-    background-color: #DCFCE7;
+    background-color: var(--success-bg);
     color: #166534;
     padding: 10px;
     border-radius: 8px;
     margin-bottom: 10px;
 }
 .alert-error {
-    background-color: #FEE2E2;
+    background-color: var(--error-bg);
     color: #991B1B;
     padding: 10px;
     border-radius: 8px;
@@ -145,6 +195,9 @@ button[kind="secondary"] {
         font-size: 1.5rem;
     }
     .stMetric {
+        padding: 15px;
+    }
+    .stDataFrame, .stExpander, .stMarkdown {
         padding: 15px;
     }
 }
