@@ -108,7 +108,8 @@ def validar_colunas(df):
         'Qtd.': ['qtd.', 'quantidade', 'qtd', 'qtde'],
         'Artigo': ['artigo', 'produto', 'item', 'artigo vendido'],
         'Mês': ['mês', 'mes', 'mês de venda', 'month'],
-        'Ano': ['ano', 'year']
+        'Ano': ['ano', 'year'],
+        'Categoria': ['categoria', 'tipo']
     }
     df.columns = df.columns.str.strip().str.lower()
     renomear = {alt.lower(): padrao for padrao, alternativas in colunas_esperadas.items() 
@@ -138,6 +139,9 @@ def load_data():
         
         df['Qtd.'] = pd.to_numeric(df['Qtd.'], errors='coerce')
         df = df.dropna(subset=['Cliente', 'Artigo', 'Qtd.', 'Mês', 'Ano'])
+        
+        if 'Categoria' in df.columns:
+            df['Categoria'] = df['Categoria'].astype(str).replace('nan', '')
         
         return df, faltando
     except Exception as e:
@@ -177,16 +181,20 @@ df_filtrado = df_anos[df_anos['Mês'].isin(meses_nums)]
 
 # Filtros opcionais
 st.subheader("Filtros Opcionais")
-col3, col4 = st.columns(2)
+col3, col4, col5 = st.columns(3)
 with col3:
     clientes = st.multiselect("Filtrar por Cliente", sorted(df_filtrado['Cliente'].unique()))
 with col4:
     artigos = st.multiselect("Filtrar por Artigo", sorted(df_filtrado['Artigo'].unique()))
+with col5:
+    categorias = st.multiselect("Filtrar por Categoria", sorted(df_filtrado['Categoria'].unique()) if 'Categoria' in df_filtrado.columns else []) if 'Categoria' in df_filtrado.columns else []
 
 if clientes:
     df_filtrado = df_filtrado[df_filtrado['Cliente'].isin(clientes)]
 if artigos:
     df_filtrado = df_filtrado[df_filtrado['Artigo'].isin(artigos)]
+if categorias and 'Categoria' in df_filtrado.columns:
+    df_filtrado = df_filtrado[df_filtrado['Categoria'].isin(categorias)]
 
 # Cálculo da matriz com variações
 st.subheader("Matriz de Quantidades por Cliente/Artigo")
@@ -199,13 +207,11 @@ with st.spinner("Calculando..."):
         fill_value=0
     ).reset_index()
     
-    # Renomear colunas para formato Ano-Mês
     new_columns = ['Cliente', 'Artigo']
     for (ano, mes) in pivot.columns[2:]:
         new_columns.append(f"{meses_pt.get(int(mes), f'Mês {mes}')} {ano}")
     pivot.columns = new_columns
     
-    # Ordenar colunas cronologicamente
     month_cols = []
     for ano in sorted(anos_selecionados):
         for mes in sorted(meses_nums):
@@ -214,7 +220,6 @@ with st.spinner("Calculando..."):
                 month_cols.append(col_name)
     pivot = pivot[['Cliente', 'Artigo'] + month_cols]
     
-    # Adicionar totais e variações
     if len(month_cols) > 1:
         pivot['Total'] = pivot[month_cols].sum(axis=1)
         for i in range(1, len(month_cols)):
