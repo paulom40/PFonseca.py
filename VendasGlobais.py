@@ -12,12 +12,17 @@ meses_pt = {
     9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
 }
 
+# Função robusta para mapear nome do mês para número
 def obter_numero_mes(nome_mes):
+    if not isinstance(nome_mes, str):
+        return None
+    nome_mes = nome_mes.strip().lower()
     for k, v in meses_pt.items():
-        if v == nome_mes:
+        if v.strip().lower() == nome_mes:
             return k
     return None
 
+# Carregar Excel do GitHub
 @st.cache_data
 def load_data():
     url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
@@ -49,8 +54,10 @@ with tab1:
         mes_selecionado = obter_numero_mes(mes_selecionado_label)
 
         if mes_selecionado is None:
-            st.error("❌ Mês selecionado não reconhecido.")
+            st.error(f"❌ Mês '{mes_selecionado_label}' não reconhecido.")
             st.stop()
+        else:
+            st.success(f"✅ Mês reconhecido: {mes_selecionado_label} → {mes_selecionado}")
 
         clientes = st.multiselect("Filtrar por Cliente", sorted(df['Cliente'].unique()), key="cliente1")
         artigos = st.multiselect("Filtrar por Artigo", sorted(df['Artigo'].unique()), key="artigo1")
@@ -99,7 +106,7 @@ with tab1:
         return output.getvalue()
 
     excel_data = to_excel(tabela)
-    st.download_button("📥 Exportar para Excel", data=excel_data, file_name="Comparativo_YoY.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    st.download_button("📥 Exportar Comparativo para Excel", data=excel_data, file_name="Comparativo_YoY.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # -------------------- TAB 2 --------------------
 with tab2:
@@ -110,8 +117,10 @@ with tab2:
     mes2 = obter_numero_mes(mes_label2)
 
     if mes2 is None:
-        st.error("❌ Mês selecionado não reconhecido.")
+        st.error(f"❌ Mês '{mes_label2}' não reconhecido.")
         st.stop()
+    else:
+        st.success(f"✅ Mês reconhecido: {mes_label2} → {mes2}")
 
     cliente2 = st.multiselect("Selecionar Cliente", sorted(df['Cliente'].unique()), key="cliente2")
     artigo2 = st.multiselect("Selecionar Artigo", sorted(df['Artigo'].unique()), key="artigo2")
@@ -135,3 +144,25 @@ with tab2:
 
     st.markdown("### 📊 Gráfico de Vendas por Artigo")
     st.bar_chart(totais_artigo.set_index('Artigo'))
+
+    # Exportar tudo para Excel
+    def exportar_excel_completo(dados_df, cliente_df, artigo_df, nome_mes):
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            dados_df.to_excel(writer, index=False, sheet_name='Dados_Filtrados')
+            cliente_df.to_excel(writer, index=False, sheet_name='Totais_Cliente')
+            artigo_df.to_excel(writer, index=False, sheet_name='Totais_Artigo')
+            workbook = writer.book
+            for sheet_name in ['Totais_Cliente', 'Totais_Artigo']:
+                worksheet = writer.sheets[sheet_name]
+                worksheet.set_column('A:B', 20)
+        return output.getvalue()
+
+    excel_completo = exportar_excel_completo(df_tab2, totais_cliente, totais_artigo, mes_label2)
+
+    st.download_button(
+        label="📥 Exportar Tudo para Excel",
+        data=excel_completo,
+        file_name=f"Relatorio_{mes_label2}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
