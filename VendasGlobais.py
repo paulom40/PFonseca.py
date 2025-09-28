@@ -24,10 +24,11 @@ def load_data():
 
 df = load_data()
 
-# Preparar datas
-df['Data'] = pd.to_datetime(df['Data'], errors='coerce')
-df['Ano'] = df['Ano'].astype(int)
-df['Mes'] = df['Mes'].astype(int)
+# Reconstruir coluna de data
+if 'Data' not in df.columns:
+    df['Data'] = pd.to_datetime(dict(year=df['Ano'], month=df['Mês'], day=1), errors='coerce')
+
+# Limpeza
 df = df.dropna(subset=['Data', 'Qtd.', 'Cliente', 'Artigo'])
 
 # Tabs
@@ -40,7 +41,7 @@ with tab1:
     # Filtros na barra lateral
     with st.sidebar:
         st.markdown("### 🔍 Filtros")
-        meses_disponiveis = sorted(df['Mes'].unique())
+        meses_disponiveis = sorted(df['Mês'].unique())
         nomes_meses = [meses_pt[m] for m in meses_disponiveis]
         mes_selecionado_label = st.selectbox("Selecionar Mês", nomes_meses, key="month1")
         mes_selecionado = {v: k for k, v in meses_pt.items()}[mes_selecionado_label]
@@ -49,7 +50,7 @@ with tab1:
         artigos = st.multiselect("Filtrar por Artigo", sorted(df['Artigo'].unique()), key="artigo1")
 
     # Aplicar filtros
-    df_filtrado = df[df['Mes'] == mes_selecionado]
+    df_filtrado = df[df['Mês'] == mes_selecionado]
     if clientes:
         df_filtrado = df_filtrado[df_filtrado['Cliente'].isin(clientes)]
     if artigos:
@@ -102,14 +103,14 @@ with tab1:
 with tab2:
     st.subheader("🔎 Filtro por Artigo, Cliente e Mês")
 
-    nomes_meses2 = [meses_pt[m] for m in sorted(df['Mes'].unique())]
+    nomes_meses2 = [meses_pt[m] for m in sorted(df['Mês'].unique())]
     mes_label2 = st.selectbox("Selecionar Mês", nomes_meses2, key="month2")
     mes2 = {v: k for k, v in meses_pt.items()}[mes_label2]
 
     cliente2 = st.multiselect("Selecionar Cliente", sorted(df['Cliente'].unique()), key="cliente2")
     artigo2 = st.multiselect("Selecionar Artigo", sorted(df['Artigo'].unique()), key="artigo2")
 
-    df_tab2 = df[df['Mes'] == mes2]
+    df_tab2 = df[df['Mês'] == mes2]
     if cliente2:
         df_tab2 = df_tab2[df_tab2['Cliente'].isin(cliente2)]
     if artigo2:
