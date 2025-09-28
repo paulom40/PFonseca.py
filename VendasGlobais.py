@@ -207,23 +207,7 @@ def load_data():
         xls = pd.ExcelFile(BytesIO(response.content))
         df_raw = pd.read_excel(xls, sheet_name=0)
 
-        # Debug: Show raw data
-        if st.checkbox("Mostrar dados brutos para depuração"):
-            st.write("**Colunas no arquivo bruto**:")
-            st.write(df_raw.columns.tolist())
-            for col in df_raw.columns:
-                st.write(f"**{col} (valores únicos)**: {df_raw[col].dropna().unique()[:10]}")
-
         df, colunas_detectadas, faltando = validar_colunas(df_raw)
-
-        st.markdown("### ✅ Validação de Estrutura do Ficheiro")
-        for padrao, original in colunas_detectadas.items():
-            st.success(f"✔ Coluna '{padrao}' detectada como '{original}'")
-
-        if faltando:
-            for col in faltando:
-                st.error(f"❌ Coluna obrigatória ausente: '{col}'")
-            st.stop()
 
         # Convert month names to numbers if necessary
         if df['Mês'].dtype == 'object':
@@ -252,18 +236,39 @@ def load_data():
 
         df = df.dropna(subset=['Código', 'Cliente', 'Qtd.', 'Artigo', 'Mês', 'Ano'])
 
-        # Debug: Show processed data
-        if st.checkbox("Mostrar dados processados para depuração"):
-            st.write("**Colunas após processamento**:")
-            for col in df.columns:
-                st.write(f"**{col} (valores únicos)**: {df[col].dropna().unique()[:10]}")
-
-        return df
+        return df, df_raw, colunas_detectadas, faltando
     except Exception as e:
-        st.error(f"Erro ao carregar dados: {str(e)}")
-        st.stop()
+        return None, None, {}, [f"Erro ao carregar dados: {str(e)}"]
 
-df = load_data()
+# Load data and handle validation display
+df, df_raw, colunas_detectadas, faltando = load_data()
+
+# Display validation results
+st.markdown("### ✅ Validação de Estrutura do Ficheiro")
+if df is None:
+    for erro in faltando:
+        st.error(erro)
+    st.stop()
+
+for padrao, original in colunas_detectadas.items():
+    st.success(f"✔ Coluna '{padrao}' detectada como '{original}'")
+
+if faltando:
+    for col in faltando:
+        st.error(f"❌ Coluna obrigatória ausente: '{col}'")
+    st.stop()
+
+# Debug display
+with st.expander("📋 Debug: Dados do Arquivo"):
+    if st.checkbox("Mostrar dados brutos para depuração"):
+        st.write("**Colunas no arquivo bruto**:")
+        st.write(df_raw.columns.tolist())
+        for col in df_raw.columns:
+            st.write(f"**{col} (valores únicos)**: {df_raw[col].dropna().unique()[:10]}")
+    if st.checkbox("Mostrar dados processados para depuração"):
+        st.write("**Colunas após processamento**:")
+        for col in df.columns:
+            st.write(f"**{col} (valores únicos)**: {df[col].dropna().unique()[:10]}")
 
 st.title("📊 Dashboard Comercial")
 
