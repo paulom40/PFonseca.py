@@ -3,12 +3,10 @@ import pandas as pd
 import requests
 from io import BytesIO
 import numpy as np
-from datetime import datetime
 
 # Custom CSS for modern, colorful UI
 custom_css = """
 <style>
-/* CSS Variables for colors */
 :root {
     --primary: #4F46E5; /* Indigo */
     --secondary: #EC4899; /* Pink */
@@ -20,7 +18,6 @@ custom_css = """
     --card-bg: #FFFFFF;
 }
 
-/* Dark mode */
 @media (prefers-color-scheme: dark) {
     :root {
         --bg: #111827;
@@ -62,18 +59,12 @@ h1 {
     transform: scale(1.05);
 }
 
-.stDataFrame {
+.stDataFrame, .stMetric {
     background: var(--card-bg);
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     padding: 1rem;
-}
-
-.stMetric {
-    background: var(--card-bg);
-    border-radius: 8px;
-    padding: 1rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    margin-bottom: 1rem;
 }
 
 .alert-success {
@@ -113,7 +104,6 @@ def obter_numero_mes(nome_mes):
 
 def validar_colunas(df):
     colunas_esperadas = {
-        'Código': ['código', 'codigo'],
         'Cliente': ['cliente', 'cliente nome', 'nome cliente'],
         'Qtd.': ['qtd.', 'quantidade', 'qtd', 'qtde'],
         'Artigo': ['artigo', 'produto', 'item', 'artigo vendido'],
@@ -121,12 +111,8 @@ def validar_colunas(df):
         'Ano': ['ano', 'year']
     }
     df.columns = df.columns.str.strip().str.lower()
-    renomear = {}
-    for padrao, alternativas in colunas_esperadas.items():
-        for alt in alternativas:
-            if alt.lower() in df.columns:
-                renomear[alt.lower()] = padrao
-                break
+    renomear = {alt.lower(): padrao for padrao, alternativas in colunas_esperadas.items() 
+                for alt in alternativas if alt.lower() in df.columns}
     df = df.rename(columns=renomear)
     faltando = [col for col in ['Cliente', 'Qtd.', 'Artigo', 'Mês', 'Ano'] if col not in df.columns]
     return df, faltando
@@ -138,8 +124,8 @@ def load_data():
         response = requests.get(url)
         response.raise_for_status()
         xls = pd.ExcelFile(BytesIO(response.content))
-        df_raw = pd.read_excel(xls, sheet_name=0)
-        df, faltando = validar_colunas(df_raw)
+        df = pd.read_excel(xls, sheet_name=0)
+        df, faltando = validar_colunas(df)
         
         if df['Mês'].dtype == 'object':
             df['Mês'] = df['Mês'].apply(obter_numero_mes)
@@ -155,8 +141,7 @@ def load_data():
         
         return df, faltando
     except Exception as e:
-        st.error(f"Erro ao carregar dados: {str(e)}")
-        return None, [str(e)]
+        return None, [f"Erro ao carregar dados: {str(e)}"]
 
 # Load data
 df, faltando = load_data()
@@ -167,24 +152,28 @@ if df is None:
 
 st.title("📊 Comparador de Vendas: Cliente/Artigo por Mês")
 
-# Seleção de ano e meses
+# Seleção de anos e meses
 col1, col2 = st.columns(2)
 with col1:
     anos_disponiveis = sorted(df['Ano'].unique())
-    ano_selecionado = st.selectbox("Selecionar Ano", anos_disponiveis, index=len(anos_disponiveis)-1 if anos_disponiveis else 0)
+    anos_selecionados = st.multiselect("Selecionar Anos", anos_disponiveis, default=[2024] if 2024 in anos_disponiveis else anos_disponiveis[:1])
 
 with col2:
-    df_ano = df[df['Ano'] == ano_selecionado]
-    meses_disponiveis = sorted(df_ano['Mês'].unique())
+    df_anos = df[df['Ano'].isin(anos_selecionados)]
+    meses_disponiveis = sorted(df_anos['Mês'].unique())
     nomes_meses = [meses_pt.get(int(m), f"Mês {m}") for m in meses_disponiveis]
     selected_meses = st.multiselect("Selecionar Meses para Comparação", nomes_meses, default=nomes_meses[:3] if nomes_meses else [])
+
+if not anos_selecionados:
+    st.warning("Selecione pelo menos um ano para prosseguir.")
+    st.stop()
 
 if not selected_meses:
     st.warning("Selecione pelo menos um mês para prosseguir.")
     st.stop()
 
 meses_nums = [obter_numero_mes(m) for m in selected_meses if obter_numero_mes(m) is not None]
-df_filtrado = df_ano[df_ano['Mês'].isin(meses_nums)]
+df_filtrado = df_anos[df_anos['Mês'].isin(meses_nums)]
 
 # Filtros opcionais
 st.subheader("Filtros Opcionais")
@@ -204,20 +193,26 @@ st.subheader("Matriz de Quantidades por Cliente/Artigo")
 with st.spinner("Calculando..."):
     pivot = df_filtrado.pivot_table(
         index=['Cliente', 'Artigo'],
-        columns='Mês',
+        columns=['Ano', 'Mês'],
         values='Qtd.',
         aggfunc='sum',
         fill_value=0
     ).reset_index()
     
-    # Renomear colunas para nomes de meses
-    month_map = {int(col): meses_pt.get(int(col), f"Mês {col}") for col in pivot.columns[2:]}
-    pivot = pivot.rename(columns=month_map)
+    # Renomear colunas para formato Ano-Mês
+    new_columns = ['Cliente', 'Artigo']
+    for (ano, mes) in pivot.columns[2:]:
+        new_columns.append(f"{meses_pt.get(int(mes), f'Mês {mes}')} {ano}")
+    pivot.columns = new_columns
     
-    # Ordenar colunas por ordem cronológica
-    month_cols = [meses_pt[m] for m in sorted(meses_nums) if meses_pt[m] in pivot.columns]
-    other_cols = ['Cliente', 'Artigo']
-    pivot = pivot[other_cols + month_cols]
+    # Ordenar colunas cronologicamente
+    month_cols = []
+    for ano in sorted(anos_selecionados):
+        for mes in sorted(meses_nums):
+            col_name = f"{meses_pt.get(mes, f'Mês {mes}')} {ano}"
+            if col_name in pivot.columns:
+                month_cols.append(col_name)
+    pivot = pivot[['Cliente', 'Artigo'] + month_cols]
     
     # Adicionar totais e variações
     if len(month_cols) > 1:
@@ -246,9 +241,9 @@ if len(month_cols) > 1:
         for _, row in significant.iterrows():
             var = row[var_col]
             if var > threshold_aumento:
-                alertas.append(f"<div class='alert-success'>↑ Aumento significativo: {row['Cliente']} / {row['Artigo']} - {var:.1f}% em {curr}</div>")
+                alertas.append(f"<div class='alert-success'>↑ Aumento: {row['Cliente']} / {row['Artigo']} - {var:.1f}% em {curr}</div>")
             elif var < threshold_reducao:
-                alertas.append(f"<div class='alert-error'>↓ Redução significativa: {row['Cliente']} / {row['Artigo']} - {var:.1f}% em {curr}</div>")
+                alertas.append(f"<div class='alert-error'>↓ Redução: {row['Cliente']} / {row['Artigo']} - {var:.1f}% em {curr}</div>")
     
     if alertas:
         for alerta in alertas:
@@ -283,10 +278,11 @@ def export_to_excel(pivot_df):
 
 st.subheader("📥 Exportar Relatório")
 if st.button("Gerar Excel"):
-    excel_data = export_to_excel(pivot)
-    st.download_button(
-        label="Baixar Matriz em Excel",
-        data=excel_data,
-        file_name=f"Comparacao_Cliente_Artigo_{ano_selecionado}_{'_'.join(selected_meses)}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    with st.spinner("Gerando relatório..."):
+        excel_data = export_to_excel(pivot)
+        st.download_button(
+            label="Baixar Matriz em Excel",
+            data=excel_data,
+            file_name=f"Comparacao_Cliente_Artigo_{'_'.join(str(a) for a in anos_selecionados)}_{'_'.join(selected_meses)}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
