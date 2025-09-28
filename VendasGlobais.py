@@ -1,10 +1,8 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 from io import BytesIO
 import requests
 from datetime import datetime
-import xlsxwriter
 
 # Meses em português
 meses_pt = {
@@ -23,16 +21,47 @@ def obter_numero_mes(nome_mes):
             return k
     return None
 
+def validar_colunas(df):
+    colunas_esperadas = {
+        'Mês': ['mês', 'mes', 'mês de venda', 'month'],
+        'Cliente': ['cliente', 'cliente nome', 'nome cliente'],
+        'Artigo': ['artigo', 'produto', 'item', 'artigo vendido'],
+        'Qtd.': ['qtd.', 'quantidade', 'qtd', 'qtde'],
+        'Ano': ['ano', 'year'],
+        'Data': ['data', 'data venda', 'data da compra']
+    }
+
+    df.columns = df.columns.str.strip().str.lower()
+    renomear = {}
+    colunas_detectadas = {}
+
+    for padrao, alternativas in colunas_esperadas.items():
+        for alt in alternativas:
+            if alt.lower() in df.columns:
+                renomear[alt.lower()] = padrao
+                colunas_detectadas[padrao] = alt
+                break
+
+    df = df.rename(columns=renomear)
+    faltando = [col for col in colunas_esperadas if col not in df.columns and col != 'Data']
+    return df, colunas_detectadas, faltando
+
 @st.cache_data
 def load_data():
     url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
     response = requests.get(url)
     xls = pd.ExcelFile(BytesIO(response.content))
-    df = pd.read_excel(xls, sheet_name=0)
-    df.columns = df.columns.str.strip()
+    df_raw = pd.read_excel(xls, sheet_name=0)
 
-    if 'Mês' not in df.columns:
-        st.error("❌ A coluna 'Mês' não foi encontrada no ficheiro.")
+    df, colunas_detectadas, faltando = validar_colunas(df_raw)
+
+    st.markdown("### ✅ Validação de Estrutura do Ficheiro")
+    for padrao, original in colunas_detectadas.items():
+        st.success(f"✔ Coluna '{padrao}' detectada como '{original}'")
+
+    if faltando:
+        for col in faltando:
+            st.error(f"❌ Coluna obrigatória ausente: '{col}'")
         st.stop()
 
     df['Mês'] = pd.to_numeric(df['Mês'], errors='coerce')
@@ -47,114 +76,83 @@ def load_data():
 
 df = load_data()
 
-tab1, tab2 = st.tabs(["📊 Comparativo Ano a Ano", "🔎 Filtro por Artigo e Cliente"])
+st.title("📊 Dashboard Comercial")
 
-# -------------------- TAB 1 --------------------
-with tab1:
-    st.title("📊 Comparativo Ano a Ano")
+meses_disponiveis = sorted(df['Mês'].dropna().unique())
+nomes_meses = [meses_pt.get(int(m), f"Mês {m}") for m in meses_disponiveis]
 
-    with st.sidebar:
-        st.markdown("### 🔍 Filtros")
-        meses_disponiveis = sorted(df['Mês'].dropna().unique())
-        nomes_meses = [meses_pt.get(int(m), f"Mês {m}") for m in meses_disponiveis]
+mes_label = st.selectbox("Selecionar Mês", nomes_meses)
+mes_num = obter_numero_mes(mes_label)
+if mes_num is None:
+    st.error(f"❌ Mês '{mes_label}' não reconhecido.")
+    st.stop()
 
-        if nomes_meses:
-            mes_selecionado_label = st.selectbox("Selecionar Mês", nomes_meses, key="month1")
-            mes_selecionado = obter_numero_mes(mes_selecionado_label)
-            if mes_selecionado is None:
-                st.error(f"❌ Mês '{mes_selecionado_label}' não reconhecido.")
-                st.stop()
-            else:
-                st.success(f"✅ Mês reconhecido: {mes_selecionado_label} → {mes_selecionado}")
-        else:
-            st.warning("⚠️ Nenhum mês disponível nos dados.")
-            st.stop()
+clientes = st.multiselect("Filtrar por Cliente", sorted(df['Cliente'].unique()))
+artigos = st.multiselect("Filtrar por Artigo", sorted(df['Artigo'].unique()))
 
-        clientes = st.multiselect("Filtrar por Cliente", sorted(df['Cliente'].unique()), key="cliente1")
-        artigos = st.multiselect("Filtrar por Artigo", sorted(df['Artigo'].unique()), key="artigo1")
+df_filtrado = df[df['Mês'] == mes_num]
+if clientes:
+    df_filtrado = df_filtrado[df_filtrado['Cliente'].isin(clientes)]
+if artigos:
+    df_filtrado = df_filtrado[df_filtrado['Artigo'].isin(artigos)]
 
-    df_filtrado = df[df['Mês'] == mes_selecionado]
-    if clientes:
-        df_filtrado = df_filtrado[df_filtrado['Cliente'].isin(clientes)]
-    if artigos:
-        df_filtrado = df_filtrado[df_filtrado['Artigo'].isin(artigos)]
+st.dataframe(df_filtrado[['Data', 'Cliente', 'Artigo', 'Qtd.']], use_container_width=True)
 
-    ano_atual = df_filtrado['Ano'].max()
-    ano_passado = ano_atual - 1
-    df_comparativo = df_filtrado[df_filtrado['Ano'].isin([ano_passado, ano_atual])]
+totais_cliente = df_filtrado.groupby('Cliente')['Qtd.'].sum().reset_index()
+totais_artigo = df_filtrado.groupby('Artigo')['Qtd.'].sum().reset_index()
 
-    agrupado = df_comparativo.groupby(['Cliente', 'Artigo', 'Ano'])['Qtd.'].sum().reset_index()
-    tabela = agrupado.pivot_table(index=['Cliente', 'Artigo'], columns='Ano', values='Qtd.', fill_value=0).reset_index()
-    tabela['Diferença'] = tabela.get(ano_atual, 0) - tabela.get(ano_passado, 0)
+def exportar_excel_completo(dados_df, cliente_df, artigo_df, nome_mes, mes_num):
+    output = BytesIO()
+    logo_url = "https://github.com/paulom40/PFonseca.py/raw/main/Bracar.png"
+    logo_data = requests.get(logo_url).content
 
-    st.subheader(f"Mês: {mes_selecionado_label} | {ano_passado} vs {ano_atual}")
-    st.dataframe(tabela, use_container_width=True)
+    variacoes = dados_df.groupby(['Cliente', 'Artigo', 'Mês'])['Qtd.'].sum().reset_index()
+    variacoes_pivot = variacoes.pivot_table(index=['Cliente', 'Artigo'], columns='Mês', values='Qtd.', fill_value=0).reset_index()
 
-    def to_excel(df):
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, index=False, sheet_name='Comparativo')
-        return output.getvalue()
-
-    excel_data = to_excel(tabela)
-    st.download_button("📥 Exportar Comparativo para Excel", data=excel_data, file_name="Comparativo_YoY.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
-# -------------------- TAB 2 --------------------
-with tab2:
-    st.subheader("🔎 Filtro por Artigo, Cliente e Mês")
-
-    meses_disponiveis2 = sorted(df['Mês'].dropna().unique())
-    nomes_meses2 = [meses_pt.get(int(m), f"Mês {m}") for m in meses_disponiveis2]
-
-    if nomes_meses2:
-        mes_label2 = st.selectbox("Selecionar Mês", nomes_meses2, key="month2")
-        mes2 = obter_numero_mes(mes_label2)
-        if mes2 is None:
-            st.error(f"❌ Mês '{mes_label2}' não reconhecido.")
-            st.stop()
-        else:
-            st.success(f"✅ Mês reconhecido: {mes_label2} → {mes2}")
+    if 'Comercial' in dados_df.columns:
+        variacoes_comercial = dados_df.groupby(['Comercial', 'Cliente', 'Mês'])['Qtd.'].sum().reset_index()
+        variacoes_comercial_pivot = variacoes_comercial.pivot_table(index=['Comercial', 'Cliente'], columns='Mês', values='Qtd.', fill_value=0).reset_index()
     else:
-        st.warning("⚠️ Nenhum mês disponível nos dados.")
-        st.stop()
+        variacoes_comercial_pivot = pd.DataFrame({'Aviso': ['Coluna "Comercial" não encontrada nos dados.']})
 
-    cliente2 = st.multiselect("Selecionar Cliente", sorted(df['Cliente'].unique()), key="cliente2")
-    artigo2 = st.multiselect("Selecionar Artigo", sorted(df['Artigo'].unique()), key="artigo2")
+    mes_anterior = mes_num - 1 if mes_num > 1 else 12
+    todos_clientes = sorted(df['Cliente'].unique())
+    clientes_ativos = sorted(df[df['Mês'] == mes_anterior]['Cliente'].unique())
+    clientes_inativos = [c for c in todos_clientes if c not in clientes_ativos]
+    alertas_df = pd.DataFrame({'Cliente sem compras': clientes_inativos}) if clientes_inativos else pd.DataFrame({'Todos os clientes compraram': ['✔']})
 
-    df_tab2 = df[df['Mês'] == mes2]
-    if cliente2:
-        df_tab2 = df_tab2[df_tab2['Cliente'].isin(cliente2)]
-    if artigo2:
-        df_tab2 = df_tab2[df_tab2['Artigo'].isin(artigo2)]
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        workbook = writer.book
+        bold = workbook.add_format({'bold': True})
+        italic = workbook.add_format({'italic': True})
 
-    st.write(f"Resultados para o mês de {mes_label2}")
-    st.dataframe(df_tab2[['Data', 'Cliente', 'Artigo', 'Qtd.']], use_container_width=True)
+        dados_df.to_excel(writer, index=False, sheet_name='Dados_Filtrados')
+        ws1 = writer.sheets['Dados_Filtrados']
+        ws1.set_column('A:D', 20)
+        ws1.insert_image('A1', 'logo.png', {'image_data': BytesIO(logo_data), 'x_scale': 0.5, 'y_scale': 0.5})
+        ws1.write('C1', f'Relatório Comercial – {nome_mes}', bold)
+        ws1.write('C2', f'Gerado em: {datetime.today().strftime("%d/%m/%Y %H:%M")}', italic)
 
-    st.markdown("### 📌 Totais por Cliente")
-    totais_cliente = df_tab2.groupby('Cliente')['Qtd.'].sum().reset_index().sort_values(by='Qtd.', ascending=False)
-    st.dataframe(totais_cliente, use_container_width=True)
+        cliente_df.to_excel(writer, index=False, sheet_name='Totais_Cliente')
+        ws2 = writer.sheets['Totais_Cliente']
+        ws2.set_column('A:B', 20)
+        ws2.write('A1', f'Totais por Cliente – {nome_mes}', bold)
+        ws2.write('A2', f'Gerado em: {datetime.today().strftime("%d/%m/%Y %H:%M")}', italic)
 
-    st.markdown("### 📌 Totais por Artigo")
-    totais_artigo = df_tab2.groupby('Artigo')['Qtd.'].sum().reset_index().sort_values(by='Qtd.', ascending=False)
-    st.dataframe(totais_artigo, use_container_width=True)
+        artigo_df.to_excel(writer, index=False, sheet_name='Totais_Artigo')
+        ws3 = writer.sheets['Totais_Artigo']
+        ws3.set_column('A:B', 20)
+        ws3.write('A1', f'Totais por Artigo – {nome_mes}', bold)
+        ws3.write('A2', f'Gerado em: {datetime.today().strftime("%d/%m/%Y %H:%M")}', italic)
 
-    st.markdown("### 📊 Gráfico de Vendas por Artigo")
-    st.bar_chart(totais_artigo.set_index('Artigo'))
+        variacoes_pivot.to_excel(writer, index=False, sheet_name='Variações_Produto_Cliente')
+        ws4 = writer.sheets['Variações_Produto_Cliente']
+        ws4.set_column(0, len(variacoes_pivot.columns)-1, 18)
+        ws4.write('A1', f'Variações por Produto e Cliente – {nome_mes}', bold)
+        ws4.write('A2', f'Gerado em: {datetime.today().strftime("%d/%m/%Y %H:%M")}', italic)
 
-    def exportar_excel_completo(dados_df, cliente_df, artigo_df, nome_mes, mes_num):
-        output = BytesIO()
-        logo_url = "https://github.com/paulom40/PFonseca.py/raw/main/Bracar.png"
-        logo_data = requests.get(logo_url).content
-
-        variacoes = dados_df.groupby(['Cliente', 'Artigo', 'Mês'])['Qtd.'].sum().reset_index()
-        variacoes_pivot = variacoes.pivot_table(index=['Cliente', 'Artigo'], columns='Mês', values='Qtd.', fill_value=0).reset_index()
-
-        if 'Comercial' in dados_df.columns:
-            variacoes_comercial = dados_df.groupby(['Comercial', 'Cliente', 'Mês'])['Qtd.'].sum().reset_index()
-            variacoes_comercial_pivot = variacoes_comercial.pivot_table(index=['Comercial', 'Cliente'], columns='Mês', values='Qtd.', fill_value=0).reset_index()
-        else:
-            variacoes_comercial_pivot = pd.DataFrame({'Aviso': ['Coluna "Comercial" não encontrada nos dados.']})
-
-        mes_anterior = mes_num - 1 if mes_num > 1 else 12
-        todos_clientes = sorted(df['Cliente'].unique())
-        clientes_ativos = sorted(df[df['Mês'] == mes_anterior]['Cliente'].unique())
+        variacoes_comercial_pivot.to_excel(writer, index=False, sheet_name='Variações_Comercial_Cliente')
+        ws5 = writer.sheets['Variações_Comercial_Cliente']
+        ws5.set_column(0, len(variacoes_comercial_pivot.columns)-1, 18)
+        ws5.write('A1', f'Variações por Comercial e Cliente – {nome_mes}', bold)
+        ws5.write('A2
