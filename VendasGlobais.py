@@ -183,11 +183,45 @@ if compare_years:
         df_2024 = df_2024[df_2024['Comercial'].isin(comerciais)]
         df_2025 = df_2025[df_2025['Comercial'].isin(comerciais)]
 
-    # Totais para comparação
+    # KPIs para Clientes
     totais_cliente_2024 = df_2024.groupby('Cliente').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False)
     totais_cliente_2025 = df_2025.groupby('Cliente').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False)
     totais_categoria_2024 = df_2024.groupby('Categoria').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False) if 'Categoria' in df_2024.columns else pd.DataFrame()
     totais_categoria_2025 = df_2025.groupby('Categoria').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False) if 'Categoria' in df_2025.columns else pd.DataFrame()
+
+    # Calcular KPIs
+    kpi_2024 = {
+        'Total Qtd.': totais_cliente_2024['Qtd.'].sum(),
+        'Top Cliente': totais_cliente_2024.iloc[0]['Cliente'] if not totais_cliente_2024.empty else 'N/A',
+        'Top Qtd.': totais_cliente_2024.iloc[0]['Qtd.'] if not totais_cliente_2024.empty else 0,
+        'Atividade (%)': (len(totais_cliente_2024[totais_cliente_2024['Qtd.'] > 0]) / len(totais_cliente_2024) * 100) if not totais_cliente_2024.empty else 0,
+        'Média Qtd.': totais_cliente_2024['Qtd.'].mean() if not totais_cliente_2024.empty else 0
+    }
+    kpi_2025 = {
+        'Total Qtd.': totais_cliente_2025['Qtd.'].sum(),
+        'Top Cliente': totais_cliente_2025.iloc[0]['Cliente'] if not totais_cliente_2025.empty else 'N/A',
+        'Top Qtd.': totais_cliente_2025.iloc[0]['Qtd.'] if not totais_cliente_2025.empty else 0,
+        'Atividade (%)': (len(totais_cliente_2025[totais_cliente_2025['Qtd.'] > 0]) / len(totais_cliente_2025) * 100) if not totais_cliente_2025.empty else 0,
+        'Média Qtd.': totais_cliente_2025['Qtd.'].mean() if not totais_cliente_2025.empty else 0
+    }
+    # Crescimento
+    merged_clientes = totais_cliente_2024.merge(totais_cliente_2025, on='Cliente', how='outer', suffixes=('_2024', '_2025'))
+    merged_clientes['Crescimento Qtd. (%)'] = ((merged_clientes['Qtd._2025'].fillna(0) - merged_clientes['Qtd._2024'].fillna(0)) / merged_clientes['Qtd._2024'].replace(0, np.nan) * 100).round(2)
+    kpi_df = merged_clientes[['Cliente', 'Qtd._2024', 'Qtd._2025', 'Crescimento Qtd. (%)']].fillna({'Qtd._2024': 0, 'Qtd._2025': 0})
+
+    st.subheader(f"📊 KPIs por Cliente: {mes_label} 2024 vs 2025")
+    col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
+    with col_kpi1:
+        st.metric("Total Qtd. 2024", f"{kpi_2024['Total Qtd.']:.0f}")
+        st.metric("Total Qtd. 2025", f"{kpi_2025['Total Qtd.']:.0f}")
+    with col_kpi2:
+        st.metric("Top Cliente 2024", f"{kpi_2024['Top Cliente']} ({kpi_2024['Top Qtd.']:.0f})")
+        st.metric("Top Cliente 2025", f"{kpi_2025['Top Cliente']} ({kpi_2025['Top Qtd.']:.0f})")
+    with col_kpi3:
+        st.metric("Atividade 2024 (%)", f"{kpi_2024['Atividade (%)']:.1f}%")
+        st.metric("Atividade 2025 (%)", f"{kpi_2025['Atividade (%)']:.1f}%")
+    with st.expander("Detalhes dos KPIs"):
+        st.dataframe(kpi_df, use_container_width=True)
 
     # Exibir dados filtrados
     st.subheader(f"📋 Dados Filtrados: {mes_label} 2024")
@@ -280,11 +314,33 @@ else:
     if comerciais:
         df_filtrado = df_filtrado[df_filtrado['Comercial'].isin(comerciais)]
 
+    # KPIs para Clientes
+    totais_cliente = df_filtrado.groupby('Cliente').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False)
+    kpi_normal = {
+        'Total Qtd.': totais_cliente['Qtd.'].sum(),
+        'Top Cliente': totais_cliente.iloc[0]['Cliente'] if not totais_cliente.empty else 'N/A',
+        'Top Qtd.': totais_cliente.iloc[0]['Qtd.'] if not totais_cliente.empty else 0,
+        'Atividade (%)': (len(totais_cliente[totais_cliente['Qtd.'] > 0]) / len(totais_cliente) * 100) if not totais_cliente.empty else 0,
+        'Média Qtd.': totais_cliente['Qtd.'].mean() if not totais_cliente.empty else 0
+    }
+    kpi_df = totais_cliente[['Cliente', 'Qtd.']].rename(columns={'Qtd.': 'Quantidade Total'})
+
+    st.subheader(f"📊 KPIs por Cliente: {mes_label} {ano_selecionado}")
+    col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
+    with col_kpi1:
+        st.metric("Total Quantidade", f"{kpi_normal['Total Qtd.']:.0f}")
+    with col_kpi2:
+        st.metric("Top Cliente", f"{kpi_normal['Top Cliente']} ({kpi_normal['Top Qtd.']:.0f})")
+    with col_kpi3:
+        st.metric("Atividade (%)", f"{kpi_normal['Atividade (%)']:.1f}%")
+        st.metric("Média Qtd. por Cliente", f"{kpi_normal['Média Qtd.']:.1f}")
+    with st.expander("Detalhes dos KPIs"):
+        st.dataframe(kpi_df, use_container_width=True)
+
     st.subheader("📋 Dados Filtrados")
     st.dataframe(df_filtrado[['Código', 'Cliente', 'Artigo', 'Qtd.', 'V. Líquido', 'PM', 'UN', 'Categoria', 'Comercial', 'Mês', 'Ano']], use_container_width=True)
 
     # Totais
-    totais_cliente = df_filtrado.groupby('Cliente').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False)
     totais_artigo = df_filtrado.groupby('Artigo').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False)
     totais_categoria = df_filtrado.groupby('Categoria').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False) if 'Categoria' in df_filtrado.columns else pd.DataFrame()
     totais_comercial = df_filtrado.groupby('Comercial').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False) if 'Comercial' in df_filtrado.columns else pd.DataFrame()
@@ -314,7 +370,7 @@ else:
             plt.tight_layout()
             st.pyplot(fig2)
 
-def exportar_excel_completo(dados_df, cliente_df, artigo_df, categoria_df, comercial_df, nome_mes, mes_num, ano, compare_years=False, df_2024=None, df_2025=None, totais_cliente_2024=None, totais_cliente_2025=None, totais_categoria_2024=None, totais_categoria_2025=None):
+def exportar_excel_completo(dados_df, cliente_df, artigo_df, categoria_df, comercial_df, kpi_df, nome_mes, mes_num, ano, compare_years=False, df_2024=None, df_2025=None, totais_cliente_2024=None, totais_cliente_2025=None, totais_categoria_2024=None, totais_categoria_2025=None):
     output = BytesIO()
     try:
         logo_url = "https://github.com/paulom40/PFonseca.py/raw/main/Bracar.png"
@@ -383,46 +439,53 @@ def exportar_excel_completo(dados_df, cliente_df, artigo_df, categoria_df, comer
             ws5.write('A1', f'Totais por Comercial – {nome_mes} {ano}', bold)
             ws5.write('A2', f'Gerado em: {datetime.now().strftime("%d/%m/%Y %H:%M")}', italic)
 
+        # KPIs Cliente
+        kpi_df.to_excel(writer, index=False, sheet_name='KPIs_Cliente')
+        ws6 = writer.sheets['KPIs_Cliente']
+        ws6.set_column('A:Z', 20)
+        ws6.write('A1', f'KPIs por Cliente – {nome_mes} {ano}', bold)
+        ws6.write('A2', f'Gerado em: {datetime.now().strftime("%d/%m/%Y %H:%M")}', italic)
+
         # Variações Cliente e Artigo
         variacoes_pivot.to_excel(writer, index=False, sheet_name='Variacoes_Cliente_Artigo')
-        ws6 = writer.sheets['Variacoes_Cliente_Artigo']
-        ws6.set_column('A:Z', 20)
-        ws6.write('A1', f'Variações por Cliente e Artigo', bold)
+        ws7 = writer.sheets['Variacoes_Cliente_Artigo']
+        ws7.set_column('A:Z', 20)
+        ws7.write('A1', f'Variações por Cliente e Artigo', bold)
 
         # Variações Comercial
         variacoes_comercial_pivot.to_excel(writer, index=False, sheet_name='Variacoes_Comercial')
-        ws7 = writer.sheets['Variacoes_Comercial']
-        ws7.set_column('A:Z', 20)
-        ws7.write('A1', f'Variações por Comercial', bold)
+        ws8 = writer.sheets['Variacoes_Comercial']
+        ws8.set_column('A:Z', 20)
+        ws8.write('A1', f'Variações por Comercial', bold)
 
         # Alertas
         alertas_df.to_excel(writer, index=False, sheet_name='Alertas_Clientes_Inativos')
-        ws8 = writer.sheets['Alertas_Clientes_Inativos']
-        ws8.set_column('A:Z', 20)
-        ws8.write('A1', f'Alertas de Clientes Inativos no Mês Anterior', bold)
+        ws9 = writer.sheets['Alertas_Clientes_Inativos']
+        ws9.set_column('A:Z', 20)
+        ws9.write('A1', f'Alertas de Clientes Inativos no Mês Anterior', bold)
 
         # Comparação 2024 vs 2025
         if compare_years:
             if not totais_cliente_2024.empty:
                 totais_cliente_2024.to_excel(writer, index=False, sheet_name='Comparacao_Cliente_2024')
-                ws9 = writer.sheets['Comparacao_Cliente_2024']
-                ws9.set_column('A:Z', 20)
-                ws9.write('A1', f'Comparação Clientes – {nome_mes} 2024', bold)
+                ws10 = writer.sheets['Comparacao_Cliente_2024']
+                ws10.set_column('A:Z', 20)
+                ws10.write('A1', f'Comparação Clientes – {nome_mes} 2024', bold)
             if not totais_cliente_2025.empty:
                 totais_cliente_2025.to_excel(writer, index=False, sheet_name='Comparacao_Cliente_2025')
-                ws10 = writer.sheets['Comparacao_Cliente_2025']
-                ws10.set_column('A:Z', 20)
-                ws10.write('A1', f'Comparação Clientes – {nome_mes} 2025', bold)
+                ws11 = writer.sheets['Comparacao_Cliente_2025']
+                ws11.set_column('A:Z', 20)
+                ws11.write('A1', f'Comparação Clientes – {nome_mes} 2025', bold)
             if not totais_categoria_2024.empty:
                 totais_categoria_2024.to_excel(writer, index=False, sheet_name='Comparacao_Categoria_2024')
-                ws11 = writer.sheets['Comparacao_Categoria_2024']
-                ws11.set_column('A:Z', 20)
-                ws11.write('A1', f'Comparação Categorias – {nome_mes} 2024', bold)
+                ws12 = writer.sheets['Comparacao_Categoria_2024']
+                ws12.set_column('A:Z', 20)
+                ws12.write('A1', f'Comparação Categorias – {nome_mes} 2024', bold)
             if not totais_categoria_2025.empty:
                 totais_categoria_2025.to_excel(writer, index=False, sheet_name='Comparacao_Categoria_2025')
-                ws12 = writer.sheets['Comparacao_Categoria_2025']
-                ws12.set_column('A:Z', 20)
-                ws12.write('A1', f'Comparação Categorias – {nome_mes} 2025', bold)
+                ws13 = writer.sheets['Comparacao_Categoria_2025']
+                ws13.set_column('A:Z', 20)
+                ws13.write('A1', f'Comparação Categorias – {nome_mes} 2025', bold)
 
     output.seek(0)
     return output
@@ -432,7 +495,7 @@ if st.button("📥 Exportar Relatório para Excel"):
     if compare_years:
         excel_data = exportar_excel_completo(
             df_2025, totais_cliente_2025, totais_artigo, totais_categoria_2025, totais_comercial,
-            mes_label, mes_num, 2025, compare_years=True,
+            kpi_df, mes_label, mes_num, 2025, compare_years=True,
             df_2024=df_2024, df_2025=df_2025,
             totais_cliente_2024=totais_cliente_2024, totais_cliente_2025=totais_cliente_2025,
             totais_categoria_2024=totais_categoria_2024, totais_categoria_2025=totais_categoria_2025
@@ -441,7 +504,7 @@ if st.button("📥 Exportar Relatório para Excel"):
     else:
         excel_data = exportar_excel_completo(
             df_filtrado, totais_cliente, totais_artigo, totais_categoria, totais_comercial,
-            mes_label, mes_num, ano_selecionado
+            kpi_df, mes_label, mes_num, ano_selecionado
         )
         file_name = f"Relatorio_Comercial_{mes_label}_{ano_selecionado}.xlsx"
     
