@@ -65,7 +65,7 @@ def load_data():
         st.stop()
 
     df['Mês'] = pd.to_numeric(df['Mês'], errors='coerce')
-    df = df.dropna(subset=['Mês'])
+    df = df[df['Mês'].between(1, 12)]
     df['Mês'] = df['Mês'].astype(int)
 
     if 'Data' not in df.columns:
@@ -73,20 +73,36 @@ def load_data():
 
     df = df.dropna(subset=['Data', 'Qtd.', 'Cliente', 'Artigo'])
     return df
-
 df = load_data()
 
 st.title("📊 Dashboard Comercial")
 
-meses_disponiveis = sorted(df['Mês'].dropna().unique())
-nomes_meses = [meses_pt.get(int(m), f"Mês {m}") for m in meses_disponiveis]
+# Painel de valores únicos
+with st.expander("📋 Ver valores únicos por coluna"):
+    for col in ['Mês', 'Ano', 'Cliente', 'Artigo']:
+        if col in df.columns:
+            valores = sorted(df[col].dropna().unique())
+            if col == 'Mês':
+                nomes = [meses_pt.get(int(m), str(m)) for m in valores]
+                st.write(f"**{col}**: {', '.join(nomes)}")
+            else:
+                st.write(f"**{col}**: {', '.join(map(str, valores[:20]))} {'...' if len(valores) > 20 else ''}")
 
-mes_label = st.selectbox("Selecionar Mês", nomes_meses)
-mes_num = obter_numero_mes(mes_label)
-if mes_num is None:
-    st.error(f"❌ Mês '{mes_label}' não reconhecido.")
+# Filtro de mês
+meses_disponiveis = sorted(df['Mês'].unique())
+nomes_meses = [meses_pt.get(m, f"Mês {m}") for m in meses_disponiveis]
+
+if nomes_meses:
+    mes_label = st.selectbox("Selecionar Mês", nomes_meses)
+    mes_num = obter_numero_mes(mes_label)
+    if mes_num is None:
+        st.error(f"❌ Mês '{mes_label}' não reconhecido.")
+        st.stop()
+else:
+    st.warning("⚠️ Nenhum mês disponível nos dados.")
     st.stop()
 
+# Filtros adicionais
 clientes = st.multiselect("Filtrar por Cliente", sorted(df['Cliente'].unique()))
 artigos = st.multiselect("Filtrar por Artigo", sorted(df['Artigo'].unique()))
 
@@ -100,7 +116,6 @@ st.dataframe(df_filtrado[['Data', 'Cliente', 'Artigo', 'Qtd.']], use_container_w
 
 totais_cliente = df_filtrado.groupby('Cliente')['Qtd.'].sum().reset_index()
 totais_artigo = df_filtrado.groupby('Artigo')['Qtd.'].sum().reset_index()
-
 def exportar_excel_completo(dados_df, cliente_df, artigo_df, nome_mes, mes_num):
     output = BytesIO()
     logo_url = "https://github.com/paulom40/PFonseca.py/raw/main/Bracar.png"
@@ -142,18 +157,4 @@ def exportar_excel_completo(dados_df, cliente_df, artigo_df, nome_mes, mes_num):
         artigo_df.to_excel(writer, index=False, sheet_name='Totais_Artigo')
         ws3 = writer.sheets['Totais_Artigo']
         ws3.set_column('A:B', 20)
-        ws3.write('A1', f'Totais por Artigo – {nome_mes}', bold)
-        ws3.write('A2', f'Gerado em: {datetime.today().strftime("%d/%m/%Y %H:%M")}', italic)
-
-        variacoes_pivot.to_excel(writer, index=False, sheet_name='Variações_Produto_Cliente')
-        ws4 = writer.sheets['Variações_Produto_Cliente']
-        ws4.set_column(0, len(variacoes_pivot.columns)-1, 18)
-        ws4.write('A1', f'Variações por Produto e Cliente – {nome_mes}', bold)
-        ws4.write('A2', f'Gerado em: {datetime.today().strftime("%d/%m/%Y %H:%M")}', italic)
-
-        variacoes_comercial_pivot.to_excel(writer, index=False, sheet_name='Variações_Comercial_Cliente')
-        ws5 = writer.sheets['Variações_Comercial_Cliente']
-        ws5.set_column(0, len(variacoes_comercial_pivot.columns)-1, 18)
-        ws5.write('A1', f'Variações por Comercial e Cliente – {nome_mes}', bold)
-        ws5.write('A2', f'Gerado em: {datetime.today().strftime("%d/%m/%Y %H:%M")}', italic)
-
+        ws3.write('A1',
