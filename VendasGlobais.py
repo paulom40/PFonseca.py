@@ -6,7 +6,7 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Custom CSS for professional and modern styling
+# Custom CSS with fixed header styling
 custom_css = """
 <style>
 /* General styling */
@@ -24,8 +24,9 @@ body {
 }
 
 /* Headers */
-h1, h2, h3 {
-    color: #1E3A8A;
+h1, h2, h3, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, 
+.st-emotion-cache-1wivap2, .st-emotion-cache-10trblm {
+    color: #1E3A8A !important;
     font-weight: 600;
     margin-bottom: 15px;
 }
@@ -98,7 +99,7 @@ button[kind="secondary"] {
 }
 .stDataFrame th {
     background-color: #1E3A8A;
-    color: white;
+    color: white !important;
     padding: 12px;
 }
 .stDataFrame td {
@@ -113,7 +114,7 @@ button[kind="secondary"] {
 .stExpander summary {
     background-color: #F9FAFB;
     font-weight: 500;
-    color: #1E3A8A;
+    color: #1E3A8A !important;
 }
 
 /* Alerts */
