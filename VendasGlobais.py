@@ -682,6 +682,321 @@ else:
             plt.tight_layout()
             st.pyplot(fig2)
 
+# =============================================
+# RELATÓRIO CLIENTE/ARTIGO POR MÊS
+# =============================================
+
+st.markdown("---")
+st.subheader("📋 Relatório Detalhado Cliente/Artigo por Mês")
+
+# Configuration for the report
+col_report1, col_report2 = st.columns(2)
+with col_report1:
+    report_ano = st.selectbox(
+        "Ano para Relatório", 
+        sorted(df['Ano'].unique()), 
+        key="report_ano"
+    )
+with col_report2:
+    report_meses = st.multiselect(
+        "Meses para Relatório", 
+        [meses_pt[m] for m in sorted(df[df['Ano'] == report_ano]['Mês'].unique())],
+        default=[meses_pt[m] for m in sorted(df[df['Ano'] == report_ano]['Mês'].unique())][:3],
+        key="report_meses"
+    )
+
+# Convert month names back to numbers
+report_meses_nums = [obter_numero_mes(mes) for mes in report_meses]
+
+# Additional filters for the report
+st.markdown("**Filtros do Relatório**")
+col_report3, col_report4, col_report5 = st.columns(3)
+with col_report3:
+    report_clientes = st.multiselect(
+        "Clientes (opcional)", 
+        sorted(df['Cliente'].unique()),
+        key="report_clientes"
+    )
+with col_report4:
+    report_artigos = st.multiselect(
+        "Artigos (opcional)", 
+        sorted(df['Artigo'].unique()),
+        key="report_artigos"
+    )
+with col_report5:
+    report_categorias = st.multiselect(
+        "Categorias (opcional)", 
+        sorted(df['Categoria'].unique()) if 'Categoria' in df.columns else [],
+        key="report_categorias"
+    )
+
+# Generate the report
+if st.button("🔄 Gerar Relatório Cliente/Artigo", key="generate_report"):
+    if not report_meses:
+        st.warning("⚠️ Selecione pelo menos um mês para gerar o relatório.")
+    else:
+        with st.spinner("Gerando relatório..."):
+            # Filter data based on selections
+            df_report = df[
+                (df['Ano'] == report_ano) & 
+                (df['Mês'].isin(report_meses_nums))
+            ]
+            
+            # Apply additional filters if selected
+            if report_clientes:
+                df_report = df_report[df_report['Cliente'].isin(report_clientes)]
+            if report_artigos:
+                df_report = df_report[df_report['Artigo'].isin(report_artigos)]
+            if report_categorias and 'Categoria' in df_report.columns:
+                df_report = df_report[df_report['Categoria'].isin(report_categorias)]
+            
+            if df_report.empty:
+                st.warning("⚠️ Nenhum dado encontrado com os filtros selecionados.")
+            else:
+                # Create comprehensive report
+                st.success(f"✅ Relatório gerado para {len(report_meses)} mês(es) de {report_ano}")
+                
+                # 1. Summary Statistics
+                st.markdown("### 📊 Estatísticas Resumidas")
+                col_sum1, col_sum2, col_sum3, col_sum4 = st.columns(4)
+                
+                total_clientes = df_report['Cliente'].nunique()
+                total_artigos = df_report['Artigo'].nunique()
+                total_qtd = df_report['Qtd.'].sum()
+                total_vendas = df_report['V. Líquido'].sum() if 'V. Líquido' in df_report.columns else 0
+                
+                with col_sum1:
+                    st.metric("Total de Clientes", total_clientes)
+                with col_sum2:
+                    st.metric("Total de Artigos", total_artigos)
+                with col_sum3:
+                    st.metric("Quantidade Total", f"{total_qtd:,.0f}")
+                with col_sum4:
+                    st.metric("Vendas Totais", f"€ {total_vendas:,.2f}")
+                
+                # 2. Monthly Overview
+                st.markdown("### 📈 Visão Mensal")
+                
+                # Monthly totals
+                monthly_totals = df_report.groupby('Mês').agg({
+                    'Qtd.': 'sum',
+                    'V. Líquido': 'sum',
+                    'Cliente': 'nunique',
+                    'Artigo': 'nunique'
+                }).reset_index()
+                monthly_totals['Mês'] = monthly_totals['Mês'].map(meses_pt)
+                monthly_totals = monthly_totals.rename(columns={
+                    'Qtd.': 'Quantidade Total',
+                    'V. Líquido': 'Valor Líquido Total',
+                    'Cliente': 'Clientes Únicos',
+                    'Artigo': 'Artigos Únicos'
+                })
+                
+                st.dataframe(monthly_totals, use_container_width=True)
+                
+                # 3. Detailed Client/Article Matrix
+                st.markdown("### 🎯 Matriz Cliente/Artigo Detalhada")
+                
+                # Create pivot table for client/article analysis
+                pivot_data = df_report.pivot_table(
+                    index=['Cliente', 'Artigo'],
+                    columns='Mês',
+                    values='Qtd.',
+                    aggfunc='sum',
+                    fill_value=0
+                ).reset_index()
+                
+                # Add month names to columns
+                pivot_data.columns = ['Cliente', 'Artigo'] + [meses_pt[col] for col in pivot_data.columns[2:]]
+                
+                # Calculate totals and growth
+                month_cols = [meses_pt[m] for m in report_meses_nums if meses_pt[m] in pivot_data.columns]
+                if len(month_cols) >= 2:
+                    pivot_data['Total'] = pivot_data[month_cols].sum(axis=1)
+                    pivot_data['Crescimento'] = ((pivot_data[month_cols[-1]] - pivot_data[month_cols[0]]) / pivot_data[month_cols[0]].replace(0, np.nan) * 100).round(1)
+                    pivot_data['Crescimento'] = pivot_data['Crescimento'].fillna(0)
+                
+                # Sort by total quantity
+                pivot_data = pivot_data.sort_values('Total' if 'Total' in pivot_data.columns else month_cols[-1] if month_cols else 'Cliente', ascending=False)
+                
+                st.dataframe(pivot_data, use_container_width=True)
+                
+                # 4. Top Performers Analysis
+                st.markdown("### 🏆 Análise de Top Performers")
+                
+                col_top1, col_top2 = st.columns(2)
+                
+                with col_top1:
+                    # Top Clients
+                    top_clients = df_report.groupby('Cliente').agg({
+                        'Qtd.': 'sum',
+                        'V. Líquido': 'sum',
+                        'Artigo': 'nunique'
+                    }).nlargest(10, 'Qtd.').reset_index()
+                    top_clients = top_clients.rename(columns={
+                        'Qtd.': 'Quantidade Total',
+                        'V. Líquido': 'Valor Total',
+                        'Artigo': 'Artigos Diferentes'
+                    })
+                    
+                    st.markdown("**Top 10 Clientes por Quantidade**")
+                    st.dataframe(top_clients, use_container_width=True)
+                
+                with col_top2:
+                    # Top Articles
+                    top_articles = df_report.groupby('Artigo').agg({
+                        'Qtd.': 'sum',
+                        'V. Líquido': 'sum',
+                        'Cliente': 'nunique'
+                    }).nlargest(10, 'Qtd.').reset_index()
+                    top_articles = top_articles.rename(columns={
+                        'Qtd.': 'Quantidade Total',
+                        'V. Líquido': 'Valor Total',
+                        'Cliente': 'Clientes Diferentes'
+                    })
+                    
+                    st.markdown("**Top 10 Artigos por Quantidade**")
+                    st.dataframe(top_articles, use_container_width=True)
+                
+                # 5. Monthly Trends Visualization
+                st.markdown("### 📊 Tendências Mensais")
+                
+                col_trend1, col_trend2 = st.columns(2)
+                
+                with col_trend1:
+                    # Monthly quantity trend
+                    monthly_qtd = df_report.groupby('Mês')['Qtd.'].sum().reset_index()
+                    monthly_qtd['Mês'] = monthly_qtd['Mês'].map(meses_pt)
+                    
+                    fig_trend1, ax1 = plt.subplots(figsize=(10, 6))
+                    ax1.bar(monthly_qtd['Mês'], monthly_qtd['Qtd.'], color='#1E3A8A', alpha=0.7)
+                    ax1.set_title('Quantidade Total por Mês')
+                    ax1.set_ylabel('Quantidade')
+                    ax1.tick_params(axis='x', rotation=45)
+                    plt.tight_layout()
+                    st.pyplot(fig_trend1)
+                
+                with col_trend2:
+                    # Monthly clients and articles trend
+                    monthly_stats = df_report.groupby('Mês').agg({
+                        'Cliente': 'nunique',
+                        'Artigo': 'nunique'
+                    }).reset_index()
+                    monthly_stats['Mês'] = monthly_stats['Mês'].map(meses_pt)
+                    
+                    fig_trend2, ax2 = plt.subplots(figsize=(10, 6))
+                    x = np.arange(len(monthly_stats['Mês']))
+                    width = 0.35
+                    
+                    ax2.bar(x - width/2, monthly_stats['Cliente'], width, label='Clientes Únicos', color='#F97316', alpha=0.7)
+                    ax2.bar(x + width/2, monthly_stats['Artigo'], width, label='Artigos Únicos', color='#10B981', alpha=0.7)
+                    
+                    ax2.set_title('Clientes e Artigos Únicos por Mês')
+                    ax2.set_ylabel('Contagem')
+                    ax2.set_xticks(x)
+                    ax2.set_xticklabels(monthly_stats['Mês'], rotation=45)
+                    ax2.legend()
+                    plt.tight_layout()
+                    st.pyplot(fig_trend2)
+                
+                # 6. Client-Article Relationship Analysis
+                st.markdown("### 🔗 Análise de Relacionamento Cliente-Artigo")
+                
+                # Client-article combinations
+                client_article_combos = df_report.groupby(['Cliente', 'Artigo']).agg({
+                    'Qtd.': 'sum',
+                    'V. Líquido': 'sum',
+                    'Mês': 'nunique'
+                }).reset_index()
+                client_article_combos = client_article_combos.rename(columns={
+                    'Qtd.': 'Quantidade Total',
+                    'V. Líquido': 'Valor Total',
+                    'Mês': 'Meses com Vendas'
+                })
+                
+                # Filter for significant relationships
+                significant_combos = client_article_combos[
+                    (client_article_combos['Quantidade Total'] > client_article_combos['Quantidade Total'].quantile(0.5)) |
+                    (client_article_combos['Meses com Vendas'] > 1)
+                ].sort_values('Quantidade Total', ascending=False)
+                
+                st.dataframe(significant_combos.head(20), use_container_width=True)
+                
+                # 7. Export the detailed report
+                st.markdown("### 💾 Exportar Relatório Completo")
+                
+                def export_client_article_report():
+                    output = BytesIO()
+                    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                        # Summary sheet
+                        summary_data = {
+                            'Métrica': ['Total Clientes', 'Total Artigos', 'Quantidade Total', 'Vendas Totais', 'Período'],
+                            'Valor': [total_clientes, total_artigos, total_qtd, f"€ {total_vendas:,.2f}", f"{', '.join(report_meses)} {report_ano}"]
+                        }
+                        pd.DataFrame(summary_data).to_excel(writer, sheet_name='Resumo', index=False)
+                        
+                        # Monthly overview
+                        monthly_totals.to_excel(writer, sheet_name='Visão_Mensal', index=False)
+                        
+                        # Client-article matrix
+                        pivot_data.to_excel(writer, sheet_name='Matriz_Cliente_Artigo', index=False)
+                        
+                        # Top performers
+                        top_clients.to_excel(writer, sheet_name='Top_Clientes', index=False)
+                        top_articles.to_excel(writer, sheet_name='Top_Artigos', index=False)
+                        
+                        # Client-article relationships
+                        significant_combos.to_excel(writer, sheet_name='Relacionamentos', index=False)
+                        
+                        # Raw data
+                        df_report.to_excel(writer, sheet_name='Dados_Completos', index=False)
+                    
+                    output.seek(0)
+                    return output
+                
+                excel_report = export_client_article_report()
+                st.download_button(
+                    label="📥 Baixar Relatório Completo em Excel",
+                    data=excel_report,
+                    file_name=f"Relatorio_Cliente_Artigo_{report_ano}_{'_'.join(report_meses)}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+
+# Quick access to common reports
+st.markdown("### ⚡ Relatórios Rápidos")
+col_quick1, col_quick2, col_quick3 = st.columns(3)
+
+with col_quick1:
+    if st.button("📊 Últimos 3 Meses", key="quick_3months"):
+        current_year = datetime.now().year
+        recent_months = sorted(df[df['Ano'] == current_year]['Mês'].unique())[-3:]
+        recent_month_names = [meses_pt[m] for m in recent_months]
+        
+        st.session_state.report_ano = current_year
+        st.session_state.report_meses = recent_month_names
+        st.rerun()
+
+with col_quick2:
+    if st.button("📈 Ano Completo", key="quick_fullyear"):
+        current_year = datetime.now().year
+        all_months = sorted(df[df['Ano'] == current_year]['Mês'].unique())
+        all_month_names = [meses_pt[m] for m in all_months]
+        
+        st.session_state.report_ano = current_year
+        st.session_state.report_meses = all_month_names
+        st.rerun()
+
+with col_quick3:
+    if st.button("🔍 Top 20 Clientes", key="quick_top20"):
+        # This would pre-filter for top 20 clients
+        top_20_clients = df.groupby('Cliente')['Qtd.'].sum().nlargest(20).index.tolist()
+        st.session_state.report_clientes = top_20_clients
+        st.rerun()
+
+# =============================================
+# EXPORTAÇÃO COMPLETA (Existing export function)
+# =============================================
+
 def exportar_excel_completo(dados_df, cliente_df, artigo_df, categoria_df, comercial_df, kpi_df, alertas_clientes, alertas_artigos, nome_mes, mes_num, ano, compare_years=False, df_2024=None, df_2025=None, totais_cliente_2024=None, totais_cliente_2025=None, totais_categoria_2024=None, totais_categoria_2025=None):
     output = BytesIO()
     try:
@@ -814,11 +1129,11 @@ def exportar_excel_completo(dados_df, cliente_df, artigo_df, categoria_df, comer
     output.seek(0)
     return output
 
-# Botão de exportação
-# No final do código, substitua a seção do botão de exportação por:
+# Botão de exportação principal
+st.markdown("---")
+st.subheader("📥 Exportação de Relatórios")
 
-# Botão de exportação
-if st.button("📥 Exportar Relatório para Excel"):
+if st.button("📊 Exportar Relatório Principal para Excel"):
     try:
         if compare_years:
             # Preparar dados para exportação no modo de comparação
@@ -848,7 +1163,7 @@ if st.button("📥 Exportar Relatório para Excel"):
             file_name = f"Relatorio_Comercial_{mes_label}_{ano_selecionado}.xlsx"
         
         st.download_button(
-            label="Baixar Relatório",
+            label="Baixar Relatório Principal",
             data=excel_data,
             file_name=file_name,
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -858,5 +1173,3 @@ if st.button("📥 Exportar Relatório para Excel"):
     except Exception as e:
         st.error(f"❌ Erro ao gerar relatório: {str(e)}")
         st.info("💡 Dica: Verifique se todos os dados necessários estão disponíveis para a exportação.")
-    
-    
