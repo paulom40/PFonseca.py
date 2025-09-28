@@ -136,6 +136,38 @@ with st.expander("📋 Ver valores únicos por coluna"):
             except Exception as e:
                 st.warning(f"⚠️ Não foi possível exibir valores únicos para '{col}': {str(e)}")
 
+# Função para calcular alertas
+def calcular_alertas(df, mes_num, ano, threshold_aumento=50, threshold_reducao=-50):
+    mes_anterior = mes_num - 1 if mes_num > 1 else 12
+    ano_anterior = ano if mes_num > 1 else ano - 1
+
+    df_atual = df[(df['Mês'] == mes_num) & (df['Ano'] == ano)]
+    df_anterior = df[(df['Mês'] == mes_anterior) & (df['Ano'] == ano_anterior)]
+
+    # Alertas para Cliente
+    totais_cliente_atual = df_atual.groupby('Cliente')['Qtd.'].sum().reset_index()
+    totais_cliente_anterior = df_anterior.groupby('Cliente')['Qtd.'].sum().reset_index()
+    merged_clientes = totais_cliente_atual.merge(totais_cliente_anterior, on='Cliente', how='outer', suffixes=('_Atual', '_Anterior'))
+    merged_clientes.fillna({'Qtd._Atual': 0, 'Qtd._Anterior': 0}, inplace=True)
+    merged_clientes['Variação (%)'] = ((merged_clientes['Qtd._Atual'] - merged_clientes['Qtd._Anterior']) / merged_clientes['Qtd._Anterior'].replace(0, np.nan) * 100).round(2)
+    alertas_clientes = merged_clientes[
+        (merged_clientes['Variação (%)'].notna()) & 
+        ((merged_clientes['Variação (%)'] > threshold_aumento) | (merged_clientes['Variação (%)'] < threshold_reducao))
+    ][['Cliente', 'Qtd._Atual', 'Qtd._Anterior', 'Variação (%)']]
+
+    # Alertas para Artigo
+    totais_artigo_atual = df_atual.groupby('Artigo')['Qtd.'].sum().reset_index()
+    totais_artigo_anterior = df_anterior.groupby('Artigo')['Qtd.'].sum().reset_index()
+    merged_artigos = totais_artigo_atual.merge(totais_artigo_anterior, on='Artigo', how='outer', suffixes=('_Atual', '_Anterior'))
+    merged_artigos.fillna({'Qtd._Atual': 0, 'Qtd._Anterior': 0}, inplace=True)
+    merged_artigos['Variação (%)'] = ((merged_artigos['Qtd._Atual'] - merged_artigos['Qtd._Anterior']) / merged_artigos['Qtd._Anterior'].replace(0, np.nan) * 100).round(2)
+    alertas_artigos = merged_artigos[
+        (merged_artigos['Variação (%)'].notna()) & 
+        ((merged_artigos['Variação (%)'] > threshold_aumento) | (merged_artigos['Variação (%)'] < threshold_reducao))
+    ][['Artigo', 'Qtd._Atual', 'Qtd._Anterior', 'Variação (%)']]
+
+    return alertas_clientes, alertas_artigos
+
 # Opção de comparação 2024 vs 2025
 st.subheader("Comparação de Dados")
 compare_years = st.checkbox("Comparar mesmo mês entre 2024 e 2025")
@@ -204,10 +236,40 @@ if compare_years:
         'Atividade (%)': (len(totais_cliente_2025[totais_cliente_2025['Qtd.'] > 0]) / len(totais_cliente_2025) * 100) if not totais_cliente_2025.empty else 0,
         'Média Qtd.': totais_cliente_2025['Qtd.'].mean() if not totais_cliente_2025.empty else 0
     }
-    # Crescimento
     merged_clientes = totais_cliente_2024.merge(totais_cliente_2025, on='Cliente', how='outer', suffixes=('_2024', '_2025'))
-    merged_clientes['Crescimento Qtd. (%)'] = ((merged_clientes['Qtd._2025'].fillna(0) - merged_clientes['Qtd._2024'].fillna(0)) / merged_clientes['Qtd._2024'].replace(0, np.nan) * 100).round(2)
+    merged_clientes.fillna({'Qtd._2024': 0, 'Qtd._2025': 0}, inplace=True)
+    merged_clientes['Crescimento Qtd. (%)'] = ((merged_clientes['Qtd._2025'] - merged_clientes['Qtd._2024']) / merged_clientes['Qtd._2024'].replace(0, np.nan) * 100).round(2)
     kpi_df = merged_clientes[['Cliente', 'Qtd._2024', 'Qtd._2025', 'Crescimento Qtd. (%)']].fillna({'Qtd._2024': 0, 'Qtd._2025': 0})
+
+    # Calcular alertas para 2025 (comparado com mês anterior)
+    alertas_clientes, alertas_artigos = calcular_alertas(df, mes_num, 2025)
+
+    st.subheader(f"🚨 Alertas de Quantidade: {mes_label} 2025 vs Mês Anterior")
+    if not alertas_clientes.empty:
+        st.markdown("**Clientes com variações significativas**")
+        for _, row in alertas_clientes.iterrows():
+            if row['Variação (%)'] > 50:
+                st.success(f"✔ {row['Cliente']}: Aumento de {row['Variação (%)']:.1f}% (Atual: {row['Qtd._Atual']:.0f}, Anterior: {row['Qtd._Anterior']:.0f})")
+            else:
+                st.error(f"❌ {row['Cliente']}: Redução de {row['Variação (%)']:.1f}% (Atual: {row['Qtd._Atual']:.0f}, Anterior: {row['Qtd._Anterior']:.0f})")
+    else:
+        st.info("Nenhum alerta para clientes.")
+    if not alertas_artigos.empty:
+        st.markdown("**Artigos com variações significativas**")
+        for _, row in alertas_artigos.iterrows():
+            if row['Variação (%)'] > 50:
+                st.success(f"✔ {row['Artigo']}: Aumento de {row['Variação (%)']:.1f}% (Atual: {row['Qtd._Atual']:.0f}, Anterior: {row['Qtd._Anterior']:.0f})")
+            else:
+                st.error(f"❌ {row['Artigo']}: Redução de {row['Variação (%)']:.1f}% (Atual: {row['Qtd._Atual']:.0f}, Anterior: {row['Qtd._Anterior']:.0f})")
+    else:
+        st.info("Nenhum alerta para artigos.")
+    with st.expander("Detalhes dos Alertas"):
+        if not alertas_clientes.empty:
+            st.markdown("**Alertas por Cliente**")
+            st.dataframe(alertas_clientes, use_container_width=True)
+        if not alertas_artigos.empty:
+            st.markdown("**Alertas por Artigo**")
+            st.dataframe(alertas_artigos, use_container_width=True)
 
     st.subheader(f"📊 KPIs por Cliente: {mes_label} 2024 vs 2025")
     col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
@@ -314,6 +376,36 @@ else:
     if comerciais:
         df_filtrado = df_filtrado[df_filtrado['Comercial'].isin(comerciais)]
 
+    # Calcular alertas
+    alertas_clientes, alertas_artigos = calcular_alertas(df, mes_num, ano_selecionado)
+
+    st.subheader(f"🚨 Alertas de Quantidade: {mes_label} {ano_selecionado} vs Mês Anterior")
+    if not alertas_clientes.empty:
+        st.markdown("**Clientes com variações significativas**")
+        for _, row in alertas_clientes.iterrows():
+            if row['Variação (%)'] > 50:
+                st.success(f"✔ {row['Cliente']}: Aumento de {row['Variação (%)']:.1f}% (Atual: {row['Qtd._Atual']:.0f}, Anterior: {row['Qtd._Anterior']:.0f})")
+            else:
+                st.error(f"❌ {row['Cliente']}: Redução de {row['Variação (%)']:.1f}% (Atual: {row['Qtd._Atual']:.0f}, Anterior: {row['Qtd._Anterior']:.0f})")
+    else:
+        st.info("Nenhum alerta para clientes.")
+    if not alertas_artigos.empty:
+        st.markdown("**Artigos com variações significativas**")
+        for _, row in alertas_artigos.iterrows():
+            if row['Variação (%)'] > 50:
+                st.success(f"✔ {row['Artigo']}: Aumento de {row['Variação (%)']:.1f}% (Atual: {row['Qtd._Atual']:.0f}, Anterior: {row['Qtd._Anterior']:.0f})")
+            else:
+                st.error(f"❌ {row['Artigo']}: Redução de {row['Variação (%)']:.1f}% (Atual: {row['Qtd._Atual']:.0f}, Anterior: {row['Qtd._Anterior']:.0f})")
+    else:
+        st.info("Nenhum alerta para artigos.")
+    with st.expander("Detalhes dos Alertas"):
+        if not alertas_clientes.empty:
+            st.markdown("**Alertas por Cliente**")
+            st.dataframe(alertas_clientes, use_container_width=True)
+        if not alertas_artigos.empty:
+            st.markdown("**Alertas por Artigo**")
+            st.dataframe(alertas_artigos, use_container_width=True)
+
     # KPIs para Clientes
     totais_cliente = df_filtrado.groupby('Cliente').agg({'Qtd.': 'sum', 'V. Líquido': 'sum'}).reset_index().sort_values('Qtd.', ascending=False)
     kpi_normal = {
@@ -370,7 +462,7 @@ else:
             plt.tight_layout()
             st.pyplot(fig2)
 
-def exportar_excel_completo(dados_df, cliente_df, artigo_df, categoria_df, comercial_df, kpi_df, nome_mes, mes_num, ano, compare_years=False, df_2024=None, df_2025=None, totais_cliente_2024=None, totais_cliente_2025=None, totais_categoria_2024=None, totais_categoria_2025=None):
+def exportar_excel_completo(dados_df, cliente_df, artigo_df, categoria_df, comercial_df, kpi_df, alertas_clientes, alertas_artigos, nome_mes, mes_num, ano, compare_years=False, df_2024=None, df_2025=None, totais_cliente_2024=None, totais_cliente_2025=None, totais_categoria_2024=None, totais_categoria_2025=None):
     output = BytesIO()
     try:
         logo_url = "https://github.com/paulom40/PFonseca.py/raw/main/Bracar.png"
@@ -393,7 +485,7 @@ def exportar_excel_completo(dados_df, cliente_df, artigo_df, categoria_df, comer
     todos_clientes = sorted(df['Cliente'].unique())
     clientes_ativos = sorted(df[(df['Mês'] == mes_anterior) & (df['Ano'] == ano_anterior)]['Cliente'].unique())
     clientes_inativos = [c for c in todos_clientes if c not in clientes_ativos]
-    alertas_df = pd.DataFrame({'Cliente sem compras': clientes_inativos}) if clientes_inativos else pd.DataFrame({'Todos os clientes compraram': ['✔']})
+    alertas_inativos_df = pd.DataFrame({'Cliente sem compras': clientes_inativos}) if clientes_inativos else pd.DataFrame({'Todos os clientes compraram': ['✔']})
 
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         workbook = writer.book
@@ -446,46 +538,58 @@ def exportar_excel_completo(dados_df, cliente_df, artigo_df, categoria_df, comer
         ws6.write('A1', f'KPIs por Cliente – {nome_mes} {ano}', bold)
         ws6.write('A2', f'Gerado em: {datetime.now().strftime("%d/%m/%Y %H:%M")}', italic)
 
+        # Alertas Qtd.
+        if not alertas_clientes.empty:
+            alertas_clientes.to_excel(writer, index=False, sheet_name='Alertas_Qtd_Cliente')
+            ws7 = writer.sheets['Alertas_Qtd_Cliente']
+            ws7.set_column('A:Z', 20)
+            ws7.write('A1', f'Alertas de Quantidade por Cliente – {nome_mes} {ano}', bold)
+        if not alertas_artigos.empty:
+            alertas_artigos.to_excel(writer, index=False, sheet_name='Alertas_Qtd_Artigo')
+            ws8 = writer.sheets['Alertas_Qtd_Artigo']
+            ws8.set_column('A:Z', 20)
+            ws8.write('A1', f'Alertas de Quantidade por Artigo – {nome_mes} {ano}', bold)
+
         # Variações Cliente e Artigo
         variacoes_pivot.to_excel(writer, index=False, sheet_name='Variacoes_Cliente_Artigo')
-        ws7 = writer.sheets['Variacoes_Cliente_Artigo']
-        ws7.set_column('A:Z', 20)
-        ws7.write('A1', f'Variações por Cliente e Artigo', bold)
+        ws9 = writer.sheets['Variacoes_Cliente_Artigo']
+        ws9.set_column('A:Z', 20)
+        ws9.write('A1', f'Variações por Cliente e Artigo', bold)
 
         # Variações Comercial
         variacoes_comercial_pivot.to_excel(writer, index=False, sheet_name='Variacoes_Comercial')
-        ws8 = writer.sheets['Variacoes_Comercial']
-        ws8.set_column('A:Z', 20)
-        ws8.write('A1', f'Variações por Comercial', bold)
+        ws10 = writer.sheets['Variacoes_Comercial']
+        ws10.set_column('A:Z', 20)
+        ws10.write('A1', f'Variações por Comercial', bold)
 
-        # Alertas
-        alertas_df.to_excel(writer, index=False, sheet_name='Alertas_Clientes_Inativos')
-        ws9 = writer.sheets['Alertas_Clientes_Inativos']
-        ws9.set_column('A:Z', 20)
-        ws9.write('A1', f'Alertas de Clientes Inativos no Mês Anterior', bold)
+        # Alertas de Clientes Inativos
+        alertas_inativos_df.to_excel(writer, index=False, sheet_name='Alertas_Clientes_Inativos')
+        ws11 = writer.sheets['Alertas_Clientes_Inativos']
+        ws11.set_column('A:Z', 20)
+        ws11.write('A1', f'Alertas de Clientes Inativos no Mês Anterior', bold)
 
         # Comparação 2024 vs 2025
         if compare_years:
             if not totais_cliente_2024.empty:
                 totais_cliente_2024.to_excel(writer, index=False, sheet_name='Comparacao_Cliente_2024')
-                ws10 = writer.sheets['Comparacao_Cliente_2024']
-                ws10.set_column('A:Z', 20)
-                ws10.write('A1', f'Comparação Clientes – {nome_mes} 2024', bold)
+                ws12 = writer.sheets['Comparacao_Cliente_2024']
+                ws12.set_column('A:Z', 20)
+                ws12.write('A1', f'Comparação Clientes – {nome_mes} 2024', bold)
             if not totais_cliente_2025.empty:
                 totais_cliente_2025.to_excel(writer, index=False, sheet_name='Comparacao_Cliente_2025')
-                ws11 = writer.sheets['Comparacao_Cliente_2025']
-                ws11.set_column('A:Z', 20)
-                ws11.write('A1', f'Comparação Clientes – {nome_mes} 2025', bold)
+                ws13 = writer.sheets['Comparacao_Cliente_2025']
+                ws13.set_column('A:Z', 20)
+                ws13.write('A1', f'Comparação Clientes – {nome_mes} 2025', bold)
             if not totais_categoria_2024.empty:
                 totais_categoria_2024.to_excel(writer, index=False, sheet_name='Comparacao_Categoria_2024')
-                ws12 = writer.sheets['Comparacao_Categoria_2024']
-                ws12.set_column('A:Z', 20)
-                ws12.write('A1', f'Comparação Categorias – {nome_mes} 2024', bold)
+                ws14 = writer.sheets['Comparacao_Categoria_2024']
+                ws14.set_column('A:Z', 20)
+                ws14.write('A1', f'Comparação Categorias – {nome_mes} 2024', bold)
             if not totais_categoria_2025.empty:
                 totais_categoria_2025.to_excel(writer, index=False, sheet_name='Comparacao_Categoria_2025')
-                ws13 = writer.sheets['Comparacao_Categoria_2025']
-                ws13.set_column('A:Z', 20)
-                ws13.write('A1', f'Comparação Categorias – {nome_mes} 2025', bold)
+                ws15 = writer.sheets['Comparacao_Categoria_2025']
+                ws15.set_column('A:Z', 20)
+                ws15.write('A1', f'Comparação Categorias – {nome_mes} 2025', bold)
 
     output.seek(0)
     return output
@@ -495,7 +599,7 @@ if st.button("📥 Exportar Relatório para Excel"):
     if compare_years:
         excel_data = exportar_excel_completo(
             df_2025, totais_cliente_2025, totais_artigo, totais_categoria_2025, totais_comercial,
-            kpi_df, mes_label, mes_num, 2025, compare_years=True,
+            kpi_df, alertas_clientes, alertas_artigos, mes_label, mes_num, 2025, compare_years=True,
             df_2024=df_2024, df_2025=df_2025,
             totais_cliente_2024=totais_cliente_2024, totais_cliente_2025=totais_cliente_2025,
             totais_categoria_2024=totais_categoria_2024, totais_categoria_2025=totais_categoria_2025
@@ -504,7 +608,7 @@ if st.button("📥 Exportar Relatório para Excel"):
     else:
         excel_data = exportar_excel_completo(
             df_filtrado, totais_cliente, totais_artigo, totais_categoria, totais_comercial,
-            kpi_df, mes_label, mes_num, ano_selecionado
+            kpi_df, alertas_clientes, alertas_artigos, mes_label, mes_num, ano_selecionado
         )
         file_name = f"Relatorio_Comercial_{mes_label}_{ano_selecionado}.xlsx"
     
