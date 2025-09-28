@@ -157,4 +157,9 @@ def exportar_excel_completo(dados_df, cliente_df, artigo_df, nome_mes, mes_num):
         artigo_df.to_excel(writer, index=False, sheet_name='Totais_Artigo')
         ws3 = writer.sheets['Totais_Artigo']
         ws3.set_column('A:B', 20)
-        ws3.write('A1',
+        artigo_df.to_excel(writer, index=False, sheet_name='Totais_Artigo')
+    ws3 = writer.sheets['Totais_Artigo']
+    ws3.set_column('A:B', 20)
+    ws3.write('A1', f'Totais por Artigo – {nome_mes}', bold)
+    ws3.write('A2', f'Gerado em: {datetime.today().strftime("%d/%m/%Y %H:%M")}', italic)
+
