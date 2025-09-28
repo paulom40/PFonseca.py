@@ -155,4 +155,5 @@ def exportar_excel_completo(dados_df, cliente_df, artigo_df, nome_mes, mes_num):
         ws5 = writer.sheets['Variações_Comercial_Cliente']
         ws5.set_column(0, len(variacoes_comercial_pivot.columns)-1, 18)
         ws5.write('A1', f'Variações por Comercial e Cliente – {nome_mes}', bold)
-        ws5.write('A2
+        ws5.write('A2', f'Gerado em: {datetime.today().strftime("%d/%m/%Y %H:%M")}', italic)
+
