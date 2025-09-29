@@ -3,6 +3,7 @@ import pandas as pd
 import requests
 from io import BytesIO
 import numpy as np
+import re
 
 # Custom CSS for modern, colorful UI
 custom_css = """
@@ -256,6 +257,52 @@ if len(month_cols) > 1:
     else:
         st.info("Nenhuma variação significativa detectada.")
 
+# Exportação de Alertas
+def export_alerts_to_excel(alertas):
+    if not alertas:
+        return None
+    # Parse alerts into a DataFrame
+    alert_data = []
+    for alerta in alertas:
+        # Extract information from the alert HTML string
+        match = re.search(r'(↑ Aumento|↓ Redução): (.*?) / (.*?) - ([\-\d\.]+)% em (.*?)<', alerta)
+        if match:
+            tipo, cliente, artigo, variacao, periodo = match.groups()
+            alert_data.append({
+                'Tipo': 'Aumento' if tipo == '↑ Aumento' else 'Redução',
+                'Cliente': cliente,
+                'Artigo': artigo,
+                'Variação (%)': float(variacao),
+                'Período': periodo
+            })
+    df_alertas = pd.DataFrame(alert_data)
+    
+    # Export to Excel
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df_alertas.to_excel(writer, index=False, sheet_name='Alertas_Variacoes')
+        workbook = writer.book
+        worksheet = writer.sheets['Alertas_Variacoes']
+        worksheet.set_column('A:E', 20)
+    output.seek(0)
+    return output
+
+# Add export button for alerts
+st.subheader("📥 Exportar Alertas")
+if alertas:
+    if st.button("Gerar Excel com Alertas"):
+        with st.spinner("Gerando relatório de alertas..."):
+            excel_alerts_data = export_alerts_to_excel(alertas)
+            if excel_alerts_data:
+                st.download_button(
+                    label="Baixar Alertas em Excel",
+                    data=excel_alerts_data,
+                    file_name=f"Alertas_Variacoes_{'_'.join(str(a) for a in anos_selecionados)}_{'_'.join(selected_meses)}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+else:
+    st.info("Nenhum alerta disponível para exportação.")
+
 # KPIs resumidos
 st.subheader("📈 KPIs Resumidos")
 col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
@@ -270,7 +317,7 @@ with col_kpi2:
 with col_kpi3:
     st.metric("Artigos Únicos", num_artigos)
 
-# Exportação
+# Exportação da Matriz
 def export_to_excel(pivot_df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
