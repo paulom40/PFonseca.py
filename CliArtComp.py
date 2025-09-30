@@ -163,7 +163,7 @@ if st.session_state['show_url_input']:
         st.session_state['excel_url'] = excel_url
         st.cache_data.clear()  # Clear cache to reload data with new URL
         st.success("Link atualizado com sucesso! Recarregando dados...")
-
+       
 # Load data
 url = st.session_state.get('excel_url', "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx")
 df, faltando = load_data(url)
