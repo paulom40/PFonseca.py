@@ -120,9 +120,8 @@ def validar_colunas(df):
     return df, faltando
 
 @st.cache_data
-def load_data():
+def load_data(url):
     try:
-        url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
         response = requests.get(url)
         response.raise_for_status()
         xls = pd.ExcelFile(BytesIO(response.content))
@@ -148,8 +147,18 @@ def load_data():
     except Exception as e:
         return None, [f"Erro ao carregar dados: {str(e)}"]
 
+# Input for GitHub Excel file URL
+st.subheader("🔗 Atualizar Link do Arquivo Excel")
+excel_url = st.text_input("Insira o link do arquivo Excel no GitHub", 
+                         value="https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx")
+if st.button("Atualizar Link"):
+    st.session_state['excel_url'] = excel_url
+    st.cache_data.clear()  # Clear cache to reload data with new URL
+    st.success("Link atualizado com sucesso! Recarregando dados...")
+
 # Load data
-df, faltando = load_data()
+url = st.session_state.get('excel_url', "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx")
+df, faltando = load_data(url)
 if df is None:
     for erro in faltando:
         st.error(erro)
