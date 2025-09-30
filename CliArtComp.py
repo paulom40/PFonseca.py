@@ -151,7 +151,7 @@ def load_data(url):
 if 'show_url_input' not in st.session_state:
     st.session_state['show_url_input'] = False
 
-if st.button("Mostrar/Esconder Campo de Link do Excel"):
+if st.button("Link do Excel"):
     st.session_state['show_url_input'] = not st.session_state['show_url_input']
 
 if st.session_state['show_url_input']:
@@ -159,7 +159,7 @@ if st.session_state['show_url_input']:
     excel_url = st.text_input("Insira o link do arquivo Excel no GitHub", 
                              value="https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx", 
                              type="password")
-    if st.button("Atualizar Link"):
+    if st.button("Atualizar"):
         st.session_state['excel_url'] = excel_url
         st.cache_data.clear()  # Clear cache to reload data with new URL
         st.success("Link atualizado com sucesso! Recarregando dados...")
