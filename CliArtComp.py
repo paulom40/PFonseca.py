@@ -195,7 +195,8 @@ if not selected_meses:
     st.stop()
 
 meses_nums = [obter_numero_mes(m) for m in selected_meses if obter_numero_mes(m) is not None]
-df_filtrado = df_anos[df_anos['Mês'].isin(meses_nums)] if 'df_anos' in locals() else pd.DataFrame()
+df_anos = df[df['Ano'].isin(anos_selecionados)]
+df_filtrado = df_anos[df_anos['Mês'].isin(meses_nums)] if meses_nums else pd.DataFrame()
 
 # Filtros opcionais
 st.subheader("Filtros Opcionais")
@@ -216,6 +217,7 @@ if categorias and 'Categoria' in df_filtrado.columns:
 
 # Cálculo da matriz com variações
 st.subheader("Matriz de Quantidades por Cliente/Artigo")
+month_cols = []  # Initialize month_cols to avoid NameError
 with st.spinner("Calculando..."):
     if df_filtrado.empty:
         st.info("Nenhum dado disponível para os meses e anos selecionados.")
@@ -260,8 +262,8 @@ with st.spinner("Calculando..."):
         st.dataframe(pivot, use_container_width=True)
 
 # Alertas de variações significativas
-if len(month_cols) > 1:
-    st.subheader("🚨 Alertas de Variações")
+st.subheader("🚨 Alertas de Variações")
+if len(month_cols) > 1 and not pivot.empty:
     threshold_aumento = 50
     threshold_reducao = -50
     alertas = []
@@ -282,6 +284,8 @@ if len(month_cols) > 1:
             st.markdown(alerta, unsafe_allow_html=True)
     else:
         st.info("Nenhuma variação significativa detectada.")
+else:
+    st.info("Nenhuma variação significativa detectada (dados insuficientes ou menos de dois meses selecionados).")
 
 # Exportação de Alertas
 def export_alerts_to_excel(alertas):
