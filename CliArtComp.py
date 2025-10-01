@@ -48,7 +48,7 @@ h1 {
 }
 
 .stButton > button {
-    background: linear-gradient(90deg, var(--primary), var(--secondary));
+    background: linear-gradient(90deg, var(--primary), --secondary);
     color: white;
     border: none;
     border-radius: 8px;
@@ -101,6 +101,13 @@ def obter_numero_mes(nome_mes):
     for k, v in meses_pt.items():
         if nome_mes == v.lower() or nome_mes.startswith(v.lower()[:3]):
             return k
+    try:
+        # Try converting string to number if it's numeric
+        num = float(nome_mes)
+        if 1 <= num <= 12:
+            return int(num)
+    except ValueError:
+        pass
     return None
 
 def validar_colunas(df):
@@ -128,11 +135,17 @@ def load_data(url):
         df = pd.read_excel(xls, sheet_name=0)
         df, faltando = validar_colunas(df)
         
+        # Debug: Show unique month values before processing
+        st.write("Valores únicos na coluna 'Mês' (antes do processamento):", df['Mês'].unique())
+        
         if df['Mês'].dtype == 'object':
             df['Mês'] = df['Mês'].apply(obter_numero_mes)
         df['Mês'] = pd.to_numeric(df['Mês'], errors='coerce').astype('Int64')
         df = df.dropna(subset=['Mês'])
         df = df[df['Mês'].between(1, 12)]
+        
+        # Debug: Show unique month values after processing
+        st.write("Valores únicos na coluna 'Mês' (após conversão para numérico):", df['Mês'].unique())
         
         df['Ano'] = pd.to_numeric(df['Ano'], errors='coerce').astype('Int64')
         df = df.dropna(subset=['Ano'])
@@ -182,8 +195,8 @@ with col1:
 
 with col2:
     df_anos = df[df['Ano'].isin(anos_selecionados)]
-    meses_disponiveis = sorted(df_anos['Mês'].dropna().unique())
-    nomes_meses = [meses_pt.get(int(m), f"Mês {m}") for m in meses_disponiveis]
+    meses_disponiveis = sorted(df_anos['Mês'].dropna().astype(int).unique())
+    nomes_meses = [meses_pt.get(m, f"Mês {m}") for m in meses_disponiveis]
     st.write("Meses disponíveis no conjunto de dados:", nomes_meses)  # Debug info
     selected_meses = st.multiselect("Selecionar Meses para Comparação", nomes_meses, default=nomes_meses[:3] if nomes_meses else [])
 
