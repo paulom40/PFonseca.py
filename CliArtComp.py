@@ -181,9 +181,9 @@ with col1:
     anos_selecionados = st.multiselect("Selecionar Anos", anos_disponiveis, default=[2024] if 2024 in anos_disponiveis else anos_disponiveis[:1])
 
 with col2:
-    df_anos = df[df['Ano'].isin(anos_selecionados)]
-    meses_disponiveis = sorted(df_anos['Mês'].unique())
-    nomes_meses = [meses_pt.get(int(m), f"Mês {m}") for m in meses_disponiveis]
+    # Always show all 12 months for selection, regardless of data availability
+    meses_disponiveis = list(range(1, 13))
+    nomes_meses = [meses_pt.get(m, f"Mês {m}") for m in meses_disponiveis]
     selected_meses = st.multiselect("Selecionar Meses para Comparação", nomes_meses, default=nomes_meses[:3] if nomes_meses else [])
 
 if not anos_selecionados:
@@ -195,17 +195,17 @@ if not selected_meses:
     st.stop()
 
 meses_nums = [obter_numero_mes(m) for m in selected_meses if obter_numero_mes(m) is not None]
-df_filtrado = df_anos[df_anos['Mês'].isin(meses_nums)]
+df_filtrado = df_anos[df_anos['Mês'].isin(meses_nums)] if 'df_anos' in locals() else pd.DataFrame()
 
 # Filtros opcionais
 st.subheader("Filtros Opcionais")
 col3, col4, col5 = st.columns(3)
 with col3:
-    clientes = st.multiselect("Filtrar por Cliente", sorted(df_filtrado['Cliente'].unique()))
+    clientes = st.multiselect("Filtrar por Cliente", sorted(df_filtrado['Cliente'].unique()) if not df_filtrado.empty else [])
 with col4:
-    artigos = st.multiselect("Filtrar por Artigo", sorted(df_filtrado['Artigo'].unique()))
+    artigos = st.multiselect("Filtrar por Artigo", sorted(df_filtrado['Artigo'].unique()) if not df_filtrado.empty else [])
 with col5:
-    categorias = st.multiselect("Filtrar por Categoria", sorted(df_filtrado['Categoria'].unique()) if 'Categoria' in df_filtrado.columns else []) if 'Categoria' in df_filtrado.columns else []
+    categorias = st.multiselect("Filtrar por Categoria", sorted(df_filtrado['Categoria'].unique()) if 'Categoria' in df_filtrado.columns and not df_filtrado.empty else []) if 'Categoria' in df_filtrado.columns else []
 
 if clientes:
     df_filtrado = df_filtrado[df_filtrado['Cliente'].isin(clientes)]
@@ -217,43 +217,47 @@ if categorias and 'Categoria' in df_filtrado.columns:
 # Cálculo da matriz com variações
 st.subheader("Matriz de Quantidades por Cliente/Artigo")
 with st.spinner("Calculando..."):
-    pivot = df_filtrado.pivot_table(
-        index=['Cliente', 'Artigo'],
-        columns=['Ano', 'Mês'],
-        values='Qtd.',
-        aggfunc='sum',
-        fill_value=0
-    ).reset_index()
-    
-    new_columns = ['Cliente', 'Artigo']
-    for (ano, mes) in pivot.columns[2:]:
-        new_columns.append(f"{meses_pt.get(int(mes), f'Mês {mes}')} {ano}")
-    pivot.columns = new_columns
-    
-    month_cols = []
-    for ano in sorted(anos_selecionados):
-        for mes in sorted(meses_nums):
-            col_name = f"{meses_pt.get(mes, f'Mês {mes}')} {ano}"
-            if col_name in pivot.columns:
-                month_cols.append(col_name)
-    pivot = pivot[['Cliente', 'Artigo'] + month_cols]
-    
-    if len(month_cols) > 1:
-        pivot['Total'] = pivot[month_cols].sum(axis=1)
-        for i in range(1, len(month_cols)):
-            prev = month_cols[i-1]
-            curr = month_cols[i]
-            var_col = f"Variação {curr} vs {prev} (%)"
-            pivot[var_col] = ((pivot[curr] - pivot[prev]) / pivot[prev].replace(0, np.nan) * 100).round(2).fillna(0)
-    
-    # Format numeric columns to display with two decimal places
-    for col in pivot.columns:
-        if col not in ['Cliente', 'Artigo']:
-            pivot[col] = pivot[col].apply(lambda x: f"{x:.2f}" if isinstance(x, (int, float)) else x)
-    
-    pivot = pivot.sort_values('Total' if 'Total' in pivot.columns else month_cols[-1], ascending=False)
-    
-    st.dataframe(pivot, use_container_width=True)
+    if df_filtrado.empty:
+        st.info("Nenhum dado disponível para os meses e anos selecionados.")
+        pivot = pd.DataFrame()
+    else:
+        pivot = df_filtrado.pivot_table(
+            index=['Cliente', 'Artigo'],
+            columns=['Ano', 'Mês'],
+            values='Qtd.',
+            aggfunc='sum',
+            fill_value=0
+        ).reset_index()
+        
+        new_columns = ['Cliente', 'Artigo']
+        for (ano, mes) in pivot.columns[2:]:
+            new_columns.append(f"{meses_pt.get(int(mes), f'Mês {mes}')} {ano}")
+        pivot.columns = new_columns
+        
+        month_cols = []
+        for ano in sorted(anos_selecionados):
+            for mes in sorted(meses_nums):
+                col_name = f"{meses_pt.get(mes, f'Mês {mes}')} {ano}"
+                if col_name in pivot.columns:
+                    month_cols.append(col_name)
+        pivot = pivot[['Cliente', 'Artigo'] + month_cols]
+        
+        if len(month_cols) > 1:
+            pivot['Total'] = pivot[month_cols].sum(axis=1)
+            for i in range(1, len(month_cols)):
+                prev = month_cols[i-1]
+                curr = month_cols[i]
+                var_col = f"Variação {curr} vs {prev} (%)"
+                pivot[var_col] = ((pivot[curr] - pivot[prev]) / pivot[prev].replace(0, np.nan) * 100).round(2).fillna(0)
+        
+        # Format numeric columns to display with two decimal places
+        for col in pivot.columns:
+            if col not in ['Cliente', 'Artigo']:
+                pivot[col] = pivot[col].apply(lambda x: f"{x:.2f}" if isinstance(x, (int, float)) else x)
+        
+        pivot = pivot.sort_values('Total' if 'Total' in pivot.columns else month_cols[-1], ascending=False)
+        
+        st.dataframe(pivot, use_container_width=True)
 
 # Alertas de variações significativas
 if len(month_cols) > 1:
@@ -311,7 +315,7 @@ def export_alerts_to_excel(alertas):
 
 # Add export button for alerts
 st.subheader("📥 Exportar Alertas")
-if alertas:
+if 'alertas' in locals() and alertas:
     if st.button("Gerar Excel com Alertas"):
         with st.spinner("Gerando relatório de alertas..."):
             excel_alerts_data = export_alerts_to_excel(alertas)
@@ -328,9 +332,9 @@ else:
 # KPIs resumidos
 st.subheader("📈 KPIs Resumidos")
 col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
-total_qtd = df_filtrado['Qtd.'].sum()
-num_clientes = df_filtrado['Cliente'].nunique()
-num_artigos = df_filtrado['Artigo'].nunique()
+total_qtd = df_filtrado['Qtd.'].sum() if not df_filtrado.empty else 0
+num_clientes = df_filtrado['Cliente'].nunique() if not df_filtrado.empty else 0
+num_artigos = df_filtrado['Artigo'].nunique() if not df_filtrado.empty else 0
 
 with col_kpi1:
     st.metric("Quantidade Total", f"{total_qtd:.0f}")
@@ -353,10 +357,13 @@ def export_to_excel(pivot_df):
 st.subheader("📥 Exportar Relatório")
 if st.button("Gerar Excel"):
     with st.spinner("Gerando relatório..."):
-        excel_data = export_to_excel(pivot)
-        st.download_button(
-            label="Baixar Matriz em Excel",
-            data=excel_data,
-            file_name=f"Comparacao_Cliente_Artigo_{'_'.join(str(a) for a in anos_selecionados)}_{'_'.join(selected_meses)}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        if not pivot.empty:
+            excel_data = export_to_excel(pivot)
+            st.download_button(
+                label="Baixar Matriz em Excel",
+                data=excel_data,
+                file_name=f"Comparacao_Cliente_Artigo_{'_'.join(str(a) for a in anos_selecionados)}_{'_'.join(selected_meses)}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        else:
+            st.warning("Nenhum dado para exportar.")
