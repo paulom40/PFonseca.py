@@ -131,8 +131,7 @@ def load_data(url):
         if df['Mês'].dtype == 'object':
             df['Mês'] = df['Mês'].apply(obter_numero_mes)
         df['Mês'] = pd.to_numeric(df['Mês'], errors='coerce').astype('Int64')
-        df = df.dropn
-a(subset=['Mês'])
+        df = df.dropna(subset=['Mês'])
         df = df[df['Mês'].between(1, 12)]
         
         df['Ano'] = pd.to_numeric(df['Ano'], errors='coerce').astype('Int64')
