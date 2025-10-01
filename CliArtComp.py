@@ -96,7 +96,7 @@ meses_pt = {
 
 def obter_numero_mes(nome_mes):
     if not isinstance(nome_mes, str):
-        return None
+        return nome_mes if isinstance(nome_mes, (int, float)) and 1 <= nome_mes <= 12 else None
     nome_mes = nome_mes.strip().lower()
     for k, v in meses_pt.items():
         if nome_mes == v.lower() or nome_mes.startswith(v.lower()[:3]):
@@ -182,8 +182,9 @@ with col1:
 
 with col2:
     df_anos = df[df['Ano'].isin(anos_selecionados)]
-    meses_disponiveis = sorted(df_anos['Mês'].unique())
+    meses_disponiveis = sorted(df_anos['Mês'].dropna().unique())
     nomes_meses = [meses_pt.get(int(m), f"Mês {m}") for m in meses_disponiveis]
+    st.write("Meses disponíveis no conjunto de dados:", nomes_meses)  # Debug info
     selected_meses = st.multiselect("Selecionar Meses para Comparação", nomes_meses, default=nomes_meses[:3] if nomes_meses else [])
 
 if not anos_selecionados:
