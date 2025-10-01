@@ -131,7 +131,8 @@ def load_data(url):
         if df['Mês'].dtype == 'object':
             df['Mês'] = df['Mês'].apply(obter_numero_mes)
         df['Mês'] = pd.to_numeric(df['Mês'], errors='coerce').astype('Int64')
-        df = df.dropna(subset=['Mês'])
+        df = df.dropn
+a(subset=['Mês'])
         df = df[df['Mês'].between(1, 12)]
         
         df['Ano'] = pd.to_numeric(df['Ano'], errors='coerce').astype('Int64')
@@ -147,8 +148,11 @@ def load_data(url):
     except Exception as e:
         return None, [f"Erro ao carregar dados: {str(e)}"]
 
-# Show only the "Link do Excel" button (no functionality)
-st.button("Link do Excel")
+# Update Data button to refresh data
+if st.button("Update Data"):
+    with st.spinner("Atualizando dados..."):
+        st.cache_data.clear()  # Clear cache to reload data
+        st.success("Dados atualizados com sucesso!")
 
 # Load data with hardcoded URL
 url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
