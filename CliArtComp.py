@@ -5,6 +5,14 @@ from io import BytesIO
 import numpy as np
 import re
 
+st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+
 # Custom CSS for modern, colorful UI
 custom_css = """
 <style>
