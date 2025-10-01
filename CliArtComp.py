@@ -163,7 +163,7 @@ if st.session_state['show_url_input']:
         st.session_state['excel_url'] = excel_url
         st.cache_data.clear()  # Clear cache to reload data with new URL
         st.success("Link atualizado com sucesso! Recarregando dados...")
-       
+
 # Load data
 url = st.session_state.get('excel_url', "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx")
 df, faltando = load_data(url)
@@ -246,6 +246,11 @@ with st.spinner("Calculando..."):
             var_col = f"Variação {curr} vs {prev} (%)"
             pivot[var_col] = ((pivot[curr] - pivot[prev]) / pivot[prev].replace(0, np.nan) * 100).round(2).fillna(0)
     
+    # Format numeric columns to display with two decimal places
+    for col in pivot.columns:
+        if col not in ['Cliente', 'Artigo']:
+            pivot[col] = pivot[col].apply(lambda x: f"{x:.2f}" if isinstance(x, (int, float)) else x)
+    
     pivot = pivot.sort_values('Total' if 'Total' in pivot.columns else month_cols[-1], ascending=False)
     
     st.dataframe(pivot, use_container_width=True)
@@ -260,9 +265,9 @@ if len(month_cols) > 1:
         prev = month_cols[i-1]
         curr = month_cols[i]
         var_col = f"Variação {curr} vs {prev} (%)"
-        significant = pivot[(pivot[var_col] > threshold_aumento) | (pivot[var_col] < threshold_reducao)]
+        significant = pivot[(pivot[var_col].astype(float) > threshold_aumento) | (pivot[var_col].astype(float) < threshold_reducao)]
         for _, row in significant.iterrows():
-            var = row[var_col]
+            var = float(row[var_col])
             if var > threshold_aumento:
                 alertas.append(f"<div class='alert-success'>↑ Aumento: {row['Cliente']} / {row['Artigo']} - {var:.1f}% em {curr}</div>")
             elif var < threshold_reducao:
