@@ -147,27 +147,11 @@ def load_data(url):
     except Exception as e:
         return None, [f"Erro ao carregar dados: {str(e)}"]
 
-# Input for GitHub Excel file URL (hidden by default)
-if 'show_url_input' not in st.session_state:
-    st.session_state['show_url_input'] = False
+# Show only the "Link do Excel" button (no functionality)
+st.button("Link do Excel")
 
-# Show only the "Link do Excel" button
-if st.button("Link do Excel"):
-    st.session_state['show_url_input'] = not st.session_state['show_url_input']
-
-# Show URL input only when button is clicked
-if st.session_state['show_url_input']:
-    st.subheader("🔗 Atualizar Link do Arquivo Excel")
-    excel_url = st.text_input("Insira o link do arquivo Excel no GitHub", 
-                             value="https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx", 
-                             type="password")
-    if st.button("Atualizar"):
-        st.session_state['excel_url'] = excel_url
-        st.cache_data.clear()  # Clear cache to reload data with new URL
-        st.success("Link atualizado com sucesso! Recarregando dados...")
-
-# Load data
-url = st.session_state.get('excel_url', "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx")
+# Load data with hardcoded URL
+url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
 df, faltando = load_data(url)
 if df is None:
     for erro in faltando:
