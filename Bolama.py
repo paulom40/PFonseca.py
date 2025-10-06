@@ -11,14 +11,40 @@ def load_data_from_github():
     url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bolama_Vendas.xlsx"
     df_raw = pd.read_excel(url)
 
-    # Corrige datas (ADICIONADO: dayfirst=True para formato DD/MM/YYYY)
+    # 🔍 DIAGNÓSTICO: Raw samples for 2025
+    raw_2025 = df_raw[df_raw["Data"].astype(str).str.contains('2025', na=False)]
+    if not raw_2025.empty:
+        st.sidebar.markdown("### 🔍 Raw Data samples containing '2025'")
+        st.sidebar.write(raw_2025["Data"].unique()[:20])  # Limit to first 20 uniques
+
+    # 🔍 DIAGNÓSTICO: Raw dates matching August 2025 patterns
+    august_patterns = ['08.*2025', '2025.*08', 'August', 'Ago', 'ago']
+    raw_august = df_raw[df_raw["Data"].astype(str).str.contains('|'.join(august_patterns), na=False, case=False)]
+    if not raw_august.empty:
+        st.sidebar.markdown("### 📅 Raw dates matching August 2025")
+        st.sidebar.dataframe(raw_august[["Data"]].head(10))  # Show up to 10 rows
+
+    # Corrige datas (try dayfirst first; if issues, see diagnostics above)
     df_raw["Data"] = pd.to_datetime(df_raw["Data"], errors="coerce", dayfirst=True)
 
-    # Diagnóstico: mostra datas inválidas
+    # 🔍 DIAGNÓSTICO: Invalid parsed dates that were originally 2025
+    orig_2025_mask = df_raw["Data"].astype(str).str.contains('2025', na=False)  # Note: this is before parsing overwrite
+    # Reset to re-check (hacky but works for diag)
+    df_raw_temp = pd.read_excel(url)  # Reload for mask
+    df_raw_temp["Data_str"] = df_raw_temp["Data"].astype(str)
+    invalid_2025 = df_raw_temp[(df_raw_temp["Data_str"].str.contains('2025', na=False)) & (df_raw["Data"].isna())]
+    if not invalid_2025.empty:
+        st.sidebar.markdown("### ❌ Invalid parsed dates originally containing '2025'")
+        st.sidebar.dataframe(invalid_2025[["Data"]].head(10))
+
+    # Remove temp
+    del df_raw_temp
+
+    # Diagnóstico: mostra datas inválidas (all)
     linhas_invalidas = df_raw[df_raw["Data"].isna()]
     if not linhas_invalidas.empty:
-        st.sidebar.markdown("### ⚠️ Linhas com Data inválida")
-        st.sidebar.dataframe(linhas_invalidas)
+        st.sidebar.markdown("### ⚠️ All linhas com Data inválida")
+        st.sidebar.dataframe(linhas_invalidas.head(10))
 
     # Mantém apenas datas válidas
     df = df_raw[df_raw["Data"].notna()].copy()
