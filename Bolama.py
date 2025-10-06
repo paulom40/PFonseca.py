@@ -179,7 +179,57 @@ else:
 
         st.dataframe(styled_df, use_container_width=True)
 
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            filtered_df.to_excel(writer, index=False, sheet_name='Dados Filtrados')
-            top_artigos.to_excel
+       output = io.BytesIO()
+with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+    # 🟢 Exporta dados principais
+    filtered_df.to_excel(writer, index=False, sheet_name='Dados Filtrados')
+    top_artigos.to_excel(writer, index=False, sheet_name='Top Artigos')
+    crescimento_df.to_excel(writer, index=False, sheet_name='Crescimento')
+
+    # 📄 Aba com meses ausentes
+    if meses_em_falta:
+        df_ausentes = pd.DataFrame({"Meses Ausentes": meses_em_falta})
+        df_ausentes.to_excel(writer, index=False, sheet_name='Meses Ausentes')
+        writer.sheets['Meses Ausentes'].set_column('A:A', 20)
+
+    # 📊 Aba de resumo
+    total_qtd = filtered_df["Quantidade"].sum()
+    total_vl = filtered_df["V Líquido"].sum()
+    total_2024 = df[df["Data"].dt.year == 2024]["V Líquido"].sum()
+    total_2025 = df[df["Data"].dt.year == 2025]["V Líquido"].sum()
+    crescimento_total = ((total_2025 - total_2024) / total_2024 * 100) if total_2024 else None
+
+    resumo_df = pd.DataFrame({
+        "Indicador": [
+            "Total Quantidade Filtrada",
+            "Total Vendas Líquidas Filtradas",
+            "Vendas 2024",
+            "Vendas 2025",
+            "Crescimento Total (%)",
+            "Data de Exportação"
+        ],
+        "Valor": [
+            f"{total_qtd:,.2f} KG",
+            f"€ {total_vl:,.2f}",
+            f"€ {total_2024:,.2f}",
+            f"€ {total_2025:,.2f}",
+            f"{crescimento_total:.2f}%" if crescimento_total is not None else "Sem dados",
+            datetime.now().strftime("%d/%m/%Y %H:%M")
+        ]
+    })
+    resumo_df.to_excel(writer, index=False, sheet_name='Resumo')
+    ws = writer.sheets['Resumo']
+    ws.set_column('A:B', 30)
+
+    # 🎨 Formatação condicional
+    workbook = writer.book
+    format_verde = workbook.add_format({'bg_color': '#C6EFCE', 'font_color': '#006100'})
+    format_vermelho = workbook.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006'})
+    format_amarelo = workbook.add_format({'bg_color': '#FFEB9C', 'font_color': '#9C6500'})
+    format_cinza = workbook.add_format({'bg_color': '#D9D9D9', 'font_color': '#404040', 'italic': True})
+
+    ws.conditional_format('B5:B5', {'type': 'cell', 'criteria': '>=', 'value': 0.01, 'format': format_verde})
+    ws.conditional_format('B5:B5', {'type': 'cell', 'criteria': '<', 'value': 0, 'format': format_vermelho})
+    ws.conditional_format('B5:B5', {'type': 'cell', 'criteria': '==', 'value': 0, 'format': format_amarelo})
+    ws.conditional_format('B5:B5', {'type': 'text', 'criteria': 'containing', 'value': 'Sem dados', 'format': format_cinza})
+
