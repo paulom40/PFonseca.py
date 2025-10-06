@@ -46,12 +46,14 @@ if "df" not in st.session_state:
 
 df = st.session_state.df
 
-meses_esperados = pd.date_range(start="2025-01-01", end="2025-12-01", freq="MS").strftime("%Y-%m").tolist()
+ano_min = df["Data"].dt.year.min()
+ano_max = df["Data"].dt.year.max()
+meses_esperados = pd.date_range(start=f"{ano_min}-01-01", end=f"{ano_max}-12-01", freq="MS").strftime("%Y-%m").tolist()
 meses_disponiveis = df["Mês"].unique().tolist()
 meses_em_falta = sorted(set(meses_esperados) - set(meses_disponiveis))
 
 if meses_em_falta:
-    st.warning(f"⚠️ Atenção: Os seguintes meses estão ausentes ou incompletos nos dados: {', '.join(meses_em_falta)}")
+    st.warning(f"⚠️ Os seguintes meses estão ausentes ou incompletos: {', '.join(meses_em_falta)}")
 else:
     st.success("✅ Todos os meses esperados estão presentes nos dados.")
 
@@ -176,3 +178,8 @@ else:
         }).applymap(highlight_growth, subset=["Crescimento Qtd (%)", "Crescimento Vendas (%)"])
 
         st.dataframe(styled_df, use_container_width=True)
+
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            filtered_df.to_excel(writer, index=False, sheet_name='Dados Filtrados')
+            top_artigos.to_excel
