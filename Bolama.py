@@ -21,6 +21,7 @@ st.markdown("""
 def load_data_from_github():
     url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bolama_Vendas.xlsx"
     df = pd.read_excel(url)
+    df = df[pd.to_datetime(df["Data"], errors="coerce").notna()]  # remove datas inválidas
     df["Data"] = pd.to_datetime(df["Data"])
     df["Mês"] = df["Data"].dt.strftime("%Y-%m")
     return df
@@ -39,6 +40,16 @@ if "df" not in st.session_state:
     st.session_state.df = load_data_from_github()
 
 df = st.session_state.df
+
+# 🧠 Validação de meses esperados
+meses_esperados = pd.date_range(start="2025-01-01", end="2025-12-01", freq="MS").strftime("%Y-%m").tolist()
+meses_disponiveis = df["Mês"].unique().tolist()
+meses_em_falta = sorted(set(meses_esperados) - set(meses_disponiveis))
+
+if meses_em_falta:
+    st.warning(f"⚠️ Atenção: Os seguintes meses estão ausentes ou incompletos nos dados: {', '.join(meses_em_falta)}")
+else:
+    st.success("✅ Todos os meses esperados estão presentes nos dados.")
 
 # 🔐 Login
 st.sidebar.title("🔐 Login")
@@ -175,21 +186,4 @@ else:
                     f"{total_qtd:,.2f} KG",
                     f"€ {total_vl:,.2f}",
                     f"€ {total_2024:,.2f}",
-                    f"€ {total_2025:,.2f}",
-                    f"{crescimento_total:.2f}%" if crescimento_total is not None else "Sem dados",
-                    datetime.now().strftime("%d/%m/%Y %H:%M")
-                ]
-            })
-            resumo_df.to_excel(writer, index=False, sheet_name='Resumo')
-
-            for sheet_name in ['Dados Filtrados', 'Top Artigos', 'Crescimento', 'Resumo']:
-                ws = writer.sheets[sheet_name]
-                ws.set_column('A:Z', 18)
-                ws.autofilter(0, 0, 1 + len(df), len(df.columns) - 1)
-
-        st.download_button(
-            label="📥 Exportar Excel",
-            data=output.getvalue(),
-            file_name="Bolama_Dashboard_Export.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+                    f"
