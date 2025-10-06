@@ -7,44 +7,95 @@ from datetime import datetime
 st.set_page_config(page_title="Bolama Dashboard", layout="wide", page_icon="📊")
 
 @st.cache_data
+def parse_dates(series):
+    """Robust date parser trying multiple formats."""
+    def try_parse(date_str):
+        if pd.isna(date_str):
+            return pd.NaT
+        str_date = str(date_str).strip()
+        if not str_date:
+            return pd.NaT
+        
+        # Common formats: DD/MM/YYYY variants first (European priority)
+        formats = [
+            '%d/%m/%Y', '%d-%m-%Y', '%d.%m.%Y',  # Slashes, hyphens, dots
+            '%d/%m/%y', '%d-%m-%y', '%d.%m.%y',  # 2-digit year
+            '%m/%d/%Y', '%m-%d-%Y', '%m.%d.%Y',  # US MM/DD/YYYY fallback
+            '%Y-%m-%d', '%Y/%m/%d', '%Y.%m.%d',  # ISO
+            '%d %b %Y', '%d %B %Y', '%d-%b-%Y', '%d/%b/%Y'  # With month names (e.g., Jan, Janeiro/Ago)
+        ]
+        
+        for fmt in formats:
+            try:
+                return pd.to_datetime(str_date, format=fmt)
+            except ValueError:
+                continue
+        
+        # Fallbacks
+        try:
+            return pd.to_datetime(str_date, dayfirst=True)
+        except ValueError:
+            pass
+        try:
+            return pd.to_datetime(str_date)
+        except ValueError:
+            pass
+        
+        return pd.NaT
+    
+    return series.apply(try_parse)
+
+@st.cache_data
 def load_data_from_github():
     url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bolama_Vendas.xlsx"
     df_raw = pd.read_excel(url)
 
-    # 🔍 DIAGNÓSTICO: Raw samples for 2025
+    # 🔍 DIAGNÓSTICO: Raw unique 'Data' values containing '2025'
     raw_2025 = df_raw[df_raw["Data"].astype(str).str.contains('2025', na=False)]
     if not raw_2025.empty:
-        st.sidebar.markdown("### 🔍 Raw Data samples containing '2025'")
-        st.sidebar.write(raw_2025["Data"].unique()[:20])  # Limit to first 20 uniques
+        st.sidebar.markdown("### 🔍 Raw 'Data' values containing '2025'")
+        st.sidebar.write(sorted(raw_2025["Data"].unique()[:20]))  # First 20 uniques, sorted
 
-    # 🔍 DIAGNÓSTICO: Raw dates matching August 2025 patterns
-    august_patterns = ['08.*2025', '2025.*08', 'August', 'Ago', 'ago']
-    raw_august = df_raw[df_raw["Data"].astype(str).str.contains('|'.join(august_patterns), na=False, case=False)]
-    if not raw_august.empty:
-        st.sidebar.markdown("### 📅 Raw dates matching August 2025")
-        st.sidebar.dataframe(raw_august[["Data"]].head(10))  # Show up to 10 rows
+    # 🔍 DIAGNÓSTICO: Raw matches for August 2025 patterns
+    august_patterns = r'08.*2025|2025.*08|Ago|August|ago|august|\b8\b.*2025|2025.*8\b'
+    august_mask = df_raw["Data"].astype(str).str.contains(august_patterns, na=False, regex=True, case=False)
+    if august_mask.any():
+        st.sidebar.markdown("### 📅 Raw matches for August 2025")
+        st.sidebar.write(sorted(df_raw.loc[august_mask, "Data"].unique()))
+        # Sample rows
+        st.sidebar.markdown("### Sample August rows (raw)")
+        st.sidebar.dataframe(df_raw.loc[august_mask, ["Data", "Artigo", "Quantidade", "V Líquido"]].head(10))
+    else:
+        st.sidebar.markdown("### 📅 Raw matches for August 2025")
+        st.sidebar.write("❌ No matches found—check file content.")
 
-    # Corrige datas (try dayfirst first; if issues, see diagnostics above)
-    df_raw["Data"] = pd.to_datetime(df_raw["Data"], errors="coerce", dayfirst=True)
+    # Parse dates with robust function
+    df_raw["Data"] = parse_dates(df_raw["Data"])
 
-    # 🔍 DIAGNÓSTICO: Invalid parsed dates that were originally 2025
-    orig_2025_mask = df_raw["Data"].astype(str).str.contains('2025', na=False)  # Note: this is before parsing overwrite
-    # Reset to re-check (hacky but works for diag)
-    df_raw_temp = pd.read_excel(url)  # Reload for mask
-    df_raw_temp["Data_str"] = df_raw_temp["Data"].astype(str)
-    invalid_2025 = df_raw_temp[(df_raw_temp["Data_str"].str.contains('2025', na=False)) & (df_raw["Data"].isna())]
-    if not invalid_2025.empty:
-        st.sidebar.markdown("### ❌ Invalid parsed dates originally containing '2025'")
-        st.sidebar.dataframe(invalid_2025[["Data"]].head(10))
+    # 🔍 DIAGNÓSTICO: Invalid parsed dates originally containing '2025'
+    df_raw_temp = pd.read_excel(url)  # Reload for raw comparison
+    orig_2025_mask = df_raw_temp["Data"].astype(str).str.contains('2025', na=False)
+    invalid_2025 = df_raw_temp.loc[orig_2025_mask & df_raw["Data"].isna(), "Data"].unique()
+    if len(invalid_2025) > 0:
+        st.sidebar.markdown("### ❌ Invalid parses containing '2025'")
+        st.sidebar.write(sorted(list(invalid_2025)[:10]))
+    else:
+        st.sidebar.markdown("### ❌ Invalid parses containing '2025'")
+        st.sidebar.write("✅ None—all parsed successfully.")
 
-    # Remove temp
-    del df_raw_temp
+    # 🔍 DIAGNÓSTICO: Parsed vs raw for potential August rows
+    if august_mask.any():
+        st.sidebar.markdown("### Parsed August rows (raw vs parsed)")
+        august_df = df_raw.loc[august_mask, ["Data"]].copy()
+        august_df["Parsed"] = pd.to_datetime(august_df["Data"], errors="coerce", dayfirst=True)  # Re-parse for diag
+        august_df["Month"] = august_df["Parsed"].dt.strftime("%Y-%m") if "Parsed" in august_df else None
+        st.sidebar.dataframe(august_df.head(10))
 
     # Diagnóstico: mostra datas inválidas (all)
     linhas_invalidas = df_raw[df_raw["Data"].isna()]
     if not linhas_invalidas.empty:
         st.sidebar.markdown("### ⚠️ All linhas com Data inválida")
-        st.sidebar.dataframe(linhas_invalidas.head(10))
+        st.sidebar.dataframe(linhas_invalidas[["Data", "Artigo"]].head(10))
 
     # Mantém apenas datas válidas
     df = df_raw[df_raw["Data"].notna()].copy()
