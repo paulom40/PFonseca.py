@@ -9,8 +9,26 @@ st.set_page_config(page_title="Bolama Dashboard", layout="wide", page_icon="📊
 @st.cache_data
 def load_data_from_github():
     url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bolama_Vendas.xlsx"
-    df_raw = pd.read_excel(url)
-
+    
+    # Read all sheets
+    all_sheets = pd.read_excel(url, sheet_name=None)
+    
+    # Combine relevant sheets (Sheet1 and Sheet3 have data; Sheet4 is just articles list)
+    df_list = []
+    for sheet_name, sheet_df in all_sheets.items():
+        if sheet_name in ['Sheet1', 'Sheet3']:  # Adjust if names differ
+            # Skip if it's just headers or empty
+            if len(sheet_df) > 1 and not sheet_df.empty:
+                # Ensure columns are consistent (e.g., drop extra empty columns in Sheet3)
+                sheet_df = sheet_df.loc[:, ~sheet_df.columns.str.contains('^Unnamed')]
+                df_list.append(sheet_df)
+    
+    if not df_list:
+        st.error("No data sheets found!")
+        return pd.DataFrame()
+    
+    df_raw = pd.concat(df_list, ignore_index=True)
+    
     # Handle Excel serial dates properly
     if df_raw["Data"].dtype in ['float64', 'int64']:
         # Convert serial to datetime (accounting for Excel's 1900-01-01 bug)
