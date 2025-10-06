@@ -11,8 +11,8 @@ def load_data_from_github():
     url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bolama_Vendas.xlsx"
     df_raw = pd.read_excel(url)
 
-    # Corrige datas
-    df_raw["Data"] = pd.to_datetime(df_raw["Data"], errors="coerce")
+    # Corrige datas (ADICIONADO: dayfirst=True para formato DD/MM/YYYY)
+    df_raw["Data"] = pd.to_datetime(df_raw["Data"], errors="coerce", dayfirst=True)
 
     # Diagnóstico: mostra datas inválidas
     linhas_invalidas = df_raw[df_raw["Data"].isna()]
@@ -46,6 +46,7 @@ if meses_em_falta:
     st.warning(f"⚠️ Os seguintes meses estão ausentes ou incompletos: {', '.join(meses_em_falta)}")
 else:
     st.success("✅ Todos os meses esperados estão presentes nos dados.")
+
 st.sidebar.title("📦 Filtros")
 selected_artigo = st.sidebar.multiselect("Artigo", options=sorted(df["Artigo"].unique()))
 selected_mes = st.sidebar.multiselect("Mês", options=sorted(df["Mês"].unique()))
@@ -97,6 +98,7 @@ st.dataframe(
     }),
     use_container_width=True
 )
+
 tab1, tab2 = st.tabs(["📊 Dashboard Principal", "📈 Crescimento por Artigo (2024 vs 2025)"])
 
 with tab2:
