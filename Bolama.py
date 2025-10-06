@@ -29,6 +29,9 @@ def load_data_from_github():
     
     df_raw = pd.concat(df_list, ignore_index=True)
     
+    # Drop duplicates based on key columns to avoid double-counting from overlapping sheets
+    df_raw = df_raw.drop_duplicates(subset=['Data', 'Artigo', 'Quantidade', 'V Líquido'])
+    
     # Handle Excel serial dates properly
     if df_raw["Data"].dtype in ['float64', 'int64']:
         # Convert serial to datetime (accounting for Excel's 1900-01-01 bug)
