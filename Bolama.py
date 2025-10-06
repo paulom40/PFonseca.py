@@ -19,7 +19,7 @@ st.markdown("""
 # 📥 Carregar dados do GitHub
 @st.cache_data
 def load_data_from_github():
-    url = "https://raw.githubusercontent.com/SEU_USUARIO/SEU_REPOSITORIO/main/Bolama_Vendas.xlsx"
+    url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bolama_Vendas.xlsx"
     df = pd.read_excel(url)
     df["Data"] = pd.to_datetime(df["Data"])
     df["Mês"] = df["Data"].dt.strftime("%Y-%m")
@@ -187,7 +187,9 @@ else:
                 ws.set_column('A:Z', 18)
                 ws.autofilter(0, 0, 1 + len(df), len(df.columns) - 1)
 
-            ws3 = writer.sheets['Crescimento']
-            format_up = writer.book.add_format({'bg_color': '#C6EFCE', 'font_color': '#006100'})
-            format_down = writer.book.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006'})
-            format_na = writer.book.add_format({'bg_color': '#D9D9D9', 'font_color': '#404040', 'italic': True})
+        st.download_button(
+            label="📥 Exportar Excel",
+            data=output.getvalue(),
+            file_name="Bolama_Dashboard_Export.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
