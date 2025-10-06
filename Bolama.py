@@ -27,6 +27,10 @@ def load_data_from_github():
 
     df = df_raw[df_raw["Data"].notna()].copy()
     df["Mês"] = df["Data"].dt.strftime("%Y-%m")
+
+    st.sidebar.markdown("### 📅 Meses detectados")
+    st.sidebar.write(sorted(df["Mês"].unique()))
+
     return df
 
 st.sidebar.markdown("### 🔄 Atualizar Dados")
@@ -149,39 +153,26 @@ else:
             axis=1
         )
 
-        crescimento_df["Crescimento Qtd (%)"] = crescimento_df["Crescimento Qtd (%)"].round(2).replace(np.nan, "Sem dados")
-        crescimento_df["Crescimento Vendas (%)"] = crescimento_df["Crescimento Vendas (%)"].round(2).replace(np.nan, "Sem dados")
+        crescimento_df["Crescimento Qtd (%)"] = crescimento_df["Crescimento Qtd (%)"].round(2)
+        crescimento_df["Crescimento Vendas (%)"] = crescimento_df["Crescimento Vendas (%)"].round(2)
 
-        st.dataframe(crescimento_df, use_container_width=True)
+        def highlight_growth(val):
+            if pd.isna(val):
+                return "background-color: #D9D9D9; color: #404040; font-style: italic"
+            elif val < 0:
+                return "background-color: #FFC7CE; color: #9C0006"
+            elif val == 0:
+                return "background-color: #FFEB9C; color: #9C6500"
+            else:
+                return "background-color: #C6EFCE; color: #006100"
 
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            filtered_df.to_excel(writer, index=False, sheet_name='Dados Filtrados')
-            top_artigos.to_excel(writer, index=False, sheet_name='Top Artigos')
-            crescimento_df.to_excel(writer, index=False, sheet_name='Crescimento')
+        styled_df = crescimento_df.style.format({
+            "Qtd 2024": "{:.2f}",
+            "Qtd 2025": "{:.2f}",
+            "Vendas 2024": "€ {:.2f}",
+            "Vendas 2025": "€ {:.2f}",
+            "Crescimento Qtd (%)": "{:.2f}%",
+            "Crescimento Vendas (%)": "{:.2f}%"
+        }).applymap(highlight_growth, subset=["Crescimento Qtd (%)", "Crescimento Vendas (%)"])
 
-            total_qtd = filtered_df["Quantidade"].sum()
-            total_vl = filtered_df["V Líquido"].sum()
-            total_2024 = df[df["Data"].dt.year == 2024]["V Líquido"].sum()
-            total_2025 = df[df["Data"].dt.year == 2025]["V Líquido"].sum()
-            crescimento_total = ((total_2025 - total_2024) / total_2024 * 100) if total_2024 else None
-
-            resumo_df = pd.DataFrame({
-                "Indicador": [
-                    "Total Quantidade Filtrada",
-                    "Total Vendas Líquidas Filtradas",
-                    "Vendas 2024",
-                    "Vendas 2025",
-                    "Crescimento Total (%)",
-                    "Data de Exportação"
-                ],
-                "Valor": [
-                    f"{total_qtd:,.2f} KG",
-                    f"€ {total_vl:,.2f}",
-                    f"€ {total_2024:,.2f}",
-                    f"€ {total_2025:,.2f}",
-                    f"{crescimento_total:.2f}%" if crescimento_total is not None else "Sem dados",
-                    datetime.now().strftime("%d/%m/%Y %H:%M")
-                ]
-            })
-            resumo_df
+        st.dataframe(styled_df, use_container_width=True)
