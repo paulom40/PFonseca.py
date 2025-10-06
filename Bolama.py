@@ -16,19 +16,29 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 📥 Carregar dados
+# 📥 Carregar dados do GitHub
 @st.cache_data
-def load_data():
-    df = pd.read_excel("Bolama_Vendas.xlsx")
+def load_data_from_github():
+    url = "https://raw.githubusercontent.com/SEU_USUARIO/SEU_REPOSITORIO/main/Bolama_Vendas.xlsx"
+    df = pd.read_excel(url)
     df["Data"] = pd.to_datetime(df["Data"])
     df["Mês"] = df["Data"].dt.strftime("%Y-%m")
     return df
 
-df = load_data()
+# 🔄 Botão para atualizar dados
+st.sidebar.markdown("### 🔄 Atualizar Dados")
+if st.sidebar.button("🔁 Recarregar do GitHub"):
+    st.cache_data.clear()
+    st.session_state.df = load_data_from_github()
+    st.success("✅ Dados atualizados com sucesso!")
 
 # 🔐 Controle de sessão
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
+if "df" not in st.session_state:
+    st.session_state.df = load_data_from_github()
+
+df = st.session_state.df
 
 # 🔐 Login
 st.sidebar.title("🔐 Login")
@@ -142,12 +152,10 @@ else:
         # 📤 Exportar para Excel
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            # Planilhas principais
             filtered_df.to_excel(writer, index=False, sheet_name='Dados Filtrados')
             top_artigos.to_excel(writer, index=False, sheet_name='Top Artigos')
             crescimento_df.to_excel(writer, index=False, sheet_name='Crescimento')
 
-            # Planilha de resumo
             total_qtd = filtered_df["Quantidade"].sum()
             total_vl = filtered_df["V Líquido"].sum()
             total_2024 = df[df["Data"].dt.year == 2024]["V Líquido"].sum()
@@ -174,7 +182,6 @@ else:
             })
             resumo_df.to_excel(writer, index=False, sheet_name='Resumo')
 
-            # Estilização
             for sheet_name in ['Dados Filtrados', 'Top Artigos', 'Crescimento', 'Resumo']:
                 ws = writer.sheets[sheet_name]
                 ws.set_column('A:Z', 18)
@@ -183,5 +190,4 @@ else:
             ws3 = writer.sheets['Crescimento']
             format_up = writer.book.add_format({'bg_color': '#C6EFCE', 'font_color': '#006100'})
             format_down = writer.book.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006'})
-            format_na = writer.book.add_format({'bg_color': '#D9D9D9', 'font_color': '#404040', 'italic': True})
-
+            format_na = writer.book.add_format({'bg_color': '#D9D9D9
