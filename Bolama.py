@@ -174,20 +174,22 @@ else:
             crescimento_total = ((total_2025 - total_2024) / total_2024 * 100) if total_2024 else None
 
             resumo_df = pd.DataFrame({
-                "Indicador": [
-                    "Total Quantidade Filtrada",
-                    "Total Vendas Líquidas Filtradas",
-                    "Vendas 2024",
-                    "Vendas 2025",
-                    "Crescimento Total (%)",
-                    "Data de Exportação"
-                ],
-                "Valor": [
-            f"{total_qtd:,.2f} KG",
-            f"€ {total_vl:,.2f}",
-            f"€ {total_2024:,.2f}",
-            f"€ {total_2025:,.2f}",
-            f"{crescimento_total:.2f}%" if crescimento_total is not None else "Sem dados",
-            datetime.now().strftime("%d/%m/%Y %H:%M")
-]
+    "Indicador": [
+        "Total Quantidade Filtrada",
+        "Total Vendas Líquidas Filtradas",
+        "Vendas 2024",
+        "Vendas 2025",
+        "Crescimento Total (%)",
+        "Data de Exportação"
+    ],
+    "Valor": [
+        f"{total_qtd:,.2f} KG",
+        f"€ {total_vl:,.2f}",
+        f"€ {total_2024:,.2f}",
+        f"€ {total_2025:,.2f}",
+        f"{crescimento_total:.2f}%" if crescimento_total is not None else "Sem dados",
+        datetime.now().strftime("%d/%m/%Y %H:%M")
+    ]
+})
+
 
