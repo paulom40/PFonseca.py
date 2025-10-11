@@ -37,8 +37,11 @@ if df is not None:
     st.subheader("Raw Data Preview")
     st.dataframe(df.head())
     
-    # Convert Excel serial date to datetime for 'Data Venc.'
-    df['Data Venc.'] = pd.to_datetime(df['Data Venc.'], unit='D', origin='1899-12-30')
+    # Convert 'Data Venc.' to numeric first to handle any non-numeric values
+    df['Data Venc.'] = pd.to_numeric(df['Data Venc.'], errors='coerce')
+    
+    # Then convert to datetime
+    df['Data Venc.'] = pd.to_datetime(df['Data Venc.'], unit='D', origin='1899-12-30', errors='coerce')
     
     # Current date: October 11, 2025
     current_date = datetime(2025, 10, 11)
