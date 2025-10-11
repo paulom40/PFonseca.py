@@ -67,7 +67,12 @@ def create_styled_excel(summary_df):
     output.seek(0)
     return output
 
-# 🧮 Data processing
+# ✅ Initialize early to avoid NameError
+summary = pd.DataFrame()
+total_overdue = 0
+comerciales = []
+
+# 📊 Data processing
 if df is not None:
     st.subheader("🔍 Raw Data Preview")
     st.dataframe(df.head())
@@ -77,11 +82,6 @@ if df is not None:
     df['Days_Overdue'] = (-df['Dias']).clip(lower=0)
 
     overdue_df = df[(df['Dias'] <= 0) & (df['Valor Pendente'] > 0)].copy()
-
-    # ✅ Always define early
-    summary = pd.DataFrame()
-    total_overdue = 0
-    commerciales = []
 
     if not overdue_df.empty:
         summary = overdue_df.groupby(['Entidade', 'Comercial']).agg({
@@ -93,7 +93,7 @@ if df is not None:
         total_overdue = summary['Valor Pendente'].sum()
 
         if 'Comercial' in summary.columns:
-            commerciales = sorted(summary['Comercial'].unique())
+            comerciales = sorted(summary['Comercial'].dropna().unique())
 
         st.subheader("📊 Overall Summary")
         st.dataframe(summary)
@@ -103,10 +103,10 @@ if df is not None:
 
     # 🎯 Sidebar filter
     st.sidebar.header("🔎 Filter Options")
-    if commerciales:
-        selected_comercial = st.sidebar.selectbox("👤 Select Comercial", ["All"] + list(comerciales))
-    else:
-        selected_comercial = "All"
+    selected_comercial = st.sidebar.selectbox(
+        "👤 Select Comercial",
+        ["All"] + list(comerciales) if comerciales else ["All"]
+    )
 
     # 📋 Resume Table
     st.subheader("📋 Resume Table by Comercial")
