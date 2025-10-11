@@ -37,21 +37,35 @@ if df is not None:
     st.subheader("Raw Data Preview")
     st.dataframe(df.head())
     
+    # Debug: Show sample Data Venc. before conversion
+    st.subheader("Debug: Date Parsing")
+    st.write("Sample 'Data Venc.' values (raw):", df['Data Venc.'].head().tolist())
+    
     # Convert 'Data Venc.' to numeric first to handle any non-numeric values
     df['Data Venc.'] = pd.to_numeric(df['Data Venc.'], errors='coerce')
     
     # Then convert to datetime
     df['Data Venc.'] = pd.to_datetime(df['Data Venc.'], unit='D', origin='1899-12-30', errors='coerce')
     
+    st.write("Sample 'Data Venc.' after conversion:", df['Data Venc.'].head().tolist())
+    st.write("Number of valid dates:", df['Data Venc.'].notna().sum())
+    st.write("Min/Max Data Venc.:", df['Data Venc.'].min(), "/", df['Data Venc.'].max())
+    
     # Current date: October 11, 2025
     current_date = datetime(2025, 10, 11)
+    st.write("Current date for filter:", current_date)
     
     # Filter due invoices (Data Venc. <= current date) and positive pending values (assuming debts are positive)
     due_df = df[(df['Data Venc.'] <= current_date) & (df['Valor Pendente'] > 0)].copy()
     
-    if due_df.empty:
-        st.warning("No due invoices found.")
-    else:
+    st.write("Number of rows after filter (due and positive pending):", len(due_df))
+    if not due_df.empty:
+        st.write("Sample Valor Pendente in due_df:", due_df['Valor Pendente'].head().tolist())
+    
+    summary = pd.DataFrame()
+    total_due = 0
+    
+    if not due_df.empty:
         # Group by Entidade and Comercial, sum Valor Pendente
         summary = due_df.groupby(['Entidade', 'Comercial'])['Valor Pendente'].sum().reset_index()
         summary['Valor Pendente'] = summary['Valor Pendente'].round(2)
@@ -63,17 +77,46 @@ if df is not None:
         # Total due amount
         total_due = summary['Valor Pendente'].sum()
         st.metric("Total Due Amount", f"€{total_due:,.2f}")
-        
-        # Email section
-        st.subheader("Send Summary via Email (Per Commercial)")
-        sender_email = st.text_input("Sender Email", value="your_email@example.com")
-        sender_password = st.text_input("Sender Password", type="password")
-        receiver_email = st.text_input("Receiver Email", value="recipient@example.com")
-        smtp_server = st.text_input("SMTP Server", value="smtp.gmail.com")
-        smtp_port = st.number_input("SMTP Port", value=587)
-        
-        if st.button("Send Emails Per Commercial"):
-            try:
+    else:
+        st.warning("No due invoices found.")
+    
+    # Email section - always available
+    st.subheader("Send Summary via Email (Per Commercial)")
+    sender_email = st.text_input("Sender Email", value="your_email@example.com")
+    sender_password = st.text_input("Sender Password", type="password")
+    receiver_email = st.text_input("Receiver Email", value="recipient@example.com")
+    smtp_server = st.text_input("SMTP Server", value="smtp.gmail.com")
+    smtp_port = st.number_input("SMTP Port", value=587)
+    
+    if st.button("Send Emails Per Commercial"):
+        try:
+            if summary.empty:
+                # Send a single email if no data
+                msg = MIMEMultipart()
+                msg['From'] = sender_email
+                msg['To'] = receiver_email
+                msg['Subject'] = "Due Invoices Summary - No Due Invoices"
+                
+                body = """
+Dear Recipient,
+
+No due invoices found at this time.
+
+Best regards,
+Streamlit App
+"""
+                msg.attach(MIMEText(body, 'plain'))
+                
+                # Send email
+                server = smtplib.SMTP(smtp_server, smtp_port)
+                server.starttls()
+                server.login(sender_email, sender_password)
+                text = msg.as_string()
+                server.sendmail(sender_email, receiver_email, text)
+                server.quit()
+                
+                st.success("Email sent: No due invoices.")
+            else:
                 # Group by Comercial
                 commercial_groups = summary.groupby('Comercial')
                 
@@ -119,7 +162,7 @@ Streamlit App
                 
                 st.success(f"Emails sent successfully for {len(commercial_groups)} commercials!")
                 
-            except Exception as e:
-                st.error(f"Error sending emails: {str(e)}")
+        except Exception as e:
+            st.error(f"Error sending emails: {str(e)}")
 else:
     st.info("Unable to load the Excel file. Please check the GitHub link.")
