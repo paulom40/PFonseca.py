@@ -8,158 +8,155 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 import io
 from io import BytesIO
+import xlsxwriter
 
-# Page config
-st.set_page_config(page_title="Overdue Invoices Summary", layout="wide")
+# 🎯 Page config
+st.set_page_config(page_title="📊 Overdue Invoices Summary", layout="wide")
 
-# Title
-st.title("Sum of Pending Values for Overdue Invoices")
+# 🏷️ Title
+st.title("📌 Sum of Pending Values for Overdue Invoices")
 
-# GitHub raw URL for the Excel file
+# 📁 GitHub raw URL for the Excel file
 github_url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/V0808.xlsx"
 
-# Load the Excel file from GitHub
+# 📥 Load the Excel file from GitHub
 @st.cache_data
 def load_data():
     try:
         response = requests.get(github_url)
         response.raise_for_status()
         df = pd.read_excel(BytesIO(response.content), sheet_name="Sheet1")
-        # Strip column names
         df.columns = [col.strip() for col in df.columns]
         return df
     except Exception as e:
-        st.error(f"Error loading file from GitHub: {e}")
+        st.error(f"❌ Error loading file from GitHub: {e}")
         return None
 
 df = load_data()
 
+# 📊 Excel styling function
+def create_styled_excel(summary_df):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        summary_df.to_excel(writer, sheet_name='Overdue Summary', index=False)
+        workbook = writer.book
+        worksheet = writer.sheets['Overdue Summary']
+
+        # 🎨 Formats
+        header_format = workbook.add_format({
+            'bold': True, 'bg_color': '#4F81BD', 'font_color': 'white',
+            'border': 1, 'align': 'center'
+        })
+        currency_format = workbook.add_format({'num_format': '€#,##0.00', 'border': 1})
+        days_format = workbook.add_format({'border': 1})
+        entity_format = workbook.add_format({'border': 1})
+        comercial_format = workbook.add_format({'border': 1, 'bg_color': '#DDEBF7'})
+
+        # 🧾 Apply header format
+        for col_num, value in enumerate(summary_df.columns):
+            worksheet.write(0, col_num, value, header_format)
+            worksheet.set_column(col_num, col_num, 20)
+
+        # 🧾 Apply cell formats
+        for row_num, row_data in enumerate(summary_df.values, start=1):
+            worksheet.write(row_num, 0, row_data[0], entity_format)
+            worksheet.write(row_num, 1, row_data[1], comercial_format)
+            worksheet.write(row_num, 2, row_data[2], currency_format)
+            worksheet.write(row_num, 3, row_data[3], days_format)
+
+    output.seek(0)
+    return output
+
+# 🧮 Data processing
 if df is not None:
-    # Display raw data info
-    st.subheader("Raw Data Preview")
+    st.subheader("🔍 Raw Data Preview")
     st.dataframe(df.head())
-    
-    # Debug columns
-    st.subheader("Debug: Columns and Data")
-    st.write("Columns:", df.columns.tolist())
-    
-    # Convert relevant columns to numeric
+
     df['Dias'] = pd.to_numeric(df['Dias'], errors='coerce')
     df['Valor Pendente'] = pd.to_numeric(df['Valor Pendente'], errors='coerce')
-    
-    # Debug filters
-    st.write(f"Total rows: {len(df)}")
-    st.write(f"Rows with Dias <= 0: {len(df[df['Dias'] <= 0])}")
-    st.write(f"Rows with Valor Pendente > 0: {len(df[df['Valor Pendente'] > 0])}")
-    
-    # Calculate days overdue: if Dias <=0, overdue by -Dias
-    df['Days_Overdue'] = (-df['Dias']).clip(lower=0)  # Non-negative days overdue
-    
-    # Filter overdue invoices (Dias <= 0) and positive pending values
+    df['Days_Overdue'] = (-df['Dias']).clip(lower=0)
+
     overdue_df = df[(df['Dias'] <= 0) & (df['Valor Pendente'] > 0)].copy()
-    
-    st.write(f"Overdue rows: {len(overdue_df)}")
-    if not overdue_df.empty:
-        st.write("Sample overdue data:")
-        st.dataframe(overdue_df[['Entidade', 'Comercial', 'Dias', 'Valor Pendente']].head())
-    
+
     summary = pd.DataFrame()
     total_overdue = 0
     commerciales = []
-    
+
     if not overdue_df.empty:
-        # Group by Entidade and Comercial, sum Valor Pendente, max Days_Overdue
         summary = overdue_df.groupby(['Entidade', 'Comercial']).agg({
             'Valor Pendente': 'sum',
             'Days_Overdue': 'max'
         }).reset_index()
         summary['Valor Pendente'] = summary['Valor Pendente'].round(2)
         summary = summary.rename(columns={'Days_Overdue': 'Max Days Overdue'})
-        
-        # Display overall summary
-        st.subheader("Overall Summary: Sum of Valor Pendente by Entidade and Comercial (Overdue)")
-        st.dataframe(summary)
-        
-        # Total overdue amount
         total_overdue = summary['Valor Pendente'].sum()
-        st.metric("Total Overdue Amount", f"€{total_overdue:,.2f}")
-        
-        # Initialize commerciales
+
+        st.subheader("📊 Overall Summary")
+        st.dataframe(summary)
+        st.metric("💰 Total Overdue Amount", f"€{total_overdue:,.2f}")
+
         if 'Comercial' in summary.columns:
             commerciales = sorted(summary['Comercial'].unique())
-        
-        # Resume Table: Filtered by Comercial - only if data available
-        if len(summary) > 0 and len(comerciales) > 0:
-            st.subheader("Resume Table: Filtered by Comercial")
-            selected_comercial = st.selectbox("Select Comercial for Resume", ["All"] + list(comerciales))
-            
-            if selected_comercial == "All":
-                filtered_summary = summary[['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
-                st.write("Showing all data")
-            else:
-                filtered_summary = summary[summary['Comercial'] == selected_comercial][['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
-                st.write(f"**Selected Comercial: {selected_comercial}**")
-            
-            st.dataframe(filtered_summary)
-            
-            # Sub total for selected
-            sub_total = filtered_summary['Valor Pendente'].sum()
-            st.metric("Sub Total", f"€{sub_total:,.2f}")
+
+        # 🎯 Filter by Comercial
+        st.subheader("📋 Resume Table by Comercial")
+        selected_comercial = st.selectbox("👤 Select Comercial", ["All"] + list(comerciales))
+
+        if selected_comercial == "All":
+            filtered_summary = summary[['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
         else:
-            st.warning("No data available for filtering by Comercial.")
+            filtered_summary = summary[summary['Comercial'] == selected_comercial][['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
+
+        st.dataframe(filtered_summary)
+        sub_total = filtered_summary['Valor Pendente'].sum()
+        st.metric("📌 Sub Total", f"€{sub_total:,.2f}")
     else:
-        st.warning("No overdue invoices found.")
-    
-    # Email section - always available
-    st.subheader("Send Summary via Email (Per Commercial)")
-    sender_email = st.text_input("Sender Email", value="your_email@example.com")
-    sender_password = st.text_input("Sender Password", type="password")
-    receiver_email = st.text_input("Receiver Email", value="recipient@example.com")
-    smtp_server = st.text_input("SMTP Server", value="smtp.gmail.com")
-    smtp_port = st.number_input("SMTP Port", value=587)
-    
-    if st.button("Send Emails Per Commercial"):
+        st.warning("⚠️ No overdue invoices found.")
+
+    # 📥 Excel download
+    st.subheader("📁 Download Styled Excel Summary")
+    excel_data = create_styled_excel(summary)
+    st.download_button(
+        label="⬇️ Download Excel File",
+        data=excel_data,
+        file_name="Overdue_Invoices_Summary.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+    # 📧 Email section
+    st.subheader("📤 Send Summary via Email")
+    sender_email = st.text_input("✉️ Sender Email", value="your_email@example.com")
+    sender_password = st.text_input("🔑 Sender Password", type="password")
+    receiver_email = st.text_input("📨 Receiver Email", value="recipient@example.com")
+    smtp_server = st.text_input("🌐 SMTP Server", value="smtp.gmail.com")
+    smtp_port = st.number_input("📡 SMTP Port", value=587)
+
+    if st.button("📬 Send Emails Per Commercial"):
         try:
             if summary.empty or len(comerciales) == 0:
-                # Send a single email if no data
                 msg = MIMEMultipart()
                 msg['From'] = sender_email
                 msg['To'] = receiver_email
-                msg['Subject'] = "Overdue Invoices Summary - No Overdue Invoices"
-                
-                body = """
-Dear Recipient,
-
-No overdue invoices found at this time.
-
-Best regards,
-Streamlit App
-"""
+                msg['Subject'] = "📌 Overdue Invoices Summary - No Overdue Invoices"
+                body = "Dear Recipient,\n\nNo overdue invoices found at this time.\n\nBest regards,\nStreamlit App"
                 msg.attach(MIMEText(body, 'plain'))
-                
-                # Send email
+
                 server = smtplib.SMTP(smtp_server, smtp_port)
                 server.starttls()
                 server.login(sender_email, sender_password)
-                text = msg.as_string()
-                server.sendmail(sender_email, receiver_email, text)
+                server.sendmail(sender_email, receiver_email, msg.as_string())
                 server.quit()
-                
-                st.success("Email sent: No overdue invoices.")
+
+                st.success("✅ Email sent: No overdue invoices.")
             else:
-                # Group by Comercial
                 commercial_groups = summary.groupby('Comercial')
-                
                 for comercial, group in commercial_groups:
                     sub_total = group['Valor Pendente'].sum()
-                    
-                    # Prepare email for this commercial
                     msg = MIMEMultipart()
                     msg['From'] = sender_email
                     msg['To'] = receiver_email
-                    msg['Subject'] = f"Overdue Invoices Summary for {comercial} - Total: €{sub_total:,.2f}"
-                    
-                    # Email body
+                    msg['Subject'] = f"📌 Overdue Summary for {comercial} - €{sub_total:,.2f}"
+
                     body = f"""
 Dear Recipient,
 
@@ -173,26 +170,21 @@ Best regards,
 Streamlit App
 """
                     msg.attach(MIMEText(body, 'plain'))
-                    
-                    # Attach CSV for this commercial
+
                     csv_buffer = io.StringIO()
                     group.to_csv(csv_buffer, index=False)
-                    csv_buffer.seek(0)
                     attachment = MIMEApplication(csv_buffer.getvalue(), _subtype="csv")
                     attachment.add_header('Content-Disposition', 'attachment', filename=f'overdue_summary_{comercial.replace(" ", "_")}.csv')
                     msg.attach(attachment)
-                    
-                    # Send email
+
                     server = smtplib.SMTP(smtp_server, smtp_port)
                     server.starttls()
                     server.login(sender_email, sender_password)
-                    text = msg.as_string()
-                    server.sendmail(sender_email, receiver_email, text)
+                    server.sendmail(sender_email, receiver_email, msg.as_string())
                     server.quit()
-                
-                st.success(f"Emails sent successfully for {len(commercial_groups)} commercials!")
-                
+
+                st.success(f"✅ Emails sent successfully for {len(commercial_groups)} commercials!")
         except Exception as e:
-            st.error(f"Error sending emails: {str(e)}")
+            st.error(f"❌ Error sending emails: {str(e)}")
 else:
-    st.info("Unable to load the Excel file. Please check the GitHub link.")
+    st.info("ℹ️ Unable to load the Excel file. Please check the GitHub link.")
