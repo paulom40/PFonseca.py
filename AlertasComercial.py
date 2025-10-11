@@ -37,30 +37,17 @@ if df is not None:
     st.subheader("Raw Data Preview")
     st.dataframe(df.head())
     
-    # Debug: Show sample Data Venc. before conversion
-    st.subheader("Debug: Date Parsing")
-    st.write("Sample 'Data Venc.' values (raw):", df['Data Venc.'].head().tolist())
-    
     # Convert 'Data Venc.' to numeric first to handle any non-numeric values
     df['Data Venc.'] = pd.to_numeric(df['Data Venc.'], errors='coerce')
     
     # Then convert to datetime
     df['Data Venc.'] = pd.to_datetime(df['Data Venc.'], unit='D', origin='1899-12-30', errors='coerce')
     
-    st.write("Sample 'Data Venc.' after conversion:", df['Data Venc.'].head().tolist())
-    st.write("Number of valid dates:", df['Data Venc.'].notna().sum())
-    st.write("Min/Max Data Venc.:", df['Data Venc.'].min(), "/", df['Data Venc.'].max())
-    
     # Current date: October 11, 2025
     current_date = datetime(2025, 10, 11)
-    st.write("Current date for filter:", current_date)
     
     # Filter due invoices (Data Venc. <= current date) and positive pending values (assuming debts are positive)
     due_df = df[(df['Data Venc.'] <= current_date) & (df['Valor Pendente'] > 0)].copy()
-    
-    st.write("Number of rows after filter (due and positive pending):", len(due_df))
-    if not due_df.empty:
-        st.write("Sample Valor Pendente in due_df:", due_df['Valor Pendente'].head().tolist())
     
     summary = pd.DataFrame()
     total_due = 0
@@ -70,13 +57,26 @@ if df is not None:
         summary = due_df.groupby(['Entidade', 'Comercial'])['Valor Pendente'].sum().reset_index()
         summary['Valor Pendente'] = summary['Valor Pendente'].round(2)
         
-        # Display summary
-        st.subheader("Summary: Sum of Valor Pendente by Entidade and Comercial")
+        # Display overall summary
+        st.subheader("Overall Summary: Sum of Valor Pendente by Entidade and Comercial")
         st.dataframe(summary)
         
         # Total due amount
         total_due = summary['Valor Pendente'].sum()
         st.metric("Total Due Amount", f"€{total_due:,.2f}")
+        
+        # Filter by Comercial
+        st.subheader("Filtered Summary by Comercial")
+        comerciais = sorted(summary['Comercial'].unique())
+        selected_comercial = st.selectbox("Select Comercial", comerciais)
+        
+        filtered_summary = summary[summary['Comercial'] == selected_comercial][['Comercial', 'Entidade', 'Valor Pendente']]
+        
+        st.dataframe(filtered_summary)
+        
+        # Sub total for selected
+        sub_total = filtered_summary['Valor Pendente'].sum()
+        st.metric("Sub Total for Selected Comercial", f"€{sub_total:,.2f}")
     else:
         st.warning("No due invoices found.")
     
@@ -135,7 +135,7 @@ Dear Recipient,
 
 Please find the summary of due invoices for {comercial} below:
 
-{group.to_string(index=False)}
+{group[['Entidade', 'Valor Pendente']].to_string(index=False)}
 
 Total for {comercial}: €{sub_total:,.2f}
 
