@@ -78,7 +78,7 @@ if df is not None:
 
     overdue_df = df[(df['Dias'] <= 0) & (df['Valor Pendente'] > 0)].copy()
 
-    # ✅ Initialize early to avoid NameError
+    # ✅ Always define early
     summary = pd.DataFrame()
     total_overdue = 0
     commerciales = []
@@ -101,10 +101,15 @@ if df is not None:
     else:
         st.warning("⚠️ No overdue invoices found.")
 
-    # 🎯 Filter by Comercial
-    st.subheader("📋 Resume Table by Comercial")
-    selected_comercial = st.selectbox("👤 Select Comercial", ["All"] + list(comerciales))
+    # 🎯 Sidebar filter
+    st.sidebar.header("🔎 Filter Options")
+    if commerciales:
+        selected_comercial = st.sidebar.selectbox("👤 Select Comercial", ["All"] + list(comerciales))
+    else:
+        selected_comercial = "All"
 
+    # 📋 Resume Table
+    st.subheader("📋 Resume Table by Comercial")
     if selected_comercial == "All":
         filtered_summary = summary[['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
     else:
