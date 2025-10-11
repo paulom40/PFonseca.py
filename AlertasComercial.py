@@ -78,6 +78,7 @@ if df is not None:
 
     overdue_df = df[(df['Dias'] <= 0) & (df['Valor Pendente'] > 0)].copy()
 
+    # ✅ Initialize early to avoid NameError
     summary = pd.DataFrame()
     total_overdue = 0
     commerciales = []
@@ -91,27 +92,27 @@ if df is not None:
         summary = summary.rename(columns={'Days_Overdue': 'Max Days Overdue'})
         total_overdue = summary['Valor Pendente'].sum()
 
-        st.subheader("📊 Overall Summary")
-        st.dataframe(summary)
-        st.metric("💰 Total Overdue Amount", f"€{total_overdue:,.2f}")
-
         if 'Comercial' in summary.columns:
             commerciales = sorted(summary['Comercial'].unique())
 
-        # 🎯 Filter by Comercial
-        st.subheader("📋 Resume Table by Comercial")
-        selected_comercial = st.selectbox("👤 Select Comercial", ["All"] + list(comerciales))
-
-        if selected_comercial == "All":
-            filtered_summary = summary[['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
-        else:
-            filtered_summary = summary[summary['Comercial'] == selected_comercial][['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
-
-        st.dataframe(filtered_summary)
-        sub_total = filtered_summary['Valor Pendente'].sum()
-        st.metric("📌 Sub Total", f"€{sub_total:,.2f}")
+        st.subheader("📊 Overall Summary")
+        st.dataframe(summary)
+        st.metric("💰 Total Overdue Amount", f"€{total_overdue:,.2f}")
     else:
         st.warning("⚠️ No overdue invoices found.")
+
+    # 🎯 Filter by Comercial
+    st.subheader("📋 Resume Table by Comercial")
+    selected_comercial = st.selectbox("👤 Select Comercial", ["All"] + list(comerciales))
+
+    if selected_comercial == "All":
+        filtered_summary = summary[['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
+    else:
+        filtered_summary = summary[summary['Comercial'] == selected_comercial][['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
+
+    st.dataframe(filtered_summary)
+    sub_total = filtered_summary['Valor Pendente'].sum()
+    st.metric("📌 Sub Total", f"€{sub_total:,.2f}")
 
     # 📥 Excel download
     st.subheader("📁 Download Styled Excel Summary")
