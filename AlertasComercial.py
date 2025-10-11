@@ -10,7 +10,7 @@ import io
 from io import BytesIO
 
 # Page config
-st.set_page_config(page_title="Due Invoices Summary", layout="wide")
+st.set_page_config(page_title="Overdue Invoices Summary", layout="wide")
 
 # Title
 st.title("Sum of Pending Values for Overdue Invoices")
@@ -61,10 +61,11 @@ if df is not None:
     st.write(f"Overdue rows: {len(overdue_df)}")
     if not overdue_df.empty:
         st.write("Sample overdue data:")
-        st.dataframe(overdue_df.head())
+        st.dataframe(overdue_df[['Entidade', 'Comercial', 'Dias', 'Valor Pendente']].head())
     
     summary = pd.DataFrame()
     total_overdue = 0
+    commerciales = []
     
     if not overdue_df.empty:
         # Group by Entidade and Comercial, sum Valor Pendente, max Days_Overdue
@@ -83,10 +84,13 @@ if df is not None:
         total_overdue = summary['Valor Pendente'].sum()
         st.metric("Total Overdue Amount", f"€{total_overdue:,.2f}")
         
-        # Resume Table: Filtered by Comercial
-        if len(summary) > 0 and 'Comercial' in summary.columns:
-            st.subheader("Resume Table: Filtered by Comercial")
+        # Initialize commerciales
+        if 'Comercial' in summary.columns:
             commerciales = sorted(summary['Comercial'].unique())
+        
+        # Resume Table: Filtered by Comercial - only if data available
+        if len(summary) > 0 and len(comerciales) > 0:
+            st.subheader("Resume Table: Filtered by Comercial")
             selected_comercial = st.selectbox("Select Comercial for Resume", ["All"] + list(comerciales))
             
             if selected_comercial == "All":
@@ -116,7 +120,7 @@ if df is not None:
     
     if st.button("Send Emails Per Commercial"):
         try:
-            if summary.empty:
+            if summary.empty or len(comerciales) == 0:
                 # Send a single email if no data
                 msg = MIMEMultipart()
                 msg['From'] = sender_email
