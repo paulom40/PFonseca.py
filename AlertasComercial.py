@@ -65,18 +65,23 @@ if df is not None:
         total_due = summary['Valor Pendente'].sum()
         st.metric("Total Due Amount", f"€{total_due:,.2f}")
         
-        # Filter by Comercial
-        st.subheader("Filtered Summary by Comercial")
+        # New table: Filtered by Comercial
+        st.subheader("Resume Table: Filtered by Comercial")
         comerciais = sorted(summary['Comercial'].unique())
-        selected_comercial = st.selectbox("Select Comercial", comerciais)
+        selected_comercial = st.selectbox("Select Comercial for Resume", ["All"] + list(comerciales))
         
-        filtered_summary = summary[summary['Comercial'] == selected_comercial][['Comercial', 'Entidade', 'Valor Pendente']]
+        if selected_comercial == "All":
+            filtered_summary = summary[['Entidade', 'Comercial', 'Valor Pendente']]
+            st.write("Showing all data")
+        else:
+            filtered_summary = summary[summary['Comercial'] == selected_comercial][['Entidade', 'Valor Pendente']]
+            st.write(f"**Selected Comercial: {selected_comercial}**")
         
         st.dataframe(filtered_summary)
         
         # Sub total for selected
         sub_total = filtered_summary['Valor Pendente'].sum()
-        st.metric("Sub Total for Selected Comercial", f"€{sub_total:,.2f}")
+        st.metric("Sub Total", f"€{sub_total:,.2f}")
     else:
         st.warning("No due invoices found.")
     
