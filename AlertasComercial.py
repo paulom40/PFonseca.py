@@ -25,6 +25,8 @@ def load_data():
         response = requests.get(github_url)
         response.raise_for_status()
         df = pd.read_excel(BytesIO(response.content), sheet_name="Sheet1")
+        # Strip column names
+        df.columns = [col.strip() for col in df.columns]
         return df
     except Exception as e:
         st.error(f"Error loading file from GitHub: {e}")
@@ -37,15 +39,29 @@ if df is not None:
     st.subheader("Raw Data Preview")
     st.dataframe(df.head())
     
+    # Debug columns
+    st.subheader("Debug: Columns and Data")
+    st.write("Columns:", df.columns.tolist())
+    
     # Convert relevant columns to numeric
     df['Dias'] = pd.to_numeric(df['Dias'], errors='coerce')
     df['Valor Pendente'] = pd.to_numeric(df['Valor Pendente'], errors='coerce')
+    
+    # Debug filters
+    st.write(f"Total rows: {len(df)}")
+    st.write(f"Rows with Dias <= 0: {len(df[df['Dias'] <= 0])}")
+    st.write(f"Rows with Valor Pendente > 0: {len(df[df['Valor Pendente'] > 0])}")
     
     # Calculate days overdue: if Dias <=0, overdue by -Dias
     df['Days_Overdue'] = (-df['Dias']).clip(lower=0)  # Non-negative days overdue
     
     # Filter overdue invoices (Dias <= 0) and positive pending values
     overdue_df = df[(df['Dias'] <= 0) & (df['Valor Pendente'] > 0)].copy()
+    
+    st.write(f"Overdue rows: {len(overdue_df)}")
+    if not overdue_df.empty:
+        st.write("Sample overdue data:")
+        st.dataframe(overdue_df.head())
     
     summary = pd.DataFrame()
     total_overdue = 0
@@ -68,22 +84,25 @@ if df is not None:
         st.metric("Total Overdue Amount", f"€{total_overdue:,.2f}")
         
         # Resume Table: Filtered by Comercial
-        st.subheader("Resume Table: Filtered by Comercial")
-        comerciais = sorted(summary['Comercial'].unique())
-        selected_comercial = st.selectbox("Select Comercial for Resume", ["All"] + list(comerciales))
-        
-        if selected_comercial == "All":
-            filtered_summary = summary[['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
-            st.write("Showing all data")
+        if len(summary) > 0 and 'Comercial' in summary.columns:
+            st.subheader("Resume Table: Filtered by Comercial")
+            commerciales = sorted(summary['Comercial'].unique())
+            selected_comercial = st.selectbox("Select Comercial for Resume", ["All"] + list(comerciales))
+            
+            if selected_comercial == "All":
+                filtered_summary = summary[['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
+                st.write("Showing all data")
+            else:
+                filtered_summary = summary[summary['Comercial'] == selected_comercial][['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
+                st.write(f"**Selected Comercial: {selected_comercial}**")
+            
+            st.dataframe(filtered_summary)
+            
+            # Sub total for selected
+            sub_total = filtered_summary['Valor Pendente'].sum()
+            st.metric("Sub Total", f"€{sub_total:,.2f}")
         else:
-            filtered_summary = summary[summary['Comercial'] == selected_comercial][['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
-            st.write(f"**Selected Comercial: {selected_comercial}**")
-        
-        st.dataframe(filtered_summary)
-        
-        # Sub total for selected
-        sub_total = filtered_summary['Valor Pendente'].sum()
-        st.metric("Sub Total", f"€{sub_total:,.2f}")
+            st.warning("No data available for filtering by Comercial.")
     else:
         st.warning("No overdue invoices found.")
     
