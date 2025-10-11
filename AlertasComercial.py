@@ -13,7 +13,7 @@ from io import BytesIO
 st.set_page_config(page_title="Due Invoices Summary", layout="wide")
 
 # Title
-st.title("Sum of Pending Values for Due Invoices")
+st.title("Sum of Pending Values for Overdue Invoices")
 
 # GitHub raw URL for the Excel file
 github_url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/V0808.xlsx"
@@ -37,44 +37,46 @@ if df is not None:
     st.subheader("Raw Data Preview")
     st.dataframe(df.head())
     
-    # Convert 'Data Venc.' to numeric first to handle any non-numeric values
-    df['Data Venc.'] = pd.to_numeric(df['Data Venc.'], errors='coerce')
+    # Convert relevant columns to numeric
+    df['Dias'] = pd.to_numeric(df['Dias'], errors='coerce')
+    df['Valor Pendente'] = pd.to_numeric(df['Valor Pendente'], errors='coerce')
     
-    # Then convert to datetime
-    df['Data Venc.'] = pd.to_datetime(df['Data Venc.'], unit='D', origin='1899-12-30', errors='coerce')
+    # Calculate days overdue: if Dias <=0, overdue by -Dias
+    df['Days_Overdue'] = (-df['Dias']).clip(lower=0)  # Non-negative days overdue
     
-    # Current date: October 11, 2025
-    current_date = datetime(2025, 10, 11)
-    
-    # Filter due invoices (Data Venc. <= current date) and positive pending values (assuming debts are positive)
-    due_df = df[(df['Data Venc.'] <= current_date) & (df['Valor Pendente'] > 0)].copy()
+    # Filter overdue invoices (Dias <= 0) and positive pending values
+    overdue_df = df[(df['Dias'] <= 0) & (df['Valor Pendente'] > 0)].copy()
     
     summary = pd.DataFrame()
-    total_due = 0
+    total_overdue = 0
     
-    if not due_df.empty:
-        # Group by Entidade and Comercial, sum Valor Pendente
-        summary = due_df.groupby(['Entidade', 'Comercial'])['Valor Pendente'].sum().reset_index()
+    if not overdue_df.empty:
+        # Group by Entidade and Comercial, sum Valor Pendente, max Days_Overdue
+        summary = overdue_df.groupby(['Entidade', 'Comercial']).agg({
+            'Valor Pendente': 'sum',
+            'Days_Overdue': 'max'
+        }).reset_index()
         summary['Valor Pendente'] = summary['Valor Pendente'].round(2)
+        summary = summary.rename(columns={'Days_Overdue': 'Max Days Overdue'})
         
         # Display overall summary
-        st.subheader("Overall Summary: Sum of Valor Pendente by Entidade and Comercial")
+        st.subheader("Overall Summary: Sum of Valor Pendente by Entidade and Comercial (Overdue)")
         st.dataframe(summary)
         
-        # Total due amount
-        total_due = summary['Valor Pendente'].sum()
-        st.metric("Total Due Amount", f"€{total_due:,.2f}")
+        # Total overdue amount
+        total_overdue = summary['Valor Pendente'].sum()
+        st.metric("Total Overdue Amount", f"€{total_overdue:,.2f}")
         
-        # New table: Filtered by Comercial
+        # Resume Table: Filtered by Comercial
         st.subheader("Resume Table: Filtered by Comercial")
         comerciais = sorted(summary['Comercial'].unique())
         selected_comercial = st.selectbox("Select Comercial for Resume", ["All"] + list(comerciales))
         
         if selected_comercial == "All":
-            filtered_summary = summary[['Entidade', 'Comercial', 'Valor Pendente']]
+            filtered_summary = summary[['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
             st.write("Showing all data")
         else:
-            filtered_summary = summary[summary['Comercial'] == selected_comercial][['Entidade', 'Valor Pendente']]
+            filtered_summary = summary[summary['Comercial'] == selected_comercial][['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
             st.write(f"**Selected Comercial: {selected_comercial}**")
         
         st.dataframe(filtered_summary)
@@ -83,7 +85,7 @@ if df is not None:
         sub_total = filtered_summary['Valor Pendente'].sum()
         st.metric("Sub Total", f"€{sub_total:,.2f}")
     else:
-        st.warning("No due invoices found.")
+        st.warning("No overdue invoices found.")
     
     # Email section - always available
     st.subheader("Send Summary via Email (Per Commercial)")
@@ -100,12 +102,12 @@ if df is not None:
                 msg = MIMEMultipart()
                 msg['From'] = sender_email
                 msg['To'] = receiver_email
-                msg['Subject'] = "Due Invoices Summary - No Due Invoices"
+                msg['Subject'] = "Overdue Invoices Summary - No Overdue Invoices"
                 
                 body = """
 Dear Recipient,
 
-No due invoices found at this time.
+No overdue invoices found at this time.
 
 Best regards,
 Streamlit App
@@ -120,7 +122,7 @@ Streamlit App
                 server.sendmail(sender_email, receiver_email, text)
                 server.quit()
                 
-                st.success("Email sent: No due invoices.")
+                st.success("Email sent: No overdue invoices.")
             else:
                 # Group by Comercial
                 commercial_groups = summary.groupby('Comercial')
@@ -132,15 +134,15 @@ Streamlit App
                     msg = MIMEMultipart()
                     msg['From'] = sender_email
                     msg['To'] = receiver_email
-                    msg['Subject'] = f"Due Invoices Summary for {comercial} - Total: €{sub_total:,.2f}"
+                    msg['Subject'] = f"Overdue Invoices Summary for {comercial} - Total: €{sub_total:,.2f}"
                     
                     # Email body
                     body = f"""
 Dear Recipient,
 
-Please find the summary of due invoices for {comercial} below:
+Please find the summary of overdue invoices for {comercial} below:
 
-{group[['Entidade', 'Valor Pendente']].to_string(index=False)}
+{group[['Entidade', 'Valor Pendente', 'Max Days Overdue']].to_string(index=False)}
 
 Total for {comercial}: €{sub_total:,.2f}
 
@@ -154,7 +156,7 @@ Streamlit App
                     group.to_csv(csv_buffer, index=False)
                     csv_buffer.seek(0)
                     attachment = MIMEApplication(csv_buffer.getvalue(), _subtype="csv")
-                    attachment.add_header('Content-Disposition', 'attachment', filename=f'due_summary_{comercial.replace(" ", "_")}.csv')
+                    attachment.add_header('Content-Disposition', 'attachment', filename=f'overdue_summary_{comercial.replace(" ", "_")}.csv')
                     msg.attach(attachment)
                     
                     # Send email
