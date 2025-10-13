@@ -14,7 +14,7 @@ import xlsxwriter
 st.set_page_config(page_title="📊 Overdue Invoices Summary", layout="wide")
 
 # 🏷️ Title
-st.title("📌 Sum of Pending Values for Overdue Invoices")
+st.title("📌 Soma de Valores Pendentes")
 
 # 📁 GitHub raw URL for the Excel file
 github_url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/V0808.xlsx"
