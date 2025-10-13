@@ -61,32 +61,14 @@ if df is not None:
     # 🔎 Filtro lateral por Comercial
     st.sidebar.header("🔎 Filtro por Comercial")
     comerciais = sorted(overdue_df['Comercial'].dropna().unique())
-    st.sidebar.write("**Valores únicos em Comercial (após limpeza):**", comerciais)
-    
-    # Debug: Contagens
-    value_counts = overdue_df['Comercial'].value_counts()
-    st.sidebar.write("**Contagens por Comercial:**")
-    st.sidebar.write(value_counts)
-    
     selected_comercial = st.sidebar.selectbox("👤 Selecionar Comercial", ["Todos"] + list(comerciais))
     selected_comercial = selected_comercial.strip()
 
-    # Aplicar filtro diretamente sobre overdue_df (case insensitive e robusto)
+    # Aplicar filtro diretamente sobre overdue_df (case insensitive)
     if selected_comercial == "Todos":
         df_filtrado = overdue_df.copy()
     else:
-        # Filtro case-insensitive
-        mask = overdue_df['Comercial'].str.upper() == selected_comercial.upper()
-        df_filtrado = overdue_df[mask].copy()
-    
-    # Debug no sidebar
-    st.sidebar.write(f"**Selected Comercial:** '{selected_comercial}' (upper: '{selected_comercial.upper()}')")
-    st.sidebar.write(f"**Linhas em overdue_df:** {len(overdue_df)}")
-    st.sidebar.write(f"**Linhas após filtro:** {len(df_filtrado)}")
-    if len(df_filtrado) > 0:
-        st.sidebar.write("**Amostra de Comerciais após filtro:**", df_filtrado['Comercial'].unique().tolist())
-    else:
-        st.sidebar.error("Nenhuma linha encontrada após filtro! Verifica os valores únicos acima.")
+        df_filtrado = overdue_df[overdue_df['Comercial'].str.upper() == selected_comercial.upper()]
 
     # Agrupamento por Comercial e Entidade
     if len(df_filtrado) > 0:
