@@ -27,7 +27,17 @@ def load_data():
         st.error(f"❌ Erro ao carregar ficheiro: {e}")
         return None
 
-df = load_data()
+# 🔄 Botão para atualizar dados
+if st.button("🔄 Atualizar dados do Excel"):
+    st.session_state.df = load_data()
+    st.session_state.last_updated = datetime.now()
+    st.success("✅ Dados atualizados com sucesso!")
+
+# 🕒 Mostrar data/hora da última atualização
+if "last_updated" in st.session_state:
+    st.caption(f"🕒 Última atualização: {st.session_state.last_updated.strftime('%d/%m/%Y %H:%M:%S')}")
+
+df = st.session_state.get("df", None)
 
 def create_styled_excel(summary_df):
     output = BytesIO()
@@ -186,13 +196,4 @@ Streamlit App
                         msg.attach(attachment)
 
                         server = smtplib.SMTP(smtp_server, smtp_port)
-                        server.starttls()
-                        server.login(sender_email, sender_password)
-                        server.sendmail(sender_email, receiver_email, msg.as_string())
-                        server.quit()
-
-                    st.success(f"✅ Emails enviados com sucesso para {len(commercial_groups)} comerciais!")
-            except Exception as e:
-                st.error(f"❌ Erro ao enviar emails: {str(e)}")
-else:
-    st.info("ℹ️ Não foi possível carregar o ficheiro. Verifica o link do GitHub.")
+                        server.start
