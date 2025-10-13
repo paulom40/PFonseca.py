@@ -64,11 +64,11 @@ if df is not None:
     selected_comercial = st.sidebar.selectbox("👤 Selecionar Comercial", ["Todos"] + comerciais)
     selected_comercial = selected_comercial.strip()
 
-    # Aplicar filtro diretamente sobre overdue_df
+    # Aplicar filtro diretamente sobre overdue_df (case insensitive)
     if selected_comercial == "Todos":
         df_filtrado = overdue_df.copy()
     else:
-        df_filtrado = overdue_df[overdue_df['Comercial'] == selected_comercial]
+        df_filtrado = overdue_df[overdue_df['Comercial'].str.upper() == selected_comercial.upper()]
 
     # Agrupamento por Comercial e Entidade
     summary = df_filtrado.groupby(['Comercial', 'Entidade'], as_index=False).agg({
@@ -84,12 +84,14 @@ if df is not None:
     sub_total = summary['Valor Pendente'].sum()
     st.metric("📌 Subtotal", f"€{sub_total:,.2f}")
 
+    comercial_name = "Todos os comerciais" if selected_comercial == "Todos" else f"o Comercial '{selected_comercial}'"
+    
     if sub_total > 10000:
-        st.error(f"🚨 Alerta: Comercial '{selected_comercial}' tem mais de €10.000 em pendências!")
+        st.error(f"🚨 Alerta: {comercial_name} tem mais de €10.000 em pendências!")
     elif sub_total > 5000:
-        st.warning(f"⚠️ Comercial '{selected_comercial}' ultrapassa €5.000 em pendências.")
+        st.warning(f"⚠️ {comercial_name} ultrapassa €5.000 em pendências.")
     else:
-        st.success(f"✅ Comercial '{selected_comercial}' está dentro do limite.")
+        st.success(f"✅ {comercial_name} está dentro do limite.")
 
     # 📁 Exportação Excel
     st.subheader("📁 Exportar Resumo em Excel")
@@ -116,6 +118,13 @@ if df is not None:
 
     if st.button("📬 Enviar Email"):
         try:
+            # Create Excel buffer for attachment
+            email_excel_buffer = BytesIO()
+            with pd.ExcelWriter(email_excel_buffer, engine='xlsxwriter') as writer:
+                summary.to_excel(writer, index=False, sheet_name='Resumo')
+                writer.sheets['Resumo'].set_column('A:D', 25)
+            email_excel_buffer.seek(0)
+
             msg = MIMEMultipart()
             msg['From'] = sender_email
             msg['To'] = receiver_email
@@ -124,7 +133,7 @@ if df is not None:
             body = f"""
 Olá,
 
-Segue em anexo o resumo de pendências para o comercial '{selected_comercial}'.
+Segue em anexo o resumo de pendências { 'para todos os comerciais' if selected_comercial == "Todos" else f"para o comercial '{selected_comercial}'" }.
 
 Total pendente: €{sub_total:,.2f}
 
@@ -133,10 +142,8 @@ Dashboard Streamlit
 """
             msg.attach(MIMEText(body, 'plain'))
 
-            csv_buffer = io.StringIO()
-            summary.to_csv(csv_buffer, index=False)
-            attachment = MIMEApplication(csv_buffer.getvalue(), _subtype="csv")
-            attachment.add_header('Content-Disposition', 'attachment', filename=f'resumo_{selected_comercial.replace(" ", "_")}.csv')
+            attachment = MIMEApplication(email_excel_buffer.getvalue(), _subtype="xlsx")
+            attachment.add_header('Content-Disposition', 'attachment', filename=f'resumo_{selected_comercial.replace(" ", "_")}.xlsx')
             msg.attach(attachment)
 
             server = smtplib.SMTP(smtp_server, smtp_port)
