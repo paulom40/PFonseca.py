@@ -20,7 +20,8 @@ def load_data():
     try:
         response = requests.get(github_url)
         response.raise_for_status()
-        df = pd.read_excel(BytesIO(response.content), sheet_name="Sheet1", header=None)
+        df = pd.read_excel(BytesIO(response.content), sheet_name="Sheet1", header=0)
+        df.columns = [col.strip() for col in df.columns]
         return df
     except Exception as e:
         st.error(f"❌ Erro ao carregar ficheiro: {e}")
@@ -39,15 +40,6 @@ if "last_updated" in st.session_state:
 df = st.session_state.get("df", None)
 
 if df is not None:
-    # Renomear colunas relevantes
-    df = df.rename(columns={
-        1: "Entidade",
-        7: "Data Doc.",
-        8: "Dias",
-        10: "Valor Pendente",
-        11: "Comercial"
-    })
-
     # Limpeza e preparação
     df['Dias'] = pd.to_numeric(df['Dias'], errors='coerce')
     df['Valor Pendente'] = pd.to_numeric(df['Valor Pendente'], errors='coerce')
