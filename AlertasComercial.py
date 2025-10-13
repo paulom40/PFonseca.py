@@ -39,43 +39,40 @@ if "last_updated" in st.session_state:
 
 df = st.session_state.get("df", None)
 
-summary = pd.DataFrame()
-total_overdue = 0
-
 if df is not None:
     st.subheader("🔍 Raw Data Preview")
     st.dataframe(df.head())
 
+    # Limpeza e preparação
     df['Dias'] = pd.to_numeric(df['Dias'], errors='coerce')
     df['Valor Pendente'] = pd.to_numeric(df['Valor Pendente'], errors='coerce')
     df['Days_Overdue'] = (-df['Dias']).clip(lower=0)
+    df['Comercial'] = df.iloc[:, 11].astype(str).str.strip()  # Coluna L = índice 11
+    df['Entidade'] = df['Entidade'].astype(str).str.strip()
 
     overdue_df = df[(df['Dias'] <= 0) & (df['Valor Pendente'] > 0)].copy()
 
     if not overdue_df.empty:
-        summary = overdue_df.groupby(['Entidade', 'Comercial']).agg({
+        summary = overdue_df.groupby(['Entidade', 'Comercial'], as_index=False).agg({
             'Valor Pendente': 'sum',
             'Days_Overdue': 'max'
-        }).reset_index()
+        })
         summary['Valor Pendente'] = summary['Valor Pendente'].round(2)
         summary = summary.rename(columns={'Days_Overdue': 'Max Days Overdue'})
-        total_overdue = summary['Valor Pendente'].sum()
 
         st.subheader("📊 Resumo Geral")
         st.dataframe(summary)
-        st.metric("💰 Total Pendente", f"€{total_overdue:,.2f}")
+        st.metric("💰 Total Pendente", f"€{summary['Valor Pendente'].sum():,.2f}")
 
         # 🔎 Filtro lateral por Comercial
         st.sidebar.header("🔎 Filtro por Comercial")
-        summary['Comercial'] = summary['Comercial'].astype(str).str.strip()
         comerciales = sorted(summary['Comercial'].dropna().unique())
         selected_comercial = st.sidebar.selectbox("👤 Selecionar Comercial", ["Todos"] + comerciales)
-        selected_comercial = str(selected_comercial).strip()
 
         if selected_comercial == "Todos":
             filtered_summary = summary[['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
         else:
-            filtered_summary = summary[summary['Comercial'].str.strip() == selected_comercial][['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
+            filtered_summary = summary[summary['Comercial'] == selected_comercial][['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
 
         st.subheader("📋 Resumo por Comercial")
         st.dataframe(filtered_summary)
