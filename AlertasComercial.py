@@ -111,9 +111,9 @@ if df is not None:
     # 📋 Resume Table
     st.subheader("📋 Resumo por Comercial")
     if selected_comercial == "All":
-        filtered_summary = summary[['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
+        filtered_summary = summary[['Comercial', 'Entidade', 'Valor Pendente', 'Max dias']]
     else:
-        filtered_summary = summary[summary['Comercial'] == selected_comercial][['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
+        filtered_summary = summary[summary['Comercial'] == selected_comercial][['Comercial', 'Entidade', 'Valor Pendente', 'Max dias']]
 
     st.dataframe(filtered_summary)
     sub_total = filtered_summary['Valor Pendente'].sum()
