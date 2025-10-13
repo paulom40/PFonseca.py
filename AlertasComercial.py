@@ -195,8 +195,8 @@ st.markdown("""
 # Header principal com gradiente
 st.markdown("""
 <div class="main-header">
-    <h1 style="margin:0; font-size: 2.5rem;">📊 DASHBOARD DE VALORES FUTUROS</h1>
-    <p style="margin:0; opacity: 0.9; font-size: 1.1rem;">Gestão de Valores em Dia (Dias > 0)</p>
+    <h1 style="margin:0; font-size: 2.5rem;">📊 DASHBOARD DE VALORES PENDENTES</h1>
+    <p style="margin:0; opacity: 0.9; font-size: 1.1rem;">Gestão Completa de Valores Futuros e em Atraso</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -275,7 +275,7 @@ if df is not None:
         st.markdown("### 📈 Tipo de Análise")
         tipo_analise = st.radio(
             "Selecione o tipo de análise:",
-            ["📈 Valores Futuros (Dias > 0)", "⚠️ Valores em Atraso (Dias ≤ 0)"],
+            ["💰 Valores Futuros (Dias ≥ 0)", "⚠️ Valores em Atraso (Dias < 0)"],
             index=0
         )
         
@@ -316,15 +316,17 @@ if df is not None:
             df_clean['Comercial'] = df_clean['Comercial'].astype(str).str.replace(r'[\t\n\r ]+', ' ', regex=True).str.strip()
             df_clean['Entidade'] = df_clean['Entidade'].astype(str).str.strip()
 
-            # FILTRO PRINCIPAL CORRIGIDO: Dias > 0 (Valores Futuros/Em Dia)
+            # CORREÇÃO DOS FILTROS - LÓGICA INVERTIDA
             if "Valores Futuros" in tipo_analise:
-                df_base = df_clean[(df_clean['Dias'] > 0) & (df_clean['Valor Pendente'] > 0)].copy()
-                tipo_filtro = "Valores Futuros (Dias > 0)"
-                st.info("📈 Analisando: **Valores Futuros/Em Dia** - Faturas com Dias > 0")
+                # VALORES FUTUROS: Dias ≥ 0 (hoje ou futuro)
+                df_base = df_clean[(df_clean['Dias'] >= 0) & (df_clean['Valor Pendente'] > 0)].copy()
+                tipo_filtro = "Valores Futuros (Dias ≥ 0)"
+                st.info("💰 Analisando: **Valores Futuros/Em Dia** - Faturas com vencimento hoje ou no futuro")
             else:
-                df_base = df_clean[(df_clean['Dias'] <= 0) & (df_clean['Valor Pendente'] > 0)].copy()
-                tipo_filtro = "Valores em Atraso (Dias ≤ 0)"
-                st.warning("⚠️ Analisando: **Valores em Atraso** - Faturas com Dias ≤ 0")
+                # VALORES EM ATRASO: Dias < 0 (vencidos)
+                df_base = df_clean[(df_clean['Dias'] < 0) & (df_clean['Valor Pendente'] > 0)].copy()
+                tipo_filtro = "Valores em Atraso (Dias < 0)"
+                st.warning("⚠️ Analisando: **Valores em Atraso** - Faturas vencidas")
 
             # Aplicar filtros de Comercial
             if selected_comercial == "Todos" and not search_term:
@@ -342,11 +344,11 @@ if df is not None:
                 df_filtrado = df_base.copy()
                 filtro_aplicado = f"Todos os comerciais - {tipo_filtro}"
 
-            # Resumo analítico - SOMA POR COMERCIAL E ENTIDADE (Dias > 0)
+            # Resumo analítico - SOMA POR COMERCIAL E ENTIDADE
             st.markdown("### 📋 Resumo por Comercial e Entidade")
             
             if len(df_filtrado) > 0:
-                # Agrupamento e cálculo - CORRIGIDO PARA DIAS > 0
+                # Agrupamento e cálculo
                 summary = df_filtrado.groupby(['Comercial', 'Entidade'], as_index=False).agg({
                     'Valor Pendente': 'sum',
                     'Dias': 'mean'  # Média de dias para referência
@@ -400,24 +402,27 @@ if df is not None:
                     """, unsafe_allow_html=True)
 
                 with col4:
+                    dias_texto = "Futuros" if dias_medios >= 0 else "Atraso"
                     st.markdown(f"""
                     <div class="metric-card">
                         <h3 style="margin:0; font-size: 0.9rem;">Dias Médios</h3>
-                        <p style="margin:0; font-size: 1.5rem; font-weight: bold;">{dias_medios:.1f}</p>
-                        <p style="margin:0; font-size: 0.8rem;">{'Futuros' if dias_medios > 0 else 'Atraso'}</p>
+                        <p style="margin:0; font-size: 1.5rem; font-weight: bold;">{abs(dias_medios):.1f}</p>
+                        <p style="margin:0; font-size: 0.8rem;">{dias_texto}</p>
                     </div>
                     """, unsafe_allow_html=True)
 
                 # Alertas específicos para cada tipo
                 st.markdown("### ⚠️ Status da Análise")
                 if "Futuros" in tipo_filtro:
-                    st.success(f"✅ **VALORES FUTUROS/EM DIA**: {filtro_aplicado} totaliza €{sub_total:,.2f} em valores com vencimento futuro")
-                    st.info(f"📅 Estes valores vencerão nos próximos {dias_medios:.1f} dias em média")
+                    if dias_medios == 0:
+                        st.success(f"✅ **VALORES A VENCER HOJE**: {filtro_aplicado} totaliza €{sub_total:,.2f} em valores com vencimento hoje")
+                    else:
+                        st.success(f"✅ **VALORES FUTUROS**: {filtro_aplicado} totaliza €{sub_total:,.2f} em valores que vencerão em {dias_medios:.1f} dias")
                 else:
                     if sub_total > 10000:
-                        st.error(f"🚨 ALERTA CRÍTICO: {filtro_aplicado} tem €{sub_total:,.2f} em pendências em atraso!")
+                        st.error(f"🚨 ALERTA CRÍTICO: {filtro_aplicado} tem €{sub_total:,.2f} em valores em atraso!")
                     elif sub_total > 5000:
-                        st.warning(f"⚠️ AVISO: {filtro_aplicado} ultrapassa €5.000 em pendências em atraso.")
+                        st.warning(f"⚠️ AVISO: {filtro_aplicado} ultrapassa €5.000 em valores em atraso.")
                     else:
                         st.success(f"✅ SITUAÇÃO CONTROLADA: {filtro_aplicado} dentro dos limites.")
 
@@ -545,7 +550,7 @@ if df is not None:
                                         <li><strong>Total Pendente:</strong> €{sub_total:,.2f}</li>
                                         <li><strong>Número de Comerciais:</strong> {num_comerciais}</li>
                                         <li><strong>Número de Entidades:</strong> {num_entidades}</li>
-                                        <li><strong>Dias Médios:</strong> {dias_medios:.1f} dias</li>
+                                        <li><strong>Dias Médios:</strong> {abs(dias_medios):.1f} dias {'futuros' if dias_medios >= 0 else 'em atraso'}</li>
                                         <li><strong>Tipo de Análise:</strong> {tipo_filtro}</li>
                                     </ul>
                                 </div>
