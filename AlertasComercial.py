@@ -1,4 +1,4 @@
-import streamlit as st
+    import streamlit as st
 import pandas as pd
 import requests
 from datetime import datetime
@@ -196,4 +196,8 @@ Streamlit App
                         msg.attach(attachment)
 
                         server = smtplib.SMTP(smtp_server, smtp_port)
-                        server.start
+                        server.starttls()
+                        server.login(sender_email, sender_password)
+                        server.sendmail(sender_email, receiver_email, msg.as_string())
+                        server.quit()
+
