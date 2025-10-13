@@ -165,6 +165,30 @@ st.markdown("""
         border-radius: 20px;
         margin: 1rem 0;
     }
+    
+    /* Status indicators */
+    .status-indicator {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: bold;
+        text-align: center;
+        margin: 0.2rem;
+    }
+    
+    .status-success {
+        background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
+        color: white;
+    }
+    
+    .status-warning {
+        background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+        color: white;
+    }
+    
+    .status-danger {
+        background: linear-gradient(135deg, #ff5858 0%, #f09819 100%);
+        color: white;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -176,8 +200,8 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# URL do arquivo Excel
-url = "https://github.com/paulom40/PFonseca.py/raw/refs/heads/main/V0808.xlsx"
+# URL CORRIGIDA - usando o link raw do GitHub
+url = "https://github.com/paulom40/PFonseca.py/raw/main/V0808.xlsx"
 
 @st.cache_data
 def load_data():
@@ -188,12 +212,13 @@ def load_data():
         df.columns = [col.strip() for col in df.columns]
         return df
     except Exception as e:
-        st.error(f"❌ Erro ao carregar ficheiro: {e}. Verifica o URL ou usa ficheiro local.")
+        st.error(f"❌ Erro ao carregar ficheiro: {e}")
+        st.info("💡 Dica: Verifique se o link do GitHub está correto e se o ficheiro está público.")
         return None
 
-# Container principal
+# Container principal para controles
 with st.container():
-    col1, col2, col3 = st.columns([2, 1, 1])
+    col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
     
     with col1:
         st.markdown("### 🔄 Gestão de Dados")
@@ -201,7 +226,8 @@ with st.container():
             st.cache_data.clear()
             st.session_state.df = load_data()
             st.session_state.last_updated = datetime.now()
-            st.success("✅ Dados atualizados com sucesso!")
+            if st.session_state.df is not None:
+                st.success("✅ Dados atualizados com sucesso!")
     
     with col2:
         if "last_updated" in st.session_state:
@@ -227,15 +253,19 @@ if df is not None:
         
         st.markdown("### 📊 Filtro por Comercial")
         
-        # Lista de comerciais únicos
-        comerciais = sorted(df['Comercial'].dropna().astype(str).unique())
-        opcoes_comerciais = ["Todos"] + comerciais
-        
-        selected_comercial = st.selectbox(
-            "Selecione o Comercial:",
-            opcoes_comerciais,
-            index=0
-        )
+        # Processar comerciais para a sidebar
+        if 'Comercial' in df.columns:
+            comerciais = sorted(df['Comercial'].dropna().astype(str).unique())
+            opcoes_comerciais = ["Todos"] + comerciais
+            
+            selected_comercial = st.selectbox(
+                "Selecione o Comercial:",
+                opcoes_comerciais,
+                index=0
+            )
+        else:
+            st.warning("Coluna 'Comercial' não encontrada")
+            selected_comercial = "Todos"
         
         st.markdown("---")
         st.markdown("### 🔍 Busca Avançada")
@@ -245,130 +275,164 @@ if df is not None:
         st.markdown("### 📈 Estatísticas Rápidas")
         
         if len(df) > 0:
-            total_pendente = df['Valor Pendente'].sum() if 'Valor Pendente' in df.columns else 0
             total_registros = len(df)
+            colunas_disponiveis = df.columns.tolist()
             
             st.metric("📋 Total de Registros", f"{total_registros:,}")
-            st.metric("💰 Valor Total", f"€{total_pendente:,.2f}")
-
-    # Processamento dos dados
-    st.markdown("### 📋 Processamento de Dados")
-    
-    # Verificar colunas necessárias
-    if "Dias" not in df.columns:
-        st.error("❌ A coluna 'Dias' não foi encontrada no ficheiro.")
-        st.stop()
-
-    # Limpeza e preparação
-    df['Dias'] = pd.to_numeric(df['Dias'], errors='coerce')
-    df['Valor Pendente'] = pd.to_numeric(df['Valor Pendente'], errors='coerce')
-    df['Days_Overdue'] = (-df['Dias']).clip(lower=0)
-    df['Comercial'] = df['Comercial'].astype(str).str.replace(r'[\t\n\r ]+', ' ', regex=True).str.strip()
-    df['Entidade'] = df['Entidade'].astype(str).str.strip()
-
-    # Filtrar pendências
-    overdue_df = df[(df['Dias'] <= 0) & (df['Valor Pendente'] > 0)].copy()
-
-    # Aplicar filtros
-    if selected_comercial == "Todos" and not search_term:
-        df_filtrado = overdue_df.copy()
-        filtro_aplicado = "Todos os comerciais"
-    elif selected_comercial != "Todos":
-        df_filtrado = overdue_df[overdue_df['Comercial'] == selected_comercial].copy()
-        filtro_aplicado = f"Comercial: {selected_comercial}"
-    elif search_term:
-        search_upper = search_term.upper().strip()
-        mask_partial = overdue_df['Comercial'].str.upper().str.contains(search_upper, na=False)
-        df_filtrado = overdue_df[mask_partial].copy()
-        filtro_aplicado = f"Busca: '{search_term}'"
-    else:
-        df_filtrado = overdue_df.copy()
-        filtro_aplicado = "Todos os comerciais"
+            st.metric("📊 Colunas", f"{len(colunas_disponiveis)}")
+            
+            st.markdown("**Colunas disponíveis:**")
+            for col in colunas_disponiveis[:5]:  # Mostra apenas as primeiras 5
+                st.caption(f"• {col}")
 
     # Layout principal com tabs
     tab1, tab2, tab3 = st.tabs(["📊 Dashboard Principal", "📁 Exportação", "📧 Envio por Email"])
 
     with tab1:
-        st.markdown("### 📈 Resumo Analítico")
+        st.markdown("### 📈 Análise de Dados Carregados")
         
-        if len(df_filtrado) > 0:
-            # Agrupamento e cálculo
-            summary = df_filtrado.groupby(['Comercial', 'Entidade'], as_index=False).agg({
-                'Valor Pendente': 'sum',
-                'Days_Overdue': 'max'
-            })
-            summary['Valor Pendente'] = summary['Valor Pendente'].round(2)
-            summary = summary.rename(columns={'Days_Overdue': 'Max Days Overdue'})
-            summary = summary.sort_values('Valor Pendente', ascending=False)
-
-            # Métricas em cards
-            col1, col2, col3, col4 = st.columns(4)
-            
-            sub_total = summary['Valor Pendente'].sum()
-            num_entidades = summary['Entidade'].nunique()
-            num_comerciais = summary['Comercial'].nunique()
-            max_dias = summary['Max Days Overdue'].max()
-
-            with col1:
-                card_class = "metric-card-danger" if sub_total > 10000 else "metric-card-warning" if sub_total > 5000 else "metric-card-success"
-                st.markdown(f"""
-                <div class="{card_class}">
-                    <h3 style="margin:0; font-size: 0.9rem;">Total Pendente</h3>
-                    <p style="margin:0; font-size: 1.5rem; font-weight: bold;">€{sub_total:,.2f}</p>
-                    <p style="margin:0; font-size: 0.8rem;">{filtro_aplicado}</p>
-                </div>
-                """, unsafe_allow_html=True)
-
-            with col2:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <h3 style="margin:0; font-size: 0.9rem;">Entidades</h3>
-                    <p style="margin:0; font-size: 1.5rem; font-weight: bold;">{num_entidades}</p>
-                    <p style="margin:0; font-size: 0.8rem;">Clientes únicos</p>
-                </div>
-                """, unsafe_allow_html=True)
-
-            with col3:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <h3 style="margin:0; font-size: 0.9rem;">Comerciais</h3>
-                    <p style="margin:0; font-size: 1.5rem; font-weight: bold;">{num_comerciais}</p>
-                    <p style="margin:0; font-size: 0.8rem;">Em análise</p>
-                </div>
-                """, unsafe_allow_html=True)
-
-            with col4:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <h3 style="margin:0; font-size: 0.9rem;">Máx. Dias</h3>
-                    <p style="margin:0; font-size: 1.5rem; font-weight: bold;">{int(max_dias)}</p>
-                    <p style="margin:0; font-size: 0.8rem;">Em atraso</p>
-                </div>
-                """, unsafe_allow_html=True)
-
-            # Alertas
-            if sub_total > 10000:
-                st.error(f"🚨 ALERTA CRÍTICO: {filtro_aplicado} tem €{sub_total:,.2f} em pendências!")
-            elif sub_total > 5000:
-                st.warning(f"⚠️ AVISO: {filtro_aplicado} ultrapassa €5.000 em pendências.")
-            else:
-                st.success(f"✅ SITUAÇÃO CONTROLADA: {filtro_aplicado} dentro dos limites.")
-
-            # Tabela de dados
-            st.markdown("### 📋 Detalhamento por Comercial e Entidade")
-            st.dataframe(
-                summary,
-                use_container_width=True,
-                height=400
-            )
-
+        # Mostrar informações básicas do dataset
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Total de Linhas", len(df))
+        
+        with col2:
+            st.metric("Total de Colunas", len(df.columns))
+        
+        with col3:
+            colunas_faltantes = df.isnull().sum().sum()
+            st.metric("Valores Faltantes", colunas_faltantes)
+        
+        # Verificar colunas necessárias
+        colunas_necessarias = ['Dias', 'Valor Pendente', 'Comercial', 'Entidade']
+        colunas_faltantes = [col for col in colunas_necessarias if col not in df.columns]
+        
+        if colunas_faltantes:
+            st.error(f"❌ Colunas em falta: {', '.join(colunas_faltantes)}")
+            st.info("ℹ️ Verifique se o ficheiro Excel tem as colunas necessárias:")
+            for col in colunas_necessarias:
+                status = "✅" if col in df.columns else "❌"
+                st.write(f"{status} {col}")
         else:
-            st.warning("📭 Nenhum dado encontrado com os filtros aplicados.")
+            st.success("✅ Todas as colunas necessárias estão presentes!")
+            
+            # Processamento dos dados
+            st.markdown("### 🔧 Processamento de Dados")
+            
+            # Limpeza e preparação
+            df_clean = df.copy()
+            df_clean['Dias'] = pd.to_numeric(df_clean['Dias'], errors='coerce')
+            df_clean['Valor Pendente'] = pd.to_numeric(df_clean['Valor Pendente'], errors='coerce')
+            df_clean['Days_Overdue'] = (-df_clean['Dias']).clip(lower=0)
+            df_clean['Comercial'] = df_clean['Comercial'].astype(str).str.replace(r'[\t\n\r ]+', ' ', regex=True).str.strip()
+            df_clean['Entidade'] = df_clean['Entidade'].astype(str).str.strip()
+
+            # Filtrar pendências
+            overdue_df = df_clean[(df_clean['Dias'] <= 0) & (df_clean['Valor Pendente'] > 0)].copy()
+
+            # Aplicar filtros
+            if selected_comercial == "Todos" and not search_term:
+                df_filtrado = overdue_df.copy()
+                filtro_aplicado = "Todos os comerciais"
+            elif selected_comercial != "Todos":
+                df_filtrado = overdue_df[overdue_df['Comercial'] == selected_comercial].copy()
+                filtro_aplicado = f"Comercial: {selected_comercial}"
+            elif search_term:
+                search_upper = search_term.upper().strip()
+                mask_partial = overdue_df['Comercial'].str.upper().str.contains(search_upper, na=False)
+                df_filtrado = overdue_df[mask_partial].copy()
+                filtro_aplicado = f"Busca: '{search_term}'"
+            else:
+                df_filtrado = overdue_df.copy()
+                filtro_aplicado = "Todos os comerciais"
+
+            # Resumo analítico
+            st.markdown("### 📋 Resumo de Pendências")
+            
+            if len(df_filtrado) > 0:
+                # Agrupamento e cálculo
+                summary = df_filtrado.groupby(['Comercial', 'Entidade'], as_index=False).agg({
+                    'Valor Pendente': 'sum',
+                    'Days_Overdue': 'max'
+                })
+                summary['Valor Pendente'] = summary['Valor Pendente'].round(2)
+                summary = summary.rename(columns={'Days_Overdue': 'Max Days Overdue'})
+                summary = summary.sort_values('Valor Pendente', ascending=False)
+
+                # Métricas em cards
+                col1, col2, col3, col4 = st.columns(4)
+                
+                sub_total = summary['Valor Pendente'].sum()
+                num_entidades = summary['Entidade'].nunique()
+                num_comerciais = summary['Comercial'].nunique()
+                max_dias = summary['Max Days Overdue'].max()
+
+                with col1:
+                    card_class = "metric-card-danger" if sub_total > 10000 else "metric-card-warning" if sub_total > 5000 else "metric-card-success"
+                    st.markdown(f"""
+                    <div class="{card_class}">
+                        <h3 style="margin:0; font-size: 0.9rem;">Total Pendente</h3>
+                        <p style="margin:0; font-size: 1.5rem; font-weight: bold;">€{sub_total:,.2f}</p>
+                        <p style="margin:0; font-size: 0.8rem;">{filtro_aplicado}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with col2:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <h3 style="margin:0; font-size: 0.9rem;">Entidades</h3>
+                        <p style="margin:0; font-size: 1.5rem; font-weight: bold;">{num_entidades}</p>
+                        <p style="margin:0; font-size: 0.8rem;">Clientes únicos</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with col3:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <h3 style="margin:0; font-size: 0.9rem;">Comerciais</h3>
+                        <p style="margin:0; font-size: 1.5rem; font-weight: bold;">{num_comerciais}</p>
+                        <p style="margin:0; font-size: 0.8rem;">Em análise</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with col4:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <h3 style="margin:0; font-size: 0.9rem;">Máx. Dias</h3>
+                        <p style="margin:0; font-size: 1.5rem; font-weight: bold;">{int(max_dias)}</p>
+                        <p style="margin:0; font-size: 0.8rem;">Em atraso</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                # Alertas
+                st.markdown("### ⚠️ Alertas e Status")
+                if sub_total > 10000:
+                    st.error(f"🚨 ALERTA CRÍTICO: {filtro_aplicado} tem €{sub_total:,.2f} em pendências!")
+                elif sub_total > 5000:
+                    st.warning(f"⚠️ AVISO: {filtro_aplicado} ultrapassa €5.000 em pendências.")
+                else:
+                    st.success(f"✅ SITUAÇÃO CONTROLADA: {filtro_aplicado} dentro dos limites.")
+
+                # Tabela de dados
+                st.markdown("### 📊 Detalhamento por Comercial e Entidade")
+                st.dataframe(
+                    summary,
+                    use_container_width=True,
+                    height=400
+                )
+
+            else:
+                st.warning("📭 Nenhuma pendência encontrada com os filtros aplicados.")
+                
+            # Visualização dos dados brutos
+            with st.expander("🔍 Visualizar Dados Brutos"):
+                st.dataframe(df.head(10))
 
     with tab2:
         st.markdown("### 📁 Exportação de Dados")
         
-        if len(df_filtrado) > 0:
+        if 'df_filtrado' in locals() and len(df_filtrado) > 0:
             # Criar arquivo Excel
             excel_buffer = BytesIO()
             with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
@@ -404,12 +468,12 @@ if df is not None:
             
             st.info(f"📊 Relatório contendo {len(summary)} registros de {summary['Comercial'].nunique()} comerciais.")
         else:
-            st.warning("ℹ️ Nenhum dado disponível para exportação.")
+            st.warning("ℹ️ Processe os dados primeiro no separador 'Dashboard Principal'")
 
     with tab3:
         st.markdown("### 📧 Envio de Relatório por Email")
         
-        if len(df_filtrado) > 0:
+        if 'df_filtrado' in locals() and len(df_filtrado) > 0:
             col1, col2 = st.columns(2)
             
             with col1:
@@ -488,10 +552,16 @@ if df is not None:
                     except Exception as e:
                         st.error(f"❌ Erro ao enviar email: {str(e)}")
         else:
-            st.warning("ℹ️ Nenhum dado disponível para envio por email.")
+            st.warning("ℹ️ Processe os dados primeiro no separador 'Dashboard Principal'")
 
 else:
-    st.info("📝 Clique no botão 'Atualizar Dados do Excel' para carregar as informações.")
+    st.error("❌ Não foi possível carregar os dados do Excel.")
+    st.info("""
+    **Soluções possíveis:**
+    1. Verifique se o link do GitHub está correto
+    2. Certifique-se de que o ficheiro está público
+    3. Tente usar um ficheiro local em vez do GitHub
+    """)
 
 # Footer
 st.markdown("---")
