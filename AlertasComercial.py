@@ -39,32 +39,6 @@ if "last_updated" in st.session_state:
 
 df = st.session_state.get("df", None)
 
-def create_styled_excel(summary_df):
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        summary_df.to_excel(writer, sheet_name='Overdue Summary', index=False)
-        workbook = writer.book
-        worksheet = writer.sheets['Overdue Summary']
-
-        header_format = workbook.add_format({'bold': True, 'bg_color': '#4F81BD', 'font_color': 'white', 'border': 1, 'align': 'center'})
-        currency_format = workbook.add_format({'num_format': '€#,##0.00', 'border': 1})
-        days_format = workbook.add_format({'border': 1})
-        entity_format = workbook.add_format({'border': 1})
-        comercial_format = workbook.add_format({'border': 1, 'bg_color': '#DDEBF7'})
-
-        for col_num, value in enumerate(summary_df.columns):
-            worksheet.write(0, col_num, value, header_format)
-            worksheet.set_column(col_num, col_num, 20)
-
-        for row_num, row_data in enumerate(summary_df.values, start=1):
-            worksheet.write(row_num, 0, row_data[0], entity_format)
-            worksheet.write(row_num, 1, row_data[1], comercial_format)
-            worksheet.write(row_num, 2, row_data[2], currency_format)
-            worksheet.write(row_num, 3, row_data[3], days_format)
-
-    output.seek(0)
-    return output
-
 summary = pd.DataFrame()
 total_overdue = 0
 comerciales = []
@@ -150,32 +124,32 @@ if df is not None:
         smtp_port = st.number_input("📡 SMTP Port", value=587)
 
         if st.button("📬 Enviar Emails por Comercial"):
-    try:
-        if summary.empty or len(comerciales) == 0:
-            msg = MIMEMultipart()
-            msg['From'] = sender_email
-            msg['To'] = receiver_email
-            msg['Subject'] = "📌 Overdue Invoices Summary - No Overdue Invoices"
-            body = "Dear Recipient,\n\nNo overdue invoices found at this time.\n\nBest regards,\nStreamlit App"
-            msg.attach(MIMEText(body, 'plain'))
+            try:
+                if summary.empty or len(comerciales) == 0:
+                    msg = MIMEMultipart()
+                    msg['From'] = sender_email
+                    msg['To'] = receiver_email
+                    msg['Subject'] = "📌 Overdue Invoices Summary - No Overdue Invoices"
+                    body = "Dear Recipient,\n\nNo overdue invoices found at this time.\n\nBest regards,\nStreamlit App"
+                    msg.attach(MIMEText(body, 'plain'))
 
-            server = smtplib.SMTP(smtp_server, smtp_port)
-            server.starttls()
-            server.login(sender_email, sender_password)
-            server.sendmail(sender_email, receiver_email, msg.as_string())
-            server.quit()
+                    server = smtplib.SMTP(smtp_server, smtp_port)
+                    server.starttls()
+                    server.login(sender_email, sender_password)
+                    server.sendmail(sender_email, receiver_email, msg.as_string())
+                    server.quit()
 
-            st.success("✅ Email enviado: Sem pendências.")
-        else:
-            commercial_groups = summary.groupby('Comercial')
-            for comercial, group in commercial_groups:
-                sub_total = group['Valor Pendente'].sum()
-                msg = MIMEMultipart()
-                msg['From'] = sender_email
-                msg['To'] = receiver_email
-                msg['Subject'] = f"📌 Overdue Summary for {comercial} - €{sub_total:,.2f}"
+                    st.success("✅ Email enviado: Sem pendências.")
+                else:
+                    commercial_groups = summary.groupby('Comercial')
+                    for comercial, group in commercial_groups:
+                        sub_total = group['Valor Pendente'].sum()
+                        msg = MIMEMultipart()
+                        msg['From'] = sender_email
+                        msg['To'] = receiver_email
+                        msg['Subject'] = f"📌 Overdue Summary for {comercial} - €{sub_total:,.2f}"
 
-                body = f"""
+                        body = f"""
 Dear Recipient,
 
 Please find the summary of overdue invoices for {comercial} below:
@@ -187,20 +161,22 @@ Total for {comercial}: €{sub_total:,.2f}
 Best regards,
 Streamlit App
 """
-                msg.attach(MIMEText(body, 'plain'))
+                        msg.attach(MIMEText(body, 'plain'))
 
-                csv_buffer = io.StringIO()
-                group.to_csv(csv_buffer, index=False)
-                attachment = MIMEApplication(csv_buffer.getvalue(), _subtype="csv")
-                attachment.add_header('Content-Disposition', 'attachment', filename=f'overdue_summary_{comercial.replace(" ", "_")}.csv')
-                msg.attach(attachment)
+                        csv_buffer = io.StringIO()
+                        group.to_csv(csv_buffer, index=False)
+                        attachment = MIMEApplication(csv_buffer.getvalue(), _subtype="csv")
+                        attachment.add_header('Content-Disposition', 'attachment', filename=f'overdue_summary_{comercial.replace(" ", "_")}.csv')
+                        msg.attach(attachment)
 
-                server = smtplib.SMTP(smtp_server, smtp_port)
-                server.starttls()
-                server.login(sender_email, sender_password)
-                server.sendmail(sender_email, receiver_email, msg.as_string())
-                server.quit()
+                        server = smtplib.SMTP(smtp_server, smtp_port)
+                        server.starttls()
+                        server.login(sender_email, sender_password)
+                        server.sendmail(sender_email, receiver_email, msg.as_string())
+                        server.quit()
 
-            st.success(f"✅ Emails enviados com sucesso para {len(commercial_groups)} comerciais!")
-    except Exception as e:
-        st.error(f"❌ Erro ao enviar emails: {str(e)}")
+                    st.success(f"✅ Emails enviados com sucesso para {len(commercial_groups)} comerciais!")
+            except Exception as e:
+                st.error(f"❌ Erro ao enviar emails: {str(e)}")
+else:
+    st.info("ℹ️ Clica no botão acima para carregar os dados.")
