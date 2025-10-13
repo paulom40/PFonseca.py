@@ -56,11 +56,13 @@ if df is not None:
 
     # Filtrar pendências
     overdue_df = df[(df['Dias'] <= 0) & (df['Valor Pendente'] > 0)].copy()
+    overdue_df['Comercial'] = overdue_df['Comercial'].astype(str).str.strip()
 
     # 🔎 Filtro lateral por Comercial
     st.sidebar.header("🔎 Filtro por Comercial")
     comerciais = sorted(overdue_df['Comercial'].dropna().unique())
     selected_comercial = st.sidebar.selectbox("👤 Selecionar Comercial", ["Todos"] + comerciais)
+    selected_comercial = selected_comercial.strip()
 
     # Aplicar filtro diretamente sobre overdue_df
     if selected_comercial == "Todos":
