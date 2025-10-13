@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import requests  # Adicionado para carregar do GitHub
 from datetime import datetime
 from io import BytesIO
 import xlsxwriter
@@ -13,18 +14,21 @@ import difflib  # Para matching fuzzy
 st.set_page_config(page_title="📊 Overdue Invoices Summary", layout="wide")
 st.title("📌 Soma de Valores Pendentes")
 
+url = "https://github.com/paulom40/PFonseca.py/raw/refs/heads/main/V0808.xlsx"
+
 @st.cache_data
-def dashboard_page():
-    st.title("📊 Alertas Vencimentos")
-    st.write("📅 Last Update 19/09/2025")
-    # Load data
-    url = "https://github.com/paulom40/PFonseca.py/raw/refs/heads/main/V0808.xlsx"
+def load_data():
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        df = pd.read_excel(BytesIO(response.content), sheet_name="Sheet1", header=0)
+        df.columns = [col.strip() for col in df.columns]
         return df
     except Exception as e:
-        st.error(f"❌ Erro ao carregar ficheiro: {e}. Verifica se V0808.xlsx está na pasta.")
+        st.error(f"❌ Erro ao carregar ficheiro: {e}. Verifica o URL ou usa ficheiro local.")
         return None
 
-# 🔄 Atualizar dados (agora recarrega o local)
+# 🔄 Atualizar dados
 if st.button("🔄 Atualizar dados do Excel"):
     st.cache_data.clear()  # Limpa cache para recarregar
     st.session_state.df = load_data()
@@ -64,22 +68,23 @@ if df is not None:
     comerciais = sorted(overdue_df['Comercial'].dropna().unique())
     st.sidebar.write("**Comerciais disponíveis:**", comerciais)
     
+    selected_comercial = None
+    df_filtrado = None
+    
     if search_term:
         # Matching fuzzy: encontra o mais próximo se não exato
         matches = difflib.get_close_matches(search_term, comerciais, n=1, cutoff=0.6)
         if matches:
             selected_comercial = matches[0]
             st.sidebar.info(f"Selecionado (match aproximado): '{selected_comercial}'")
+            # Filtra pelo match
+            mask = overdue_df['Comercial'].str.upper() == selected_comercial.upper()
+            df_filtrado = overdue_df[mask].copy()
         else:
             # Se não, usa contains case-insensitive
             mask = overdue_df['Comercial'].str.upper().str.contains(search_term.upper())
             df_filtrado = overdue_df[mask].copy()
             st.sidebar.warning(f"Nenhum match exato para '{search_term}'. Usando busca parcial.")
-            # Prossegue com filtrado direto
-        if 'selected_comercial' not in locals():
-            # Se match fuzzy, filtra
-            mask = overdue_df['Comercial'].str.upper() == selected_comercial.upper()
-            df_filtrado = overdue_df[mask].copy()
     else:
         # Sem busca: mostra todos
         df_filtrado = overdue_df.copy()
@@ -87,12 +92,12 @@ if df is not None:
 
     # Debug no sidebar
     st.sidebar.write(f"**Linhas em overdue_df:** {len(overdue_df)}")
-    st.sidebar.write(f"**Linhas após filtro:** {len(df_filtrado)}")
-    if len(df_filtrado) > 0:
+    st.sidebar.write(f"**Linhas após filtro:** {len(df_filtrado) if df_filtrado is not None else 0}")
+    if df_filtrado is not None and len(df_filtrado) > 0:
         st.sidebar.write("**Amostra de Comerciais após filtro:**", df_filtrado['Comercial'].unique().tolist())
 
     # Agrupamento por Comercial e Entidade
-    if len(df_filtrado) > 0:
+    if df_filtrado is not None and len(df_filtrado) > 0:
         summary = df_filtrado.groupby(['Comercial', 'Entidade'], as_index=False).agg({
             'Valor Pendente': 'sum',
             'Days_Overdue': 'max'
@@ -108,7 +113,7 @@ if df is not None:
     sub_total = summary['Valor Pendente'].sum() if not summary.empty else 0
     st.metric("📌 Subtotal", f"€{sub_total:,.2f}")
 
-    comercial_name = "Todos os comerciais" if search_term == "" else f"o Comercial '{selected_comercial if 'selected_comercial' in locals() else search_term}'"
+    comercial_name = "Todos os comerciais" if search_term == "" else f"o Comercial '{selected_comercial or search_term}'"
     
     if sub_total > 10000:
         st.error(f"🚨 Alerta: {comercial_name} tem mais de €10.000 em pendências!")
@@ -126,7 +131,7 @@ if df is not None:
             writer.sheets['Resumo'].set_column('A:D', 25)
         excel_buffer.seek(0)
 
-        filename = f"Resumo_{selected_comercial if 'selected_comercial' in locals() else (search_term or 'Todos').replace(' ', '_')}.xlsx"
+        filename = f"Resumo_{selected_comercial if selected_comercial else (search_term or 'Todos').replace(' ', '_')}.xlsx"
         st.download_button(
             label="⬇️ Download Excel",
             data=excel_buffer.getvalue(),
@@ -156,12 +161,12 @@ if df is not None:
             msg = MIMEMultipart()
             msg['From'] = sender_email
             msg['To'] = receiver_email
-            msg['Subject'] = f"📌 Resumo de Pendências - {selected_comercial if 'selected_comercial' in locals() else (search_term or 'Todos')}"
+            msg['Subject'] = f"📌 Resumo de Pendências - {selected_comercial if selected_comercial else (search_term or 'Todos')}"
 
             body = f"""
 Olá,
 
-Segue em anexo o resumo de pendências { 'para todos os comerciais' if search_term == "" else f"para o comercial '{selected_comercial if 'selected_comercial' in locals() else search_term}'" }.
+Segue em anexo o resumo de pendências { 'para todos os comerciais' if search_term == "" else f"para o comercial '{selected_comercial if selected_comercial else search_term}'" }.
 
 Total pendente: €{sub_total:,.2f}
 
@@ -171,7 +176,7 @@ Dashboard Streamlit
             msg.attach(MIMEText(body, 'plain'))
 
             attachment = MIMEApplication(email_excel_buffer.getvalue(), _subtype="xlsx")
-            attachment.add_header('Content-Disposition', 'attachment', filename=f'resumo_{selected_comercial if "selected_comercial" in locals() else (search_term or "Todos").replace(" ", "_")}.xlsx')
+            attachment.add_header('Content-Disposition', 'attachment', filename=f'resumo_{selected_comercial if selected_comercial else (search_term or "Todos").replace(" ", "_")}.xlsx')
             msg.attach(attachment)
 
             server = smtplib.SMTP(smtp_server, smtp_port)
@@ -186,4 +191,4 @@ Dashboard Streamlit
     elif summary.empty:
         st.warning("Nenhum dado para enviar por email.")
 else:
-    st.info("ℹ️ Coloca o ficheiro V0808.xlsx na pasta e clica em atualizar.")
+    st.info("ℹ️ Clica no botão acima para carregar os dados.")
