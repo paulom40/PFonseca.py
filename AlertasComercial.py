@@ -41,7 +41,6 @@ df = st.session_state.get("df", None)
 
 summary = pd.DataFrame()
 total_overdue = 0
-comerciales = []
 
 if df is not None:
     st.subheader("🔍 Raw Data Preview")
@@ -62,60 +61,51 @@ if df is not None:
         summary = summary.rename(columns={'Days_Overdue': 'Max Days Overdue'})
         total_overdue = summary['Valor Pendente'].sum()
 
-        if 'Comercial' in summary.columns:
-            comerciales = sorted(summary['Comercial'].dropna().unique())
-
-        st.subheader("📊 Overall Summary")
+        st.subheader("📊 Resumo Geral")
         st.dataframe(summary)
-        st.metric("💰 Total Overdue Amount", f"€{total_overdue:,.2f}")
+        st.metric("💰 Total Pendente", f"€{total_overdue:,.2f}")
 
-        # 🔎 Filtro lateral
+        # 🔎 Filtro lateral por Comercial
         st.sidebar.header("🔎 Filtro por Comercial")
+        summary['Comercial'] = summary['Comercial'].astype(str).str.strip()
+        comerciales = sorted(summary['Comercial'].dropna().unique())
         selected_comercial = st.sidebar.selectbox("👤 Selecionar Comercial", ["Todos"] + comerciales)
+        selected_comercial = str(selected_comercial).strip()
 
-        colunas_esperadas = ['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']
-        if all(col in summary.columns for col in colunas_esperadas):
-            if selected_comercial == "Todos":
-                filtered_summary = summary[colunas_esperadas]
-            else:
-                filtered_summary = summary[summary['Comercial'] == selected_comercial][colunas_esperadas]
-
-            st.subheader("📋 Resumo por Comercial")
-            st.dataframe(filtered_summary)
-
-            sub_total = filtered_summary['Valor Pendente'].sum()
-            st.metric("📌 Subtotal", f"€{sub_total:,.2f}")
-
-            if sub_total > 10000:
-                st.error(f"🚨 Alerta: Comercial '{selected_comercial}' tem mais de €10.000 em pendências!")
-            elif sub_total > 5000:
-                st.warning(f"⚠️ Comercial '{selected_comercial}' ultrapassa €5.000 em pendências.")
-            else:
-                st.success(f"✅ Comercial '{selected_comercial}' está dentro do limite.")
+        if selected_comercial == "Todos":
+            filtered_summary = summary[['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
         else:
-            st.error(f"❌ Colunas em falta: {set(colunas_esperadas) - set(summary.columns)}")
+            filtered_summary = summary[summary['Comercial'].str.strip() == selected_comercial][['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
 
-        # 📁 Exportação por comercial
-        st.subheader("📁 Exportar Excel por Comercial")
-        for comercial in comerciales:
-            grupo = summary[summary['Comercial'] == comercial]
-            if grupo.empty:
-                continue
+        st.subheader("📋 Resumo por Comercial")
+        st.dataframe(filtered_summary)
 
-            excel_buffer = BytesIO()
-            with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
-                grupo.to_excel(writer, index=False, sheet_name='Resumo')
-                writer.sheets['Resumo'].set_column('A:D', 25)
+        sub_total = filtered_summary['Valor Pendente'].sum()
+        st.metric("📌 Subtotal", f"€{sub_total:,.2f}")
 
-            excel_buffer.seek(0)
-            st.download_button(
-                label=f"⬇️ Exportar {comercial}",
-                data=excel_buffer,
-                file_name=f"Resumo_{comercial.replace(' ', '_')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+        if sub_total > 10000:
+            st.error(f"🚨 Alerta: Comercial '{selected_comercial}' tem mais de €10.000 em pendências!")
+        elif sub_total > 5000:
+            st.warning(f"⚠️ Comercial '{selected_comercial}' ultrapassa €5.000 em pendências.")
+        else:
+            st.success(f"✅ Comercial '{selected_comercial}' está dentro do limite.")
 
-        # 📧 Email por comercial
+        # 📁 Exportação Excel
+        st.subheader("📁 Exportar Resumo em Excel")
+        excel_buffer = BytesIO()
+        with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+            filtered_summary.to_excel(writer, index=False, sheet_name='Resumo')
+            writer.sheets['Resumo'].set_column('A:D', 25)
+        excel_buffer.seek(0)
+
+        st.download_button(
+            label="⬇️ Download Excel",
+            data=excel_buffer.getvalue(),
+            file_name=f"Resumo_{selected_comercial.replace(' ', '_')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+        # 📧 Enviar por Email
         st.subheader("📤 Enviar Resumo por Email")
         sender_email = st.text_input("✉️ Email Remetente", value="your_email@example.com")
         sender_password = st.text_input("🔑 Password", type="password")
