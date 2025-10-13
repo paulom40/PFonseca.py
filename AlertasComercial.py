@@ -442,9 +442,9 @@ if df is not None:
                 else:
                     if sub_total < 0:
                         st.error(f"🚨 **CRÍTICO**: Saldo negativo de €{abs(sub_total):,.2f} em valores em atraso!")
-                    elif sub_total > 10000:
+                    elif sub_total > 8000:
                         st.error(f"🚨 ALERTA: €{sub_total:,.2f} em valores em atraso!")
-                    elif sub_total > 5000:
+                    elif sub_total > 3000:
                         st.warning(f"⚠️ AVISO: €{sub_total:,.2f} em valores em atraso.")
                     else:
                         st.success(f"✅ SITUAÇÃO CONTROLADA: €{sub_total:,.2f} em valores em atraso")
