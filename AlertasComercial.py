@@ -2,13 +2,13 @@ import streamlit as st
 import pandas as pd
 import requests
 from datetime import datetime
+from io import BytesIO
+import xlsxwriter
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 import io
-from io import BytesIO
-import xlsxwriter
 
 st.set_page_config(page_title="📊 Overdue Invoices Summary", layout="wide")
 st.title("📌 Soma de Valores Pendentes")
@@ -47,13 +47,14 @@ if df is not None:
     df['Dias'] = pd.to_numeric(df['Dias'], errors='coerce')
     df['Valor Pendente'] = pd.to_numeric(df['Valor Pendente'], errors='coerce')
     df['Days_Overdue'] = (-df['Dias']).clip(lower=0)
-    df['Comercial'] = df.iloc[:, 11].astype(str).str.strip()  # Coluna L = índice 11
+    df['Comercial'] = df.iloc[:, 11].astype(str).str.strip()  # Coluna L
     df['Entidade'] = df['Entidade'].astype(str).str.strip()
 
     overdue_df = df[(df['Dias'] <= 0) & (df['Valor Pendente'] > 0)].copy()
 
     if not overdue_df.empty:
-        summary = overdue_df.groupby(['Entidade', 'Comercial'], as_index=False).agg({
+        # Agrupamento por Comercial e Entidade
+        summary = overdue_df.groupby(['Comercial', 'Entidade'], as_index=False).agg({
             'Valor Pendente': 'sum',
             'Days_Overdue': 'max'
         })
@@ -69,6 +70,7 @@ if df is not None:
         comerciales = sorted(summary['Comercial'].dropna().unique())
         selected_comercial = st.sidebar.selectbox("👤 Selecionar Comercial", ["Todos"] + comerciales)
 
+        # Aplicar filtro
         if selected_comercial == "Todos":
             filtered_summary = summary[['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
         else:
@@ -110,60 +112,39 @@ if df is not None:
         smtp_server = st.text_input("🌐 SMTP Server", value="smtp.gmail.com")
         smtp_port = st.number_input("📡 SMTP Port", value=587)
 
-        if st.button("📬 Enviar Emails por Comercial"):
+        if st.button("📬 Enviar Email"):
             try:
-                if summary.empty or len(comerciales) == 0:
-                    msg = MIMEMultipart()
-                    msg['From'] = sender_email
-                    msg['To'] = receiver_email
-                    msg['Subject'] = "📌 Overdue Invoices Summary - No Overdue Invoices"
-                    body = "Dear Recipient,\n\nNo overdue invoices found at this time.\n\nBest regards,\nStreamlit App"
-                    msg.attach(MIMEText(body, 'plain'))
+                msg = MIMEMultipart()
+                msg['From'] = sender_email
+                msg['To'] = receiver_email
+                msg['Subject'] = f"📌 Resumo de Pendências - {selected_comercial}"
 
-                    server = smtplib.SMTP(smtp_server, smtp_port)
-                    server.starttls()
-                    server.login(sender_email, sender_password)
-                    server.sendmail(sender_email, receiver_email, msg.as_string())
-                    server.quit()
+                body = f"""
+Olá,
 
-                    st.success("✅ Email enviado: Sem pendências.")
-                else:
-                    commercial_groups = summary.groupby('Comercial')
-                    for comercial, group in commercial_groups:
-                        sub_total = group['Valor Pendente'].sum()
-                        msg = MIMEMultipart()
-                        msg['From'] = sender_email
-                        msg['To'] = receiver_email
-                        msg['Subject'] = f"📌 Overdue Summary for {comercial} - €{sub_total:,.2f}"
+Segue em anexo o resumo de pendências para o comercial '{selected_comercial}'.
 
-                        body = f"""
-Dear Recipient,
+Total pendente: €{sub_total:,.2f}
 
-Please find the summary of overdue invoices for {comercial} below:
-
-{group[['Entidade', 'Valor Pendente', 'Max Days Overdue']].to_string(index=False)}
-
-Total for {comercial}: €{sub_total:,.2f}
-
-Best regards,
-Streamlit App
+Atenciosamente,
+Dashboard Streamlit
 """
-                        msg.attach(MIMEText(body, 'plain'))
+                msg.attach(MIMEText(body, 'plain'))
 
-                        csv_buffer = io.StringIO()
-                        group.to_csv(csv_buffer, index=False)
-                        attachment = MIMEApplication(csv_buffer.getvalue(), _subtype="csv")
-                        attachment.add_header('Content-Disposition', 'attachment', filename=f'overdue_summary_{comercial.replace(" ", "_")}.csv')
-                        msg.attach(attachment)
+                csv_buffer = io.StringIO()
+                filtered_summary.to_csv(csv_buffer, index=False)
+                attachment = MIMEApplication(csv_buffer.getvalue(), _subtype="csv")
+                attachment.add_header('Content-Disposition', 'attachment', filename=f'resumo_{selected_comercial.replace(" ", "_")}.csv')
+                msg.attach(attachment)
 
-                        server = smtplib.SMTP(smtp_server, smtp_port)
-                        server.starttls()
-                        server.login(sender_email, sender_password)
-                        server.sendmail(sender_email, receiver_email, msg.as_string())
-                        server.quit()
+                server = smtplib.SMTP(smtp_server, smtp_port)
+                server.starttls()
+                server.login(sender_email, sender_password)
+                server.sendmail(sender_email, receiver_email, msg.as_string())
+                server.quit()
 
-                    st.success(f"✅ Emails enviados com sucesso para {len(commercial_groups)} comerciais!")
+                st.success("✅ Email enviado com sucesso!")
             except Exception as e:
-                st.error(f"❌ Erro ao enviar emails: {str(e)}")
+                st.error(f"❌ Erro ao enviar email: {str(e)}")
 else:
     st.info("ℹ️ Clica no botão acima para carregar os dados.")
