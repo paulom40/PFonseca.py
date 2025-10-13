@@ -316,15 +316,16 @@ if df is not None:
             df_clean['Comercial'] = df_clean['Comercial'].astype(str).str.replace(r'[\t\n\r ]+', ' ', regex=True).str.strip()
             df_clean['Entidade'] = df_clean['Entidade'].astype(str).str.strip()
 
-            # CORREÇÃO DOS FILTROS - LÓGICA INVERTIDA
+            # CORREÇÃO: REMOVER FILTRO DE VALOR PENDENTE > 0
+            # Agora inclui TODOS os valores (positivos, negativos e zero)
             if "Valores Futuros" in tipo_analise:
-                # VALORES FUTUROS: Dias ≥ 0 (hoje ou futuro)
-                df_base = df_clean[(df_clean['Dias'] >= 0) & (df_clean['Valor Pendente'] > 0)].copy()
+                # VALORES FUTUROS: Dias ≥ 0 (inclui TODOS os valores pendentes)
+                df_base = df_clean[df_clean['Dias'] >= 0].copy()
                 tipo_filtro = "Valores Futuros (Dias ≥ 0)"
                 st.info("💰 Analisando: **Valores Futuros/Em Dia** - Faturas com vencimento hoje ou no futuro")
             else:
-                # VALORES EM ATRASO: Dias < 0 (vencidos)
-                df_base = df_clean[(df_clean['Dias'] < 0) & (df_clean['Valor Pendente'] > 0)].copy()
+                # VALORES EM ATRASO: Dias < 0 (inclui TODOS os valores pendentes)
+                df_base = df_clean[df_clean['Dias'] < 0].copy()
                 tipo_filtro = "Valores em Atraso (Dias < 0)"
                 st.warning("⚠️ Analisando: **Valores em Atraso** - Faturas vencidas")
 
@@ -344,11 +345,11 @@ if df is not None:
                 df_filtrado = df_base.copy()
                 filtro_aplicado = f"Todos os comerciais - {tipo_filtro}"
 
-            # Resumo analítico - SOMA POR COMERCIAL E ENTIDADE
+            # Resumo analítico - SOMA POR COMERCIAL E ENTIDADE (INCLUI VALORES NEGATIVOS)
             st.markdown("### 📋 Resumo por Comercial e Entidade")
             
             if len(df_filtrado) > 0:
-                # Agrupamento e cálculo
+                # Agrupamento e cálculo - INCLUI TODOS OS VALORES (positivos e negativos)
                 summary = df_filtrado.groupby(['Comercial', 'Entidade'], as_index=False).agg({
                     'Valor Pendente': 'sum',
                     'Dias': 'mean'  # Média de dias para referência
@@ -373,7 +374,8 @@ if df is not None:
                     if "Futuros" in tipo_filtro:
                         card_class = "metric-card-success"
                     else:
-                        card_class = "metric-card-danger" if sub_total > 10000 else "metric-card-warning" if sub_total > 5000 else "metric-card"
+                        # Para valores em atraso, usa cores baseadas no valor absoluto
+                        card_class = "metric-card-danger" if abs(sub_total) > 10000 else "metric-card-warning" if abs(sub_total) > 5000 else "metric-card"
                     
                     st.markdown(f"""
                     <div class="{card_class}">
@@ -411,23 +413,44 @@ if df is not None:
                     </div>
                     """, unsafe_allow_html=True)
 
+                # Análise detalhada dos valores
+                st.markdown("### 📊 Análise Detalhada dos Valores")
+                
+                # Estatísticas dos valores
+                valores_positivos = df_filtrado[df_filtrado['Valor Pendente'] > 0]['Valor Pendente'].sum()
+                valores_negativos = df_filtrado[df_filtrado['Valor Pendente'] < 0]['Valor Pendente'].sum()
+                valores_zero = len(df_filtrado[df_filtrado['Valor Pendente'] == 0])
+                
+                col_anal1, col_anal2, col_anal3 = st.columns(3)
+                
+                with col_anal1:
+                    st.metric("💰 Valores Positivos", f"€{valores_positivos:,.2f}")
+                
+                with col_anal2:
+                    st.metric("📉 Valores Negativos", f"€{valores_negativos:,.2f}")
+                
+                with col_anal3:
+                    st.metric("⚖️ Saldo Líquido", f"€{sub_total:,.2f}")
+
                 # Alertas específicos para cada tipo
                 st.markdown("### ⚠️ Status da Análise")
                 if "Futuros" in tipo_filtro:
-                    if dias_medios == 0:
-                        st.success(f"✅ **VALORES A VENCER HOJE**: {filtro_aplicado} totaliza €{sub_total:,.2f} em valores com vencimento hoje")
+                    if sub_total < 0:
+                        st.warning(f"⚠️ **ATENÇÃO**: Saldo negativo de €{abs(sub_total):,.2f} em valores futuros")
                     else:
-                        st.success(f"✅ **VALORES FUTUROS**: {filtro_aplicado} totaliza €{sub_total:,.2f} em valores que vencerão em {dias_medios:.1f} dias")
+                        st.success(f"✅ **VALORES FUTUROS**: Saldo positivo de €{sub_total:,.2f}")
                 else:
-                    if sub_total > 10000:
-                        st.error(f"🚨 ALERTA CRÍTICO: {filtro_aplicado} tem €{sub_total:,.2f} em valores em atraso!")
+                    if sub_total < 0:
+                        st.error(f"🚨 **CRÍTICO**: Saldo negativo de €{abs(sub_total):,.2f} em valores em atraso!")
+                    elif sub_total > 10000:
+                        st.error(f"🚨 ALERTA: €{sub_total:,.2f} em valores em atraso!")
                     elif sub_total > 5000:
-                        st.warning(f"⚠️ AVISO: {filtro_aplicado} ultrapassa €5.000 em valores em atraso.")
+                        st.warning(f"⚠️ AVISO: €{sub_total:,.2f} em valores em atraso.")
                     else:
-                        st.success(f"✅ SITUAÇÃO CONTROLADA: {filtro_aplicado} dentro dos limites.")
+                        st.success(f"✅ SITUAÇÃO CONTROLADA: €{sub_total:,.2f} em valores em atraso")
 
                 # Tabela de dados
-                st.markdown("### 📊 Detalhamento por Comercial e Entidade")
+                st.markdown("### 📋 Detalhamento por Comercial e Entidade")
                 st.dataframe(
                     summary,
                     use_container_width=True,
@@ -448,6 +471,9 @@ if df is not None:
             # Visualização dos dados brutos filtrados
             with st.expander("🔍 Visualizar Dados Brutos Filtrados"):
                 st.dataframe(df_filtrado.head(10))
+                st.write(f"**Total de registros:** {len(df_filtrado)}")
+                st.write(f"**Valor Pendente mínimo:** €{df_filtrado['Valor Pendente'].min():,.2f}")
+                st.write(f"**Valor Pendente máximo:** €{df_filtrado['Valor Pendente'].max():,.2f}")
 
     with tab2:
         st.markdown("### 📁 Exportação de Dados")
@@ -503,20 +529,20 @@ if df is not None:
             
             with col1:
                 st.markdown("#### 🔐 Configuração do Email")
-                sender_email = st.text_input("✉️ Email Remetente", placeholder="seu_email@empresa.com")
-                sender_password = st.text_input("🔑 Password", type="password", placeholder="Sua senha de app")
-                receiver_email = st.text_input("📨 Email Destinatário", placeholder="destinatario@empresa.com")
+                sender_email = st.text_input("✉️ Email Remetente", value="paulocosta@bracar.pt")
+                sender_password = st.text_input("🔑 Password", type="password", placeholder="Digite a password do email")
+                receiver_email = st.text_input("📨 Email Destinatário", value="eliasilva@bracar.pt")
             
             with col2:
                 st.markdown("#### 🌐 Configuração SMTP")
-                smtp_server = st.text_input("Servidor SMTP", value="smtp.gmail.com")
+                smtp_server = st.text_input("Servidor SMTP", value="mail.bracar.pt")
                 smtp_port = st.number_input("Porta SMTP", value=587, min_value=1, max_value=65535)
                 
                 st.markdown("---")
                 st.markdown("#### 📋 Pré-visualização")
                 st.write(f"**Tipo:** {tipo_filtro}")
                 st.write(f"**Registros:** {len(summary)} entradas")
-                st.write(f"**Total:** €{sub_total:,.2f}")
+                st.write(f"**Saldo Líquido:** €{sub_total:,.2f}")
 
             if st.button("📬 ENVIAR RELATÓRIO POR EMAIL", use_container_width=True, key="send_email"):
                 if not all([sender_email, sender_password, receiver_email]):
@@ -541,22 +567,25 @@ if df is not None:
                         body = f"""
                         <html>
                             <body style="font-family: Arial, sans-serif;">
-                                <h2 style="color: #667eea;">📊 Relatório de {tipo_filtro}</h2>
-                                <p>Segue em anexo o relatório para <strong>{filtro_aplicado}</strong>.</p>
+                                <h2 style="color: #667eea;">📊 Relatório de Valores Pendentes - BRACAR</h2>
+                                <p>Prezado(a),</p>
+                                <p>Segue em anexo o relatório de <strong>{tipo_filtro}</strong> para <strong>{filtro_aplicado}</strong>.</p>
                                 
                                 <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin: 15px 0;">
                                     <h3 style="color: #333;">📈 Resumo Estatístico:</h3>
                                     <ul>
-                                        <li><strong>Total Pendente:</strong> €{sub_total:,.2f}</li>
+                                        <li><strong>Saldo Líquido:</strong> €{sub_total:,.2f}</li>
+                                        <li><strong>Valores Positivos:</strong> €{valores_positivos:,.2f}</li>
+                                        <li><strong>Valores Negativos:</strong> €{valores_negativos:,.2f}</li>
                                         <li><strong>Número de Comerciais:</strong> {num_comerciais}</li>
                                         <li><strong>Número de Entidades:</strong> {num_entidades}</li>
                                         <li><strong>Dias Médios:</strong> {abs(dias_medios):.1f} dias {'futuros' if dias_medios >= 0 else 'em atraso'}</li>
-                                        <li><strong>Tipo de Análise:</strong> {tipo_filtro}</li>
+                                        <li><strong>Data do Relatório:</strong> {datetime.now().strftime('%d/%m/%Y %H:%M')}</li>
                                     </ul>
                                 </div>
                                 
                                 <p>Atenciosamente,<br>
-                                <strong>Dashboard de Gestão de Valores</strong></p>
+                                <strong>Sistema de Gestão - BRACAR</strong></p>
                             </body>
                         </html>
                         """
@@ -569,13 +598,16 @@ if df is not None:
                         msg.attach(attachment)
 
                         # Enviar email
-                        server = smtplib.SMTP(smtp_server, smtp_port)
+                        st.info("🔄 A enviar email...")
+                        
+                        server = smtplib.SMTP(smtp_server, smtp_port, timeout=30)
                         server.starttls()
                         server.login(sender_email, sender_password)
                         server.sendmail(sender_email, receiver_email, msg.as_string())
                         server.quit()
 
                         st.success("✅ Email enviado com sucesso!")
+                        st.balloons()
                         
                     except Exception as e:
                         st.error(f"❌ Erro ao enviar email: {str(e)}")
