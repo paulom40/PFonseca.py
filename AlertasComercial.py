@@ -14,11 +14,11 @@ st.set_page_config(page_title="📊 Overdue Invoices Summary", layout="wide")
 st.title("📌 Soma de Valores Pendentes")
 
 @st.cache_data
-def load_data():
-    try:
-        # Carregamento local — coloca V0808.xlsx na pasta do app
-        df = pd.read_excel("V0808.xlsx", sheet_name="Sheet1", header=0)
-        df.columns = [col.strip() for col in df.columns]
+def dashboard_page():
+    st.title("📊 Alertas Vencimentos")
+    st.write("📅 Last Update 19/09/2025")
+    # Load data
+    url = "https://github.com/paulom40/PFonseca.py/raw/refs/heads/main/V0808.xlsx"
         return df
     except Exception as e:
         st.error(f"❌ Erro ao carregar ficheiro: {e}. Verifica se V0808.xlsx está na pasta.")
