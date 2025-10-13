@@ -4,11 +4,6 @@ import requests
 from datetime import datetime
 from io import BytesIO
 import xlsxwriter
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.application import MIMEApplication
-import io
 
 st.set_page_config(page_title="📊 Overdue Invoices Summary", layout="wide")
 st.title("📌 Soma de Valores Pendentes")
@@ -20,14 +15,14 @@ def load_data():
     try:
         response = requests.get(github_url)
         response.raise_for_status()
-        df = pd.read_excel(BytesIO(response.content), sheet_name="Sheet1")
-        df.columns = [col.strip() for col in df.columns]
+        df = pd.read_excel(BytesIO(response.content), sheet_name="Sheet1", header=None)
+        df.columns = [f"col_{i}" for i in range(len(df.columns))]
         return df
     except Exception as e:
         st.error(f"❌ Erro ao carregar ficheiro: {e}")
         return None
 
-# 🔄 Botão para atualizar dados
+# 🔄 Atualizar dados
 if st.button("🔄 Atualizar dados do Excel"):
     st.session_state.df = load_data()
     st.session_state.last_updated = datetime.now()
@@ -40,20 +35,23 @@ if "last_updated" in st.session_state:
 df = st.session_state.get("df", None)
 
 if df is not None:
-    st.subheader("🔍 Raw Data Preview")
-    st.dataframe(df.head())
+    # Renomear colunas relevantes
+    df = df.rename(columns={
+        "col_1": "Entidade",
+        "col_7": "Data Doc.",
+        "col_10": "Valor Pendente",
+        "col_11": "Comercial"
+    })
 
-    # Limpeza e preparação
-    df['Dias'] = pd.to_numeric(df['Dias'], errors='coerce')
+    df['Dias'] = pd.to_numeric(df.get('col_8', None), errors='coerce')  # Dias = coluna 8
     df['Valor Pendente'] = pd.to_numeric(df['Valor Pendente'], errors='coerce')
     df['Days_Overdue'] = (-df['Dias']).clip(lower=0)
-    df['Comercial'] = df.iloc[:, 11].astype(str).str.strip()  # Coluna L
+    df['Comercial'] = df['Comercial'].astype(str).str.strip()
     df['Entidade'] = df['Entidade'].astype(str).str.strip()
 
     overdue_df = df[(df['Dias'] <= 0) & (df['Valor Pendente'] > 0)].copy()
 
     if not overdue_df.empty:
-        # Agrupamento por Comercial e Entidade
         summary = overdue_df.groupby(['Comercial', 'Entidade'], as_index=False).agg({
             'Valor Pendente': 'sum',
             'Days_Overdue': 'max'
@@ -72,9 +70,9 @@ if df is not None:
 
         # Aplicar filtro
         if selected_comercial == "Todos":
-            filtered_summary = summary[['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
+            filtered_summary = summary
         else:
-            filtered_summary = summary[summary['Comercial'] == selected_comercial][['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
+            filtered_summary = summary[summary['Comercial'] == selected_comercial]
 
         st.subheader("📋 Resumo por Comercial")
         st.dataframe(filtered_summary)
@@ -103,48 +101,5 @@ if df is not None:
             file_name=f"Resumo_{selected_comercial.replace(' ', '_')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-
-        # 📧 Enviar por Email
-        st.subheader("📤 Enviar Resumo por Email")
-        sender_email = st.text_input("✉️ Email Remetente", value="your_email@example.com")
-        sender_password = st.text_input("🔑 Password", type="password")
-        receiver_email = st.text_input("📨 Email Destinatário", value="recipient@example.com")
-        smtp_server = st.text_input("🌐 SMTP Server", value="smtp.gmail.com")
-        smtp_port = st.number_input("📡 SMTP Port", value=587)
-
-        if st.button("📬 Enviar Email"):
-            try:
-                msg = MIMEMultipart()
-                msg['From'] = sender_email
-                msg['To'] = receiver_email
-                msg['Subject'] = f"📌 Resumo de Pendências - {selected_comercial}"
-
-                body = f"""
-Olá,
-
-Segue em anexo o resumo de pendências para o comercial '{selected_comercial}'.
-
-Total pendente: €{sub_total:,.2f}
-
-Atenciosamente,
-Dashboard Streamlit
-"""
-                msg.attach(MIMEText(body, 'plain'))
-
-                csv_buffer = io.StringIO()
-                filtered_summary.to_csv(csv_buffer, index=False)
-                attachment = MIMEApplication(csv_buffer.getvalue(), _subtype="csv")
-                attachment.add_header('Content-Disposition', 'attachment', filename=f'resumo_{selected_comercial.replace(" ", "_")}.csv')
-                msg.attach(attachment)
-
-                server = smtplib.SMTP(smtp_server, smtp_port)
-                server.starttls()
-                server.login(sender_email, sender_password)
-                server.sendmail(sender_email, receiver_email, msg.as_string())
-                server.quit()
-
-                st.success("✅ Email enviado com sucesso!")
-            except Exception as e:
-                st.error(f"❌ Erro ao enviar email: {str(e)}")
 else:
     st.info("ℹ️ Clica no botão acima para carregar os dados.")
