@@ -304,7 +304,7 @@ if df is not None:
                 tipo_filtro = "Valores em Atraso (Dias < 0)"
                 st.warning("⚠️ Analisando: **Valores em Atraso** - Faturas vencidas")
 
-            # Aplicar filtros de Comercial
+            # Aplicar filtros de Comercial - CORREÇÃO DA F-STRING
             if selected_comercial == "Todos" and not search_term:
                 df_filtrado = df_base.copy()
                 filtro_aplicado = f"Todos os comerciais - {tipo_filtro}"
@@ -318,7 +318,7 @@ if df is not None:
                 filtro_aplicado = f"Busca: '{search_term}' - {tipo_filtro}"
             else:
                 df_filtrado = df_base.copy()
-                filtro_aplicado = f"Todos os comerciais - {tipo_filtro"
+                filtro_aplicado = f"Todos os comerciais - {tipo_filtro}"
 
             # Resumo analítico - SOMA POR COMERCIAL E ENTIDADE (INCLUI TODOS OS VALORES)
             st.markdown("### 📋 Resumo por Comercial e Entidade")
@@ -387,7 +387,7 @@ if df is not None:
                     </div>
                     """, unsafe_allow_html=True)
 
-                # ANÁLISE ESPECÍFICA PARA VALORES NEGATivos COM DIAS ≥ 0
+                # ANÁLISE ESPECÍFICA PARA VALORES NEGATIVOS COM DIAS ≥ 0
                 st.markdown("### 📊 Análise de Valores Negativos Futuros")
                 
                 # CORREÇÃO: Valores Negativos apenas onde Dias ≥ 0
@@ -489,7 +489,145 @@ if df is not None:
                         st.markdown("#### 🔴 Valores Negativos Futuros (Dias ≥ 0)")
                         st.dataframe(negativos_futuros_df)
 
-    # ... (as tabs 2 e 3 permanecem iguais, apenas atualizando as variáveis)
+    with tab2:
+        st.markdown("### 📁 Exportação de Dados")
+        
+        if 'df_filtrado' in locals() and len(df_filtrado) > 0 and 'summary' in locals():
+            # Criar arquivo Excel
+            excel_buffer = BytesIO()
+            with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+                summary.to_excel(writer, index=False, sheet_name='Resumo')
+                df_filtrado.to_excel(writer, index=False, sheet_name='Dados_Detalhados')
+                
+                worksheet_resumo = writer.sheets['Resumo']
+                worksheet_detalhes = writer.sheets['Dados_Detalhados']
+                
+                # Formatação
+                format_currency = writer.book.add_format({'num_format': '#,##0.00€'})
+                worksheet_resumo.set_column('A:D', 25)
+                worksheet_resumo.set_column('C:C', 20, format_currency)
+                worksheet_detalhes.set_column('A:Z', 15)
+                
+            excel_buffer.seek(0)
+
+            # Nome do arquivo
+            if selected_comercial != "Todos":
+                filename_base = selected_comercial.replace(' ', '_')
+            elif search_term:
+                filename_base = f"busca_{search_term.replace(' ', '_')}"
+            else:
+                filename_base = "todos_comerciais"
+            
+            tipo_arquivo = "futuros" if "Futuros" in tipo_filtro else "atrasos"
+            filename = f"Resumo_{tipo_arquivo}_{filename_base}.xlsx"
+            
+            # Botão de download
+            st.download_button(
+                label="⬇️ BAIXAR RELATÓRIO EXCEL",
+                data=excel_buffer.getvalue(),
+                file_name=filename,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                key="download_excel"
+            )
+            
+            st.info(f"📊 Relatório contendo {len(summary)} registros de {num_comerciais} comerciais e {num_entidades} entidades")
+        else:
+            st.warning("ℹ️ Processe os dados primeiro no separador 'Dashboard Principal'")
+
+    with tab3:
+        st.markdown("### 📧 Envio de Relatório por Email")
+        
+        if 'df_filtrado' in locals() and len(df_filtrado) > 0 and 'summary' in locals():
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("#### 🔐 Configuração do Email")
+                sender_email = st.text_input("✉️ Email Remetente", value="paulocosta@bracar.pt")
+                sender_password = st.text_input("🔑 Password", type="password", placeholder="Digite a password do email")
+                receiver_email = st.text_input("📨 Email Destinatário", value="eliasilva@bracar.pt")
+            
+            with col2:
+                st.markdown("#### 🌐 Configuração SMTP")
+                smtp_server = st.text_input("Servidor SMTP", value="mail.bracar.pt")
+                smtp_port = st.number_input("Porta SMTP", value=587, min_value=1, max_value=65535)
+                
+                st.markdown("---")
+                st.markdown("#### 📋 Pré-visualização")
+                st.write(f"**Tipo:** {tipo_filtro}")
+                st.write(f"**Registros:** {len(summary)} entradas")
+                st.write(f"**Saldo Líquido:** €{sub_total:,.2f}")
+
+            if st.button("📬 ENVIAR RELATÓRIO POR EMAIL", use_container_width=True, key="send_email"):
+                if not all([sender_email, sender_password, receiver_email]):
+                    st.error("❌ Preencha todos os campos de email.")
+                else:
+                    try:
+                        # Criar arquivo para anexo
+                        email_excel_buffer = BytesIO()
+                        with pd.ExcelWriter(email_excel_buffer, engine='xlsxwriter') as writer:
+                            summary.to_excel(writer, index=False, sheet_name='Resumo')
+                            df_filtrado.to_excel(writer, index=False, sheet_name='Dados_Detalhados')
+                            writer.sheets['Resumo'].set_column('A:D', 25)
+                            writer.sheets['Dados_Detalhados'].set_column('A:Z', 15)
+                        email_excel_buffer.seek(0)
+
+                        # Criar mensagem
+                        msg = MIMEMultipart()
+                        msg['From'] = sender_email
+                        msg['To'] = receiver_email
+                        msg['Subject'] = f"📊 Relatório de {tipo_filtro} - {selected_comercial if selected_comercial != 'Todos' else 'Todos Comerciais'}"
+
+                        body = f"""
+                        <html>
+                            <body style="font-family: Arial, sans-serif;">
+                                <h2 style="color: #667eea;">📊 Relatório de Valores Pendentes - BRACAR</h2>
+                                <p>Prezado(a),</p>
+                                <p>Segue em anexo o relatório de <strong>{tipo_filtro}</strong> para <strong>{filtro_aplicado}</strong>.</p>
+                                
+                                <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin: 15px 0;">
+                                    <h3 style="color: #333;">📈 Resumo Estatístico:</h3>
+                                    <ul>
+                                        <li><strong>Saldo Líquido:</strong> €{sub_total:,.2f}</li>
+                                        <li><strong>Valores Positivos:</strong> €{valores_positivos:,.2f}</li>
+                                        <li><strong>Valores Negativos:</strong> €{valores_negativos:,.2f}</li>
+                                        <li><strong>Valores Negativos Futuros:</strong> €{valores_negativos_futuros:,.2f}</li>
+                                        <li><strong>Número de Comerciais:</strong> {num_comerciais}</li>
+                                        <li><strong>Número de Entidades:</strong> {num_entidades}</li>
+                                        <li><strong>Dias Médios:</strong> {abs(dias_medios):.1f} dias {'futuros' if dias_medios >= 0 else 'em atraso'}</li>
+                                        <li><strong>Data do Relatório:</strong> {datetime.now().strftime('%d/%m/%Y %H:%M')}</li>
+                                    </ul>
+                                </div>
+                                
+                                <p>Atenciosamente,<br>
+                                <strong>Sistema de Gestão - BRACAR</strong></p>
+                            </body>
+                        </html>
+                        """
+                        
+                        msg.attach(MIMEText(body, 'html'))
+
+                        # Anexar arquivo
+                        attachment = MIMEApplication(email_excel_buffer.getvalue(), _subtype="xlsx")
+                        attachment.add_header('Content-Disposition', 'attachment', filename=filename)
+                        msg.attach(attachment)
+
+                        # Enviar email
+                        st.info("🔄 A enviar email...")
+                        
+                        server = smtplib.SMTP(smtp_server, smtp_port, timeout=30)
+                        server.starttls()
+                        server.login(sender_email, sender_password)
+                        server.sendmail(sender_email, receiver_email, msg.as_string())
+                        server.quit()
+
+                        st.success("✅ Email enviado com sucesso!")
+                        st.balloons()
+                        
+                    except Exception as e:
+                        st.error(f"❌ Erro ao enviar email: {str(e)}")
+        else:
+            st.warning("ℹ️ Processe os dados primeiro no separador 'Dashboard Principal'")
 
 else:
     st.error("❌ Não foi possível carregar os dados do Excel.")
