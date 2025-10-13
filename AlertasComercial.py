@@ -150,32 +150,32 @@ if df is not None:
         smtp_port = st.number_input("📡 SMTP Port", value=587)
 
         if st.button("📬 Enviar Emails por Comercial"):
-            try:
-                if summary.empty or len(comerciales) == 0:
-                    msg = MIMEMultipart()
-                    msg['From'] = sender_email
-                    msg['To'] = receiver_email
-                    msg['Subject'] = "📌 Overdue Invoices Summary - No Overdue Invoices"
-                    body = "Dear Recipient,\n\nNo overdue invoices found at this time.\n\nBest regards,\nStreamlit App"
-                    msg.attach(MIMEText(body, 'plain'))
+    try:
+        if summary.empty or len(comerciales) == 0:
+            msg = MIMEMultipart()
+            msg['From'] = sender_email
+            msg['To'] = receiver_email
+            msg['Subject'] = "📌 Overdue Invoices Summary - No Overdue Invoices"
+            body = "Dear Recipient,\n\nNo overdue invoices found at this time.\n\nBest regards,\nStreamlit App"
+            msg.attach(MIMEText(body, 'plain'))
 
-                    server = smtplib.SMTP(smtp_server, smtp_port)
-                    server.starttls()
-                    server.login(sender_email, sender_password)
-                    server.sendmail(sender_email, receiver_email, msg.as_string())
-                    server.quit()
+            server = smtplib.SMTP(smtp_server, smtp_port)
+            server.starttls()
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, receiver_email, msg.as_string())
+            server.quit()
 
-                    st.success("✅ Email enviado: Sem pendências.")
-                else:
-                    commercial_groups = summary.groupby('Comercial')
-                    for comercial, group in commercial_groups:
-                        sub_total = group['Valor Pendente'].sum()
-                        msg = MIMEMultipart()
-                        msg['From'] = sender_email
-                        msg['To'] = receiver_email
-                        msg['Subject'] = f"📌 Overdue Summary for {comercial} - €{sub_total:,.2f}"
+            st.success("✅ Email enviado: Sem pendências.")
+        else:
+            commercial_groups = summary.groupby('Comercial')
+            for comercial, group in commercial_groups:
+                sub_total = group['Valor Pendente'].sum()
+                msg = MIMEMultipart()
+                msg['From'] = sender_email
+                msg['To'] = receiver_email
+                msg['Subject'] = f"📌 Overdue Summary for {comercial} - €{sub_total:,.2f}"
 
-                        body = f"""
+                body = f"""
 Dear Recipient,
 
 Please find the summary of overdue invoices for {comercial} below:
@@ -187,17 +187,20 @@ Total for {comercial}: €{sub_total:,.2f}
 Best regards,
 Streamlit App
 """
-                        msg.attach(MIMEText(body, 'plain'))
+                msg.attach(MIMEText(body, 'plain'))
 
-                        csv_buffer = io.StringIO()
-                        group.to_csv(csv_buffer, index=False)
-                        attachment = MIMEApplication(csv_buffer.getvalue(), _subtype="csv")
-                        attachment.add_header('Content-Disposition', 'attachment', filename=f'overdue_summary_{comercial.replace(" ", "_")}.csv')
-                        msg.attach(attachment)
+                csv_buffer = io.StringIO()
+                group.to_csv(csv_buffer, index=False)
+                attachment = MIMEApplication(csv_buffer.getvalue(), _subtype="csv")
+                attachment.add_header('Content-Disposition', 'attachment', filename=f'overdue_summary_{comercial.replace(" ", "_")}.csv')
+                msg.attach(attachment)
 
-                        server = smtplib.SMTP(smtp_server, smtp_port)
-                        server.starttls()
-                        server.login(sender_email, sender_password)
-                        server.sendmail(sender_email, receiver_email, msg.as_string())
-                        server.quit()
+                server = smtplib.SMTP(smtp_server, smtp_port)
+                server.starttls()
+                server.login(sender_email, sender_password)
+                server.sendmail(sender_email, receiver_email, msg.as_string())
+                server.quit()
 
+            st.success(f"✅ Emails enviados com sucesso para {len(commercial_groups)} comerciais!")
+    except Exception as e:
+        st.error(f"❌ Erro ao enviar emails: {str(e)}")
