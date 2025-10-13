@@ -61,27 +61,48 @@ if df is not None:
     # 🔎 Filtro lateral por Comercial
     st.sidebar.header("🔎 Filtro por Comercial")
     comerciais = sorted(overdue_df['Comercial'].dropna().unique())
-    selected_comercial = st.sidebar.selectbox("👤 Selecionar Comercial", ["Todos"] + comerciais)
+    st.sidebar.write("**Valores únicos em Comercial (após limpeza):**", comerciais)
+    
+    # Debug: Contagens
+    value_counts = overdue_df['Comercial'].value_counts()
+    st.sidebar.write("**Contagens por Comercial:**")
+    st.sidebar.write(value_counts)
+    
+    selected_comercial = st.sidebar.selectbox("👤 Selecionar Comercial", ["Todos"] + list(comerciais))
     selected_comercial = selected_comercial.strip()
 
-    # Aplicar filtro diretamente sobre overdue_df (case insensitive)
+    # Aplicar filtro diretamente sobre overdue_df (case insensitive e robusto)
     if selected_comercial == "Todos":
         df_filtrado = overdue_df.copy()
     else:
-        df_filtrado = overdue_df[overdue_df['Comercial'].str.upper() == selected_comercial.upper()]
+        # Filtro case-insensitive
+        mask = overdue_df['Comercial'].str.upper() == selected_comercial.upper()
+        df_filtrado = overdue_df[mask].copy()
+    
+    # Debug no sidebar
+    st.sidebar.write(f"**Selected Comercial:** '{selected_comercial}' (upper: '{selected_comercial.upper()}')")
+    st.sidebar.write(f"**Linhas em overdue_df:** {len(overdue_df)}")
+    st.sidebar.write(f"**Linhas após filtro:** {len(df_filtrado)}")
+    if len(df_filtrado) > 0:
+        st.sidebar.write("**Amostra de Comerciais após filtro:**", df_filtrado['Comercial'].unique().tolist())
+    else:
+        st.sidebar.error("Nenhuma linha encontrada após filtro! Verifica os valores únicos acima.")
 
     # Agrupamento por Comercial e Entidade
-    summary = df_filtrado.groupby(['Comercial', 'Entidade'], as_index=False).agg({
-        'Valor Pendente': 'sum',
-        'Days_Overdue': 'max'
-    })
-    summary['Valor Pendente'] = summary['Valor Pendente'].round(2)
-    summary = summary.rename(columns={'Days_Overdue': 'Max Days Overdue'})
+    if len(df_filtrado) > 0:
+        summary = df_filtrado.groupby(['Comercial', 'Entidade'], as_index=False).agg({
+            'Valor Pendente': 'sum',
+            'Days_Overdue': 'max'
+        })
+        summary['Valor Pendente'] = summary['Valor Pendente'].round(2)
+        summary = summary.rename(columns={'Days_Overdue': 'Max Days Overdue'})
+    else:
+        summary = pd.DataFrame()  # Empty if no data
 
     st.subheader("📋 Resumo por Comercial")
     st.dataframe(summary)
 
-    sub_total = summary['Valor Pendente'].sum()
+    sub_total = summary['Valor Pendente'].sum() if not summary.empty else 0
     st.metric("📌 Subtotal", f"€{sub_total:,.2f}")
 
     comercial_name = "Todos os comerciais" if selected_comercial == "Todos" else f"o Comercial '{selected_comercial}'"
@@ -95,18 +116,21 @@ if df is not None:
 
     # 📁 Exportação Excel
     st.subheader("📁 Exportar Resumo em Excel")
-    excel_buffer = BytesIO()
-    with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
-        summary.to_excel(writer, index=False, sheet_name='Resumo')
-        writer.sheets['Resumo'].set_column('A:D', 25)
-    excel_buffer.seek(0)
+    if not summary.empty:
+        excel_buffer = BytesIO()
+        with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+            summary.to_excel(writer, index=False, sheet_name='Resumo')
+            writer.sheets['Resumo'].set_column('A:D', 25)
+        excel_buffer.seek(0)
 
-    st.download_button(
-        label="⬇️ Download Excel",
-        data=excel_buffer.getvalue(),
-        file_name=f"Resumo_{selected_comercial.replace(' ', '_')}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+        st.download_button(
+            label="⬇️ Download Excel",
+            data=excel_buffer.getvalue(),
+            file_name=f"Resumo_{selected_comercial.replace(' ', '_')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    else:
+        st.warning("Nenhum dado para exportar.")
 
     # 📧 Envio por Email
     st.subheader("📤 Enviar Resumo por Email")
@@ -116,7 +140,7 @@ if df is not None:
     smtp_server = st.text_input("🌐 SMTP Server", value="smtp.gmail.com")
     smtp_port = st.number_input("📡 SMTP Port", value=587)
 
-    if st.button("📬 Enviar Email"):
+    if st.button("📬 Enviar Email") and not summary.empty:
         try:
             # Create Excel buffer for attachment
             email_excel_buffer = BytesIO()
@@ -155,5 +179,7 @@ Dashboard Streamlit
             st.success("✅ Email enviado com sucesso!")
         except Exception as e:
             st.error(f"❌ Erro ao enviar email: {str(e)}")
+    elif summary.empty:
+        st.warning("Nenhum dado para enviar por email.")
 else:
     st.info("ℹ️ Clica no botão acima para carregar os dados.")
