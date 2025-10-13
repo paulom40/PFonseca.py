@@ -13,7 +13,7 @@ import io
 st.set_page_config(page_title="📊 Overdue Invoices Summary", layout="wide")
 st.title("📌 Soma de Valores Pendentes")
 
-github_url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/V0808.xlsx"
+github_url = "https://github.com/paulom40/PFonseca.py/raw/refs/heads/main/V0808.xlsx""
 
 @st.cache_data
 def load_data():
