@@ -109,7 +109,7 @@ if df is not None:
     )
 
     # 📋 Resume Table
-    st.subheader("📋 Resume Table by Comercial")
+    st.subheader("📋 Resumo por Comercial")
     if selected_comercial == "All":
         filtered_summary = summary[['Comercial', 'Entidade', 'Valor Pendente', 'Max Days Overdue']]
     else:
