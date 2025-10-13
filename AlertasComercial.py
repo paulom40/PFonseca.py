@@ -12,7 +12,7 @@ import difflib
 
 # Configuração da página com layout wide
 st.set_page_config(
-    page_title="📊 Dashboard de Pendências",
+    page_title="Dashboard de Pendências",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
