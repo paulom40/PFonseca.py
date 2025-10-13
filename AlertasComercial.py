@@ -40,6 +40,13 @@ if "last_updated" in st.session_state:
 df = st.session_state.get("df", None)
 
 if df is not None:
+    st.write("📊 Colunas detectadas:", df.columns.tolist())
+
+    # Verificar se a coluna 'Dias' existe
+    if "Dias" not in df.columns:
+        st.error("❌ A coluna 'Dias' não foi encontrada no ficheiro. Verifique o cabeçalho.")
+        st.stop()
+
     # Limpeza e preparação
     df['Dias'] = pd.to_numeric(df['Dias'], errors='coerce')
     df['Valor Pendente'] = pd.to_numeric(df['Valor Pendente'], errors='coerce')
