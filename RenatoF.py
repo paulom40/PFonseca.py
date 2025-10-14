@@ -14,7 +14,6 @@ st.markdown("""
         color: white;
         text-align: center;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        position: relative;
     }
     
     .header-content {
@@ -193,7 +192,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 🚀 Page configuration
-st.set_page_config(page_title="Renato Ferreira", layout="centered")
+st.set_page_config(page_title="Bruno Brito", layout="centered", page_icon="📊")
 
 # Header principal com gradiente E LOGO DA BRACAR
 st.markdown("""
@@ -205,7 +204,7 @@ st.markdown("""
                  alt="Bracar Logo">
         </div>
         <div class="title-container">
-            <h1 style="margin:0; font-size: 2.5rem;">RENATO FERREIRA</h1>
+            <h1 style="margin:0; font-size: 2.5rem;">📊 BRUNO BRITO</h1>
             <p style="margin:0; opacity: 0.9; font-size: 1.1rem;">Dashboard de Gestão de Alertas</p>
         </div>
     </div>
@@ -220,9 +219,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 📥 Load data
-url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/RFerreira.xlsx"
+url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/BBrito.xlsx"
 try:
     df = pd.read_excel(url)
+    
+    # CORREÇÃO: Converter coluna "Série" para string para evitar erro de serialização
+    if 'Série' in df.columns:
+        df['Série'] = df['Série'].astype(str)
+    
 except Exception as e:
     st.error(f"❌ Erro ao carregar o ficheiro: {e}")
     st.stop()
@@ -273,14 +277,14 @@ with st.container():
     col1, col2 = st.columns([1, 2])
     
     with col1:
-        if st.button("🔄 Atualizar Dados", use_container_width=True):
+        if st.button("🔄 Atualizar Dados", width='stretch'):
             st.rerun()
     
     with col2:
         st.markdown(f"""
         <div class="metric-card-green" style="text-align: center;">
             <h3 style="margin:0; font-size: 0.9rem;">Última Atualização</h3>
-            <p style="margin:0; font-size: 1rem; font-weight: bold;">10/10/2025</p>
+            <p style="margin:0; font-size: 1rem; font-weight: bold;">03/10/2025</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -290,7 +294,7 @@ filtered_df = df[
     df['Entidade'].isin(selected_entidade)
 ]
 
-# 📋 Summary com cards coloridos - CORREÇÃO: Criar a lista summary_data primeiro
+# 📋 Summary com cards coloridos
 st.subheader("📋 Resumo por Intervalos")
 
 # Criar lista de dados para o resumo
@@ -329,7 +333,7 @@ if summary_data:
         "Valor Pendente": f"€{data['Valor Pendente']:,.2f}"
     } for data in summary_data])
     
-    st.dataframe(summary_df, use_container_width=True)
+    st.dataframe(summary_df, width='stretch')
 else:
     st.warning("⚠️ Nenhum dado nos intervalos selecionados")
 
@@ -352,7 +356,7 @@ for low, high, label, card_class in ranges:
                     st.metric("Dias Médios", f"{range_df['Dias'].mean():.1f}")
                 
                 # Tabela de dados
-                st.dataframe(range_df, use_container_width=True)
+                st.dataframe(range_df, width='stretch')
             else:
                 st.info("ℹ️ Nenhum alerta neste intervalo")
 
@@ -369,7 +373,7 @@ if not filtered_df.empty:
         data=output.getvalue(),
         file_name="dados_filtrados_bruno_brito.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True
+        width='stretch'
     )
     
     st.success(f"✅ Pronto para exportar {len(filtered_df)} registros")
