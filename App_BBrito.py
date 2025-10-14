@@ -205,7 +205,7 @@ st.markdown("""
                  alt="Bracar Logo">
         </div>
         <div class="title-container">
-            <h1 style="margin:0; font-size: 2.5rem;">📊 BRUNO BRITO</h1>
+            <h1 style="margin:0; font-size: 2.5rem;">BRUNO BRITO</h1>
             <p style="margin:0; opacity: 0.9; font-size: 1.1rem;">Dashboard de Gestão de Alertas</p>
         </div>
     </div>
