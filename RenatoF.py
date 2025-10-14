@@ -273,7 +273,7 @@ with st.container():
     col1, col2 = st.columns([1, 2])
     
     with col1:
-        if st.button("🔄 Atualizar Dados", use_container_width=True):
+        if st.button("🔄 Atualizar Dados", width='stretch'):
             st.rerun()
     
     with col2:
@@ -290,7 +290,7 @@ filtered_df = df[
     df['Entidade'].isin(selected_entidade)
 ]
 
-# 📋 Summary com cards coloridos - CORREÇÃO: Criar a lista summary_data primeiro
+# 📋 Summary com cards coloridos
 st.subheader("📋 Resumo por Intervalos")
 
 # Criar lista de dados para o resumo
@@ -329,7 +329,7 @@ if summary_data:
         "Valor Pendente": f"€{data['Valor Pendente']:,.2f}"
     } for data in summary_data])
     
-    st.dataframe(summary_df, use_container_width=True)
+    st.dataframe(summary_df, width='stretch')
 else:
     st.warning("⚠️ Nenhum dado nos intervalos selecionados")
 
@@ -351,8 +351,13 @@ for low, high, label, card_class in ranges:
                 with col3:
                     st.metric("Dias Médios", f"{range_df['Dias'].mean():.1f}")
                 
-                # Tabela de dados
-                st.dataframe(range_df, use_container_width=True)
+                # Tabela de dados - corrigir problemas de serialização
+                display_df = range_df.copy()
+                # Converter colunas problemáticas para string
+                if 'Série' in display_df.columns:
+                    display_df['Série'] = display_df['Série'].astype(str)
+                
+                st.dataframe(display_df, width='stretch')
             else:
                 st.info("ℹ️ Nenhum alerta neste intervalo")
 
@@ -362,6 +367,7 @@ st.subheader("📁 Exportação de Dados")
 if not filtered_df.empty:
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        # Usar o DataFrame original filtrado para exportação
         filtered_df.to_excel(writer, index=False, sheet_name='Dados Filtrados')
     
     st.download_button(
@@ -369,7 +375,7 @@ if not filtered_df.empty:
         data=output.getvalue(),
         file_name="dados_filtrados_bruno_brito.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True
+        width='stretch'
     )
     
     st.success(f"✅ Pronto para exportar {len(filtered_df)} registros")
