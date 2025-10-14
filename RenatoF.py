@@ -5,6 +5,19 @@ from io import BytesIO
 # CSS personalizado com gradientes e estilo moderno, incluindo responsivo para mobile
 st.markdown("""
 <style>
+    /* Background branco por default */
+    .stApp {
+        background-color: #ffffff;
+    }
+    
+    .stSidebar {
+        background-color: #ffffff;
+    }
+    
+    section[data-testid="stSidebar"] > div {
+        background-color: #ffffff;
+    }
+    
     /* Gradiente principal */
     .main-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -302,6 +315,17 @@ st.markdown("""
             font-size: 0.9rem;
             height: 40px;
         }
+        
+        /* Sidebar buttons visíveis quando escondida */
+        .stSidebar button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white !important;
+            border: none;
+        }
+        
+        .stSidebar button:hover {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
     }
 
     @media (max-width: 480px) {
@@ -451,7 +475,7 @@ with st.container():
         st.markdown(f"""
         <div class="metric-card-green" style="text-align: center;">
             <h3 style="margin:0; font-size: 0.9rem;">Última Atualização</h3>
-            <p style="margin:0; font-size: 1rem; font-weight: bold;">10/10/2025</p>
+            <p style="margin:0; font-size: 1rem; font-weight: bold;">14/10/2025</p>
         </div>
         """, unsafe_allow_html=True)
 
