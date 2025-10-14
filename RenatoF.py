@@ -2,206 +2,113 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
-# CSS personalizado com melhorias para mobile
+# CSS ultra-otimizado para mobile
 st.markdown("""
 <style>
-    /* Gradiente principal */
+    /* Reset e configurações base para mobile */
+    * {
+        box-sizing: border-box;
+    }
+    
     .main-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1.5rem;
-        border-radius: 15px;
-        margin-bottom: 1.5rem;
+        padding: 1rem;
+        border-radius: 12px;
+        margin-bottom: 1rem;
         color: white;
         text-align: center;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        position: relative;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
     
     .header-content {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 1rem;
+        gap: 0.8rem;
         flex-wrap: wrap;
     }
     
-    .logo-container {
-        display: flex;
-        align-items: center;
-    }
-    
     .logo-img {
-        height: 50px;
-        border-radius: 10px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        height: 45px;
+        border-radius: 8px;
     }
     
-    .title-container {
-        text-align: center;
+    .title-container h1 {
+        margin: 0;
+        font-size: 1.6rem !important;
+        line-height: 1.2;
     }
     
-    /* Cards com gradiente */
+    /* Cards compactos para mobile */
     .metric-card {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        padding: 1rem;
-        border-radius: 15px;
+        padding: 0.8rem;
+        border-radius: 12px;
         color: white;
-        margin: 0.5rem 0;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        margin: 0.3rem 0;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        min-height: 80px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
     
-    .metric-card-blue {
-        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        padding: 1rem;
-        border-radius: 15px;
-        color: white;
-        margin: 0.5rem 0;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
+    .metric-card-blue { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    .metric-card { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    .metric-card-orange { background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); }
+    .metric-card-red { background: linear-gradient(135deg, #ff5858 0%, #f09819 100%); }
+    .metric-card-green { background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%); }
     
-    .metric-card-orange {
-        background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
-        padding: 1rem;
-        border-radius: 15px;
-        color: white;
-        margin: 0.5rem 0;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-    
-    .metric-card-red {
-        background: linear-gradient(135deg, #ff5858 0%, #f09819 100%);
-        padding: 1rem;
-        border-radius: 15px;
-        color: white;
-        margin: 0.5rem 0;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-    
-    .metric-card-green {
-        background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
-        padding: 1rem;
-        border-radius: 15px;
-        color: white;
-        margin: 0.5rem 0;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-    
-    /* Sidebar styling melhorado para mobile */
+    /* Sidebar mobile-first */
     .sidebar-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1rem;
+        padding: 0.8rem;
         border-radius: 10px;
         color: white;
-        margin-bottom: 1rem;
+        margin-bottom: 0.8rem;
         text-align: center;
+        font-size: 0.9rem;
     }
     
-    /* Botões modernos */
+    /* Botões otimizados para touch */
     .stButton button {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 25px;
+        padding: 0.8rem 1rem;
+        border-radius: 20px;
         font-weight: 600;
-        transition: all 0.3s ease;
-        width: 100%;
+        min-height: 48px;
+        font-size: 0.9rem;
     }
     
-    .stButton button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    /* Inputs mobile-friendly */
+    .stMultiSelect, .stSelectbox {
+        font-size: 0.9rem;
     }
     
-    /* Download button específico */
-    .download-btn {
-        background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%) !important;
-    }
-    
-    /* Dataframe styling */
-    .dataframe {
+    .stMultiSelect div div, .stSelectbox div div {
+        min-height: 48px;
         border-radius: 10px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     
-    /* Input fields styling */
-    .stTextInput input, .stSelectbox div div, .stMultiSelect div div {
-        border-radius: 10px;
-        border: 2px solid #e0e0e0;
-    }
-    
-    .stTextInput input:focus, .stSelectbox div div:focus, .stMultiSelect div div:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
-    }
-    
-    /* Tabs styling */
+    /* Tabs responsivas */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 1rem;
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        gap: 0.5rem;
         padding: 0.5rem;
-        border-radius: 15px;
     }
     
     .stTabs [data-baseweb="tab"] {
-        height: 40px;
-        white-space: pre-wrap;
-        background: white;
-        border-radius: 10px;
-        padding: 0 1rem;
-        font-weight: 600;
+        height: 45px;
+        padding: 0 0.8rem;
         font-size: 0.8rem;
     }
     
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-        color: white !important;
-    }
-    
-    /* Alert boxes customizados */
-    .stAlert {
-        border-radius: 15px;
-        border: none;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-    
-    /* Hide default elements */
-    #MainMenu {visibility: hidden;}
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
-    
-    /* Mobile tip styling */
-    .mobile-tip {
-        text-align: center;
-        font-size: 14px;
-        color: #666;
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        padding: 10px;
-        border-radius: 10px;
-        margin-bottom: 1rem;
-    }
-    
-    /* Footer styling */
-    .custom-footer {
-        text-align: center;
-        color: #666;
-        font-size: 0.9rem;
-        margin-top: 2rem;
-        padding: 1rem;
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        border-radius: 10px;
-    }
-    
-    /* Mobile-specific improvements */
+    /* Mobile-specific styles */
     @media (max-width: 768px) {
+        /* Ajustes gerais */
         .main-header {
-            padding: 1rem;
-            margin-bottom: 1rem;
-        }
-        
-        .header-content {
-            flex-direction: column;
-            gap: 0.5rem;
+            padding: 0.8rem;
+            margin-bottom: 0.8rem;
         }
         
         .logo-img {
@@ -209,258 +116,355 @@ st.markdown("""
         }
         
         .title-container h1 {
-            font-size: 1.8rem !important;
+            font-size: 1.4rem !important;
         }
         
-        .metric-card, .metric-card-blue, .metric-card-orange, 
-        .metric-card-red, .metric-card-green {
-            padding: 0.8rem;
-            margin: 0.3rem 0;
-        }
-        
-        /* Sidebar mobile improvements */
+        /* Sidebar full-screen no mobile */
         section[data-testid="stSidebar"] {
-            width: 85% !important;
-            min-width: 85% !important;
-            max-width: 85% !important;
+            width: 100% !important;
+            min-width: 100% !important;
+            max-width: 100% !important;
         }
         
-        /* Make multiselect more touch-friendly */
-        .stMultiSelect div div {
-            min-height: 44px;
+        /* Cards em coluna única no mobile */
+        .metric-card {
+            margin: 0.2rem 0;
+            padding: 0.7rem;
+            min-height: 70px;
         }
         
-        /* Improve button touch targets */
-        .stButton button {
-            min-height: 44px;
-            padding: 0.8rem 1rem;
+        /* Melhorar espaçamento entre elementos */
+        .element-container {
+            margin-bottom: 0.8rem !important;
+        }
+        
+        /* Textos menores mas legíveis */
+        .stMarkdown h1 {
+            font-size: 1.5rem !important;
+        }
+        
+        .stMarkdown h2 {
+            font-size: 1.3rem !important;
+        }
+        
+        .stMarkdown h3 {
+            font-size: 1.1rem !important;
+        }
+        
+        /* Dataframes scrolláveis */
+        .dataframe {
+            font-size: 0.8rem;
+        }
+        
+        /* Expanders mais fáceis de tocar */
+        .streamlit-expanderHeader {
+            font-size: 0.9rem;
+            padding: 0.8rem;
+            min-height: 48px;
         }
     }
     
-    /* Sidebar visibility helper */
-    .sidebar-helper {
-        background: linear-gradient(135deg, #ffd89b 0%, #19547b 100%);
+    /* Melhorias para telas muito pequenas */
+    @media (max-width: 480px) {
+        .header-content {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .title-container h1 {
+            font-size: 1.3rem !important;
+        }
+        
+        .logo-img {
+            height: 35px;
+        }
+        
+        .metric-card {
+            min-height: 65px;
+            padding: 0.6rem;
+        }
+    }
+    
+    /* Scroll suave para mobile */
+    html {
+        scroll-behavior: smooth;
+    }
+    
+    /* Esconder elementos desnecessários no mobile */
+    @media (max-width: 768px) {
+        #MainMenu {visibility: hidden;}
+        header {visibility: hidden;}
+        footer {visibility: hidden;}
+        
+        /* Remover sombras complexas no mobile para performance */
+        .metric-card, .main-header, .sidebar-header {
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+    }
+    
+    /* Banner de ajuda para mobile */
+    .mobile-help {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
-        padding: 10px;
+        padding: 12px;
         border-radius: 10px;
         text-align: center;
         margin-bottom: 1rem;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+    
+    .mobile-help-icon {
+        font-size: 1.2rem;
+    }
+    
+    /* Loading otimizado */
+    .stSpinner > div {
+        border-color: #667eea transparent transparent transparent !important;
+    }
+    
+    /* Melhorias de performance */
+    .metric-card h3, .metric-card p {
+        margin: 0;
+        line-height: 1.3;
+    }
+    
+    .metric-card h3 {
+        font-size: 0.75rem;
+        opacity: 0.9;
+    }
+    
+    .metric-card p {
+        font-size: 0.9rem;
         font-weight: bold;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# 🚀 Page configuration com layout wide para mobile
+# 🚀 Configuração da página mobile-first
 st.set_page_config(
-    page_title="Renato Ferreira", 
+    page_title="Renato Ferreira",
     layout="wide",
-    initial_sidebar_state="collapsed"  # Sidebar fechada por padrão em mobile
+    initial_sidebar_state="collapsed",
+    menu_items={}
 )
 
-# Header principal com gradiente E LOGO DA BRACAR
+# Header compacto para mobile
 st.markdown("""
 <div class="main-header">
     <div class="header-content">
-        <div class="logo-container">
-            <img src="https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png" 
-                 class="logo-img" 
-                 alt="Bracar Logo">
-        </div>
+        <img src="https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png" 
+             class="logo-img" 
+             alt="Bracar Logo">
         <div class="title-container">
-            <h1 style="margin:0; font-size: 2.2rem;">RENATO FERREIRA</h1>
-            <p style="margin:0; opacity: 0.9; font-size: 1rem;">Dashboard de Gestão de Alertas</p>
+            <h1>RENATO FERREIRA</h1>
+            <p style="margin:0; opacity: 0.9; font-size: 0.9rem;">Dashboard de Alertas</p>
         </div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# 📱 Mobile tip melhorado
+# Banner de ajuda super visível
 st.markdown("""
-<div class="mobile-tip">
-    📱 <strong>PARA ACESSAR OS FILTROS:</strong> Toque no ícone <strong>☰</strong> no canto superior esquerdo
+<div class="mobile-help">
+    <span class="mobile-help-icon">👆</span>
+    <span><strong>Toque no menu ☰ para filtrar dados</strong></span>
 </div>
 """, unsafe_allow_html=True)
 
-# 📥 Load data
-url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/RFerreira.xlsx"
-try:
-    df = pd.read_excel(url)
-except Exception as e:
-    st.error(f"❌ Erro ao carregar o ficheiro: {e}")
-    st.stop()
+# 📥 Carregar dados com loading otimizado
+with st.spinner('📊 A carregar dados...'):
+    url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/RFerreira.xlsx"
+    try:
+        df = pd.read_excel(url)
+    except Exception as e:
+        st.error(f"❌ Erro ao carregar: {e}")
+        st.stop()
 
-# 🧼 Clean data
+# 🧼 Limpar dados
 df['Dias'] = pd.to_numeric(df['Dias'], errors='coerce')
 df.dropna(subset=['Dias'], inplace=True)
 
-# 📅 Define ranges with colors
+# 📅 Intervalos
 ranges = [
-    (0, 15, "0 a 15 dias 🟦", "metric-card-blue"),
-    (16, 30, "16 a 30 dias 🟫", "metric-card"),
-    (31, 60, "31 a 60 dias 🟧", "metric-card-orange"),
-    (61, 90, "61 a 90 dias 🟨", "metric-card-orange"),
-    (91, 365, "91 a 365 dias 🟥", "metric-card-red")
+    (0, 15, "0-15 dias", "metric-card-blue"),
+    (16, 30, "16-30 dias", "metric-card"),
+    (31, 60, "31-60 dias", "metric-card-orange"),
+    (61, 90, "61-90 dias", "metric-card-orange"),
+    (91, 365, "91-365 dias", "metric-card-red")
 ]
 
-# 🎛️ Sidebar filters com design mobile-friendly
+# 🎛️ Sidebar mobile-optimized
 with st.sidebar:
-    st.markdown('<div class="sidebar-header">🎨 FILTROS</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-header">🎯 FILTROS</div>', unsafe_allow_html=True)
     
-    # Helper para mobile
-    st.markdown("""
-    <div class="sidebar-helper">
-        👆 Toque nos campos abaixo para filtrar
-    </div>
-    """, unsafe_allow_html=True)
-    
+    # Filtros com labels compactos
     selected_comercial = st.multiselect(
-        "👨‍💼 Comercial",
+        "👤 Comercial",
         options=sorted(df['Comercial'].unique()),
         default=sorted(df['Comercial'].unique()),
         key="comercial_mobile"
     )
     
     selected_entidade = st.multiselect(
-        "🏢 Entidade",
+        "🏛️ Entidade",
         options=sorted(df['Entidade'].unique()),
         default=sorted(df['Entidade'].unique()),
         key="entidade_mobile"
     )
     
     selected_ranges = st.multiselect(
-        "📅 Intervalos de Dias",
+        "📅 Dias",
         options=[r[2] for r in ranges],
         default=[r[2] for r in ranges],
         key="ranges_mobile"
     )
     
-    # Botão para limpar filtros
-    if st.button("🗑️ Limpar Filtros", use_container_width=True):
-        st.rerun()
-    
-    # Estatísticas rápidas na sidebar
-    st.markdown("---")
-    st.markdown("### 📊 Estatísticas")
-    total_registros = len(df)
-    st.metric("Total de Registros", f"{total_registros:,}")
-
-# Container principal
-with st.container():
-    col1, col2 = st.columns([1, 2])
-    
+    # Botões de ação
+    col1, col2 = st.columns(2)
     with col1:
-        if st.button("🔄 Atualizar Dados", use_container_width=True):
+        if st.button("🔄 Atualizar", use_container_width=True):
+            st.rereun()
+    with col2:
+        if st.button("🗑️ Limpar", use_container_width=True):
             st.rerun()
     
-    with col2:
-        st.markdown(f"""
-        <div class="metric-card-green" style="text-align: center;">
-            <h3 style="margin:0; font-size: 0.9rem;">Última Atualização</h3>
-            <p style="margin:0; font-size: 1rem; font-weight: bold;">{pd.Timestamp.now().strftime('%d/%m/%Y')}</p>
-        </div>
-        """, unsafe_allow_html=True)
+    # Stats rápidas
+    st.markdown("---")
+    st.markdown("**📊 Estatísticas**")
+    total_registros = len(df)
+    st.metric("Total", f"{total_registros:,}")
 
-# 🔍 Filter data
+# Container principal otimizado
+with st.container():
+    # Status de atualização compacto
+    st.markdown(f"""
+    <div class="metric-card-green" style="text-align: center; padding: 0.6rem;">
+        <p style="margin:0; font-size: 0.8rem;">🔄 Atualizado</p>
+        <p style="margin:0; font-size: 0.9rem; font-weight: bold;">{pd.Timestamp.now().strftime('%d/%m/%Y')}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# 🔍 Filtrar dados
 filtered_df = df[
     df['Comercial'].isin(selected_comercial) &
     df['Entidade'].isin(selected_entidade)
 ]
 
-# 📋 Summary com cards coloridos
-st.subheader("📋 Resumo por Intervalos")
+# 📋 Resumo com cards responsivos
+st.subheader("📈 Resumo por Intervalo")
 
-# Criar lista de dados para o resumo
-summary_data = []
-for low, high, label, card_class in ranges:
-    if label in selected_ranges:
-        range_df = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)]
-        count = len(range_df)
-        total_value = range_df['Valor Pendente'].sum() if 'Valor Pendente' in range_df.columns else 0
-        summary_data.append({
-            "Intervalo": label,
-            "Quantidade": count,
-            "Valor Pendente": total_value,
-            "card_class": card_class
-        })
-
-# Verificar se há dados para mostrar
-if summary_data:
-    # Mostrar cards métricos - layout responsivo
-    cols = st.columns(len(summary_data))
-    for idx, (col, data) in enumerate(zip(cols, summary_data)):
-        with col:
+if not filtered_df.empty:
+    # Cards em grid responsivo
+    summary_data = []
+    for low, high, label, card_class in ranges:
+        if label in selected_ranges:
+            range_df = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)]
+            count = len(range_df)
+            total_value = range_df['Valor Pendente'].sum() if 'Valor Pendente' in range_df.columns else 0
+            summary_data.append({
+                "label": label,
+                "count": count,
+                "value": total_value,
+                "card_class": card_class
+            })
+    
+    # Layout responsivo - 2 colunas no mobile
+    cols = st.columns(2)
+    for idx, data in enumerate(summary_data):
+        with cols[idx % 2]:
             st.markdown(f"""
             <div class="{data['card_class']}">
-                <h3 style="margin:0; font-size: 0.8rem;">{data['Intervalo'].split(' 🟦')[0].split(' 🟫')[0].split(' 🟧')[0].split(' 🟨')[0].split(' 🟥')[0]}</h3>
-                <p style="margin:0; font-size: 1.1rem; font-weight: bold;">{data['Quantidade']}</p>
-                <p style="margin:0; font-size: 0.7rem;">€{data['Valor Pendente']:,.2f}</p>
+                <h3>{data['label']}</h3>
+                <p>{data['count']} registos</p>
+                <p style="font-size: 0.7rem;">€{data['value']:,.0f}</p>
             </div>
             """, unsafe_allow_html=True)
     
-    # Tabela de resumo
-    st.markdown("### 📊 Tabela de Resumo")
-    summary_df = pd.DataFrame([{
-        "Intervalo": data["Intervalo"],
-        "Quantidade": data["Quantidade"],
-        "Valor Pendente": f"€{data['Valor Pendente']:,.2f}"
-    } for data in summary_data])
+    # 📊 Detalhes com accordion mobile-friendly
+    st.subheader("📋 Detalhes por Intervalo")
     
-    st.dataframe(summary_df, use_container_width=True, height=200)
+    for low, high, label, card_class in ranges:
+        if label in selected_ranges:
+            with st.expander(f"{label} ({len(filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)])} registos)", expanded=False):
+                range_df = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)]
+                if not range_df.empty:
+                    # Métricas compactas
+                    mcol1, mcol2, mcol3 = st.columns(3)
+                    with mcol1:
+                        st.metric("Qtd", len(range_df))
+                    with mcol2:
+                        valor_total = range_df['Valor Pendente'].sum() if 'Valor Pendente' in range_df.columns else 0
+                        st.metric("Valor", f"€{valor_total:,.0f}")
+                    with mcol3:
+                        st.metric("Média", f"{range_df['Dias'].mean():.0f}d")
+                    
+                    # Tabela scrollável
+                    st.dataframe(
+                        range_df, 
+                        use_container_width=True,
+                        height=300
+                    )
+                else:
+                    st.info("📭 Sem dados neste intervalo")
+
+    # 📥 Download otimizado
+    st.subheader("📤 Exportar Dados")
+    
+    if not filtered_df.empty:
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            filtered_df.to_excel(writer, index=False, sheet_name='Dados_Filtrados')
+        
+        st.download_button(
+            label="💾 BAIXAR EXCEL",
+            data=output.getvalue(),
+            file_name=f"alertas_renato_ferreira_{pd.Timestamp.now().strftime('%Y%m%d')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+        
+        st.success(f"✅ {len(filtered_df)} registos prontos para exportar")
+    else:
+        st.warning("📭 Nenhum dado para exportar")
+
 else:
-    st.warning("⚠️ Nenhum dado nos intervalos selecionados")
+    st.warning("🔍 Nenhum resultado com os filtros atuais")
 
-# 📂 Detalhes por intervalo com expansores
-st.subheader("📊 Detalhes por Intervalo")
-
-for low, high, label, card_class in ranges:
-    if label in selected_ranges:
-        with st.expander(f"{label} - Ver Detalhes", expanded=False):
-            range_df = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)]
-            if not range_df.empty:
-                # Métricas do intervalo
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Total de Registros", len(range_df))
-                with col2:
-                    valor_total = range_df['Valor Pendente'].sum() if 'Valor Pendente' in range_df.columns else 0
-                    st.metric("Valor Total", f"€{valor_total:,.2f}")
-                with col3:
-                    st.metric("Dias Médios", f"{range_df['Dias'].mean():.1f}")
-                
-                # Tabela de dados
-                st.dataframe(range_df, use_container_width=True)
-            else:
-                st.info("ℹ️ Nenhum alerta neste intervalo")
-
-# 📥 Download Excel com botão estilizado
-st.subheader("📁 Exportação de Dados")
-
-if not filtered_df.empty:
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        filtered_df.to_excel(writer, index=False, sheet_name='Dados Filtrados')
-    
-    st.download_button(
-        label="📥 BAIXAR DADOS FILTRADOS EM EXCEL",
-        data=output.getvalue(),
-        file_name="dados_filtrados_renato_ferreira.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True
-    )
-    
-    st.success(f"✅ Pronto para exportar {len(filtered_df)} registros")
-else:
-    st.warning("⚠️ Nenhum dado disponível para download")
-
-# ❤️ Footer estilizado
+# Footer mobile-optimized
 st.markdown("""
-<div class="custom-footer">
-    <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
+<div style="text-align: center; color: #666; font-size: 0.8rem; margin-top: 2rem; padding: 1rem;">
+    <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
         <img src="https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png" 
-             style="height: 30px; border-radius: 5px;" 
-             alt="Bracar Logo">
-        <p style="margin:0;">Feito com ❤️ em Streamlit</p>
+             style="height: 25px; border-radius: 4px;" 
+             alt="Bracar">
+        <span>Feito com ❤️ em Streamlit</span>
     </div>
-    <p style="margin:0; font-size: 0.8rem; opacity: 0.7;">Dashboard Renato Ferreira - Gestão de Alertas</p>
+    <div>Dashboard Renato Ferreira - Otimizado para mobile</div>
 </div>
+""", unsafe_allow_html=True)
+
+# Script JavaScript para melhorias mobile
+st.markdown("""
+<script>
+// Melhorias para mobile
+if (window.innerWidth <= 768) {
+    // Fechar sidebar após seleção (opcional)
+    setTimeout(() => {
+        const sidebar = document.querySelector('[data-testid="stSidebar"]');
+        if (sidebar) {
+            sidebar.style.width = '0';
+        }
+    }, 3000);
+    
+    // Melhorar scroll em tables
+    const tables = document.querySelectorAll('.dataframe');
+    tables.forEach(table => {
+        table.style.fontSize = '12px';
+    });
+}
+</script>
 """, unsafe_allow_html=True)
