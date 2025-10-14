@@ -2,8 +2,183 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
-# CSS personalizado com tema dark
-st.markdown("""
+# Inicializar o estado do tema
+if 'dark_mode' not in st.session_state:
+    st.session_state.dark_mode = False
+
+# Função para alternar o tema
+def toggle_theme():
+    st.session_state.dark_mode = not st.session_state.dark_mode
+
+# CSS para tema claro
+light_theme = """
+<style>
+    /* Tema Light Principal */
+    .stApp {
+        background-color: #ffffff;
+        color: #262730;
+    }
+    
+    /* Gradiente principal - Light */
+    .main-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+        color: white;
+        text-align: center;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        position: relative;
+    }
+    
+    .header-content {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1.5rem;
+    }
+    
+    .logo-container {
+        display: flex;
+        align-items: center;
+    }
+    
+    .logo-img {
+        height: 65px;
+        border-radius: 12px;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+    }
+    
+    .title-container {
+        text-align: center;
+    }
+    
+    /* Cards com gradiente - Light Theme */
+    .metric-card {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        padding: 1.5rem;
+        border-radius: 15px;
+        color: white;
+        margin: 0.5rem 0;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    }
+    
+    .metric-card-blue {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        padding: 1.5rem;
+        border-radius: 15px;
+        color: white;
+        margin: 0.5rem 0;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    }
+    
+    .metric-card-orange {
+        background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+        padding: 1.5rem;
+        border-radius: 15px;
+        color: white;
+        margin: 0.5rem 0;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    }
+    
+    .metric-card-red {
+        background: linear-gradient(135deg, #ff5858 0%, #f09819 100%);
+        padding: 1.5rem;
+        border-radius: 15px;
+        color: white;
+        margin: 0.5rem 0;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    }
+    
+    .metric-card-green {
+        background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
+        padding: 1.5rem;
+        border-radius: 15px;
+        color: white;
+        margin: 0.5rem 0;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    }
+    
+    /* Sidebar styling - Light */
+    .sidebar-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 1rem;
+        border-radius: 10px;
+        color: white;
+        margin-bottom: 1rem;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
+    /* Botões modernos - Light */
+    .stButton button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 25px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        width: 100%;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
+    .stButton button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+    }
+    
+    .theme-toggle-btn {
+        background: linear-gradient(135deg, #ffd89b 0%, #19547b 100%) !important;
+    }
+    
+    /* Dataframe styling - Light */
+    .dataframe {
+        border-radius: 10px;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    }
+    
+    /* Input fields styling - Light */
+    .stTextInput input, .stSelectbox div div, .stMultiSelect div div {
+        border-radius: 10px;
+        border: 2px solid #e0e0e0;
+        background-color: white;
+        color: #262730;
+    }
+    
+    .stTextInput input:focus, .stSelectbox div div:focus, .stMultiSelect div div:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+    }
+    
+    /* Mobile tip styling - Light */
+    .mobile-tip {
+        text-align: center;
+        font-size: 14px;
+        color: #666;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        padding: 12px;
+        border-radius: 10px;
+        margin-bottom: 1rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
+    /* Footer styling - Light */
+    .custom-footer {
+        text-align: center;
+        color: #666;
+        font-size: 0.9rem;
+        margin-top: 2rem;
+        padding: 1.5rem;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        border-radius: 10px;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    }
+</style>
+"""
+
+# CSS para tema escuro
+dark_theme = """
 <style>
     /* Tema Dark Principal */
     .stApp {
@@ -110,10 +285,6 @@ st.markdown("""
         border: 1px solid rgba(255,255,255,0.1);
     }
     
-    .sidebar .sidebar-content {
-        background-color: #0e1117;
-    }
-    
     /* Botões modernos - Dark */
     .stButton button {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -130,12 +301,10 @@ st.markdown("""
     .stButton button:hover {
         transform: translateY(-2px);
         box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
-        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
     }
     
-    /* Download button específico - Dark */
-    .download-btn {
-        background: linear-gradient(135deg, #0ba360 0%, #3cba92 100%) !important;
+    .theme-toggle-btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
     }
     
     /* Dataframe styling - Dark */
@@ -174,46 +343,6 @@ st.markdown("""
         border-color: #667eea;
         box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.3);
     }
-    
-    /* Tabs styling - Dark */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 2rem;
-        background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
-        padding: 1rem;
-        border-radius: 15px;
-        border: 1px solid #333;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        height: 50px;
-        white-space: pre-wrap;
-        background: #1e1e1e;
-        border-radius: 10px;
-        padding: 0 2rem;
-        font-weight: 600;
-        color: #fafafa;
-        border: 1px solid #333;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-        color: white !important;
-        border: 1px solid #667eea;
-    }
-    
-    /* Alert boxes customizados - Dark */
-    .stAlert {
-        border-radius: 15px;
-        border: none;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-        background-color: #1e1e1e;
-        border: 1px solid #333;
-    }
-    
-    /* Hide default elements */
-    #MainMenu {visibility: hidden;}
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
     
     /* Mobile tip styling - Dark */
     .mobile-tip {
@@ -265,48 +394,50 @@ st.markdown("""
         padding: 1rem;
         box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     }
-    
-    /* Subheader styling */
-    .stSubheader {
-        color: #fafafa !important;
-    }
-    
-    /* Markdown text color */
-    .stMarkdown {
-        color: #fafafa !important;
-    }
-    
-    /* Warning and Info boxes */
-    .stWarning {
-        background-color: #332100 !important;
-        border: 1px solid #665200 !important;
-        color: #ffcc00 !important;
-    }
-    
-    .stSuccess {
-        background-color: #003320 !important;
-        border: 1px solid #006644 !important;
-        color: #00cc88 !important;
-    }
-    
-    .stError {
-        background-color: #330000 !important;
-        border: 1px solid #660000 !important;
-        color: #ff4444 !important;
-    }
-    
-    .stInfo {
-        background-color: #002233 !important;
-        border: 1px solid #004466 !important;
-        color: #44aaff !important;
-    }
 </style>
-""", unsafe_allow_html=True)
+"""
+
+# Aplicar o tema baseado no estado
+if st.session_state.dark_mode:
+    st.markdown(dark_theme, unsafe_allow_html=True)
+    theme_icon = "🌙"
+    theme_text = "Modo Escuro"
+    next_theme = "☀️ Modo Claro"
+else:
+    st.markdown(light_theme, unsafe_allow_html=True)
+    theme_icon = "☀️"
+    theme_text = "Modo Claro"
+    next_theme = "🌙 Modo Escuro"
 
 # 🚀 Page configuration
-st.set_page_config(page_title="Bruno Brito - Dark", layout="centered", page_icon="📊")
+st.set_page_config(page_title=f"Bruno Brito - {theme_text}", layout="centered", page_icon="📊")
 
-# Header principal com gradiente DARK E LOGO DA BRACAR
+# Header principal com botão de tema
+col_header1, col_header2, col_header3 = st.columns([2, 3, 1])
+
+with col_header1:
+    st.markdown("""
+    <div class="logo-container">
+        <img src="https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png" 
+             class="logo-img" 
+             alt="Bracar Logo">
+    </div>
+    """, unsafe_allow_html=True)
+
+with col_header2:
+    st.markdown(f"""
+    <div class="title-container">
+        <h1 style="margin:0; font-size: 2.5rem;">{theme_icon} BRUNO BRITO</h1>
+        <p style="margin:0; opacity: 0.9; font-size: 1.1rem;">Dashboard de Gestão de Alertas - {theme_text}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col_header3:
+    if st.button(next_theme, key="theme_toggle", use_container_width=True):
+        toggle_theme()
+        st.rerun()
+
+# Container do header
 st.markdown("""
 <div class="main-header">
     <div class="header-content">
@@ -316,12 +447,12 @@ st.markdown("""
                  alt="Bracar Logo">
         </div>
         <div class="title-container">
-            <h1 style="margin:0; font-size: 2.5rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">🌙 BRUNO BRITO</h1>
-            <p style="margin:0; opacity: 0.9; font-size: 1.1rem; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">Dashboard de Gestão de Alertas - Dark Mode</p>
+            <h1 style="margin:0; font-size: 2.5rem;">{theme_icon} BRUNO BRITO</h1>
+            <p style="margin:0; opacity: 0.9; font-size: 1.1rem;">Dashboard de Gestão de Alertas - {theme_text}</p>
         </div>
     </div>
 </div>
-""", unsafe_allow_html=True)
+""".format(theme_icon=theme_icon, theme_text=theme_text), unsafe_allow_html=True)
 
 # 📱 Mobile tip
 st.markdown("""
@@ -342,18 +473,32 @@ except Exception as e:
 df['Dias'] = pd.to_numeric(df['Dias'], errors='coerce')
 df.dropna(subset=['Dias'], inplace=True)
 
-# 📅 Define ranges with colors - Dark Theme
-ranges = [
-    (0, 15, "0 a 15 dias 🌊", "metric-card-blue"),
-    (16, 30, "16 a 30 dias 🪨", "metric-card"),
-    (31, 60, "31 a 60 dias 🔥", "metric-card-orange"),
-    (61, 90, "61 a 90 dias ⚡", "metric-card-orange"),
-    (91, 365, "91 a 365 dias 💀", "metric-card-red")
-]
+# 📅 Define ranges with colors baseado no tema
+if st.session_state.dark_mode:
+    ranges = [
+        (0, 15, "0 a 15 dias 🌊", "metric-card-blue"),
+        (16, 30, "16 a 30 dias 🪨", "metric-card"),
+        (31, 60, "31 a 60 dias 🔥", "metric-card-orange"),
+        (61, 90, "61 a 90 dias ⚡", "metric-card-orange"),
+        (91, 365, "91 a 365 dias 💀", "metric-card-red")
+    ]
+else:
+    ranges = [
+        (0, 15, "0 a 15 dias 🟦", "metric-card-blue"),
+        (16, 30, "16 a 30 dias 🟫", "metric-card"),
+        (31, 60, "31 a 60 dias 🟧", "metric-card-orange"),
+        (61, 90, "61 a 90 dias 🟨", "metric-card-orange"),
+        (91, 365, "91 a 365 dias 🟥", "metric-card-red")
+    ]
 
-# 🎛️ Sidebar filters with dark design
+# 🎛️ Sidebar filters
 with st.sidebar:
     st.markdown('<div class="sidebar-header">🎨 FILTROS</div>', unsafe_allow_html=True)
+    
+    # Botão de tema na sidebar também
+    if st.button(f"🔄 Alternar para {next_theme.split(' ')[1]}", key="sidebar_theme", use_container_width=True):
+        toggle_theme()
+        st.rerun()
     
     selected_comercial = st.multiselect(
         "👨‍💼 Comercial",
@@ -392,6 +537,7 @@ with st.container():
         <div class="metric-card-green" style="text-align: center;">
             <h3 style="margin:0; font-size: 0.9rem;">Última Atualização</h3>
             <p style="margin:0; font-size: 1rem; font-weight: bold;">03/10/2025</p>
+            <p style="margin:0; font-size: 0.7rem; opacity: 0.8;">{theme_text}</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -401,7 +547,7 @@ filtered_df = df[
     df['Entidade'].isin(selected_entidade)
 ]
 
-# 📋 Summary com cards coloridos - Dark Theme
+# 📋 Summary com cards coloridos
 st.subheader("📋 Resumo por Intervalos")
 
 # Criar lista de dados para o resumo
@@ -424,10 +570,12 @@ if summary_data:
     cols = st.columns(len(summary_data))
     for idx, (col, data) in enumerate(zip(cols, summary_data)):
         with col:
+            # Remover emojis para o título do card
+            clean_label = data['Intervalo'].split(' 🟦')[0].split(' 🟫')[0].split(' 🟧')[0].split(' 🟨')[0].split(' 🟥')[0].split(' 🌊')[0].split(' 🪨')[0].split(' 🔥')[0].split(' ⚡')[0].split(' 💀')[0]
             st.markdown(f"""
             <div class="{data['card_class']}">
-                <h3 style="margin:0; font-size: 0.9rem; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">{data['Intervalo'].split(' 🌊')[0].split(' 🪨')[0].split(' 🔥')[0].split(' ⚡')[0].split(' 💀')[0]}</h3>
-                <p style="margin:0; font-size: 1.2rem; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">{data['Quantidade']}</p>
+                <h3 style="margin:0; font-size: 0.9rem;">{clean_label}</h3>
+                <p style="margin:0; font-size: 1.2rem; font-weight: bold;">{data['Quantidade']}</p>
                 <p style="margin:0; font-size: 0.8rem; opacity: 0.9;">€{data['Valor Pendente']:,.2f}</p>
             </div>
             """, unsafe_allow_html=True)
@@ -444,7 +592,7 @@ if summary_data:
 else:
     st.warning("⚠️ Nenhum dado nos intervalos selecionados")
 
-# 📂 Detalhes por intervalo com expansores - Dark Theme
+# 📂 Detalhes por intervalo com expansores
 st.subheader("📊 Detalhes por Intervalo")
 
 for low, high, label, card_class in ranges:
@@ -467,7 +615,7 @@ for low, high, label, card_class in ranges:
             else:
                 st.info("ℹ️ Nenhum alerta neste intervalo")
 
-# 📥 Download Excel com botão estilizado - Dark Theme
+# 📥 Download Excel com botão estilizado
 st.subheader("📁 Exportação de Dados")
 
 if not filtered_df.empty:
@@ -478,7 +626,7 @@ if not filtered_df.empty:
     st.download_button(
         label="📥 BAIXAR DADOS FILTRADOS EM EXCEL",
         data=output.getvalue(),
-        file_name="dados_filtrados_bruno_brito_dark.xlsx",
+        file_name=f"dados_filtrados_bruno_brito_{'dark' if st.session_state.dark_mode else 'light'}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
     )
@@ -487,15 +635,18 @@ if not filtered_df.empty:
 else:
     st.warning("⚠️ Nenhum dado disponível para download")
 
-# ❤️ Footer estilizado - Dark Theme
+# ❤️ Footer estilizado
 st.markdown("""
 <div class="custom-footer">
     <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 0.5rem;">
         <img src="https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png" 
-             style="height: 30px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.1);" 
+             style="height: 30px; border-radius: 5px; {border_style}" 
              alt="Bracar Logo">
-        <p style="margin:0;">Feito com ❤️ em Streamlit - Dark Mode</p>
+        <p style="margin:0;">Feito com ❤️ em Streamlit - {theme_text}</p>
     </div>
     <p style="margin:0; font-size: 0.8rem; opacity: 0.7;">Dashboard Bruno Brito - Gestão de Alertas</p>
 </div>
-""", unsafe_allow_html=True)
+""".format(
+    theme_text=theme_text,
+    border_style="border: 1px solid rgba(255,255,255,0.1);" if st.session_state.dark_mode else ""
+), unsafe_allow_html=True)
