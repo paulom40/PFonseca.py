@@ -190,20 +190,19 @@ st.markdown("""
         border-radius: 10px;
     }
     
-    /* Forçar sidebar visível em mobile */
-    @media (max-width: 768px) {
-        .sidebar .sidebar-content {
-            transform: translateX(0) !important;
-        }
+    /* Sidebar sempre visível */
+    section[data-testid="stSidebar"] {
+        min-width: 300px !important;
+        max-width: 300px !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# 🚀 Page configuration - IMPORTANTE: sidebar deve ser "auto" para ser visível
+# 🚀 Page configuration - FORÇAR sidebar visível
 st.set_page_config(
-    page_title="Bruno Brito", 
-    layout="centered",
-    initial_sidebar_state="expanded"  # Esta linha é crucial
+    page_title="Bruno Brito - Dashboard", 
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 # Header principal com gradiente E LOGO DA BRACAR
@@ -223,10 +222,10 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 📱 Mobile tip - Atualizado com instruções mais claras
+# 📱 Mobile tip
 st.markdown("""
 <div class="mobile-tip">
-    📱 <strong>Filtros disponíveis no menu lateral</strong> → Use o ícone ≡ no canto superior esquerdo para abrir/feichar os filtros
+    📱 <strong>Filtros disponíveis no menu lateral</strong> → Use o ícone ≡ no canto superior esquerdo para ajustar a visibilidade
 </div>
 """, unsafe_allow_html=True)
 
@@ -238,9 +237,21 @@ except Exception as e:
     st.error(f"❌ Erro ao carregar o ficheiro: {e}")
     st.stop()
 
-# 🧼 Clean data
+# 🧼 CLEAN DATA - CORREÇÃO DOS PROBLEMAS DE SERIALIZAÇÃO
 df['Dias'] = pd.to_numeric(df['Dias'], errors='coerce')
 df.dropna(subset=['Dias'], inplace=True)
+
+# Converter colunas problemáticas para string para evitar erros de serialização
+problem_columns = ['Série', 'N.º Doc.', 'N.º Cliente', 'N.º Fornecedor']
+for col in problem_columns:
+    if col in df.columns:
+        df[col] = df[col].astype(str)
+
+# Garantir que colunas numéricas são numéricas
+numeric_columns = ['Valor Pendente', 'Valor Liquidado', 'Valor Pago']
+for col in numeric_columns:
+    if col in df.columns:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
 
 # 📅 Define ranges with colors
 ranges = [
@@ -251,67 +262,79 @@ ranges = [
     (91, 365, "91 a 365 dias 🟥", "metric-card-red")
 ]
 
-# 🎛️ Sidebar filters with modern design - AGORA DEVE ESTAR VISÍVEL
+# 🎛️ Sidebar filters - AGORA DEVE ESTAR VISÍVEL
 with st.sidebar:
-    st.markdown('<div class="sidebar-header">🎨 FILTROS</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-header">🎛️ FILTROS</div>', unsafe_allow_html=True)
     
-    # Adicionar um botão para fechar o sidebar em mobile (opcional)
-    if st.button("❌ Fechar Filtros", use_container_width=True):
-        st.session_state.sidebar_collapsed = True
+    st.markdown("**Filtros de Dados**")
     
     selected_comercial = st.multiselect(
         "👨‍💼 Comercial",
-        sorted(df['Comercial'].unique()),
+        options=sorted(df['Comercial'].unique()),
         default=sorted(df['Comercial'].unique())
     )
     
     selected_entidade = st.multiselect(
         "🏢 Entidade",
-        sorted(df['Entidade'].unique()),
+        options=sorted(df['Entidade'].unique()),
         default=sorted(df['Entidade'].unique())
     )
     
     selected_ranges = st.multiselect(
         "📅 Intervalos de Dias",
-        [r[2] for r in ranges],
+        options=[r[2] for r in ranges],
         default=[r[2] for r in ranges]
     )
     
     # Estatísticas rápidas na sidebar
     st.markdown("---")
-    st.markdown("### 📊 Estatísticas")
+    st.markdown("### 📊 Estatísticas Globais")
     total_registros = len(df)
+    total_filtrado = len(filtered_df) if 'filtered_df' in locals() else total_registros
+    
     st.metric("Total de Registros", f"{total_registros:,}")
     
-    # Informação adicional útil
+    if total_registros > 0:
+        percentagem = (total_filtrado / total_registros) * 100
+        st.metric("Registros Filtrados", f"{total_filtrado:,} ({percentagem:.1f}%)")
+    
+    # Informação adicional
     st.markdown("---")
-    st.markdown("### 💡 Dica")
-    st.info("Os filtros aplicam-se automaticamente a todos os dados do dashboard")
+    st.markdown("### 💡 Informação")
+    st.info("Os filtros aplicam-se automaticamente a todo o dashboard")
 
-# Container principal
-with st.container():
-    col1, col2 = st.columns([1, 2])
-    
-    with col1:
-        if st.button("🔄 Atualizar Dados", width='stretch'):
-            st.rerun()
-    
-    with col2:
-        st.markdown(f"""
-        <div class="metric-card-green" style="text-align: center;">
-            <h3 style="margin:0; font-size: 0.9rem;">Última Atualização</h3>
-            <p style="margin:0; font-size: 1rem; font-weight: bold;">10/10/2025</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-# 🔍 Filter data
+# 🔍 Filter data (após definir os filtros)
 filtered_df = df[
     df['Comercial'].isin(selected_comercial) &
     df['Entidade'].isin(selected_entidade)
 ]
 
+# Container principal com botões
+with st.container():
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col1:
+        if st.button("🔄 Atualizar Tudo", use_container_width=True):
+            st.rerun()
+    
+    with col2:
+        st.markdown(f"""
+        <div class="metric-card-green" style="text-align: center;">
+            <h3 style="margin:0; font-size: 0.9rem;">Dados Filtrados</h3>
+            <p style="margin:0; font-size: 1rem; font-weight: bold;">{len(filtered_df):,} registros</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown(f"""
+        <div class="metric-card-blue" style="text-align: center;">
+            <h3 style="margin:0; font-size: 0.9rem;">Última Atualização</h3>
+            <p style="margin:0; font-size: 1rem; font-weight: bold;">{pd.Timestamp.now().strftime('%d/%m/%Y')}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
 # 📋 Summary com cards coloridos
-st.subheader("📋 Resumo por Intervalos")
+st.subheader("📊 Resumo por Intervalos de Dias")
 
 # Criar lista de dados para o resumo
 summary_data = []
@@ -319,7 +342,7 @@ for low, high, label, card_class in ranges:
     if label in selected_ranges:
         range_df = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)]
         count = len(range_df)
-        total_value = range_df['Valor Pendente'].sum() if 'Valor Pendente' in range_df.columns else 0
+        total_value = range_df['Valor Pendente'].sum() if 'Valor Pendente' in filtered_df.columns else 0
         summary_data.append({
             "Intervalo": label,
             "Quantidade": count,
@@ -333,74 +356,106 @@ if summary_data:
     cols = st.columns(len(summary_data))
     for idx, (col, data) in enumerate(zip(cols, summary_data)):
         with col:
+            # Remover emojis para o título do card
+            clean_label = data['Intervalo'].split(' 🟦')[0].split(' 🟫')[0].split(' 🟧')[0].split(' 🟨')[0].split(' 🟥')[0]
             st.markdown(f"""
             <div class="{data['card_class']}">
-                <h3 style="margin:0; font-size: 0.9rem;">{data['Intervalo'].split(' 🟦')[0].split(' 🟫')[0].split(' 🟧')[0].split(' 🟨')[0].split(' 🟥')[0]}</h3>
+                <h3 style="margin:0; font-size: 0.9rem;">{clean_label}</h3>
                 <p style="margin:0; font-size: 1.2rem; font-weight: bold;">{data['Quantidade']}</p>
                 <p style="margin:0; font-size: 0.8rem;">€{data['Valor Pendente']:,.2f}</p>
             </div>
             """, unsafe_allow_html=True)
     
     # Tabela de resumo
-    st.markdown("### 📊 Tabela de Resumo")
+    st.markdown("### 📈 Tabela de Resumo Consolidado")
     summary_df = pd.DataFrame([{
         "Intervalo": data["Intervalo"],
         "Quantidade": data["Quantidade"],
-        "Valor Pendente": f"€{data['Valor Pendente']:,.2f}"
+        "Valor Pendente (€)": f"€{data['Valor Pendente']:,.2f}"
     } for data in summary_data])
     
-    st.dataframe(summary_df, width='stretch')
+    st.dataframe(summary_df, use_container_width=True)
 else:
-    st.warning("⚠️ Nenhum dado nos intervalos selecionados")
+    st.warning("⚠️ Nenhum dado encontrado nos intervalos selecionados")
 
 # 📂 Detalhes por intervalo com expansores
-st.subheader("📊 Detalhes por Intervalo")
+st.subheader("🔍 Detalhes por Intervalo")
 
 for low, high, label, card_class in ranges:
     if label in selected_ranges:
-        with st.expander(f"{label} - Ver Detalhes", expanded=False):
+        with st.expander(f"{label} - Ver Detalhes Completos", expanded=False):
             range_df = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)]
+            
             if not range_df.empty:
                 # Métricas do intervalo
-                col1, col2, col3 = st.columns(3)
+                col1, col2, col3, col4 = st.columns(4)
                 with col1:
                     st.metric("Total de Registros", len(range_df))
                 with col2:
                     valor_total = range_df['Valor Pendente'].sum() if 'Valor Pendente' in range_df.columns else 0
                     st.metric("Valor Total", f"€{valor_total:,.2f}")
                 with col3:
-                    st.metric("Dias Médios", f"{range_df['Dias'].mean():.1f}")
+                    dias_medios = range_df['Dias'].mean()
+                    st.metric("Dias Médios", f"{dias_medios:.1f}")
+                with col4:
+                    dias_max = range_df['Dias'].max()
+                    st.metric("Dias Máximos", dias_max)
                 
-                # Tabela de dados - corrigir problemas de serialização
+                # Tabela de dados - JÁ CORRIGIDA para evitar problemas de serialização
                 display_df = range_df.copy()
-                # Converter colunas problemáticas para string
-                if 'Série' in display_df.columns:
-                    display_df['Série'] = display_df['Série'].astype(str)
                 
-                st.dataframe(display_df, width='stretch')
+                # Formatar colunas para melhor visualização
+                if 'Valor Pendente' in display_df.columns:
+                    display_df['Valor Pendente'] = display_df['Valor Pendente'].apply(lambda x: f"€{x:,.2f}" if pd.notnull(x) else "€0.00")
+                
+                st.dataframe(display_df, use_container_width=True)
+                
+                # Mostrar algumas estatísticas adicionais
+                with st.expander("📊 Estatísticas Detalhadas deste Intervalo"):
+                    st.write(f"**Distribuição por Comercial:**")
+                    comercial_counts = range_df['Comercial'].value_counts()
+                    st.dataframe(comercial_counts)
+                    
             else:
-                st.info("ℹ️ Nenhum alerta neste intervalo")
+                st.info(f"ℹ️ Nenhum alerta encontrado no intervalo {label}")
 
 # 📥 Download Excel com botão estilizado
-st.subheader("📁 Exportação de Dados")
+st.subheader("💾 Exportação de Dados")
 
 if not filtered_df.empty:
+    # Preparar dados para exportação
+    export_df = filtered_df.copy()
+    
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        # Usar o DataFrame original filtrado para exportação
-        filtered_df.to_excel(writer, index=False, sheet_name='Dados Filtrados')
+        export_df.to_excel(writer, index=False, sheet_name='Dados_Filtrados')
+        
+        # Adicionar um sheet com resumo
+        summary_export = pd.DataFrame([{
+            'Intervalo': data['Intervalo'],
+            'Quantidade': data['Quantidade'],
+            'Valor_Pendente': data['Valor Pendente']
+        } for data in summary_data])
+        summary_export.to_excel(writer, index=False, sheet_name='Resumo')
     
-    st.download_button(
-        label="📥 BAIXAR DADOS FILTRADOS EM EXCEL",
-        data=output.getvalue(),
-        file_name="dados_filtrados_bruno_brito.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        width='stretch'
-    )
+    # Botão de download
+    col1, col2 = st.columns([2, 1])
     
-    st.success(f"✅ Pronto para exportar {len(filtered_df)} registros")
+    with col1:
+        st.download_button(
+            label="📥 BAIXAR DADOS FILTRADOS EM EXCEL",
+            data=output.getvalue(),
+            file_name=f"dados_filtrados_bruno_brito_{pd.Timestamp.now().strftime('%Y%m%d')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+    
+    with col2:
+        st.metric("Registros para Exportar", len(filtered_df))
+    
+    st.success(f"✅ Pronto para exportar {len(filtered_df)} registros filtrados")
 else:
-    st.warning("⚠️ Nenhum dado disponível para download")
+    st.warning("⚠️ Nenhum dado disponível para exportação com os filtros atuais")
 
 # ❤️ Footer estilizado
 st.markdown("""
@@ -409,8 +464,10 @@ st.markdown("""
         <img src="https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png" 
              style="height: 30px; border-radius: 5px;" 
              alt="Bracar Logo">
-        <p style="margin:0;">Feito com ❤️ em Streamlit</p>
+        <p style="margin:0;">Desenvolvido com ❤️ usando Streamlit</p>
     </div>
-    <p style="margin:0; font-size: 0.8rem; opacity: 0.7;">Dashboard Bruno Brito - Gestão de Alertas</p>
+    <p style="margin:0; font-size: 0.8rem; opacity: 0.7;">
+        Dashboard Bruno Brito - Sistema de Gestão de Alertas | Atualizado em {pd.Timestamp.now().strftime('%d/%m/%Y')}
+    </p>
 </div>
 """, unsafe_allow_html=True)
