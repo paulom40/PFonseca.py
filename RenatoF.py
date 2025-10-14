@@ -193,7 +193,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 🚀 Page configuration
-st.set_page_config(page_title="Vânia Silva", layout="centered")
+st.set_page_config(page_title="Renato Ferreira", layout="centered")
 
 # Header principal com gradiente E LOGO DA BRACAR
 st.markdown("""
@@ -205,7 +205,7 @@ st.markdown("""
                  alt="Bracar Logo">
         </div>
         <div class="title-container">
-            <h1 style="margin:0; font-size: 2.5rem;">VÂNIA SILVA</h1>
+            <h1 style="margin:0; font-size: 2.5rem;">RENATO FERREIRA</h1>
             <p style="margin:0; opacity: 0.9; font-size: 1.1rem;">Dashboard de Gestão de Alertas</p>
         </div>
     </div>
@@ -220,7 +220,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 📥 Load data
-url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/VSilva.xlsx"
+url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/RFerreira.xlsx"
 try:
     df = pd.read_excel(url)
 except Exception as e:
