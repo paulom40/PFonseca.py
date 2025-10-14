@@ -229,9 +229,11 @@ except Exception as e:
 
 # 🧼 Clean data
 df['Dias'] = pd.to_numeric(df['Dias'], errors='coerce')
-# Fix mixed types in 'N.º Doc.' column for Arrow compatibility
+# Fix mixed types for Arrow compatibility
 if 'N.º Doc.' in df.columns:
     df['N.º Doc.'] = df['N.º Doc.'].astype(str)
+if 'Série' in df.columns:
+    df['Série'] = df['Série'].astype(str)
 df.dropna(subset=['Dias'], inplace=True)
 
 # 📅 Define ranges with colors
@@ -283,7 +285,7 @@ with st.container():
         st.markdown(f"""
         <div class="metric-card-green" style="text-align: center;">
             <h3 style="margin:0; font-size: 0.9rem;">Última Atualização</h3>
-            <p style="margin:0; font-size: 1rem; font-weight: bold;">10/10/2025</p>
+            <p style="margin:0; font-size: 1rem; font-weight: bold;">14/10/2025</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -315,8 +317,7 @@ if summary_data:
     # Mostrar cards métricos
     cols = st.columns(len(summary_data))
     for idx, (col, data) in enumerate(zip(cols, summary_data)):
-        interval_name = data['Intervalo'].split(' ')[0:3]
-        interval_name = ' '.join(interval_name)
+        interval_name = data['Intervalo'].rsplit(' ', 1)[0]
         with col:
             st.markdown(f"""
             <div class="{data['card_class']}">
@@ -344,11 +345,8 @@ st.subheader("📊 Detalhes por Intervalo")
 for low, high, label, card_class in ranges:
     if label in selected_ranges:
         with st.expander(f"{label} - Ver Detalhes", expanded=False):
-            range_df = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)]
+            range_df = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)].copy()
             if not range_df.empty:
-                # Ensure Arrow compatibility for this dataframe
-                if 'N.º Doc.' in range_df.columns:
-                    range_df['N.º Doc.'] = range_df['N.º Doc.'].astype(str)
                 # Métricas do intervalo
                 col1, col2, col3 = st.columns(3)
                 with col1:
@@ -368,10 +366,7 @@ for low, high, label, card_class in ranges:
 st.subheader("📁 Exportação de Dados")
 
 if not filtered_df.empty:
-    # Ensure Arrow compatibility for download dataframe
     download_df = filtered_df.copy()
-    if 'N.º Doc.' in download_df.columns:
-        download_df['N.º Doc.'] = download_df['N.º Doc.'].astype(str)
     
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -382,7 +377,7 @@ if not filtered_df.empty:
         data=output.getvalue(),
         file_name="dados_filtrados_bruno_brito.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        width='stretch'
+        use_container_width=True
     )
     
     st.success(f"✅ Pronto para exportar {len(filtered_df)} registros")
