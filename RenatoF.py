@@ -5,6 +5,11 @@ from io import BytesIO
 # CSS personalizado com gradientes e estilo moderno
 st.markdown("""
 <style>
+    /* Fundo claro */
+    .stApp {
+        background-color: #ffffff;
+    }
+    
     /* Gradiente principal */
     .main-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -120,12 +125,14 @@ st.markdown("""
     .dataframe {
         border-radius: 10px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        background-color: white !important;
     }
     
     /* Input fields styling */
     .stTextInput input, .stSelectbox div div, .stMultiSelect div div {
         border-radius: 10px;
         border: 2px solid #e0e0e0;
+        background-color: white;
     }
     
     .stTextInput input:focus, .stSelectbox div div:focus, .stMultiSelect div div:focus {
@@ -160,6 +167,7 @@ st.markdown("""
         border-radius: 15px;
         border: none;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        background-color: white;
     }
     
     /* Hide only the main menu and footer, NOT the sidebar */
@@ -191,10 +199,41 @@ st.markdown("""
     /* Sidebar visibility fix */
     section[data-testid="stSidebar"] {
         visibility: visible !important;
+        background-color: #f8f9fa;
     }
     
     .css-1d391kg {
         visibility: visible !important;
+    }
+    
+    /* Text color for better readability */
+    .stMarkdown {
+        color: #262730;
+    }
+    
+    .stSubheader {
+        color: #262730;
+    }
+    
+    /* Metric containers */
+    [data-testid="metric-container"] {
+        background-color: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 10px;
+        padding: 1rem;
+    }
+    
+    /* Expander styling */
+    .streamlit-expanderHeader {
+        background-color: white !important;
+        border: 1px solid #e0e0e0 !important;
+        border-radius: 10px !important;
+    }
+    
+    .streamlit-expanderContent {
+        background-color: white !important;
+        border: 1px solid #e0e0e0 !important;
+        border-top: none !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -202,9 +241,9 @@ st.markdown("""
 # 🚀 Page configuration
 st.set_page_config(
     page_title="Bruno Brito", 
-    layout="wide",  # Mudado para "wide" para melhor visualização da sidebar
+    layout="wide",
     page_icon="📊",
-    initial_sidebar_state="expanded"  # Garantir que a sidebar abra por padrão
+    initial_sidebar_state="expanded"
 )
 
 # Header principal com gradiente E LOGO DA BRACAR
