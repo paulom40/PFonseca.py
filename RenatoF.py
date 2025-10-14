@@ -53,7 +53,7 @@ st.markdown("""
     }
     
     .metric-card-blue { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
-    .metric-card { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    .metric-card-pink { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
     .metric-card-orange { background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); }
     .metric-card-red { background: linear-gradient(135deg, #ff5858 0%, #f09819 100%); }
     .metric-card-green { background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%); }
@@ -291,7 +291,7 @@ df.dropna(subset=['Dias'], inplace=True)
 # 📅 Intervalos
 ranges = [
     (0, 15, "0-15 dias", "metric-card-blue"),
-    (16, 30, "16-30 dias", "metric-card"),
+    (16, 30, "16-30 dias", "metric-card-pink"),
     (31, 60, "31-60 dias", "metric-card-orange"),
     (61, 90, "61-90 dias", "metric-card-orange"),
     (91, 365, "91-365 dias", "metric-card-red")
@@ -323,13 +323,17 @@ with st.sidebar:
         key="ranges_mobile"
     )
     
-    # Botões de ação
+    # Botões de ação - CORREÇÃO: st.rerun() em vez de st.rereun()
     col1, col2 = st.columns(2)
     with col1:
         if st.button("🔄 Atualizar", use_container_width=True):
-            st.rereun()
+            st.rerun()  # CORRIGIDO
     with col2:
         if st.button("🗑️ Limpar", use_container_width=True):
+            # Limpar todos os filtros
+            st.session_state.comercial_mobile = sorted(df['Comercial'].unique())
+            st.session_state.entidade_mobile = sorted(df['Entidade'].unique())
+            st.session_state.ranges_mobile = [r[2] for r in ranges]
             st.rerun()
     
     # Stats rápidas
@@ -344,7 +348,7 @@ with st.container():
     st.markdown(f"""
     <div class="metric-card-green" style="text-align: center; padding: 0.6rem;">
         <p style="margin:0; font-size: 0.8rem;">🔄 Atualizado</p>
-        <p style="margin:0; font-size: 0.9rem; font-weight: bold;">{pd.Timestamp.now().strftime('%d/%m/%Y')}</p>
+        <p style="margin:0; font-size: 0.9rem; font-weight: bold;">{pd.Timestamp.now().strftime('%d/%m/%Y %H:%M')}</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -373,24 +377,25 @@ if not filtered_df.empty:
             })
     
     # Layout responsivo - 2 colunas no mobile
-    cols = st.columns(2)
-    for idx, data in enumerate(summary_data):
-        with cols[idx % 2]:
-            st.markdown(f"""
-            <div class="{data['card_class']}">
-                <h3>{data['label']}</h3>
-                <p>{data['count']} registos</p>
-                <p style="font-size: 0.7rem;">€{data['value']:,.0f}</p>
-            </div>
-            """, unsafe_allow_html=True)
+    if summary_data:
+        cols = st.columns(2)
+        for idx, data in enumerate(summary_data):
+            with cols[idx % 2]:
+                st.markdown(f"""
+                <div class="{data['card_class']}">
+                    <h3>{data['label']}</h3>
+                    <p>{data['count']} registos</p>
+                    <p style="font-size: 0.7rem;">€{data['value']:,.0f}</p>
+                </div>
+                """, unsafe_allow_html=True)
     
     # 📊 Detalhes com accordion mobile-friendly
     st.subheader("📋 Detalhes por Intervalo")
     
     for low, high, label, card_class in ranges:
         if label in selected_ranges:
-            with st.expander(f"{label} ({len(filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)])} registos)", expanded=False):
-                range_df = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)]
+            range_df = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)]
+            with st.expander(f"{label} ({len(range_df)} registos)", expanded=False):
                 if not range_df.empty:
                     # Métricas compactas
                     mcol1, mcol2, mcol3 = st.columns(3)
@@ -445,26 +450,4 @@ st.markdown("""
     </div>
     <div>Dashboard Renato Ferreira - Otimizado para mobile</div>
 </div>
-""", unsafe_allow_html=True)
-
-# Script JavaScript para melhorias mobile
-st.markdown("""
-<script>
-// Melhorias para mobile
-if (window.innerWidth <= 768) {
-    // Fechar sidebar após seleção (opcional)
-    setTimeout(() => {
-        const sidebar = document.querySelector('[data-testid="stSidebar"]');
-        if (sidebar) {
-            sidebar.style.width = '0';
-        }
-    }, 3000);
-    
-    // Melhorar scroll em tables
-    const tables = document.querySelectorAll('.dataframe');
-    tables.forEach(table => {
-        table.style.fontSize = '12px';
-    });
-}
-</script>
 """, unsafe_allow_html=True)
