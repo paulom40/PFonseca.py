@@ -14,6 +14,29 @@ st.markdown("""
         color: white;
         text-align: center;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        position: relative;
+    }
+    
+    .header-content {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+    }
+    
+    .logo-container {
+        display: flex;
+        align-items: center;
+    }
+    
+    .logo-img {
+        height: 60px;
+        border-radius: 10px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+    
+    .title-container {
+        text-align: center;
     }
     
     /* Cards com gradiente */
@@ -172,11 +195,20 @@ st.markdown("""
 # 🚀 Page configuration
 st.set_page_config(page_title="Bruno Brito", layout="centered", page_icon="📊")
 
-# Header principal com gradiente
+# Header principal com gradiente E LOGO DA BRACAR
 st.markdown("""
 <div class="main-header">
-    <h1 style="margin:0; font-size: 2.5rem;">📊 BRUNO BRITO</h1>
-    <p style="margin:0; opacity: 0.9; font-size: 1.1rem;">Dashboard de Gestão de Alertas</p>
+    <div class="header-content">
+        <div class="logo-container">
+            <img src="https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png" 
+                 class="logo-img" 
+                 alt="Bracar Logo">
+        </div>
+        <div class="title-container">
+            <h1 style="margin:0; font-size: 2.5rem;">📊 BRUNO BRITO</h1>
+            <p style="margin:0; opacity: 0.9; font-size: 1.1rem;">Dashboard de Gestão de Alertas</p>
+        </div>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -347,7 +379,12 @@ else:
 # ❤️ Footer estilizado
 st.markdown("""
 <div class="custom-footer">
-    <p style="margin:0;">Feito com ❤️ em Streamlit</p>
+    <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 0.5rem;">
+        <img src="https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png" 
+             style="height: 30px; border-radius: 5px;" 
+             alt="Bracar Logo">
+        <p style="margin:0;">Feito com ❤️ em Streamlit</p>
+    </div>
     <p style="margin:0; font-size: 0.8rem; opacity: 0.7;">Dashboard Bruno Brito - Gestão de Alertas</p>
 </div>
 """, unsafe_allow_html=True)
