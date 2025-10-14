@@ -2,42 +2,9 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
-# CSS personalizado com gradientes e estilo moderno, incluindo responsivo para mobile
+# CSS personalizado com gradientes e estilo moderno
 st.markdown("""
 <style>
-    /* Background branco por default */
-    .stApp {
-        background-color: #ffffff;
-    }
-    
-    .stSidebar {
-        background-color: #ffffff;
-    }
-    
-    section[data-testid="stSidebar"] > div {
-        background-color: #ffffff;
-    }
-    
-    /* Sidebar always visible - prevent collapse */
-    .css-1v0mbdj {
-        display: none !important;
-    }
-    
-    /* Ensure sidebar is always expanded */
-    [data-testid="collapsedControl"] {
-        display: none !important;
-    }
-    
-    .stSidebar {
-        transform: none !important;
-        width: 300px !important;
-    }
-    
-    /* Sidebar toggle button hidden since always visible */
-    .css-1v0mbdj {
-        visibility: hidden !important;
-    }
-    
     /* Gradiente principal */
     .main-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -72,20 +39,7 @@ st.markdown("""
         text-align: center;
     }
     
-    .title-container h1 {
-        margin: 0;
-        font-size: 2.5rem;
-        color: white;
-    }
-    
-    .title-container p {
-        margin: 0;
-        opacity: 0.9;
-        font-size: 1.1rem;
-        color: white;
-    }
-    
-    /* Cards com gradiente - text black on light gradients if needed, but white on dark */
+    /* Cards com gradiente */
     .metric-card {
         background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
         padding: 1.5rem;
@@ -93,12 +47,6 @@ st.markdown("""
         color: white;
         margin: 0.5rem 0;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-    
-    .metric-card h3,
-    .metric-card p {
-        color: white !important;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
     }
     
     .metric-card-blue {
@@ -110,25 +58,13 @@ st.markdown("""
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     
-    .metric-card-blue h3,
-    .metric-card-blue p {
-        color: white !important;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
-    }
-    
     .metric-card-orange {
         background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
         padding: 1.5rem;
         border-radius: 15px;
-        color: black;
+        color: white;
         margin: 0.5rem 0;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-    
-    .metric-card-orange h3,
-    .metric-card-orange p {
-        color: black !important;
-        text-shadow: none;
     }
     
     .metric-card-red {
@@ -140,12 +76,6 @@ st.markdown("""
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     
-    .metric-card-red h3,
-    .metric-card-red p {
-        color: white !important;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
-    }
-    
     .metric-card-green {
         background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
         padding: 1.5rem;
@@ -153,12 +83,6 @@ st.markdown("""
         color: white;
         margin: 0.5rem 0;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-    
-    .metric-card-green h3,
-    .metric-card-green p {
-        color: white !important;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
     }
     
     /* Sidebar styling */
@@ -169,11 +93,6 @@ st.markdown("""
         color: white;
         margin-bottom: 1rem;
         text-align: center;
-    }
-    
-    .sidebar-header h1,
-    .sidebar-header p {
-        color: white !important;
     }
     
     /* Botões modernos */
@@ -208,7 +127,6 @@ st.markdown("""
     .stTextInput input, .stSelectbox div div, .stMultiSelect div div {
         border-radius: 10px;
         border: 2px solid #e0e0e0;
-        color: black;
     }
     
     .stTextInput input:focus, .stSelectbox div div:focus, .stMultiSelect div div:focus {
@@ -231,7 +149,6 @@ st.markdown("""
         border-radius: 10px;
         padding: 0 2rem;
         font-weight: 600;
-        color: black;
     }
     
     .stTabs [aria-selected="true"] {
@@ -244,7 +161,6 @@ st.markdown("""
         border-radius: 15px;
         border: none;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        color: black;
     }
     
     /* Hide default elements */
@@ -273,171 +189,11 @@ st.markdown("""
         background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
         border-radius: 10px;
     }
-
-    /* RESPONSIVO PARA MOBILE */
-    @media (max-width: 768px) {
-        .main-header {
-            padding: 1rem;
-            margin-bottom: 1rem;
-        }
-        
-        .header-content {
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-        
-        .logo-img {
-            height: 40px;
-        }
-        
-        .title-container h1 {
-            font-size: 1.8rem;
-        }
-        
-        .title-container p {
-            font-size: 0.9rem;
-        }
-        
-        .metric-card,
-        .metric-card-blue,
-        .metric-card-orange,
-        .metric-card-red,
-        .metric-card-green {
-            padding: 1rem;
-            margin: 0.25rem 0;
-            font-size: 0.9rem;
-        }
-        
-        .metric-card h3 {
-            font-size: 0.8rem;
-        }
-        
-        .metric-card p:nth-child(2) {
-            font-size: 1.1rem;
-        }
-        
-        .metric-card p:nth-child(3) {
-            font-size: 0.7rem;
-        }
-        
-        .stButton button {
-            padding: 0.75rem;
-            font-size: 0.9rem;
-        }
-        
-        .sidebar-header {
-            padding: 0.75rem;
-            font-size: 0.9rem;
-        }
-        
-        .mobile-tip {
-            font-size: 12px;
-            padding: 8px;
-        }
-        
-        .custom-footer {
-            padding: 0.75rem;
-            font-size: 0.8rem;
-            margin-top: 1rem;
-        }
-        
-        .custom-footer img {
-            height: 25px;
-        }
-        
-        /* Dataframes responsivos */
-        .dataframe {
-            font-size: 0.8rem;
-            overflow-x: auto;
-        }
-        
-        /* Garantir que colunas de métricas stackem bem */
-        [data-testid="column"] {
-            width: 100% !important;
-            margin-bottom: 1rem;
-        }
-        
-        /* Input fields em mobile */
-        .stTextInput input, 
-        .stSelectbox div div, 
-        .stMultiSelect div div {
-            font-size: 16px; /* Previne zoom em iOS */
-        }
-        
-        /* Tabs em mobile */
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 0.5rem;
-            padding: 0.5rem;
-        }
-        
-        .stTabs [data-baseweb="tab"] {
-            padding: 0 1rem;
-            font-size: 0.9rem;
-            height: 40px;
-        }
-    }
-
-    @media (max-width: 480px) {
-        .main-header {
-            padding: 0.75rem;
-        }
-        
-        .logo-img {
-            height: 30px;
-        }
-        
-        .title-container h1 {
-            font-size: 1.5rem;
-        }
-        
-        .title-container p {
-            font-size: 0.8rem;
-        }
-        
-        .metric-card,
-        .metric-card-blue,
-        .metric-card-orange,
-        .metric-card-red,
-        .metric-card-green {
-            padding: 0.75rem;
-        }
-        
-        .metric-card h3 {
-            font-size: 0.7rem;
-        }
-        
-        .metric-card p:nth-child(2) {
-            font-size: 1rem;
-        }
-        
-        .metric-card p:nth-child(3) {
-            font-size: 0.65rem;
-        }
-        
-        .stButton button {
-            padding: 0.5rem;
-            font-size: 0.85rem;
-        }
-        
-        .mobile-tip {
-            font-size: 11px;
-            padding: 6px;
-        }
-        
-        .custom-footer {
-            padding: 0.5rem;
-            font-size: 0.75rem;
-        }
-        
-        .custom-footer img {
-            height: 20px;
-        }
-    }
 </style>
 """, unsafe_allow_html=True)
 
 # 🚀 Page configuration
-st.set_page_config(page_title="Bruno Brito", layout="wide")
+st.set_page_config(page_title="Bruno Brito", layout="centered")
 
 # Header principal com gradiente E LOGO DA BRACAR
 st.markdown("""
@@ -449,8 +205,8 @@ st.markdown("""
                  alt="Bracar Logo">
         </div>
         <div class="title-container">
-            <h1>BRUNO BRITO</h1>
-            <p>Dashboard de Gestão de Alertas</p>
+            <h1 style="margin:0; font-size: 2.5rem;">BRUNO BRITO</h1>
+            <p style="margin:0; opacity: 0.9; font-size: 1.1rem;">Dashboard de Gestão de Alertas</p>
         </div>
     </div>
 </div>
@@ -524,7 +280,7 @@ with st.container():
         st.markdown(f"""
         <div class="metric-card-green" style="text-align: center;">
             <h3 style="margin:0; font-size: 0.9rem;">Última Atualização</h3>
-            <p style="margin:0; font-size: 1rem; font-weight: bold;">14/10/2025</p>
+            <p style="margin:0; font-size: 1rem; font-weight: bold;">10/10/2025</p>
         </div>
         """, unsafe_allow_html=True)
 
