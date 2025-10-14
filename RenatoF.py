@@ -193,7 +193,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 🚀 Page configuration
-st.set_page_config(page_title="Renato Ferreira", layout="centered")
+st.set_page_config(page_title="Vânia Silva", layout="centered")
 
 # Header principal com gradiente E LOGO DA BRACAR
 st.markdown("""
@@ -205,7 +205,7 @@ st.markdown("""
                  alt="Bracar Logo">
         </div>
         <div class="title-container">
-            <h1 style="margin:0; font-size: 2.5rem;">RENATO FERREIRA</h1>
+            <h1 style="margin:0; font-size: 2.5rem;">VÂNIA SILVA</h1>
             <p style="margin:0; opacity: 0.9; font-size: 1.1rem;">Dashboard de Gestão de Alertas</p>
         </div>
     </div>
@@ -220,7 +220,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 📥 Load data
-url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/RFerreira.xlsx"
+url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/VSilva.xlsx"
 try:
     df = pd.read_excel(url)
 except Exception as e:
@@ -250,12 +250,6 @@ with st.sidebar:
         default=sorted(df['Comercial'].unique())
     )
     
-    selected_entidade = st.multiselect(
-        "🏢 Entidade",
-        sorted(df['Entidade'].unique()),
-        default=sorted(df['Entidade'].unique())
-    )
-    
     selected_ranges = st.multiselect(
         "📅 Intervalos de Dias",
         [r[2] for r in ranges],
@@ -283,6 +277,15 @@ with st.container():
             <p style="margin:0; font-size: 1rem; font-weight: bold;">10/10/2025</p>
         </div>
         """, unsafe_allow_html=True)
+
+# Filtro Entidade movido para baixo da área de atualização
+st.markdown("### 🏢 Filtro por Entidade")
+selected_entidade = st.multiselect(
+    "🏢 Entidade",
+    sorted(df['Entidade'].unique()),
+    default=sorted(df['Entidade'].unique()),
+    help="Selecione as entidades para filtrar os dados."
+)
 
 # 🔍 Filter data
 filtered_df = df[
