@@ -2,11 +2,12 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
-# CSS base (comum a ambos os modos)
-base_css = """
+# CSS personalizado com gradientes e estilo moderno, incluindo responsivo para mobile
+st.markdown("""
 <style>
     /* Gradiente principal */
     .main-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         padding: 2rem;
         border-radius: 15px;
         margin-bottom: 2rem;
@@ -38,8 +39,20 @@ base_css = """
         text-align: center;
     }
     
+    .title-container h1 {
+        margin: 0;
+        font-size: 2.5rem;
+    }
+    
+    .title-container p {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 1.1rem;
+    }
+    
     /* Cards com gradiente */
     .metric-card {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
         padding: 1.5rem;
         border-radius: 15px;
         color: white;
@@ -48,6 +61,7 @@ base_css = """
     }
     
     .metric-card-blue {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
         padding: 1.5rem;
         border-radius: 15px;
         color: white;
@@ -56,6 +70,7 @@ base_css = """
     }
     
     .metric-card-orange {
+        background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
         padding: 1.5rem;
         border-radius: 15px;
         color: white;
@@ -64,6 +79,7 @@ base_css = """
     }
     
     .metric-card-red {
+        background: linear-gradient(135deg, #ff5858 0%, #f09819 100%);
         padding: 1.5rem;
         border-radius: 15px;
         color: white;
@@ -72,6 +88,7 @@ base_css = """
     }
     
     .metric-card-green {
+        background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
         padding: 1.5rem;
         border-radius: 15px;
         color: white;
@@ -81,14 +98,18 @@ base_css = """
     
     /* Sidebar styling */
     .sidebar-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         padding: 1rem;
         border-radius: 10px;
+        color: white;
         margin-bottom: 1rem;
         text-align: center;
     }
     
     /* Botões modernos */
     .stButton button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
         border: none;
         padding: 0.5rem 1rem;
         border-radius: 25px;
@@ -99,11 +120,12 @@ base_css = """
     
     .stButton button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
     }
     
     /* Download button específico */
     .download-btn {
+        background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%) !important;
     }
     
     /* Dataframe styling */
@@ -115,16 +137,18 @@ base_css = """
     /* Input fields styling */
     .stTextInput input, .stSelectbox div div, .stMultiSelect div div {
         border-radius: 10px;
-        border: 2px solid;
+        border: 2px solid #e0e0e0;
     }
     
     .stTextInput input:focus, .stSelectbox div div:focus, .stMultiSelect div div:focus {
-        box-shadow: 0 0 0 2px rgba(0,0,0,0.2);
+        border-color: #667eea;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
     }
     
     /* Tabs styling */
     .stTabs [data-baseweb="tab-list"] {
         gap: 2rem;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
         padding: 1rem;
         border-radius: 15px;
     }
@@ -132,12 +156,14 @@ base_css = """
     .stTabs [data-baseweb="tab"] {
         height: 50px;
         white-space: pre-wrap;
+        background: white;
         border-radius: 10px;
         padding: 0 2rem;
         font-weight: 600;
     }
     
     .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
         color: white !important;
     }
     
@@ -157,6 +183,8 @@ base_css = """
     .mobile-tip {
         text-align: center;
         font-size: 14px;
+        color: #666;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
         padding: 10px;
         border-radius: 10px;
         margin-bottom: 1rem;
@@ -165,207 +193,178 @@ base_css = """
     /* Footer styling */
     .custom-footer {
         text-align: center;
+        color: #666;
         font-size: 0.9rem;
         margin-top: 2rem;
         padding: 1rem;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
         border-radius: 10px;
     }
+
+    /* RESPONSIVO PARA MOBILE */
+    @media (max-width: 768px) {
+        .main-header {
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .header-content {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .logo-img {
+            height: 40px;
+        }
+        
+        .title-container h1 {
+            font-size: 1.8rem;
+        }
+        
+        .title-container p {
+            font-size: 0.9rem;
+        }
+        
+        .metric-card,
+        .metric-card-blue,
+        .metric-card-orange,
+        .metric-card-red,
+        .metric-card-green {
+            padding: 1rem;
+            margin: 0.25rem 0;
+            font-size: 0.9rem;
+        }
+        
+        .metric-card h3 {
+            font-size: 0.8rem;
+        }
+        
+        .metric-card p:nth-child(2) {
+            font-size: 1.1rem;
+        }
+        
+        .metric-card p:nth-child(3) {
+            font-size: 0.7rem;
+        }
+        
+        .stButton button {
+            padding: 0.75rem;
+            font-size: 0.9rem;
+        }
+        
+        .sidebar-header {
+            padding: 0.75rem;
+            font-size: 0.9rem;
+        }
+        
+        .mobile-tip {
+            font-size: 12px;
+            padding: 8px;
+        }
+        
+        .custom-footer {
+            padding: 0.75rem;
+            font-size: 0.8rem;
+            margin-top: 1rem;
+        }
+        
+        .custom-footer img {
+            height: 25px;
+        }
+        
+        /* Dataframes responsivos */
+        .dataframe {
+            font-size: 0.8rem;
+            overflow-x: auto;
+        }
+        
+        /* Garantir que colunas de métricas stackem bem */
+        [data-testid="column"] {
+            width: 100% !important;
+            margin-bottom: 1rem;
+        }
+        
+        /* Input fields em mobile */
+        .stTextInput input, 
+        .stSelectbox div div, 
+        .stMultiSelect div div {
+            font-size: 16px; /* Previne zoom em iOS */
+        }
+        
+        /* Tabs em mobile */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 0.5rem;
+            padding: 0.5rem;
+        }
+        
+        .stTabs [data-baseweb="tab"] {
+            padding: 0 1rem;
+            font-size: 0.9rem;
+            height: 40px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .main-header {
+            padding: 0.75rem;
+        }
+        
+        .logo-img {
+            height: 30px;
+        }
+        
+        .title-container h1 {
+            font-size: 1.5rem;
+        }
+        
+        .title-container p {
+            font-size: 0.8rem;
+        }
+        
+        .metric-card,
+        .metric-card-blue,
+        .metric-card-orange,
+        .metric-card-red,
+        .metric-card-green {
+            padding: 0.75rem;
+        }
+        
+        .metric-card h3 {
+            font-size: 0.7rem;
+        }
+        
+        .metric-card p:nth-child(2) {
+            font-size: 1rem;
+        }
+        
+        .metric-card p:nth-child(3) {
+            font-size: 0.65rem;
+        }
+        
+        .stButton button {
+            padding: 0.5rem;
+            font-size: 0.85rem;
+        }
+        
+        .mobile-tip {
+            font-size: 11px;
+            padding: 6px;
+        }
+        
+        .custom-footer {
+            padding: 0.5rem;
+            font-size: 0.75rem;
+        }
+        
+        .custom-footer img {
+            height: 20px;
+        }
+    }
 </style>
-"""
-
-# CSS para modo claro
-light_css = """
-    .main-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    }
-    
-    .metric-card {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    }
-    
-    .metric-card-blue {
-        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-    }
-    
-    .metric-card-orange {
-        background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
-    }
-    
-    .metric-card-red {
-        background: linear-gradient(135deg, #ff5858 0%, #f09819 100%);
-    }
-    
-    .metric-card-green {
-        background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
-    }
-    
-    .sidebar-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-    }
-    
-    .stButton button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-    }
-    
-    .stButton button:hover {
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-    }
-    
-    .download-btn {
-        background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%) !important;
-    }
-    
-    .stTextInput input, .stSelectbox div div, .stMultiSelect div div {
-        border-color: #e0e0e0;
-    }
-    
-    .stTextInput input:focus, .stSelectbox div div:focus, .stMultiSelect div div:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
-    }
-    
-    .stTabs [data-baseweb="tab-list"] {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        background: white;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-    }
-    
-    .mobile-tip {
-        color: #666;
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    }
-    
-    .custom-footer {
-        color: #666;
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    }
-    
-    /* Background branco por default */
-    .stApp {
-        background-color: #ffffff;
-    }
-    
-    .stSidebar {
-        background-color: #ffffff;
-    }
-    
-    section[data-testid="stSidebar"] > div {
-        background-color: #ffffff;
-    }
-"""
-
-# CSS para modo escuro
-dark_css = """
-    .main-header {
-        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-    }
-    
-    .metric-card {
-        background: linear-gradient(135deg, #8e44ad 0%, #9b59b6 100%);
-    }
-    
-    .metric-card-blue {
-        background: linear-gradient(135deg, #3498db 0%, #5dade2 100%);
-    }
-    
-    .metric-card-orange {
-        background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
-    }
-    
-    .metric-card-red {
-        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
-    }
-    
-    .metric-card-green {
-        background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
-    }
-    
-    .sidebar-header {
-        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-        color: white;
-    }
-    
-    .stButton button {
-        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-        color: white;
-    }
-    
-    .stButton button:hover {
-        box-shadow: 0 6px 20px rgba(44, 62, 80, 0.4);
-    }
-    
-    .download-btn {
-        background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%) !important;
-    }
-    
-    .stTextInput input, .stSelectbox div div, .stMultiSelect div div {
-        border-color: #34495e;
-    }
-    
-    .stTextInput input:focus, .stSelectbox div div:focus, .stMultiSelect div div:focus {
-        border-color: #3498db;
-        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
-    }
-    
-    .stTabs [data-baseweb="tab-list"] {
-        background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        background: #34495e;
-        color: white;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%) !important;
-    }
-    
-    .mobile-tip {
-        color: #bdc3c7;
-        background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
-    }
-    
-    .custom-footer {
-        color: #bdc3c7;
-        background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
-    }
-    
-    /* Ajustes gerais para modo escuro */
-    .stApp {
-        background-color: #1e1e1e;
-    }
-    
-    .stSidebar {
-        background-color: #2c3e50;
-    }
-    
-    section[data-testid="stSidebar"] > div {
-        background-color: #2c3e50;
-    }
-"""
+""", unsafe_allow_html=True)
 
 # 🚀 Page configuration
 st.set_page_config(page_title="Bruno Brito", layout="centered")
-
-# Inicializar estado da sessão para o modo escuro
-if 'dark_mode' not in st.session_state:
-    st.session_state.dark_mode = False
-
-# Aplicar CSS baseado no modo
-css = base_css
-if st.session_state.dark_mode:
-    css += dark_css
-else:
-    css += light_css
-st.markdown(css, unsafe_allow_html=True)
 
 # Header principal com gradiente E LOGO DA BRACAR
 st.markdown("""
@@ -377,8 +376,8 @@ st.markdown("""
                  alt="Bracar Logo">
         </div>
         <div class="title-container">
-            <h1 style="margin:0; font-size: 2.5rem;">BRUNO BRITO</h1>
-            <p style="margin:0; opacity: 0.9; font-size: 1.1rem;">Dashboard de Gestão de Alertas</p>
+            <h1>BRUNO BRITO</h1>
+            <p>Dashboard de Gestão de Alertas</p>
         </div>
     </div>
 </div>
@@ -401,11 +400,6 @@ except Exception as e:
 
 # 🧼 Clean data
 df['Dias'] = pd.to_numeric(df['Dias'], errors='coerce')
-# Fix mixed types for Arrow compatibility
-if 'N.º Doc.' in df.columns:
-    df['N.º Doc.'] = df['N.º Doc.'].astype(str)
-if 'Série' in df.columns:
-    df['Série'] = df['Série'].astype(str)
 df.dropna(subset=['Dias'], inplace=True)
 
 # 📅 Define ranges with colors
@@ -420,11 +414,6 @@ ranges = [
 # 🎛️ Sidebar filters with modern design
 with st.sidebar:
     st.markdown('<div class="sidebar-header">🎨 FILTROS</div>', unsafe_allow_html=True)
-    
-    # Toggle para modo escuro
-    st.session_state.dark_mode = st.toggle("🌙 Modo Escuro", value=st.session_state.dark_mode)
-    if st.button("Aplicar Tema"):
-        st.rerun()
     
     selected_comercial = st.multiselect(
         "👨‍💼 Comercial",
@@ -462,7 +451,7 @@ with st.container():
         st.markdown(f"""
         <div class="metric-card-green" style="text-align: center;">
             <h3 style="margin:0; font-size: 0.9rem;">Última Atualização</h3>
-            <p style="margin:0; font-size: 1rem; font-weight: bold;">14/10/2025</p>
+            <p style="margin:0; font-size: 1rem; font-weight: bold;">10/10/2025</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -494,11 +483,10 @@ if summary_data:
     # Mostrar cards métricos
     cols = st.columns(len(summary_data))
     for idx, (col, data) in enumerate(zip(cols, summary_data)):
-        interval_name = data['Intervalo'].rsplit(' ', 1)[0]
         with col:
             st.markdown(f"""
             <div class="{data['card_class']}">
-                <h3 style="margin:0; font-size: 0.9rem;">{interval_name}</h3>
+                <h3 style="margin:0; font-size: 0.9rem;">{data['Intervalo'].split(' 🟦')[0].split(' 🟫')[0].split(' 🟧')[0].split(' 🟨')[0].split(' 🟥')[0]}</h3>
                 <p style="margin:0; font-size: 1.2rem; font-weight: bold;">{data['Quantidade']}</p>
                 <p style="margin:0; font-size: 0.8rem;">€{data['Valor Pendente']:,.2f}</p>
             </div>
@@ -512,7 +500,7 @@ if summary_data:
         "Valor Pendente": f"€{data['Valor Pendente']:,.2f}"
     } for data in summary_data])
     
-    st.dataframe(summary_df, width='stretch')
+    st.dataframe(summary_df, use_container_width=True)
 else:
     st.warning("⚠️ Nenhum dado nos intervalos selecionados")
 
@@ -522,7 +510,7 @@ st.subheader("📊 Detalhes por Intervalo")
 for low, high, label, card_class in ranges:
     if label in selected_ranges:
         with st.expander(f"{label} - Ver Detalhes", expanded=False):
-            range_df = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)].copy()
+            range_df = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)]
             if not range_df.empty:
                 # Métricas do intervalo
                 col1, col2, col3 = st.columns(3)
@@ -535,7 +523,7 @@ for low, high, label, card_class in ranges:
                     st.metric("Dias Médios", f"{range_df['Dias'].mean():.1f}")
                 
                 # Tabela de dados
-                st.dataframe(range_df, width='stretch')
+                st.dataframe(range_df, use_container_width=True)
             else:
                 st.info("ℹ️ Nenhum alerta neste intervalo")
 
@@ -543,11 +531,9 @@ for low, high, label, card_class in ranges:
 st.subheader("📁 Exportação de Dados")
 
 if not filtered_df.empty:
-    download_df = filtered_df.copy()
-    
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        download_df.to_excel(writer, index=False, sheet_name='Dados Filtrados')
+        filtered_df.to_excel(writer, index=False, sheet_name='Dados Filtrados')
     
     st.download_button(
         label="📥 BAIXAR DADOS FILTRADOS EM EXCEL",
