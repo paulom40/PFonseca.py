@@ -258,23 +258,25 @@ filtered_df = df[
     df['Entidade'].isin(selected_entidade)
 ]
 
-# 📋 Summary com cards coloridos
+# 📋 Summary com cards coloridos - CORREÇÃO: Criar a lista summary_data primeiro
 st.subheader("📋 Resumo por Intervalos")
 
-if summary:
-    summary_data = []
-    for low, high, label, card_class in ranges:
-        if label in selected_ranges:
-            range_df = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)]
-            count = len(range_df)
-            total_value = range_df['Valor Pendente'].sum()
-            summary_data.append({
-                "Intervalo": label,
-                "Quantidade": count,
-                "Valor Pendente": total_value,
-                "card_class": card_class
-            })
-    
+# Criar lista de dados para o resumo
+summary_data = []
+for low, high, label, card_class in ranges:
+    if label in selected_ranges:
+        range_df = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)]
+        count = len(range_df)
+        total_value = range_df['Valor Pendente'].sum() if 'Valor Pendente' in range_df.columns else 0
+        summary_data.append({
+            "Intervalo": label,
+            "Quantidade": count,
+            "Valor Pendente": total_value,
+            "card_class": card_class
+        })
+
+# Verificar se há dados para mostrar
+if summary_data:
     # Mostrar cards métricos
     cols = st.columns(len(summary_data))
     for idx, (col, data) in enumerate(zip(cols, summary_data)):
@@ -288,11 +290,14 @@ if summary:
             """, unsafe_allow_html=True)
     
     # Tabela de resumo
-    st.dataframe(pd.DataFrame([{
+    st.markdown("### 📊 Tabela de Resumo")
+    summary_df = pd.DataFrame([{
         "Intervalo": data["Intervalo"],
         "Quantidade": data["Quantidade"],
         "Valor Pendente": f"€{data['Valor Pendente']:,.2f}"
-    } for data in summary_data]), use_container_width=True)
+    } for data in summary_data])
+    
+    st.dataframe(summary_df, use_container_width=True)
 else:
     st.warning("⚠️ Nenhum dado nos intervalos selecionados")
 
@@ -309,7 +314,8 @@ for low, high, label, card_class in ranges:
                 with col1:
                     st.metric("Total de Registros", len(range_df))
                 with col2:
-                    st.metric("Valor Total", f"€{range_df['Valor Pendente'].sum():,.2f}")
+                    valor_total = range_df['Valor Pendente'].sum() if 'Valor Pendente' in range_df.columns else 0
+                    st.metric("Valor Total", f"€{valor_total:,.2f}")
                 with col3:
                     st.metric("Dias Médios", f"{range_df['Dias'].mean():.1f}")
                 
