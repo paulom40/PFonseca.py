@@ -193,7 +193,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 🚀 Page configuration
-st.set_page_config(page_title="Bruno Brito", layout="centered", page_icon="📊")
+st.set_page_config(page_title="Bruno Brito", layout="centered")
 
 # Header principal com gradiente E LOGO DA BRACAR
 st.markdown("""
