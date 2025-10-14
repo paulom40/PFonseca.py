@@ -189,11 +189,22 @@ st.markdown("""
         background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
         border-radius: 10px;
     }
+    
+    /* Forçar sidebar visível em mobile */
+    @media (max-width: 768px) {
+        .sidebar .sidebar-content {
+            transform: translateX(0) !important;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# 🚀 Page configuration
-st.set_page_config(page_title="Bruno Brito", layout="centered")
+# 🚀 Page configuration - IMPORTANTE: sidebar deve ser "auto" para ser visível
+st.set_page_config(
+    page_title="Bruno Brito", 
+    layout="centered",
+    initial_sidebar_state="expanded"  # Esta linha é crucial
+)
 
 # Header principal com gradiente E LOGO DA BRACAR
 st.markdown("""
@@ -212,10 +223,10 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 📱 Mobile tip
+# 📱 Mobile tip - Atualizado com instruções mais claras
 st.markdown("""
 <div class="mobile-tip">
-    📱 Em dispositivos móveis, toque no ícone <strong>≡</strong> no canto superior esquerdo para abrir os filtros.
+    📱 <strong>Filtros disponíveis no menu lateral</strong> → Use o ícone ≡ no canto superior esquerdo para abrir/feichar os filtros
 </div>
 """, unsafe_allow_html=True)
 
@@ -240,9 +251,13 @@ ranges = [
     (91, 365, "91 a 365 dias 🟥", "metric-card-red")
 ]
 
-# 🎛️ Sidebar filters with modern design
+# 🎛️ Sidebar filters with modern design - AGORA DEVE ESTAR VISÍVEL
 with st.sidebar:
     st.markdown('<div class="sidebar-header">🎨 FILTROS</div>', unsafe_allow_html=True)
+    
+    # Adicionar um botão para fechar o sidebar em mobile (opcional)
+    if st.button("❌ Fechar Filtros", use_container_width=True):
+        st.session_state.sidebar_collapsed = True
     
     selected_comercial = st.multiselect(
         "👨‍💼 Comercial",
@@ -267,6 +282,11 @@ with st.sidebar:
     st.markdown("### 📊 Estatísticas")
     total_registros = len(df)
     st.metric("Total de Registros", f"{total_registros:,}")
+    
+    # Informação adicional útil
+    st.markdown("---")
+    st.markdown("### 💡 Dica")
+    st.info("Os filtros aplicam-se automaticamente a todos os dados do dashboard")
 
 # Container principal
 with st.container():
