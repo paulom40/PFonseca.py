@@ -314,7 +314,7 @@ with st.container():
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col1:
-        if st.button("🔄 Atualizar Tudo", use_container_width=True):
+        if st.button("🔄 Atualizar Tudo", width='stretch'):
             st.rerun()
     
     with col2:
@@ -374,7 +374,7 @@ if summary_data:
         "Valor Pendente (€)": f"€{data['Valor Pendente']:,.2f}"
     } for data in summary_data])
     
-    st.dataframe(summary_df, use_container_width=True)
+    st.dataframe(summary_df, width='stretch')
 else:
     st.warning("⚠️ Nenhum dado encontrado nos intervalos selecionados")
 
@@ -408,13 +408,13 @@ for low, high, label, card_class in ranges:
                 if 'Valor Pendente' in display_df.columns:
                     display_df['Valor Pendente'] = display_df['Valor Pendente'].apply(lambda x: f"€{x:,.2f}" if pd.notnull(x) else "€0.00")
                 
-                st.dataframe(display_df, use_container_width=True)
+                st.dataframe(display_df, width='stretch')
                 
                 # Mostrar algumas estatísticas adicionais
                 with st.expander("📊 Estatísticas Detalhadas deste Intervalo"):
                     st.write(f"**Distribuição por Comercial:**")
                     comercial_counts = range_df['Comercial'].value_counts()
-                    st.dataframe(comercial_counts)
+                    st.dataframe(comercial_counts, width='stretch')
                     
             else:
                 st.info(f"ℹ️ Nenhum alerta encontrado no intervalo {label}")
@@ -447,7 +447,7 @@ if not filtered_df.empty:
             data=output.getvalue(),
             file_name=f"dados_filtrados_bruno_brito_{pd.Timestamp.now().strftime('%Y%m%d')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
+            width='stretch'
         )
     
     with col2:
