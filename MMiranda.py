@@ -2,18 +2,25 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
-# CSS personalizado com gradientes e estilo moderno
+# CSS personalizado com tema dark
 st.markdown("""
 <style>
-    /* Gradiente principal */
+    /* Tema Dark Principal */
+    .stApp {
+        background-color: #0e1117;
+        color: #fafafa;
+    }
+    
+    /* Gradiente principal - Dark */
     .main-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
         padding: 2rem;
         border-radius: 15px;
         margin-bottom: 2rem;
         color: white;
         text-align: center;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        border: 1px solid #2a5298;
         position: relative;
     }
     
@@ -21,7 +28,7 @@ st.markdown("""
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 1rem;
+        gap: 1.5rem;
     }
     
     .logo-container {
@@ -30,72 +37,84 @@ st.markdown("""
     }
     
     .logo-img {
-        height: 60px;
-        border-radius: 10px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        height: 65px;
+        border-radius: 12px;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+        border: 2px solid rgba(255,255,255,0.1);
     }
     
     .title-container {
         text-align: center;
     }
     
-    /* Cards com gradiente */
+    /* Cards com gradiente - Dark Theme */
     .metric-card {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         padding: 1.5rem;
         border-radius: 15px;
         color: white;
         margin: 0.5rem 0;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        border: 1px solid rgba(255,255,255,0.1);
     }
     
     .metric-card-blue {
-        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
         padding: 1.5rem;
         border-radius: 15px;
         color: white;
         margin: 0.5rem 0;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        border: 1px solid rgba(255,255,255,0.1);
     }
     
     .metric-card-orange {
-        background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+        background: linear-gradient(135deg, #f46b45 0%, #eea849 100%);
         padding: 1.5rem;
         border-radius: 15px;
         color: white;
         margin: 0.5rem 0;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        border: 1px solid rgba(255,255,255,0.1);
     }
     
     .metric-card-red {
-        background: linear-gradient(135deg, #ff5858 0%, #f09819 100%);
+        background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
         padding: 1.5rem;
         border-radius: 15px;
         color: white;
         margin: 0.5rem 0;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        border: 1px solid rgba(255,255,255,0.1);
     }
     
     .metric-card-green {
-        background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
+        background: linear-gradient(135deg, #0ba360 0%, #3cba92 100%);
         padding: 1.5rem;
         border-radius: 15px;
         color: white;
         margin: 0.5rem 0;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        border: 1px solid rgba(255,255,255,0.1);
     }
     
-    /* Sidebar styling */
+    /* Sidebar styling - Dark */
     .sidebar-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
         padding: 1rem;
         border-radius: 10px;
         color: white;
         margin-bottom: 1rem;
         text-align: center;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        border: 1px solid rgba(255,255,255,0.1);
     }
     
-    /* Botões modernos */
+    .sidebar .sidebar-content {
+        background-color: #0e1117;
+    }
+    
+    /* Botões modernos - Dark */
     .stButton button {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
@@ -105,62 +124,90 @@ st.markdown("""
         font-weight: 600;
         transition: all 0.3s ease;
         width: 100%;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     }
     
     .stButton button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
     }
     
-    /* Download button específico */
+    /* Download button específico - Dark */
     .download-btn {
-        background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%) !important;
+        background: linear-gradient(135deg, #0ba360 0%, #3cba92 100%) !important;
     }
     
-    /* Dataframe styling */
+    /* Dataframe styling - Dark */
     .dataframe {
         border-radius: 10px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        background-color: #1e1e1e !important;
+        border: 1px solid #333;
     }
     
-    /* Input fields styling */
+    .dataframe table {
+        background-color: #1e1e1e !important;
+        color: #fafafa !important;
+    }
+    
+    .dataframe th {
+        background-color: #2a5298 !important;
+        color: white !important;
+    }
+    
+    .dataframe td {
+        background-color: #1e1e1e !important;
+        color: #fafafa !important;
+        border-color: #333 !important;
+    }
+    
+    /* Input fields styling - Dark */
     .stTextInput input, .stSelectbox div div, .stMultiSelect div div {
         border-radius: 10px;
-        border: 2px solid #e0e0e0;
+        border: 2px solid #333;
+        background-color: #1e1e1e;
+        color: #fafafa;
     }
     
     .stTextInput input:focus, .stSelectbox div div:focus, .stMultiSelect div div:focus {
         border-color: #667eea;
-        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.3);
     }
     
-    /* Tabs styling */
+    /* Tabs styling - Dark */
     .stTabs [data-baseweb="tab-list"] {
         gap: 2rem;
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
         padding: 1rem;
         border-radius: 15px;
+        border: 1px solid #333;
     }
     
     .stTabs [data-baseweb="tab"] {
         height: 50px;
         white-space: pre-wrap;
-        background: white;
+        background: #1e1e1e;
         border-radius: 10px;
         padding: 0 2rem;
         font-weight: 600;
+        color: #fafafa;
+        border: 1px solid #333;
     }
     
     .stTabs [aria-selected="true"] {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
         color: white !important;
+        border: 1px solid #667eea;
     }
     
-    /* Alert boxes customizados */
+    /* Alert boxes customizados - Dark */
     .stAlert {
         border-radius: 15px;
         border: none;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        background-color: #1e1e1e;
+        border: 1px solid #333;
     }
     
     /* Hide default elements */
@@ -168,34 +215,98 @@ st.markdown("""
     header {visibility: hidden;}
     footer {visibility: hidden;}
     
-    /* Mobile tip styling */
+    /* Mobile tip styling - Dark */
     .mobile-tip {
         text-align: center;
         font-size: 14px;
-        color: #666;
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        padding: 10px;
+        color: #ccc;
+        background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
+        padding: 12px;
         border-radius: 10px;
         margin-bottom: 1rem;
+        border: 1px solid #333;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     }
     
-    /* Footer styling */
+    /* Footer styling - Dark */
     .custom-footer {
         text-align: center;
-        color: #666;
+        color: #ccc;
         font-size: 0.9rem;
         margin-top: 2rem;
-        padding: 1rem;
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        padding: 1.5rem;
+        background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
         border-radius: 10px;
+        border: 1px solid #333;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    }
+    
+    /* Expander styling - Dark */
+    .streamlit-expanderHeader {
+        background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%) !important;
+        color: #fafafa !important;
+        border: 1px solid #333 !important;
+        border-radius: 10px !important;
+        margin: 5px 0;
+    }
+    
+    .streamlit-expanderContent {
+        background-color: #1e1e1e !important;
+        border: 1px solid #333 !important;
+        border-top: none !important;
+        border-radius: 0 0 10px 10px !important;
+    }
+    
+    /* Metric styling - Dark */
+    [data-testid="metric-container"] {
+        background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%) !important;
+        border: 1px solid #333 !important;
+        border-radius: 10px;
+        padding: 1rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    
+    /* Subheader styling */
+    .stSubheader {
+        color: #fafafa !important;
+    }
+    
+    /* Markdown text color */
+    .stMarkdown {
+        color: #fafafa !important;
+    }
+    
+    /* Warning and Info boxes */
+    .stWarning {
+        background-color: #332100 !important;
+        border: 1px solid #665200 !important;
+        color: #ffcc00 !important;
+    }
+    
+    .stSuccess {
+        background-color: #003320 !important;
+        border: 1px solid #006644 !important;
+        color: #00cc88 !important;
+    }
+    
+    .stError {
+        background-color: #330000 !important;
+        border: 1px solid #660000 !important;
+        color: #ff4444 !important;
+    }
+    
+    .stInfo {
+        background-color: #002233 !important;
+        border: 1px solid #004466 !important;
+        color: #44aaff !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # 🚀 Page configuration
-st.set_page_config(page_title="Sandra Silva", layout="centered")
+st.set_page_config(page_title="Bruno Brito - Dark", layout="centered", page_icon="📊")
 
-# Header principal com gradiente E LOGO DA BRACAR
+# Header principal com gradiente DARK E LOGO DA BRACAR
 st.markdown("""
 <div class="main-header">
     <div class="header-content">
@@ -205,8 +316,8 @@ st.markdown("""
                  alt="Bracar Logo">
         </div>
         <div class="title-container">
-            <h1 style="margin:0; font-size: 2.5rem;">SANDRA SILVA</h1>
-            <p style="margin:0; opacity: 0.9; font-size: 1.1rem;">Dashboard de Gestão de Alertas</p>
+            <h1 style="margin:0; font-size: 2.5rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">🌙 BRUNO BRITO</h1>
+            <p style="margin:0; opacity: 0.9; font-size: 1.1rem; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">Dashboard de Gestão de Alertas - Dark Mode</p>
         </div>
     </div>
 </div>
@@ -220,7 +331,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 📥 Load data
-url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/SSilva.xlsx"
+url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/BBrito.xlsx"
 try:
     df = pd.read_excel(url)
 except Exception as e:
@@ -231,16 +342,16 @@ except Exception as e:
 df['Dias'] = pd.to_numeric(df['Dias'], errors='coerce')
 df.dropna(subset=['Dias'], inplace=True)
 
-# 📅 Define ranges with colors
+# 📅 Define ranges with colors - Dark Theme
 ranges = [
-    (0, 15, "0 a 15 dias 🟦", "metric-card-blue"),
-    (16, 30, "16 a 30 dias 🟫", "metric-card"),
-    (31, 60, "31 a 60 dias 🟧", "metric-card-orange"),
-    (61, 90, "61 a 90 dias 🟨", "metric-card-orange"),
-    (91, 365, "91 a 365 dias 🟥", "metric-card-red")
+    (0, 15, "0 a 15 dias 🌊", "metric-card-blue"),
+    (16, 30, "16 a 30 dias 🪨", "metric-card"),
+    (31, 60, "31 a 60 dias 🔥", "metric-card-orange"),
+    (61, 90, "61 a 90 dias ⚡", "metric-card-orange"),
+    (91, 365, "91 a 365 dias 💀", "metric-card-red")
 ]
 
-# 🎛️ Sidebar filters with modern design
+# 🎛️ Sidebar filters with dark design
 with st.sidebar:
     st.markdown('<div class="sidebar-header">🎨 FILTROS</div>', unsafe_allow_html=True)
     
@@ -280,7 +391,7 @@ with st.container():
         st.markdown(f"""
         <div class="metric-card-green" style="text-align: center;">
             <h3 style="margin:0; font-size: 0.9rem;">Última Atualização</h3>
-            <p style="margin:0; font-size: 1rem; font-weight: bold;">10/10/2025</p>
+            <p style="margin:0; font-size: 1rem; font-weight: bold;">03/10/2025</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -290,7 +401,7 @@ filtered_df = df[
     df['Entidade'].isin(selected_entidade)
 ]
 
-# 📋 Summary com cards coloridos - CORREÇÃO: Criar a lista summary_data primeiro
+# 📋 Summary com cards coloridos - Dark Theme
 st.subheader("📋 Resumo por Intervalos")
 
 # Criar lista de dados para o resumo
@@ -315,9 +426,9 @@ if summary_data:
         with col:
             st.markdown(f"""
             <div class="{data['card_class']}">
-                <h3 style="margin:0; font-size: 0.9rem;">{data['Intervalo'].split(' 🟦')[0].split(' 🟫')[0].split(' 🟧')[0].split(' 🟨')[0].split(' 🟥')[0]}</h3>
-                <p style="margin:0; font-size: 1.2rem; font-weight: bold;">{data['Quantidade']}</p>
-                <p style="margin:0; font-size: 0.8rem;">€{data['Valor Pendente']:,.2f}</p>
+                <h3 style="margin:0; font-size: 0.9rem; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">{data['Intervalo'].split(' 🌊')[0].split(' 🪨')[0].split(' 🔥')[0].split(' ⚡')[0].split(' 💀')[0]}</h3>
+                <p style="margin:0; font-size: 1.2rem; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.3);">{data['Quantidade']}</p>
+                <p style="margin:0; font-size: 0.8rem; opacity: 0.9;">€{data['Valor Pendente']:,.2f}</p>
             </div>
             """, unsafe_allow_html=True)
     
@@ -333,7 +444,7 @@ if summary_data:
 else:
     st.warning("⚠️ Nenhum dado nos intervalos selecionados")
 
-# 📂 Detalhes por intervalo com expansores
+# 📂 Detalhes por intervalo com expansores - Dark Theme
 st.subheader("📊 Detalhes por Intervalo")
 
 for low, high, label, card_class in ranges:
@@ -356,7 +467,7 @@ for low, high, label, card_class in ranges:
             else:
                 st.info("ℹ️ Nenhum alerta neste intervalo")
 
-# 📥 Download Excel com botão estilizado
+# 📥 Download Excel com botão estilizado - Dark Theme
 st.subheader("📁 Exportação de Dados")
 
 if not filtered_df.empty:
@@ -367,7 +478,7 @@ if not filtered_df.empty:
     st.download_button(
         label="📥 BAIXAR DADOS FILTRADOS EM EXCEL",
         data=output.getvalue(),
-        file_name="dados_filtrados_bruno_brito.xlsx",
+        file_name="dados_filtrados_bruno_brito_dark.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
     )
@@ -376,14 +487,14 @@ if not filtered_df.empty:
 else:
     st.warning("⚠️ Nenhum dado disponível para download")
 
-# ❤️ Footer estilizado
+# ❤️ Footer estilizado - Dark Theme
 st.markdown("""
 <div class="custom-footer">
     <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 0.5rem;">
         <img src="https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png" 
-             style="height: 30px; border-radius: 5px;" 
+             style="height: 30px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.1);" 
              alt="Bracar Logo">
-        <p style="margin:0;">Feito com ❤️ em Streamlit</p>
+        <p style="margin:0;">Feito com ❤️ em Streamlit - Dark Mode</p>
     </div>
     <p style="margin:0; font-size: 0.8rem; opacity: 0.7;">Dashboard Bruno Brito - Gestão de Alertas</p>
 </div>
