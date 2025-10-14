@@ -5,11 +5,6 @@ from io import BytesIO
 # CSS personalizado com gradientes e estilo moderno
 st.markdown("""
 <style>
-    /* Fundo claro */
-    .stApp {
-        background-color: #ffffff;
-    }
-    
     /* Gradiente principal */
     .main-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -19,6 +14,7 @@ st.markdown("""
         color: white;
         text-align: center;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        position: relative;
     }
     
     .header-content {
@@ -125,14 +121,12 @@ st.markdown("""
     .dataframe {
         border-radius: 10px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        background-color: white !important;
     }
     
     /* Input fields styling */
     .stTextInput input, .stSelectbox div div, .stMultiSelect div div {
         border-radius: 10px;
         border: 2px solid #e0e0e0;
-        background-color: white;
     }
     
     .stTextInput input:focus, .stSelectbox div div:focus, .stMultiSelect div div:focus {
@@ -167,11 +161,11 @@ st.markdown("""
         border-radius: 15px;
         border: none;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        background-color: white;
     }
     
-    /* Hide only the main menu and footer, NOT the sidebar */
+    /* Hide default elements */
     #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
     footer {visibility: hidden;}
     
     /* Mobile tip styling */
@@ -195,56 +189,11 @@ st.markdown("""
         background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
         border-radius: 10px;
     }
-    
-    /* Sidebar visibility fix */
-    section[data-testid="stSidebar"] {
-        visibility: visible !important;
-        background-color: #f8f9fa;
-    }
-    
-    .css-1d391kg {
-        visibility: visible !important;
-    }
-    
-    /* Text color for better readability */
-    .stMarkdown {
-        color: #262730;
-    }
-    
-    .stSubheader {
-        color: #262730;
-    }
-    
-    /* Metric containers */
-    [data-testid="metric-container"] {
-        background-color: white;
-        border: 1px solid #e0e0e0;
-        border-radius: 10px;
-        padding: 1rem;
-    }
-    
-    /* Expander styling */
-    .streamlit-expanderHeader {
-        background-color: white !important;
-        border: 1px solid #e0e0e0 !important;
-        border-radius: 10px !important;
-    }
-    
-    .streamlit-expanderContent {
-        background-color: white !important;
-        border: 1px solid #e0e0e0 !important;
-        border-top: none !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
 # 🚀 Page configuration
-st.set_page_config(
-    page_title="Bruno Brito", 
-    layout="wide",
-    page_icon="📊",
-    initial_sidebar_state="expanded"
-)
+st.set_page_config(page_title="Bruno Brito", layout="centered")
 
 # Header principal com gradiente E LOGO DA BRACAR
 st.markdown("""
@@ -256,7 +205,7 @@ st.markdown("""
                  alt="Bracar Logo">
         </div>
         <div class="title-container">
-            <h1 style="margin:0; font-size: 2.5rem;">📊 BRUNO BRITO</h1>
+            <h1 style="margin:0; font-size: 2.5rem;">BRUNO BRITO</h1>
             <p style="margin:0; opacity: 0.9; font-size: 1.1rem;">Dashboard de Gestão de Alertas</p>
         </div>
     </div>
@@ -274,11 +223,6 @@ st.markdown("""
 url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/BBrito.xlsx"
 try:
     df = pd.read_excel(url)
-    
-    # CORREÇÃO: Converter coluna "Série" para string para evitar erro de serialização
-    if 'Série' in df.columns:
-        df['Série'] = df['Série'].astype(str)
-    
 except Exception as e:
     st.error(f"❌ Erro ao carregar o ficheiro: {e}")
     st.stop()
@@ -336,7 +280,7 @@ with st.container():
         st.markdown(f"""
         <div class="metric-card-green" style="text-align: center;">
             <h3 style="margin:0; font-size: 0.9rem;">Última Atualização</h3>
-            <p style="margin:0; font-size: 1rem; font-weight: bold;">03/10/2025</p>
+            <p style="margin:0; font-size: 1rem; font-weight: bold;">10/10/2025</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -346,7 +290,7 @@ filtered_df = df[
     df['Entidade'].isin(selected_entidade)
 ]
 
-# 📋 Summary com cards coloridos
+# 📋 Summary com cards coloridos - CORREÇÃO: Criar a lista summary_data primeiro
 st.subheader("📋 Resumo por Intervalos")
 
 # Criar lista de dados para o resumo
