@@ -2,15 +2,15 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
-# CSS personalizado com gradientes, estilo moderno e otimizações para mobile/iPhone
+# CSS personalizado com gradientes e estilo moderno
 st.markdown("""
 <style>
     /* Gradiente principal */
     .main-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1.5rem 1rem; /* Reduzido para mobile */
+        padding: 2rem;
         border-radius: 15px;
-        margin-bottom: 1.5rem; /* Reduzido */
+        margin-bottom: 2rem;
         color: white;
         text-align: center;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
@@ -21,8 +21,7 @@ st.markdown("""
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 0.8rem; /* Reduzido para mobile */
-        flex-wrap: wrap; /* Permite quebra em telas pequenas */
+        gap: 1rem;
     }
     
     .logo-container {
@@ -31,72 +30,84 @@ st.markdown("""
     }
     
     .logo-img {
-        height: 50px; /* Reduzido para mobile */
+        height: 60px;
         border-radius: 10px;
         box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-        max-width: 100%; /* Garante responsividade */
     }
     
     .title-container {
         text-align: center;
-        flex: 1; /* Ocupa espaço disponível */
     }
     
-    .title-container h1 {
-        margin: 0;
-        font-size: 2rem; /* Reduzido para mobile */
-    }
-    
-    .title-container p {
-        margin: 0;
-        opacity: 0.9;
-        font-size: 1rem; /* Reduzido */
-    }
-    
-    /* Cards com gradiente - otimizados para mobile */
-    .metric-card, .metric-card-blue, .metric-card-orange, .metric-card-red, .metric-card-green {
-        padding: 1rem; /* Reduzido para mobile */
-        border-radius: 12px; /* Ligeiramente menor */
+    /* Cards com gradiente */
+    .metric-card {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        padding: 1.5rem;
+        border-radius: 15px;
         color: white;
         margin: 0.5rem 0;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        text-align: center; /* Centraliza texto em mobile */
     }
     
-    .metric-card h3, .metric-card p {
-        margin: 0.2rem 0; /* Espaçamento reduzido */
+    .metric-card-blue {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        padding: 1.5rem;
+        border-radius: 15px;
+        color: white;
+        margin: 0.5rem 0;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     
-    .metric-card p[style*="font-size: 1.2rem"] {
-        font-size: 1.1rem; /* Ajuste para mobile */
+    .metric-card-orange {
+        background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+        padding: 1.5rem;
+        border-radius: 15px;
+        color: white;
+        margin: 0.5rem 0;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     
-    /* Sidebar styling - otimizado para mobile */
+    .metric-card-red {
+        background: linear-gradient(135deg, #ff5858 0%, #f09819 100%);
+        padding: 1.5rem;
+        border-radius: 15px;
+        color: white;
+        margin: 0.5rem 0;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
+    .metric-card-green {
+        background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
+        padding: 1.5rem;
+        border-radius: 15px;
+        color: white;
+        margin: 0.5rem 0;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
+    /* Sidebar styling */
     .sidebar-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 0.8rem; /* Reduzido */
+        padding: 1rem;
         border-radius: 10px;
         color: white;
         margin-bottom: 1rem;
         text-align: center;
-        font-size: 1.1rem; /* Ligeiramente maior para legibilidade */
     }
     
-    /* Botões modernos - touch-friendly para iPhone */
+    /* Botões modernos */
     .stButton button {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         border: none;
-        padding: 0.8rem 1rem; /* Maior padding para touch */
+        padding: 0.5rem 1rem;
         border-radius: 25px;
         font-weight: 600;
         transition: all 0.3s ease;
         width: 100%;
-        font-size: 1rem; /* Fonte maior para mobile */
-        min-height: 44px; /* Altura mínima para touch targets iOS */
     }
     
-    .stButton button:hover, .stButton button:active {
+    .stButton button:hover {
         transform: translateY(-2px);
         box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
     }
@@ -104,29 +115,18 @@ st.markdown("""
     /* Download button específico */
     .download-btn {
         background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%) !important;
-        min-height: 44px;
     }
     
-    /* Dataframe styling - responsivo para mobile */
+    /* Dataframe styling */
     .dataframe {
         border-radius: 10px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        font-size: 0.9rem; /* Fonte menor para caber em mobile */
     }
     
-    /* Scroll horizontal para tabelas em mobile */
-    .element-container .dataframe {
-        overflow-x: auto;
-        white-space: nowrap;
-    }
-    
-    /* Input fields styling - touch-friendly */
+    /* Input fields styling */
     .stTextInput input, .stSelectbox div div, .stMultiSelect div div {
         border-radius: 10px;
         border: 2px solid #e0e0e0;
-        padding: 0.8rem; /* Maior padding para touch */
-        font-size: 1rem;
-        min-height: 44px; /* Altura mínima iOS */
     }
     
     .stTextInput input:focus, .stSelectbox div div:focus, .stMultiSelect div div:focus {
@@ -134,30 +134,21 @@ st.markdown("""
         box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
     }
     
-    /* Multiselect - ajustes para mobile */
-    .stMultiSelect div div {
-        max-height: 200px; /* Limita altura em mobile para evitar scroll excessivo */
-    }
-    
-    /* Tabs styling - otimizado para mobile */
+    /* Tabs styling */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 0.5rem; /* Reduzido para mobile */
+        gap: 2rem;
         background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        padding: 0.8rem;
+        padding: 1rem;
         border-radius: 15px;
-        overflow-x: auto; /* Scroll horizontal se necessário */
-        white-space: nowrap;
     }
     
     .stTabs [data-baseweb="tab"] {
-        height: 44px; /* Altura touch-friendly */
-        white-space: nowrap; /* Evita quebra */
+        height: 50px;
+        white-space: pre-wrap;
         background: white;
         border-radius: 10px;
-        padding: 0 1rem; /* Reduzido */
+        padding: 0 2rem;
         font-weight: 600;
-        font-size: 0.9rem; /* Fonte menor */
-        min-width: 100px; /* Largura mínima */
     }
     
     .stTabs [aria-selected="true"] {
@@ -170,7 +161,6 @@ st.markdown("""
         border-radius: 15px;
         border: none;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        padding: 1rem; /* Padding consistente */
     }
     
     /* Hide default elements */
@@ -178,7 +168,7 @@ st.markdown("""
     header {visibility: hidden;}
     footer {visibility: hidden;}
     
-    /* Mobile tip styling - sempre visível em mobile */
+    /* Mobile tip styling */
     .mobile-tip {
         text-align: center;
         font-size: 14px;
@@ -189,112 +179,23 @@ st.markdown("""
         margin-bottom: 1rem;
     }
     
-    /* Footer styling - otimizado para mobile */
+    /* Footer styling */
     .custom-footer {
         text-align: center;
         color: #666;
-        font-size: 0.8rem;
-        margin-top: 1.5rem; /* Reduzido */
-        padding: 0.8rem;
+        font-size: 0.9rem;
+        margin-top: 2rem;
+        padding: 1rem;
         background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
         border-radius: 10px;
-    }
-    
-    .custom-footer img {
-        height: 25px; /* Reduzido */
-    }
-    
-    /* Expansores - ajustes para mobile */
-    .stExpander {
-        border-radius: 10px;
-        margin-bottom: 0.5rem;
-    }
-    
-    .stExpander > div > label {
-        font-size: 1.1rem; /* Título maior para touch */
-        padding: 0.8rem;
-    }
-    
-    /* Métricas em colunas - stack em mobile */
-    @media (max-width: 768px) {
-        .main-header {
-            padding: 1rem;
-        }
-        
-        .header-content {
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-        
-        .title-container h1 {
-            font-size: 1.8rem;
-        }
-        
-        .metric-card, .metric-card-blue, .metric-card-orange, .metric-card-red, .metric-card-green {
-            padding: 0.8rem;
-            margin: 0.3rem 0;
-        }
-        
-        .stButton button {
-            padding: 1rem;
-            font-size: 1.1rem;
-        }
-        
-        /* Colunas de métricas stackam automaticamente no Streamlit em mobile */
-        .block-container {
-            padding-top: 1rem;
-        }
-        
-        /* Dataframe em mobile: fonte menor e scroll */
-        .dataframe th, .dataframe td {
-            padding: 0.5rem;
-            font-size: 0.85rem;
-        }
-        
-        /* Sidebar em mobile: largura full */
-        section[data-testid="stSidebar"] {
-            width: 100% !important;
-        }
-        
-        /* Esconde tip de mobile em desktop */
-        .mobile-tip {
-            display: none;
-        }
-        
-        @media (min-width: 769px) {
-            .mobile-tip {
-                display: block;
-            }
-        }
-    }
-    
-    /* Otimizações específicas para iPhone (Safari iOS) */
-    @media (max-width: 414px) and (-webkit-min-device-pixel-ratio: 2) {
-        .logo-img {
-            height: 40px;
-        }
-        
-        .title-container h1 {
-            font-size: 1.6rem;
-        }
-        
-        .stTabs [data-baseweb="tab"] {
-            padding: 0 0.8rem;
-            min-width: 80px;
-        }
-    }
-    
-    /* Previne zoom em inputs iOS */
-    input[type="text"], input[type="email"], input[type="number"], select {
-        font-size: 16px; /* Previne zoom automático no iOS */
     }
 </style>
 """, unsafe_allow_html=True)
 
-# 🚀 Page configuration - wide para melhor uso em mobile landscape
-st.set_page_config(page_title="Renato Ferreira", layout="wide", initial_sidebar_state="collapsed")  # Collapsed para mobile
+# 🚀 Page configuration
+st.set_page_config(page_title="Renato Ferreira", layout="centered")
 
-# Header principal com gradiente E LOGO DA BRACAR - simplificado para mobile
+# Header principal com gradiente E LOGO DA BRACAR
 st.markdown("""
 <div class="main-header">
     <div class="header-content">
@@ -304,17 +205,17 @@ st.markdown("""
                  alt="Bracar Logo">
         </div>
         <div class="title-container">
-            <h1>RENATO FERREIRA</h1>
-            <p>Dashboard de Gestão de Alertas</p>
+            <h1 style="margin:0; font-size: 2.5rem;">RENATO FERREIRA</h1>
+            <p style="margin:0; opacity: 0.9; font-size: 1.1rem;">Dashboard de Gestão de Alertas</p>
         </div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# 📱 Mobile tip - agora condicional via CSS
+# 📱 Mobile tip
 st.markdown("""
 <div class="mobile-tip">
-    📱 Toque no ícone ≡ no canto superior esquerdo para abrir os filtros.
+    📱 Em dispositivos móveis, toque no ícone <strong>≡</strong> no canto superior esquerdo para abrir os filtros.
 </div>
 """, unsafe_allow_html=True)
 
@@ -339,51 +240,49 @@ ranges = [
     (91, 365, "91 a 365 dias 🟥", "metric-card-red")
 ]
 
-# 🎛️ Sidebar filters with modern design - otimizado para mobile
+# 🎛️ Sidebar filters with modern design
 with st.sidebar:
     st.markdown('<div class="sidebar-header">🎨 FILTROS</div>', unsafe_allow_html=True)
     
     selected_comercial = st.multiselect(
         "👨‍💼 Comercial",
         sorted(df['Comercial'].unique()),
-        default=sorted(df['Comercial'].unique()),
-        help="Selecione um ou mais comerciais"
+        default=sorted(df['Comercial'].unique())
     )
     
     selected_entidade = st.multiselect(
         "🏢 Entidade",
         sorted(df['Entidade'].unique()),
-        default=sorted(df['Entidade'].unique()),
-        help="Selecione uma ou mais entidades"
+        default=sorted(df['Entidade'].unique())
     )
     
     selected_ranges = st.multiselect(
         "📅 Intervalos de Dias",
         [r[2] for r in ranges],
-        default=[r[2] for r in ranges],
-        help="Selecione intervalos para filtrar"
+        default=[r[2] for r in ranges]
     )
     
-    # Estatísticas rápidas na sidebar - simplificado
+    # Estatísticas rápidas na sidebar
     st.markdown("---")
     st.markdown("### 📊 Estatísticas")
     total_registros = len(df)
     st.metric("Total de Registros", f"{total_registros:,}")
 
-# Container principal - usa colunas full width em mobile
-col1, col2 = st.columns([1, 3])  # Ajustado para melhor distribuição em mobile
-
-with col1:
-    if st.button("🔄 Atualizar Dados"):
-        st.rerun()
-
-with col2:
-    st.markdown(f"""
-    <div class="metric-card-green">
-        <h3>Última Atualização</h3>
-        <p>10/10/2025</p>
-    </div>
-    """, unsafe_allow_html=True)
+# Container principal
+with st.container():
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        if st.button("🔄 Atualizar Dados", use_container_width=True):
+            st.rerun()
+    
+    with col2:
+        st.markdown(f"""
+        <div class="metric-card-green" style="text-align: center;">
+            <h3 style="margin:0; font-size: 0.9rem;">Última Atualização</h3>
+            <p style="margin:0; font-size: 1rem; font-weight: bold;">10/10/2025</p>
+        </div>
+        """, unsafe_allow_html=True)
 
 # 🔍 Filter data
 filtered_df = df[
@@ -391,7 +290,7 @@ filtered_df = df[
     df['Entidade'].isin(selected_entidade)
 ]
 
-# 📋 Summary com cards coloridos
+# 📋 Summary com cards coloridos - CORREÇÃO: Criar a lista summary_data primeiro
 st.subheader("📋 Resumo por Intervalos")
 
 # Criar lista de dados para o resumo
@@ -410,21 +309,19 @@ for low, high, label, card_class in ranges:
 
 # Verificar se há dados para mostrar
 if summary_data:
-    # Mostrar cards métricos - em mobile, columns viram stack
+    # Mostrar cards métricos
     cols = st.columns(len(summary_data))
     for idx, (col, data) in enumerate(zip(cols, summary_data)):
         with col:
-            interval_name = data['Intervalo'].split(' ')[0:3]  # Limpa emoji melhor
-            interval_name = ' '.join(interval_name)
             st.markdown(f"""
             <div class="{data['card_class']}">
-                <h3>{interval_name}</h3>
-                <p>{data['Quantidade']}</p>
-                <p>€{data['Valor Pendente']:,.2f}</p>
+                <h3 style="margin:0; font-size: 0.9rem;">{data['Intervalo'].split(' 🟦')[0].split(' 🟫')[0].split(' 🟧')[0].split(' 🟨')[0].split(' 🟥')[0]}</h3>
+                <p style="margin:0; font-size: 1.2rem; font-weight: bold;">{data['Quantidade']}</p>
+                <p style="margin:0; font-size: 0.8rem;">€{data['Valor Pendente']:,.2f}</p>
             </div>
             """, unsafe_allow_html=True)
     
-    # Tabela de resumo - hide_index para mobile
+    # Tabela de resumo
     st.markdown("### 📊 Tabela de Resumo")
     summary_df = pd.DataFrame([{
         "Intervalo": data["Intervalo"],
@@ -432,11 +329,11 @@ if summary_data:
         "Valor Pendente": f"€{data['Valor Pendente']:,.2f}"
     } for data in summary_data])
     
-    st.dataframe(summary_df, use_container_width=True, hide_index=True)
+    st.dataframe(summary_df, use_container_width=True)
 else:
     st.warning("⚠️ Nenhum dado nos intervalos selecionados")
 
-# 📂 Detalhes por intervalo com expansores - otimizado
+# 📂 Detalhes por intervalo com expansores
 st.subheader("📊 Detalhes por Intervalo")
 
 for low, high, label, card_class in ranges:
@@ -444,7 +341,7 @@ for low, high, label, card_class in ranges:
         with st.expander(f"{label} - Ver Detalhes", expanded=False):
             range_df = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)]
             if not range_df.empty:
-                # Métricas do intervalo - columns stack em mobile
+                # Métricas do intervalo
                 col1, col2, col3 = st.columns(3)
                 with col1:
                     st.metric("Total de Registros", len(range_df))
@@ -454,12 +351,12 @@ for low, high, label, card_class in ranges:
                 with col3:
                     st.metric("Dias Médios", f"{range_df['Dias'].mean():.1f}")
                 
-                # Tabela de dados - hide_index
-                st.dataframe(range_df, use_container_width=True, hide_index=True)
+                # Tabela de dados
+                st.dataframe(range_df, use_container_width=True)
             else:
                 st.info("ℹ️ Nenhum alerta neste intervalo")
 
-# 📥 Download Excel com botão estilizado - full width
+# 📥 Download Excel com botão estilizado
 st.subheader("📁 Exportação de Dados")
 
 if not filtered_df.empty:
@@ -470,7 +367,7 @@ if not filtered_df.empty:
     st.download_button(
         label="📥 BAIXAR DADOS FILTRADOS EM EXCEL",
         data=output.getvalue(),
-        file_name="dados_filtrados_renato_ferreira.xlsx",  # Corrigido nome
+        file_name="dados_filtrados_bruno_brito.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
     )
@@ -479,15 +376,15 @@ if not filtered_df.empty:
 else:
     st.warning("⚠️ Nenhum dado disponível para download")
 
-# ❤️ Footer estilizado - simplificado
+# ❤️ Footer estilizado
 st.markdown("""
 <div class="custom-footer">
-    <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.3rem; flex-wrap: wrap;">
+    <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 0.5rem;">
         <img src="https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png" 
-             style="height: 25px; border-radius: 5px;" 
+             style="height: 30px; border-radius: 5px;" 
              alt="Bracar Logo">
-        <p>Feito com ❤️ em Streamlit</p>
+        <p style="margin:0;">Feito com ❤️ em Streamlit</p>
     </div>
-    <p>Dashboard Renato Ferreira - Gestão de Alertas</p>
+    <p style="margin:0; font-size: 0.8rem; opacity: 0.7;">Dashboard Bruno Brito - Gestão de Alertas</p>
 </div>
 """, unsafe_allow_html=True)
