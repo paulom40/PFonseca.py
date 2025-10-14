@@ -2,24 +2,10 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
-# Inicializar o estado do tema
-if 'dark_mode' not in st.session_state:
-    st.session_state.dark_mode = False
-
-# Função para alternar o tema
-def toggle_theme():
-    st.session_state.dark_mode = not st.session_state.dark_mode
-
-# CSS para tema claro
-light_theme = """
+# CSS personalizado com gradientes e estilo moderno
+st.markdown("""
 <style>
-    /* Tema Light Principal */
-    .stApp {
-        background-color: #ffffff;
-        color: #262730;
-    }
-    
-    /* Gradiente principal - Light */
+    /* Gradiente principal */
     .main-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         padding: 2rem;
@@ -27,7 +13,7 @@ light_theme = """
         margin-bottom: 2rem;
         color: white;
         text-align: center;
-        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         position: relative;
     }
     
@@ -35,7 +21,7 @@ light_theme = """
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 1.5rem;
+        gap: 1rem;
     }
     
     .logo-container {
@@ -44,23 +30,23 @@ light_theme = """
     }
     
     .logo-img {
-        height: 65px;
-        border-radius: 12px;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+        height: 60px;
+        border-radius: 10px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
     }
     
     .title-container {
         text-align: center;
     }
     
-    /* Cards com gradiente - Light Theme */
+    /* Cards com gradiente */
     .metric-card {
         background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
         padding: 1.5rem;
         border-radius: 15px;
         color: white;
         margin: 0.5rem 0;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     
     .metric-card-blue {
@@ -69,7 +55,7 @@ light_theme = """
         border-radius: 15px;
         color: white;
         margin: 0.5rem 0;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     
     .metric-card-orange {
@@ -78,7 +64,7 @@ light_theme = """
         border-radius: 15px;
         color: white;
         margin: 0.5rem 0;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     
     .metric-card-red {
@@ -87,7 +73,7 @@ light_theme = """
         border-radius: 15px;
         color: white;
         margin: 0.5rem 0;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     
     .metric-card-green {
@@ -96,10 +82,10 @@ light_theme = """
         border-radius: 15px;
         color: white;
         margin: 0.5rem 0;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     
-    /* Sidebar styling - Light */
+    /* Sidebar styling */
     .sidebar-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         padding: 1rem;
@@ -107,10 +93,9 @@ light_theme = """
         color: white;
         margin-bottom: 1rem;
         text-align: center;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     
-    /* Botões modernos - Light */
+    /* Botões modernos */
     .stButton button {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
@@ -120,30 +105,28 @@ light_theme = """
         font-weight: 600;
         transition: all 0.3s ease;
         width: 100%;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     
     .stButton button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
     }
     
-    .theme-toggle-btn {
-        background: linear-gradient(135deg, #ffd89b 0%, #19547b 100%) !important;
+    /* Download button específico */
+    .download-btn {
+        background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%) !important;
     }
     
-    /* Dataframe styling - Light */
+    /* Dataframe styling */
     .dataframe {
         border-radius: 10px;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     
-    /* Input fields styling - Light */
+    /* Input fields styling */
     .stTextInput input, .stSelectbox div div, .stMultiSelect div div {
         border-radius: 10px;
         border: 2px solid #e0e0e0;
-        background-color: white;
-        color: #262730;
     }
     
     .stTextInput input:focus, .stSelectbox div div:focus, .stMultiSelect div div:focus {
@@ -151,293 +134,68 @@ light_theme = """
         box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
     }
     
-    /* Mobile tip styling - Light */
-    .mobile-tip {
-        text-align: center;
-        font-size: 14px;
-        color: #666;
+    /* Tabs styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 2rem;
         background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        padding: 12px;
-        border-radius: 10px;
-        margin-bottom: 1rem;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-    
-    /* Footer styling - Light */
-    .custom-footer {
-        text-align: center;
-        color: #666;
-        font-size: 0.9rem;
-        margin-top: 2rem;
-        padding: 1.5rem;
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        border-radius: 10px;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.1);
-    }
-</style>
-"""
-
-# CSS para tema escuro
-dark_theme = """
-<style>
-    /* Tema Dark Principal */
-    .stApp {
-        background-color: #0e1117;
-        color: #fafafa;
-    }
-    
-    /* Gradiente principal - Dark */
-    .main-header {
-        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-        padding: 2rem;
-        border-radius: 15px;
-        margin-bottom: 2rem;
-        color: white;
-        text-align: center;
-        box-shadow: 0 8px 25px rgba(0,0,0,0.3);
-        border: 1px solid #2a5298;
-        position: relative;
-    }
-    
-    .header-content {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 1.5rem;
-    }
-    
-    .logo-container {
-        display: flex;
-        align-items: center;
-    }
-    
-    .logo-img {
-        height: 65px;
-        border-radius: 12px;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.4);
-        border: 2px solid rgba(255,255,255,0.1);
-    }
-    
-    .title-container {
-        text-align: center;
-    }
-    
-    /* Cards com gradiente - Dark Theme */
-    .metric-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1.5rem;
-        border-radius: 15px;
-        color: white;
-        margin: 0.5rem 0;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-        border: 1px solid rgba(255,255,255,0.1);
-    }
-    
-    .metric-card-blue {
-        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-        padding: 1.5rem;
-        border-radius: 15px;
-        color: white;
-        margin: 0.5rem 0;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-        border: 1px solid rgba(255,255,255,0.1);
-    }
-    
-    .metric-card-orange {
-        background: linear-gradient(135deg, #f46b45 0%, #eea849 100%);
-        padding: 1.5rem;
-        border-radius: 15px;
-        color: white;
-        margin: 0.5rem 0;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-        border: 1px solid rgba(255,255,255,0.1);
-    }
-    
-    .metric-card-red {
-        background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
-        padding: 1.5rem;
-        border-radius: 15px;
-        color: white;
-        margin: 0.5rem 0;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-        border: 1px solid rgba(255,255,255,0.1);
-    }
-    
-    .metric-card-green {
-        background: linear-gradient(135deg, #0ba360 0%, #3cba92 100%);
-        padding: 1.5rem;
-        border-radius: 15px;
-        color: white;
-        margin: 0.5rem 0;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-        border: 1px solid rgba(255,255,255,0.1);
-    }
-    
-    /* Sidebar styling - Dark */
-    .sidebar-header {
-        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
         padding: 1rem;
-        border-radius: 10px;
-        color: white;
-        margin-bottom: 1rem;
-        text-align: center;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 15px;
     }
     
-    /* Botões modernos - Dark */
-    .stButton button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 25px;
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        white-space: pre-wrap;
+        background: white;
+        border-radius: 10px;
+        padding: 0 2rem;
         font-weight: 600;
-        transition: all 0.3s ease;
-        width: 100%;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     }
     
-    .stButton button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
-    }
-    
-    .theme-toggle-btn {
+    .stTabs [aria-selected="true"] {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-    }
-    
-    /* Dataframe styling - Dark */
-    .dataframe {
-        border-radius: 10px;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-        background-color: #1e1e1e !important;
-        border: 1px solid #333;
-    }
-    
-    .dataframe table {
-        background-color: #1e1e1e !important;
-        color: #fafafa !important;
-    }
-    
-    .dataframe th {
-        background-color: #2a5298 !important;
         color: white !important;
     }
     
-    .dataframe td {
-        background-color: #1e1e1e !important;
-        color: #fafafa !important;
-        border-color: #333 !important;
+    /* Alert boxes customizados */
+    .stAlert {
+        border-radius: 15px;
+        border: none;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     
-    /* Input fields styling - Dark */
-    .stTextInput input, .stSelectbox div div, .stMultiSelect div div {
-        border-radius: 10px;
-        border: 2px solid #333;
-        background-color: #1e1e1e;
-        color: #fafafa;
-    }
+    /* Hide default elements */
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
     
-    .stTextInput input:focus, .stSelectbox div div:focus, .stMultiSelect div div:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.3);
-    }
-    
-    /* Mobile tip styling - Dark */
+    /* Mobile tip styling */
     .mobile-tip {
         text-align: center;
         font-size: 14px;
-        color: #ccc;
-        background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
-        padding: 12px;
+        color: #666;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        padding: 10px;
         border-radius: 10px;
         margin-bottom: 1rem;
-        border: 1px solid #333;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     }
     
-    /* Footer styling - Dark */
+    /* Footer styling */
     .custom-footer {
         text-align: center;
-        color: #ccc;
+        color: #666;
         font-size: 0.9rem;
         margin-top: 2rem;
-        padding: 1.5rem;
-        background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
-        border-radius: 10px;
-        border: 1px solid #333;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-    }
-    
-    /* Expander styling - Dark */
-    .streamlit-expanderHeader {
-        background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%) !important;
-        color: #fafafa !important;
-        border: 1px solid #333 !important;
-        border-radius: 10px !important;
-        margin: 5px 0;
-    }
-    
-    .streamlit-expanderContent {
-        background-color: #1e1e1e !important;
-        border: 1px solid #333 !important;
-        border-top: none !important;
-        border-radius: 0 0 10px 10px !important;
-    }
-    
-    /* Metric styling - Dark */
-    [data-testid="metric-container"] {
-        background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%) !important;
-        border: 1px solid #333 !important;
-        border-radius: 10px;
         padding: 1rem;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        border-radius: 10px;
     }
 </style>
-"""
-
-# Aplicar o tema baseado no estado
-if st.session_state.dark_mode:
-    st.markdown(dark_theme, unsafe_allow_html=True)
-    theme_icon = "🌙"
-    theme_text = "Modo Escuro"
-    next_theme = "☀️ Modo Claro"
-else:
-    st.markdown(light_theme, unsafe_allow_html=True)
-    theme_icon = "☀️"
-    theme_text = "Modo Claro"
-    next_theme = "🌙 Modo Escuro"
+""", unsafe_allow_html=True)
 
 # 🚀 Page configuration
-st.set_page_config(page_title=f"Bruno Brito - {theme_text}", layout="centered", page_icon="📊")
+st.set_page_config(page_title="Bruno Brito", layout="centered")
 
-# Header principal com botão de tema
-col_header1, col_header2, col_header3 = st.columns([2, 3, 1])
-
-with col_header1:
-    st.markdown("""
-    <div class="logo-container">
-        <img src="https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png" 
-             class="logo-img" 
-             alt="Bracar Logo">
-    </div>
-    """, unsafe_allow_html=True)
-
-with col_header2:
-    st.markdown(f"""
-    <div class="title-container">
-        <h1 style="margin:0; font-size: 2.5rem;">{theme_icon} BRUNO BRITO</h1>
-        <p style="margin:0; opacity: 0.9; font-size: 1.1rem;">Dashboard de Gestão de Alertas - {theme_text}</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col_header3:
-    if st.button(next_theme, key="theme_toggle", use_container_width=True):
-        toggle_theme()
-        st.rerun()
-
-# Container do header
+# Header principal com gradiente E LOGO DA BRACAR
 st.markdown("""
 <div class="main-header">
     <div class="header-content">
@@ -447,12 +205,12 @@ st.markdown("""
                  alt="Bracar Logo">
         </div>
         <div class="title-container">
-            <h1 style="margin:0; font-size: 2.5rem;">{theme_icon} BRUNO BRITO</h1>
-            <p style="margin:0; opacity: 0.9; font-size: 1.1rem;">Dashboard de Gestão de Alertas - {theme_text}</p>
+            <h1 style="margin:0; font-size: 2.5rem;">BRUNO BRITO</h1>
+            <p style="margin:0; opacity: 0.9; font-size: 1.1rem;">Dashboard de Gestão de Alertas</p>
         </div>
     </div>
 </div>
-""".format(theme_icon=theme_icon, theme_text=theme_text), unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 # 📱 Mobile tip
 st.markdown("""
@@ -473,32 +231,18 @@ except Exception as e:
 df['Dias'] = pd.to_numeric(df['Dias'], errors='coerce')
 df.dropna(subset=['Dias'], inplace=True)
 
-# 📅 Define ranges with colors baseado no tema
-if st.session_state.dark_mode:
-    ranges = [
-        (0, 15, "0 a 15 dias 🌊", "metric-card-blue"),
-        (16, 30, "16 a 30 dias 🪨", "metric-card"),
-        (31, 60, "31 a 60 dias 🔥", "metric-card-orange"),
-        (61, 90, "61 a 90 dias ⚡", "metric-card-orange"),
-        (91, 365, "91 a 365 dias 💀", "metric-card-red")
-    ]
-else:
-    ranges = [
-        (0, 15, "0 a 15 dias 🟦", "metric-card-blue"),
-        (16, 30, "16 a 30 dias 🟫", "metric-card"),
-        (31, 60, "31 a 60 dias 🟧", "metric-card-orange"),
-        (61, 90, "61 a 90 dias 🟨", "metric-card-orange"),
-        (91, 365, "91 a 365 dias 🟥", "metric-card-red")
-    ]
+# 📅 Define ranges with colors
+ranges = [
+    (0, 15, "0 a 15 dias 🟦", "metric-card-blue"),
+    (16, 30, "16 a 30 dias 🟫", "metric-card"),
+    (31, 60, "31 a 60 dias 🟧", "metric-card-orange"),
+    (61, 90, "61 a 90 dias 🟨", "metric-card-orange"),
+    (91, 365, "91 a 365 dias 🟥", "metric-card-red")
+]
 
-# 🎛️ Sidebar filters
+# 🎛️ Sidebar filters with modern design
 with st.sidebar:
     st.markdown('<div class="sidebar-header">🎨 FILTROS</div>', unsafe_allow_html=True)
-    
-    # Botão de tema na sidebar também
-    if st.button(f"🔄 Alternar para {next_theme.split(' ')[1]}", key="sidebar_theme", use_container_width=True):
-        toggle_theme()
-        st.rerun()
     
     selected_comercial = st.multiselect(
         "👨‍💼 Comercial",
@@ -536,8 +280,7 @@ with st.container():
         st.markdown(f"""
         <div class="metric-card-green" style="text-align: center;">
             <h3 style="margin:0; font-size: 0.9rem;">Última Atualização</h3>
-            <p style="margin:0; font-size: 1rem; font-weight: bold;">03/10/2025</p>
-            <p style="margin:0; font-size: 0.7rem; opacity: 0.8;">{theme_text}</p>
+            <p style="margin:0; font-size: 1rem; font-weight: bold;">10/10/2025</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -547,7 +290,7 @@ filtered_df = df[
     df['Entidade'].isin(selected_entidade)
 ]
 
-# 📋 Summary com cards coloridos
+# 📋 Summary com cards coloridos - CORREÇÃO: Criar a lista summary_data primeiro
 st.subheader("📋 Resumo por Intervalos")
 
 # Criar lista de dados para o resumo
@@ -570,13 +313,11 @@ if summary_data:
     cols = st.columns(len(summary_data))
     for idx, (col, data) in enumerate(zip(cols, summary_data)):
         with col:
-            # Remover emojis para o título do card
-            clean_label = data['Intervalo'].split(' 🟦')[0].split(' 🟫')[0].split(' 🟧')[0].split(' 🟨')[0].split(' 🟥')[0].split(' 🌊')[0].split(' 🪨')[0].split(' 🔥')[0].split(' ⚡')[0].split(' 💀')[0]
             st.markdown(f"""
             <div class="{data['card_class']}">
-                <h3 style="margin:0; font-size: 0.9rem;">{clean_label}</h3>
+                <h3 style="margin:0; font-size: 0.9rem;">{data['Intervalo'].split(' 🟦')[0].split(' 🟫')[0].split(' 🟧')[0].split(' 🟨')[0].split(' 🟥')[0]}</h3>
                 <p style="margin:0; font-size: 1.2rem; font-weight: bold;">{data['Quantidade']}</p>
-                <p style="margin:0; font-size: 0.8rem; opacity: 0.9;">€{data['Valor Pendente']:,.2f}</p>
+                <p style="margin:0; font-size: 0.8rem;">€{data['Valor Pendente']:,.2f}</p>
             </div>
             """, unsafe_allow_html=True)
     
@@ -626,7 +367,7 @@ if not filtered_df.empty:
     st.download_button(
         label="📥 BAIXAR DADOS FILTRADOS EM EXCEL",
         data=output.getvalue(),
-        file_name=f"dados_filtrados_bruno_brito_{'dark' if st.session_state.dark_mode else 'light'}.xlsx",
+        file_name="dados_filtrados_bruno_brito.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
     )
@@ -640,13 +381,10 @@ st.markdown("""
 <div class="custom-footer">
     <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-bottom: 0.5rem;">
         <img src="https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png" 
-             style="height: 30px; border-radius: 5px; {border_style}" 
+             style="height: 30px; border-radius: 5px;" 
              alt="Bracar Logo">
-        <p style="margin:0;">Feito com ❤️ em Streamlit - {theme_text}</p>
+        <p style="margin:0;">Feito com ❤️ em Streamlit</p>
     </div>
     <p style="margin:0; font-size: 0.8rem; opacity: 0.7;">Dashboard Bruno Brito - Gestão de Alertas</p>
 </div>
-""".format(
-    theme_text=theme_text,
-    border_style="border: 1px solid rgba(255,255,255,0.1);" if st.session_state.dark_mode else ""
-), unsafe_allow_html=True)
+""", unsafe_allow_html=True)
