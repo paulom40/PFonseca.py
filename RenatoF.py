@@ -157,7 +157,6 @@ base_css = """
     .mobile-tip {
         text-align: center;
         font-size: 14px;
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
         padding: 10px;
         border-radius: 10px;
         margin-bottom: 1rem;
@@ -241,11 +240,25 @@ light_css = """
     
     .mobile-tip {
         color: #666;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
     }
     
     .custom-footer {
         color: #666;
         background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    }
+    
+    /* Background branco por default */
+    .stApp {
+        background-color: #ffffff;
+    }
+    
+    .stSidebar {
+        background-color: #ffffff;
+    }
+    
+    section[data-testid="stSidebar"] > div {
+        background-color: #ffffff;
     }
 """
 
