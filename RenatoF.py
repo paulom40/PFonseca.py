@@ -2,12 +2,11 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
-# CSS personalizado com gradientes e estilo moderno
-st.markdown("""
+# CSS base (comum a ambos os modos)
+base_css = """
 <style>
     /* Gradiente principal */
     .main-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         padding: 2rem;
         border-radius: 15px;
         margin-bottom: 2rem;
@@ -41,7 +40,6 @@ st.markdown("""
     
     /* Cards com gradiente */
     .metric-card {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
         padding: 1.5rem;
         border-radius: 15px;
         color: white;
@@ -50,7 +48,6 @@ st.markdown("""
     }
     
     .metric-card-blue {
-        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
         padding: 1.5rem;
         border-radius: 15px;
         color: white;
@@ -59,7 +56,6 @@ st.markdown("""
     }
     
     .metric-card-orange {
-        background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
         padding: 1.5rem;
         border-radius: 15px;
         color: white;
@@ -68,7 +64,6 @@ st.markdown("""
     }
     
     .metric-card-red {
-        background: linear-gradient(135deg, #ff5858 0%, #f09819 100%);
         padding: 1.5rem;
         border-radius: 15px;
         color: white;
@@ -77,7 +72,6 @@ st.markdown("""
     }
     
     .metric-card-green {
-        background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
         padding: 1.5rem;
         border-radius: 15px;
         color: white;
@@ -87,18 +81,14 @@ st.markdown("""
     
     /* Sidebar styling */
     .sidebar-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         padding: 1rem;
         border-radius: 10px;
-        color: white;
         margin-bottom: 1rem;
         text-align: center;
     }
     
     /* Botões modernos */
     .stButton button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
         border: none;
         padding: 0.5rem 1rem;
         border-radius: 25px;
@@ -109,12 +99,11 @@ st.markdown("""
     
     .stButton button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.2);
     }
     
     /* Download button específico */
     .download-btn {
-        background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%) !important;
     }
     
     /* Dataframe styling */
@@ -126,18 +115,16 @@ st.markdown("""
     /* Input fields styling */
     .stTextInput input, .stSelectbox div div, .stMultiSelect div div {
         border-radius: 10px;
-        border: 2px solid #e0e0e0;
+        border: 2px solid;
     }
     
     .stTextInput input:focus, .stSelectbox div div:focus, .stMultiSelect div div:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+        box-shadow: 0 0 0 2px rgba(0,0,0,0.2);
     }
     
     /* Tabs styling */
     .stTabs [data-baseweb="tab-list"] {
         gap: 2rem;
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
         padding: 1rem;
         border-radius: 15px;
     }
@@ -145,14 +132,12 @@ st.markdown("""
     .stTabs [data-baseweb="tab"] {
         height: 50px;
         white-space: pre-wrap;
-        background: white;
         border-radius: 10px;
         padding: 0 2rem;
         font-weight: 600;
     }
     
     .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
         color: white !important;
     }
     
@@ -172,7 +157,6 @@ st.markdown("""
     .mobile-tip {
         text-align: center;
         font-size: 14px;
-        color: #666;
         background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
         padding: 10px;
         border-radius: 10px;
@@ -182,18 +166,193 @@ st.markdown("""
     /* Footer styling */
     .custom-footer {
         text-align: center;
-        color: #666;
         font-size: 0.9rem;
         margin-top: 2rem;
         padding: 1rem;
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
         border-radius: 10px;
     }
 </style>
-""", unsafe_allow_html=True)
+"""
+
+# CSS para modo claro
+light_css = """
+    .main-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .metric-card {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    
+    .metric-card-blue {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+    
+    .metric-card-orange {
+        background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+    }
+    
+    .metric-card-red {
+        background: linear-gradient(135deg, #ff5858 0%, #f09819 100%);
+    }
+    
+    .metric-card-green {
+        background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
+    }
+    
+    .sidebar-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .stButton button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    
+    .stButton button:hover {
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    .download-btn {
+        background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%) !important;
+    }
+    
+    .stTextInput input, .stSelectbox div div, .stMultiSelect div div {
+        border-color: #e0e0e0;
+    }
+    
+    .stTextInput input:focus, .stSelectbox div div:focus, .stMultiSelect div div:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+    }
+    
+    .stTabs [data-baseweb="tab-list"] {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        background: white;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    }
+    
+    .mobile-tip {
+        color: #666;
+    }
+    
+    .custom-footer {
+        color: #666;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    }
+"""
+
+# CSS para modo escuro
+dark_css = """
+    .main-header {
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    }
+    
+    .metric-card {
+        background: linear-gradient(135deg, #8e44ad 0%, #9b59b6 100%);
+    }
+    
+    .metric-card-blue {
+        background: linear-gradient(135deg, #3498db 0%, #5dade2 100%);
+    }
+    
+    .metric-card-orange {
+        background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+    }
+    
+    .metric-card-red {
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    }
+    
+    .metric-card-green {
+        background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+    }
+    
+    .sidebar-header {
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+        color: white;
+    }
+    
+    .stButton button {
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+        color: white;
+    }
+    
+    .stButton button:hover {
+        box-shadow: 0 6px 20px rgba(44, 62, 80, 0.4);
+    }
+    
+    .download-btn {
+        background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%) !important;
+    }
+    
+    .stTextInput input, .stSelectbox div div, .stMultiSelect div div {
+        border-color: #34495e;
+    }
+    
+    .stTextInput input:focus, .stSelectbox div div:focus, .stMultiSelect div div:focus {
+        border-color: #3498db;
+        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    }
+    
+    .stTabs [data-baseweb="tab-list"] {
+        background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        background: #34495e;
+        color: white;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%) !important;
+    }
+    
+    .mobile-tip {
+        color: #bdc3c7;
+        background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+    }
+    
+    .custom-footer {
+        color: #bdc3c7;
+        background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+    }
+    
+    /* Ajustes gerais para modo escuro */
+    .stApp {
+        background-color: #1e1e1e;
+    }
+    
+    .stSidebar {
+        background-color: #2c3e50;
+    }
+    
+    section[data-testid="stSidebar"] > div {
+        background-color: #2c3e50;
+    }
+"""
 
 # 🚀 Page configuration
 st.set_page_config(page_title="Bruno Brito", layout="centered")
+
+# Inicializar estado da sessão para o modo escuro
+if 'dark_mode' not in st.session_state:
+    st.session_state.dark_mode = False
+
+# Aplicar CSS baseado no modo
+css = base_css
+if st.session_state.dark_mode:
+    css += dark_css
+else:
+    css += light_css
+st.markdown(css, unsafe_allow_html=True)
 
 # Header principal com gradiente E LOGO DA BRACAR
 st.markdown("""
@@ -248,6 +407,11 @@ ranges = [
 # 🎛️ Sidebar filters with modern design
 with st.sidebar:
     st.markdown('<div class="sidebar-header">🎨 FILTROS</div>', unsafe_allow_html=True)
+    
+    # Toggle para modo escuro
+    st.session_state.dark_mode = st.toggle("🌙 Modo Escuro", value=st.session_state.dark_mode)
+    if st.button("Aplicar Tema"):
+        st.rerun()
     
     selected_comercial = st.multiselect(
         "👨‍💼 Comercial",
