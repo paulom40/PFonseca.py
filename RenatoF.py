@@ -229,6 +229,9 @@ except Exception as e:
 
 # 🧼 Clean data
 df['Dias'] = pd.to_numeric(df['Dias'], errors='coerce')
+# Fix mixed types in 'N.º Doc.' column for Arrow compatibility
+if 'N.º Doc.' in df.columns:
+    df['N.º Doc.'] = df['N.º Doc.'].astype(str)
 df.dropna(subset=['Dias'], inplace=True)
 
 # 📅 Define ranges with colors
@@ -312,10 +315,12 @@ if summary_data:
     # Mostrar cards métricos
     cols = st.columns(len(summary_data))
     for idx, (col, data) in enumerate(zip(cols, summary_data)):
+        interval_name = data['Intervalo'].split(' ')[0:3]
+        interval_name = ' '.join(interval_name)
         with col:
             st.markdown(f"""
             <div class="{data['card_class']}">
-                <h3 style="margin:0; font-size: 0.9rem;">{data['Intervalo'].split(' 🟦')[0].split(' 🟫')[0].split(' 🟧')[0].split(' 🟨')[0].split(' 🟥')[0]}</h3>
+                <h3 style="margin:0; font-size: 0.9rem;">{interval_name}</h3>
                 <p style="margin:0; font-size: 1.2rem; font-weight: bold;">{data['Quantidade']}</p>
                 <p style="margin:0; font-size: 0.8rem;">€{data['Valor Pendente']:,.2f}</p>
             </div>
@@ -329,7 +334,7 @@ if summary_data:
         "Valor Pendente": f"€{data['Valor Pendente']:,.2f}"
     } for data in summary_data])
     
-    st.dataframe(summary_df, use_container_width=True)
+    st.dataframe(summary_df, width='stretch')
 else:
     st.warning("⚠️ Nenhum dado nos intervalos selecionados")
 
@@ -341,6 +346,9 @@ for low, high, label, card_class in ranges:
         with st.expander(f"{label} - Ver Detalhes", expanded=False):
             range_df = filtered_df[(filtered_df['Dias'] >= low) & (filtered_df['Dias'] <= high)]
             if not range_df.empty:
+                # Ensure Arrow compatibility for this dataframe
+                if 'N.º Doc.' in range_df.columns:
+                    range_df['N.º Doc.'] = range_df['N.º Doc.'].astype(str)
                 # Métricas do intervalo
                 col1, col2, col3 = st.columns(3)
                 with col1:
@@ -352,7 +360,7 @@ for low, high, label, card_class in ranges:
                     st.metric("Dias Médios", f"{range_df['Dias'].mean():.1f}")
                 
                 # Tabela de dados
-                st.dataframe(range_df, use_container_width=True)
+                st.dataframe(range_df, width='stretch')
             else:
                 st.info("ℹ️ Nenhum alerta neste intervalo")
 
@@ -360,16 +368,21 @@ for low, high, label, card_class in ranges:
 st.subheader("📁 Exportação de Dados")
 
 if not filtered_df.empty:
+    # Ensure Arrow compatibility for download dataframe
+    download_df = filtered_df.copy()
+    if 'N.º Doc.' in download_df.columns:
+        download_df['N.º Doc.'] = download_df['N.º Doc.'].astype(str)
+    
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        filtered_df.to_excel(writer, index=False, sheet_name='Dados Filtrados')
+        download_df.to_excel(writer, index=False, sheet_name='Dados Filtrados')
     
     st.download_button(
         label="📥 BAIXAR DADOS FILTRADOS EM EXCEL",
         data=output.getvalue(),
         file_name="dados_filtrados_bruno_brito.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True
+        width='stretch'
     )
     
     st.success(f"✅ Pronto para exportar {len(filtered_df)} registros")
