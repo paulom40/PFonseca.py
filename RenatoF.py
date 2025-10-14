@@ -18,6 +18,26 @@ st.markdown("""
         background-color: #ffffff;
     }
     
+    /* Sidebar always visible - prevent collapse */
+    .css-1v0mbdj {
+        display: none !important;
+    }
+    
+    /* Ensure sidebar is always expanded */
+    [data-testid="collapsedControl"] {
+        display: none !important;
+    }
+    
+    .stSidebar {
+        transform: none !important;
+        width: 300px !important;
+    }
+    
+    /* Sidebar toggle button hidden since always visible */
+    .css-1v0mbdj {
+        visibility: hidden !important;
+    }
+    
     /* Gradiente principal */
     .main-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -55,15 +75,17 @@ st.markdown("""
     .title-container h1 {
         margin: 0;
         font-size: 2.5rem;
+        color: white;
     }
     
     .title-container p {
         margin: 0;
         opacity: 0.9;
         font-size: 1.1rem;
+        color: white;
     }
     
-    /* Cards com gradiente */
+    /* Cards com gradiente - text black on light gradients if needed, but white on dark */
     .metric-card {
         background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
         padding: 1.5rem;
@@ -71,6 +93,12 @@ st.markdown("""
         color: white;
         margin: 0.5rem 0;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
+    .metric-card h3,
+    .metric-card p {
+        color: white !important;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
     }
     
     .metric-card-blue {
@@ -82,13 +110,25 @@ st.markdown("""
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     
+    .metric-card-blue h3,
+    .metric-card-blue p {
+        color: white !important;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+    }
+    
     .metric-card-orange {
         background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
         padding: 1.5rem;
         border-radius: 15px;
-        color: white;
+        color: black;
         margin: 0.5rem 0;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
+    .metric-card-orange h3,
+    .metric-card-orange p {
+        color: black !important;
+        text-shadow: none;
     }
     
     .metric-card-red {
@@ -100,6 +140,12 @@ st.markdown("""
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     
+    .metric-card-red h3,
+    .metric-card-red p {
+        color: white !important;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+    }
+    
     .metric-card-green {
         background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
         padding: 1.5rem;
@@ -107,6 +153,12 @@ st.markdown("""
         color: white;
         margin: 0.5rem 0;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
+    .metric-card-green h3,
+    .metric-card-green p {
+        color: white !important;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
     }
     
     /* Sidebar styling */
@@ -117,6 +169,11 @@ st.markdown("""
         color: white;
         margin-bottom: 1rem;
         text-align: center;
+    }
+    
+    .sidebar-header h1,
+    .sidebar-header p {
+        color: white !important;
     }
     
     /* Botões modernos */
@@ -151,6 +208,7 @@ st.markdown("""
     .stTextInput input, .stSelectbox div div, .stMultiSelect div div {
         border-radius: 10px;
         border: 2px solid #e0e0e0;
+        color: black;
     }
     
     .stTextInput input:focus, .stSelectbox div div:focus, .stMultiSelect div div:focus {
@@ -173,6 +231,7 @@ st.markdown("""
         border-radius: 10px;
         padding: 0 2rem;
         font-weight: 600;
+        color: black;
     }
     
     .stTabs [aria-selected="true"] {
@@ -185,6 +244,7 @@ st.markdown("""
         border-radius: 15px;
         border: none;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        color: black;
     }
     
     /* Hide default elements */
@@ -315,17 +375,6 @@ st.markdown("""
             font-size: 0.9rem;
             height: 40px;
         }
-        
-        /* Sidebar buttons visíveis quando escondida */
-        .stSidebar button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white !important;
-            border: none;
-        }
-        
-        .stSidebar button:hover {
-            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-        }
     }
 
     @media (max-width: 480px) {
@@ -388,7 +437,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 🚀 Page configuration
-st.set_page_config(page_title="Bruno Brito", layout="centered")
+st.set_page_config(page_title="Bruno Brito", layout="wide")
 
 # Header principal com gradiente E LOGO DA BRACAR
 st.markdown("""
