@@ -162,9 +162,8 @@ st.markdown("""
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     
-    /* Hide default elements */
+    /* Hide only the main menu and footer, NOT the sidebar */
     #MainMenu {visibility: hidden;}
-    header {visibility: hidden;}
     footer {visibility: hidden;}
     
     /* Mobile tip styling */
@@ -188,11 +187,25 @@ st.markdown("""
         background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
         border-radius: 10px;
     }
+    
+    /* Sidebar visibility fix */
+    section[data-testid="stSidebar"] {
+        visibility: visible !important;
+    }
+    
+    .css-1d391kg {
+        visibility: visible !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # 🚀 Page configuration
-st.set_page_config(page_title="Bruno Brito", layout="centered", page_icon="📊")
+st.set_page_config(
+    page_title="Bruno Brito", 
+    layout="wide",  # Mudado para "wide" para melhor visualização da sidebar
+    page_icon="📊",
+    initial_sidebar_state="expanded"  # Garantir que a sidebar abra por padrão
+)
 
 # Header principal com gradiente E LOGO DA BRACAR
 st.markdown("""
@@ -277,7 +290,7 @@ with st.container():
     col1, col2 = st.columns([1, 2])
     
     with col1:
-        if st.button("🔄 Atualizar Dados", width='stretch'):
+        if st.button("🔄 Atualizar Dados", use_container_width=True):
             st.rerun()
     
     with col2:
@@ -333,7 +346,7 @@ if summary_data:
         "Valor Pendente": f"€{data['Valor Pendente']:,.2f}"
     } for data in summary_data])
     
-    st.dataframe(summary_df, width='stretch')
+    st.dataframe(summary_df, use_container_width=True)
 else:
     st.warning("⚠️ Nenhum dado nos intervalos selecionados")
 
@@ -356,7 +369,7 @@ for low, high, label, card_class in ranges:
                     st.metric("Dias Médios", f"{range_df['Dias'].mean():.1f}")
                 
                 # Tabela de dados
-                st.dataframe(range_df, width='stretch')
+                st.dataframe(range_df, use_container_width=True)
             else:
                 st.info("ℹ️ Nenhum alerta neste intervalo")
 
@@ -373,7 +386,7 @@ if not filtered_df.empty:
         data=output.getvalue(),
         file_name="dados_filtrados_bruno_brito.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        width='stretch'
+        use_container_width=True
     )
     
     st.success(f"✅ Pronto para exportar {len(filtered_df)} registros")
