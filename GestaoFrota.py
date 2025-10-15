@@ -79,21 +79,55 @@ with aba_combustivel:
     if selected_matriculas and len(selected_matriculas) > 1:
         # Gráfico de linhas comparando múltiplas viaturas
         consumo_mes_matricula = df_filtrado.groupby(["Mês", "Matricula"])["Consumo"].sum().reset_index()
-        chart = alt.Chart(consumo_mes_matricula).mark_line(point=True).encode(
-            x=alt.X("Mês", sort=ordem_meses),
-            y="Consumo",
-            color="Matricula",
+        
+        # Gráfico de linhas
+        line_chart = alt.Chart(consumo_mes_matricula).mark_line(point=True, strokeWidth=3).encode(
+            x=alt.X("Mês", sort=ordem_meses, title="Mês"),
+            y=alt.Y("Consumo", title="Consumo (L)"),
+            color=alt.Color("Matricula", legend=alt.Legend(title="Matrícula")),
             tooltip=["Mês", "Matricula", "Consumo"]
         ).properties(title="Comparação de Consumo entre Viaturas", height=400)
+        
+        # Labels nos pontos
+        labels = alt.Chart(consumo_mes_matricula).mark_text(
+            align='center',
+            baseline='bottom',
+            dy=-10,
+            fontSize=11,
+            fontWeight='bold'
+        ).encode(
+            x=alt.X("Mês", sort=ordem_meses),
+            y="Consumo",
+            text=alt.Text("Consumo:Q", format=".1f"),
+            color="Matricula"
+        )
+        
+        chart = line_chart + labels
         st.altair_chart(chart, use_container_width=True)
     else:
         # Gráfico original para uma única viatura
         consumo_mes = df_filtrado.groupby("Mês")["Consumo"].sum().reindex(ordem_meses, fill_value=0).reset_index()
-        chart = alt.Chart(consumo_mes).mark_line(point=True, color="#59a14f").encode(
-            x=alt.X("Mês", sort=ordem_meses), 
-            y="Consumo", 
+        
+        line_chart = alt.Chart(consumo_mes).mark_line(point=True, color="#59a14f", strokeWidth=3).encode(
+            x=alt.X("Mês", sort=ordem_meses, title="Mês"), 
+            y=alt.Y("Consumo", title="Consumo (L)"), 
             tooltip=["Mês", "Consumo"]
         ).properties(title="Consumo Total por Mês", height=400)
+        
+        labels = alt.Chart(consumo_mes).mark_text(
+            align='center',
+            baseline='bottom',
+            dy=-10,
+            fontSize=11,
+            fontWeight='bold',
+            color='#59a14f'
+        ).encode(
+            x=alt.X("Mês", sort=ordem_meses),
+            y="Consumo",
+            text=alt.Text("Consumo:Q", format=".1f")
+        )
+        
+        chart = line_chart + labels
         st.altair_chart(chart, use_container_width=True)
 
 # 🚧 Portagem
@@ -103,20 +137,52 @@ with aba_portagem:
 
     if selected_matriculas and len(selected_matriculas) > 1:
         portagem_mes_matricula = df_filtrado.groupby(["Mês", "Matricula"])["Portagem"].sum().reset_index()
-        chart = alt.Chart(portagem_mes_matricula).mark_line(point=True).encode(
-            x=alt.X("Mês", sort=ordem_meses),
-            y="Portagem",
-            color="Matricula",
+        
+        line_chart = alt.Chart(portagem_mes_matricula).mark_line(point=True, strokeWidth=3).encode(
+            x=alt.X("Mês", sort=ordem_meses, title="Mês"),
+            y=alt.Y("Portagem", title="Portagem (€)"),
+            color=alt.Color("Matricula", legend=alt.Legend(title="Matrícula")),
             tooltip=["Mês", "Matricula", "Portagem"]
         ).properties(title="Comparação de Portagem entre Viaturas", height=400)
+        
+        labels = alt.Chart(portagem_mes_matricula).mark_text(
+            align='center',
+            baseline='bottom',
+            dy=-10,
+            fontSize=11,
+            fontWeight='bold'
+        ).encode(
+            x=alt.X("Mês", sort=ordem_meses),
+            y="Portagem",
+            text=alt.Text("Portagem:Q", format=".1f"),
+            color="Matricula"
+        )
+        
+        chart = line_chart + labels
         st.altair_chart(chart, use_container_width=True)
     else:
         portagem_mes = df_filtrado.groupby("Mês")["Portagem"].sum().reindex(ordem_meses, fill_value=0).reset_index()
-        chart = alt.Chart(portagem_mes).mark_line(point=True, color="#f28e2b").encode(
-            x=alt.X("Mês", sort=ordem_meses), 
-            y="Portagem", 
+        
+        line_chart = alt.Chart(portagem_mes).mark_line(point=True, color="#f28e2b", strokeWidth=3).encode(
+            x=alt.X("Mês", sort=ordem_meses, title="Mês"), 
+            y=alt.Y("Portagem", title="Portagem (€)"), 
             tooltip=["Mês", "Portagem"]
         ).properties(title="Portagem Total por Mês", height=400)
+        
+        labels = alt.Chart(portagem_mes).mark_text(
+            align='center',
+            baseline='bottom',
+            dy=-10,
+            fontSize=11,
+            fontWeight='bold',
+            color='#f28e2b'
+        ).encode(
+            x=alt.X("Mês", sort=ordem_meses),
+            y="Portagem",
+            text=alt.Text("Portagem:Q", format=".1f")
+        )
+        
+        chart = line_chart + labels
         st.altair_chart(chart, use_container_width=True)
 
 # 🔧 Reparação
@@ -126,20 +192,52 @@ with aba_reparacao:
 
     if selected_matriculas and len(selected_matriculas) > 1:
         reparacao_mes_matricula = df_filtrado.groupby(["Mês", "Matricula"])["Reparação"].sum().reset_index()
-        chart = alt.Chart(reparacao_mes_matricula).mark_line(point=True).encode(
-            x=alt.X("Mês", sort=ordem_meses),
-            y="Reparação",
-            color="Matricula",
+        
+        line_chart = alt.Chart(reparacao_mes_matricula).mark_line(point=True, strokeWidth=3).encode(
+            x=alt.X("Mês", sort=ordem_meses, title="Mês"),
+            y=alt.Y("Reparação", title="Reparação (€)"),
+            color=alt.Color("Matricula", legend=alt.Legend(title="Matrícula")),
             tooltip=["Mês", "Matricula", "Reparação"]
         ).properties(title="Comparação de Reparações entre Viaturas", height=400)
+        
+        labels = alt.Chart(reparacao_mes_matricula).mark_text(
+            align='center',
+            baseline='bottom',
+            dy=-10,
+            fontSize=11,
+            fontWeight='bold'
+        ).encode(
+            x=alt.X("Mês", sort=ordem_meses),
+            y="Reparação",
+            text=alt.Text("Reparação:Q", format=".1f"),
+            color="Matricula"
+        )
+        
+        chart = line_chart + labels
         st.altair_chart(chart, use_container_width=True)
     else:
         reparacao_mes = df_filtrado.groupby("Mês")["Reparação"].sum().reindex(ordem_meses, fill_value=0).reset_index()
-        chart = alt.Chart(reparacao_mes).mark_area(color="#e15759").encode(
-            x=alt.X("Mês", sort=ordem_meses), 
-            y="Reparação", 
+        
+        line_chart = alt.Chart(reparacao_mes).mark_line(point=True, color="#e15759", strokeWidth=3).encode(
+            x=alt.X("Mês", sort=ordem_meses, title="Mês"), 
+            y=alt.Y("Reparação", title="Reparação (€)"), 
             tooltip=["Mês", "Reparação"]
         ).properties(title="Reparações por Mês", height=400)
+        
+        labels = alt.Chart(reparacao_mes).mark_text(
+            align='center',
+            baseline='bottom',
+            dy=-10,
+            fontSize=11,
+            fontWeight='bold',
+            color='#e15759'
+        ).encode(
+            x=alt.X("Mês", sort=ordem_meses),
+            y="Reparação",
+            text=alt.Text("Reparação:Q", format=".1f")
+        )
+        
+        chart = line_chart + labels
         st.altair_chart(chart, use_container_width=True)
 
 # 🛠️ Manutenção
@@ -150,20 +248,52 @@ with aba_manutencao:
 
     if selected_matriculas and len(selected_matriculas) > 1:
         manutencao_mes_matricula = df_filtrado.groupby(["Mês", "Matricula"])["Manutenção"].apply(lambda x: (x == 'Pendente').sum()).reset_index(name="Pendentes")
-        chart = alt.Chart(manutencao_mes_matricula).mark_line(point=True).encode(
-            x=alt.X("Mês", sort=ordem_meses),
-            y="Pendentes",
-            color="Matricula",
+        
+        line_chart = alt.Chart(manutencao_mes_matricula).mark_line(point=True, strokeWidth=3).encode(
+            x=alt.X("Mês", sort=ordem_meses, title="Mês"),
+            y=alt.Y("Pendentes", title="Manutenções Pendentes"),
+            color=alt.Color("Matricula", legend=alt.Legend(title="Matrícula")),
             tooltip=["Mês", "Matricula", "Pendentes"]
         ).properties(title="Comparação de Manutenções Pendentes entre Viaturas", height=400)
+        
+        labels = alt.Chart(manutencao_mes_matricula).mark_text(
+            align='center',
+            baseline='bottom',
+            dy=-10,
+            fontSize=11,
+            fontWeight='bold'
+        ).encode(
+            x=alt.X("Mês", sort=ordem_meses),
+            y="Pendentes",
+            text=alt.Text("Pendentes:Q", format=".0f"),
+            color="Matricula"
+        )
+        
+        chart = line_chart + labels
         st.altair_chart(chart, use_container_width=True)
     else:
         manutencao_mes = df_filtrado.groupby("Mês")["Manutenção"].apply(lambda x: (x == 'Pendente').sum()).reindex(ordem_meses, fill_value=0).reset_index(name="Pendentes")
-        chart = alt.Chart(manutencao_mes).mark_line(point=True, color="#9c755f").encode(
-            x=alt.X("Mês", sort=ordem_meses), 
-            y="Pendentes", 
+        
+        line_chart = alt.Chart(manutencao_mes).mark_line(point=True, color="#9c755f", strokeWidth=3).encode(
+            x=alt.X("Mês", sort=ordem_meses, title="Mês"), 
+            y=alt.Y("Pendentes", title="Manutenções Pendentes"), 
             tooltip=["Mês", "Pendentes"]
         ).properties(title="Manutenções Pendentes por Mês", height=400)
+        
+        labels = alt.Chart(manutencao_mes).mark_text(
+            align='center',
+            baseline='bottom',
+            dy=-10,
+            fontSize=11,
+            fontWeight='bold',
+            color='#9c755f'
+        ).encode(
+            x=alt.X("Mês", sort=ordem_meses),
+            y="Pendentes",
+            text=alt.Text("Pendentes:Q", format=".0f")
+        )
+        
+        chart = line_chart + labels
         st.altair_chart(chart, use_container_width=True)
 
 # 🛞 Pneus
@@ -173,20 +303,52 @@ with aba_pneus:
 
     if selected_matriculas and len(selected_matriculas) > 1:
         pneus_mes_matricula = df_filtrado.groupby(["Mês", "Matricula"])["Pneus"].sum().reset_index()
-        chart = alt.Chart(pneus_mes_matricula).mark_line(point=True).encode(
-            x=alt.X("Mês", sort=ordem_meses),
-            y="Pneus",
-            color="Matricula",
+        
+        line_chart = alt.Chart(pneus_mes_matricula).mark_line(point=True, strokeWidth=3).encode(
+            x=alt.X("Mês", sort=ordem_meses, title="Mês"),
+            y=alt.Y("Pneus", title="Pneus (€)"),
+            color=alt.Color("Matricula", legend=alt.Legend(title="Matrícula")),
             tooltip=["Mês", "Matricula", "Pneus"]
         ).properties(title="Comparação de Despesas com Pneus entre Viaturas", height=400)
+        
+        labels = alt.Chart(pneus_mes_matricula).mark_text(
+            align='center',
+            baseline='bottom',
+            dy=-10,
+            fontSize=11,
+            fontWeight='bold'
+        ).encode(
+            x=alt.X("Mês", sort=ordem_meses),
+            y="Pneus",
+            text=alt.Text("Pneus:Q", format=".1f"),
+            color="Matricula"
+        )
+        
+        chart = line_chart + labels
         st.altair_chart(chart, use_container_width=True)
     else:
         pneus_mes = df_filtrado.groupby("Mês")["Pneus"].sum().reindex(ordem_meses, fill_value=0).reset_index()
-        chart = alt.Chart(pneus_mes).mark_line(point=True, color="#76b7b2").encode(
-            x=alt.X("Mês", sort=ordem_meses), 
-            y="Pneus", 
+        
+        line_chart = alt.Chart(pneus_mes).mark_line(point=True, color="#76b7b2", strokeWidth=3).encode(
+            x=alt.X("Mês", sort=ordem_meses, title="Mês"), 
+            y=alt.Y("Pneus", title="Pneus (€)"), 
             tooltip=["Mês", "Pneus"]
         ).properties(title="Despesas com Pneus por Mês", height=400)
+        
+        labels = alt.Chart(pneus_mes).mark_text(
+            align='center',
+            baseline='bottom',
+            dy=-10,
+            fontSize=11,
+            fontWeight='bold',
+            color='#76b7b2'
+        ).encode(
+            x=alt.X("Mês", sort=ordem_meses),
+            y="Pneus",
+            text=alt.Text("Pneus:Q", format=".1f")
+        )
+        
+        chart = line_chart + labels
         st.altair_chart(chart, use_container_width=True)
 
 # 📊 Desvios
