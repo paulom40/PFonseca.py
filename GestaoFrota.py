@@ -45,7 +45,7 @@ marcas = sorted(df['Marca'].dropna().unique())
 selected_marca = st.sidebar.selectbox("Marca", ["Todas"] + marcas)
 
 matriculas = sorted(df['Matricula'].dropna().unique())
-selected_matricula = st.sidebar.selectbox("Matrícula", ["Todas"] + matriculas)
+selected_matriculas = st.sidebar.multiselect("Selecione as Matrículas para Comparar", matriculas, default=matriculas[:2] if len(matriculas) >= 2 else matriculas)
 
 anos = sorted(df['Ano'].dropna().unique())
 selected_ano = st.sidebar.selectbox("Ano", ["Todos"] + list(map(str, anos)))
@@ -57,8 +57,8 @@ selected_mes = st.sidebar.selectbox("Mês", ["Todos"] + meses_ordenados)
 df_filtrado = df.copy()
 if selected_marca != "Todas":
     df_filtrado = df_filtrado[df_filtrado['Marca'] == selected_marca]
-if selected_matricula != "Todas":
-    df_filtrado = df_filtrado[df_filtrado['Matricula'] == selected_matricula]
+if selected_matriculas:
+    df_filtrado = df_filtrado[df_filtrado['Matricula'].isin(selected_matriculas)]
 if selected_ano != "Todos":
     df_filtrado = df_filtrado[df_filtrado['Ano'] == int(selected_ano)]
 if selected_mes != "Todos":
@@ -76,33 +76,71 @@ with aba_combustivel:
     st.header("⛽ Indicadores de Combustível")
     mostrar_metrica_segura("Consumo Médio", df_filtrado['Consumo'], "L/100km")
 
-    consumo_mes = df_filtrado.groupby("Mês")["Consumo"].sum().reindex(ordem_meses, fill_value=0).reset_index()
-    chart = alt.Chart(consumo_mes).mark_bar(color="#59a14f").encode(
-        x=alt.X("Mês", sort=ordem_meses), y="Consumo", tooltip=["Mês", "Consumo"]
-    ).properties(title="Consumo Total por Mês")
-    st.altair_chart(chart, use_container_width=True)
+    if selected_matriculas and len(selected_matriculas) > 1:
+        # Gráfico de linhas comparando múltiplas viaturas
+        consumo_mes_matricula = df_filtrado.groupby(["Mês", "Matricula"])["Consumo"].sum().reset_index()
+        chart = alt.Chart(consumo_mes_matricula).mark_line(point=True).encode(
+            x=alt.X("Mês", sort=ordem_meses),
+            y="Consumo",
+            color="Matricula",
+            tooltip=["Mês", "Matricula", "Consumo"]
+        ).properties(title="Comparação de Consumo entre Viaturas", height=400)
+        st.altair_chart(chart, use_container_width=True)
+    else:
+        # Gráfico original para uma única viatura
+        consumo_mes = df_filtrado.groupby("Mês")["Consumo"].sum().reindex(ordem_meses, fill_value=0).reset_index()
+        chart = alt.Chart(consumo_mes).mark_line(point=True, color="#59a14f").encode(
+            x=alt.X("Mês", sort=ordem_meses), 
+            y="Consumo", 
+            tooltip=["Mês", "Consumo"]
+        ).properties(title="Consumo Total por Mês", height=400)
+        st.altair_chart(chart, use_container_width=True)
 
 # 🚧 Portagem
 with aba_portagem:
     st.header("🚧 Indicadores de Portagem")
     mostrar_metrica_segura("Custo Médio de Portagem", df_filtrado['Portagem'], "€")
 
-    portagem_mes = df_filtrado.groupby("Mês")["Portagem"].sum().reindex(ordem_meses, fill_value=0).reset_index()
-    chart = alt.Chart(portagem_mes).mark_line(point=True, color="#f28e2b").encode(
-        x=alt.X("Mês", sort=ordem_meses), y="Portagem", tooltip=["Mês", "Portagem"]
-    ).properties(title="Portagem Total por Mês")
-    st.altair_chart(chart, use_container_width=True)
+    if selected_matriculas and len(selected_matriculas) > 1:
+        portagem_mes_matricula = df_filtrado.groupby(["Mês", "Matricula"])["Portagem"].sum().reset_index()
+        chart = alt.Chart(portagem_mes_matricula).mark_line(point=True).encode(
+            x=alt.X("Mês", sort=ordem_meses),
+            y="Portagem",
+            color="Matricula",
+            tooltip=["Mês", "Matricula", "Portagem"]
+        ).properties(title="Comparação de Portagem entre Viaturas", height=400)
+        st.altair_chart(chart, use_container_width=True)
+    else:
+        portagem_mes = df_filtrado.groupby("Mês")["Portagem"].sum().reindex(ordem_meses, fill_value=0).reset_index()
+        chart = alt.Chart(portagem_mes).mark_line(point=True, color="#f28e2b").encode(
+            x=alt.X("Mês", sort=ordem_meses), 
+            y="Portagem", 
+            tooltip=["Mês", "Portagem"]
+        ).properties(title="Portagem Total por Mês", height=400)
+        st.altair_chart(chart, use_container_width=True)
 
 # 🔧 Reparação
 with aba_reparacao:
     st.header("🔧 Indicadores de Reparação")
     mostrar_metrica_segura("Custo Médio de Reparação", df_filtrado['Reparação'], "€")
 
-    reparacao_mes = df_filtrado.groupby("Mês")["Reparação"].sum().reindex(ordem_meses, fill_value=0).reset_index()
-    chart = alt.Chart(reparacao_mes).mark_area(color="#e15759").encode(
-        x=alt.X("Mês", sort=ordem_meses), y="Reparação", tooltip=["Mês", "Reparação"]
-    ).properties(title="Reparações por Mês")
-    st.altair_chart(chart, use_container_width=True)
+    if selected_matriculas and len(selected_matriculas) > 1:
+        reparacao_mes_matricula = df_filtrado.groupby(["Mês", "Matricula"])["Reparação"].sum().reset_index()
+        chart = alt.Chart(reparacao_mes_matricula).mark_line(point=True).encode(
+            x=alt.X("Mês", sort=ordem_meses),
+            y="Reparação",
+            color="Matricula",
+            tooltip=["Mês", "Matricula", "Reparação"]
+        ).properties(title="Comparação de Reparações entre Viaturas", height=400)
+        st.altair_chart(chart, use_container_width=True)
+    else:
+        reparacao_mes = df_filtrado.groupby("Mês")["Reparação"].sum().reindex(ordem_meses, fill_value=0).reset_index()
+        chart = alt.Chart(reparacao_mes).mark_area(color="#e15759").encode(
+            x=alt.X("Mês", sort=ordem_meses), 
+            y="Reparação", 
+            tooltip=["Mês", "Reparação"]
+        ).properties(title="Reparações por Mês", height=400)
+        st.altair_chart(chart, use_container_width=True)
 
 # 🛠️ Manutenção
 with aba_manutencao:
@@ -110,22 +148,46 @@ with aba_manutencao:
     pendentes = df_filtrado[df_filtrado['Manutenção'] == 'Pendente'].shape[0]
     st.metric("Manutenções Pendentes", pendentes)
 
-    manutencao_mes = df_filtrado.groupby("Mês")["Manutenção"].apply(lambda x: (x == 'Pendente').sum()).reindex(ordem_meses, fill_value=0).reset_index(name="Pendentes")
-    chart = alt.Chart(manutencao_mes).mark_bar(color="#9c755f").encode(
-        x=alt.X("Mês", sort=ordem_meses), y="Pendentes", tooltip=["Mês", "Pendentes"]
-    ).properties(title="Manutenções Pendentes por Mês")
-    st.altair_chart(chart, use_container_width=True)
+    if selected_matriculas and len(selected_matriculas) > 1:
+        manutencao_mes_matricula = df_filtrado.groupby(["Mês", "Matricula"])["Manutenção"].apply(lambda x: (x == 'Pendente').sum()).reset_index(name="Pendentes")
+        chart = alt.Chart(manutencao_mes_matricula).mark_line(point=True).encode(
+            x=alt.X("Mês", sort=ordem_meses),
+            y="Pendentes",
+            color="Matricula",
+            tooltip=["Mês", "Matricula", "Pendentes"]
+        ).properties(title="Comparação de Manutenções Pendentes entre Viaturas", height=400)
+        st.altair_chart(chart, use_container_width=True)
+    else:
+        manutencao_mes = df_filtrado.groupby("Mês")["Manutenção"].apply(lambda x: (x == 'Pendente').sum()).reindex(ordem_meses, fill_value=0).reset_index(name="Pendentes")
+        chart = alt.Chart(manutencao_mes).mark_line(point=True, color="#9c755f").encode(
+            x=alt.X("Mês", sort=ordem_meses), 
+            y="Pendentes", 
+            tooltip=["Mês", "Pendentes"]
+        ).properties(title="Manutenções Pendentes por Mês", height=400)
+        st.altair_chart(chart, use_container_width=True)
 
 # 🛞 Pneus
 with aba_pneus:
     st.header("🛞 Indicadores de Pneus")
     mostrar_metrica_segura("Custo Médio com Pneus", df_filtrado['Pneus'], "€")
 
-    pneus_mes = df_filtrado.groupby("Mês")["Pneus"].sum().reindex(ordem_meses, fill_value=0).reset_index()
-    chart = alt.Chart(pneus_mes).mark_bar(color="#76b7b2").encode(
-        x=alt.X("Mês", sort=ordem_meses), y="Pneus", tooltip=["Mês", "Pneus"]
-    ).properties(title="Despesas com Pneus por Mês")
-    st.altair_chart(chart, use_container_width=True)
+    if selected_matriculas and len(selected_matriculas) > 1:
+        pneus_mes_matricula = df_filtrado.groupby(["Mês", "Matricula"])["Pneus"].sum().reset_index()
+        chart = alt.Chart(pneus_mes_matricula).mark_line(point=True).encode(
+            x=alt.X("Mês", sort=ordem_meses),
+            y="Pneus",
+            color="Matricula",
+            tooltip=["Mês", "Matricula", "Pneus"]
+        ).properties(title="Comparação de Despesas com Pneus entre Viaturas", height=400)
+        st.altair_chart(chart, use_container_width=True)
+    else:
+        pneus_mes = df_filtrado.groupby("Mês")["Pneus"].sum().reindex(ordem_meses, fill_value=0).reset_index()
+        chart = alt.Chart(pneus_mes).mark_line(point=True, color="#76b7b2").encode(
+            x=alt.X("Mês", sort=ordem_meses), 
+            y="Pneus", 
+            tooltip=["Mês", "Pneus"]
+        ).properties(title="Despesas com Pneus por Mês", height=400)
+        st.altair_chart(chart, use_container_width=True)
 
 # 📊 Desvios
 with aba_desvios:
