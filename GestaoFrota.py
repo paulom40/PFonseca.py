@@ -2,16 +2,6 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 
-st.markdown("""
-    <style>
-    #MainMenu {visibility: hidden;}
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
-    </style>
-""", unsafe_allow_html=True)
-
-
-
 # 🎨 Configuração visual
 st.set_page_config(
     layout="wide",
@@ -81,9 +71,9 @@ if selected_mes != "Todos":
 
 df_filtrado["Mês"] = pd.Categorical(df_filtrado["Mês"], categories=ordem_meses, ordered=True)
 
-# 🧭 Abas temáticas - ATUALIZADAS para refletir as colunas disponíveis
-aba_combustivel, aba_portagem, aba_manutencao, aba_desvios = st.tabs([
-    "⛽ Combustível", "🚧 Portagem", "🛠️ Manutenção", "📊 Desvios"
+# 🧭 Abas temáticas - ATUALIZADAS com nova aba de Abastecimentos
+aba_combustivel, aba_portagem, aba_manutencao, aba_abastecimentos, aba_desvios = st.tabs([
+    "⛽ Combustível", "🚧 Portagem", "🛠️ Manutenção", "🔄 Abastecimentos", "📊 Desvios"
 ])
 
 # ⛽ Combustível
@@ -255,7 +245,147 @@ with aba_manutencao:
         chart = line_chart + labels
         st.altair_chart(chart, use_container_width=True)
 
-# 📊 Desvios
+# 🔄 NOVA ABA: Abastecimentos
+with aba_abastecimentos:
+    st.header("🔄 Contagem de Abastecimentos por Viatura")
+    
+    # Calcular contagem de abastecimentos
+    # Consideramos um abastecimento quando há valor positivo na coluna Combustivel
+    df_abastecimentos = df_filtrado[df_filtrado['Combustivel'] > 0].copy()
+    
+    # Contagem total por viatura
+    contagem_abastecimentos = df_abastecimentos.groupby('Matricula').size().reset_index(name='Total_Abastecimentos')
+    
+    # Contagem por viatura e mês
+    contagem_mensal = df_abastecimentos.groupby(['Matricula', 'Mês']).size().reset_index(name='Abastecimentos')
+    
+    # KPIs principais
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        total_abastecimentos = contagem_abastecimentos['Total_Abastecimentos'].sum()
+        st.metric("Total de Abastecimentos", total_abastecimentos)
+    
+    with col2:
+        media_por_viatura = contagem_abastecimentos['Total_Abastecimentos'].mean()
+        st.metric("Média por Viatura", f"{media_por_viatura:.1f}")
+    
+    with col3:
+        viatura_mais_abasteceu = contagem_abastecimentos.loc[contagem_abastecimentos['Total_Abastecimentos'].idxmax()]
+        st.metric("Viatura com Mais Abastecimentos", 
+                 f"{viatura_mais_abasteceu['Total_Abastecimentos']}",
+                 delta=f"{viatura_mais_abasteceu['Matricula']}")
+    
+    # Gráfico de barras - Top viaturas por abastecimentos
+    st.subheader("📊 Ranking de Abastecimentos por Viatura")
+    
+    # Ordenar por número de abastecimentos
+    contagem_ordenada = contagem_abastecimentos.sort_values('Total_Abastecimentos', ascending=True)
+    
+    chart_barras = alt.Chart(contagem_ordenada).mark_bar(color='#4ECDC4').encode(
+        x=alt.X('Total_Abastecimentos:Q', title='Número de Abastecimentos'),
+        y=alt.Y('Matricula:N', sort='-x', title='Matrícula'),
+        tooltip=['Matricula', 'Total_Abastecimentos']
+    ).properties(
+        title='Total de Abastecimentos por Viatura',
+        height=400
+    )
+    
+    # Adicionar labels nas barras
+    text_barras = chart_barras.mark_text(
+        align='left',
+        baseline='middle',
+        dx=3,
+        color='black',
+        fontWeight='bold'
+    ).encode(
+        text='Total_Abastecimentos:Q'
+    )
+    
+    st.altair_chart(chart_barras + text_barras, use_container_width=True)
+    
+    # Evolução mensal dos abastecimentos
+    st.subheader("📈 Evolução Mensal dos Abastecimentos")
+    
+    if selected_matriculas and len(selected_matriculas) > 1:
+        # Gráfico de linhas para múltiplas viaturas
+        line_chart = alt.Chart(contagem_mensal).mark_line(point=True, strokeWidth=3).encode(
+            x=alt.X('Mês', sort=ordem_meses, title='Mês'),
+            y=alt.Y('Abastecimentos:Q', title='Número de Abastecimentos'),
+            color=alt.Color('Matricula', legend=alt.Legend(title='Matrícula')),
+            tooltip=['Mês', 'Matricula', 'Abastecimentos']
+        ).properties(height=400)
+        
+        st.altair_chart(line_chart, use_container_width=True)
+    else:
+        # Gráfico de área para uma viatura ou total
+        abastecimentos_mensais = contagem_mensal.groupby('Mês')['Abastecimentos'].sum().reindex(ordem_meses, fill_value=0).reset_index()
+        
+        area_chart = alt.Chart(abastecimentos_mensais).mark_area(
+            color='lightblue',
+            opacity=0.6,
+            line={'color': 'darkblue', 'width': 2}
+        ).encode(
+            x=alt.X('Mês', sort=ordem_meses, title='Mês'),
+            y=alt.Y('Abastecimentos:Q', title='Total de Abastecimentos'),
+            tooltip=['Mês', 'Abastecimentos']
+        ).properties(
+            title='Evolução Mensal do Total de Abastecimentos',
+            height=400
+        )
+        
+        st.altair_chart(area_chart, use_container_width=True)
+    
+    # Tabela detalhada
+    st.subheader("📋 Detalhamento por Viatura e Mês")
+    
+    # Criar tabela pivot
+    pivot_table = contagem_mensal.pivot_table(
+        values='Abastecimentos',
+        index='Matricula',
+        columns='Mês',
+        aggfunc='sum',
+        fill_value=0
+    ).reindex(columns=ordem_meses, fill_value=0)
+    
+    # Adicionar total por viatura
+    pivot_table['Total'] = pivot_table.sum(axis=1)
+    
+    # Ordenar por total
+    pivot_table = pivot_table.sort_values('Total', ascending=False)
+    
+    # Formatar a tabela
+    styled_table = pivot_table.style.background_gradient(
+        cmap='YlGnBu', 
+        subset=[col for col in pivot_table.columns if col != 'Total']
+    ).format("{:.0f}")
+    
+    st.dataframe(styled_table, use_container_width=True)
+    
+    # Estatísticas adicionais
+    st.subheader("📊 Estatísticas dos Abastecimentos")
+    
+    col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
+    
+    with col_stat1:
+        viaturas_com_abastecimentos = len(contagem_abastecimentos)
+        st.metric("Viaturas com Abastecimentos", viaturas_com_abastecimentos)
+    
+    with col_stat2:
+        max_abastecimentos_mes = contagem_mensal['Abastecimentos'].max()
+        st.metric("Máx. Abastecimentos/Mês", max_abastecimentos_mes)
+    
+    with col_stat3:
+        meses_com_abastecimentos = contagem_mensal['Mês'].nunique()
+        st.metric("Meses com Abastecimentos", meses_com_abastecimentos)
+    
+    with col_stat4:
+        viatura_menos_abasteceu = contagem_abastecimentos.loc[contagem_abastecimentos['Total_Abastecimentos'].idxmin()]
+        st.metric("Menos Abastecimentos", 
+                 f"{viatura_menos_abasteceu['Total_Abastecimentos']}",
+                 delta=f"{viatura_menos_abasteceu['Matricula']}")
+
+# 📊 Desvios (aba original mantida)
 with aba_desvios:
     st.header("📊 Análise de Desvios e Comparações")
     
