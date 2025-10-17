@@ -22,7 +22,7 @@ try:
     df.columns = df.columns.str.strip()
 
     # Converter colunas numéricas
-    for col in ['Combustivel', 'Portagem', 'Manutenção']:
+    for col in ['Combustivel', 'Portagem', 'Manutenção', 'Consumo']:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
@@ -86,9 +86,9 @@ if selected_mes != "Todos":
 
 df_filtrado["Mês"] = pd.Categorical(df_filtrado["Mês"], categories=ordem_meses, ordered=True)
 
-# 🧭 Abas temáticas
-aba_combustivel, aba_portagem, aba_manutencao, aba_desvios = st.tabs([
-    "⛽ Combustível", "🚧 Portagem", "🛠️ Manutenção", "📊 Desvios"
+# 🧭 Abas temáticas - ADICIONADA aba Consumo
+aba_combustivel, aba_portagem, aba_manutencao, aba_consumo, aba_desvios = st.tabs([
+    "⛽ Combustível", "🚧 Portagem", "🛠️ Manutenção", "📊 Consumo", "📈 Desvios"
 ])
 
 # ⛽ Combustível
@@ -375,15 +375,142 @@ with aba_manutencao:
         chart = line_chart + labels
         st.altair_chart(chart, use_container_width=True)
 
-# 📊 Desvios
+# 📊 NOVA ABA: Consumo
+with aba_consumo:
+    st.header("📊 Indicadores de Consumo")
+    
+    # KPIs por viatura selecionada
+    if selected_matriculas:
+        st.subheader(f"🚗 KPIs por Viatura - Consumo")
+        
+        for matricula in selected_matriculas:
+            df_viatura = df_filtrado[df_filtrado['Matricula'] == matricula]
+            
+            if not df_viatura.empty:
+                st.markdown(f"### 📋 Viatura: {matricula}")
+                
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    consumo_total = df_viatura['Consumo'].sum()
+                    st.metric(
+                        label="Consumo Total",
+                        value=f"{consumo_total:.1f} L"
+                    )
+                
+                with col2:
+                    consumo_medio = df_viatura['Consumo'].mean()
+                    if pd.isna(consumo_medio):
+                        st.metric("Consumo Médio", "—")
+                    else:
+                        st.metric(
+                            label="Consumo Médio",
+                            value=f"{consumo_medio:.1f} L"
+                        )
+                
+                with col3:
+                    max_consumo = df_viatura['Consumo'].max()
+                    if pd.isna(max_consumo) or max_consumo == 0:
+                        st.metric("Máximo Consumo", "—")
+                    else:
+                        st.metric(
+                            label="Máximo Consumo",
+                            value=f"{max_consumo:.1f} L"
+                        )
+                
+                with col4:
+                    meses_com_consumo = df_viatura[df_viatura['Consumo'] > 0]['Mês'].nunique()
+                    st.metric(
+                        label="Meses com Consumo",
+                        value=meses_com_consumo
+                    )
+                
+                st.markdown("---")
+    
+    # Gráficos
+    if selected_matriculas and len(selected_matriculas) > 1:
+        # Gráfico de linhas comparando múltiplas viaturas
+        consumo_mes_matricula = df_filtrado.groupby(["Mês", "Matricula"])["Consumo"].sum().reset_index()
+        
+        line_chart = alt.Chart(consumo_mes_matricula).mark_line(point=True, strokeWidth=3).encode(
+            x=alt.X("Mês", sort=ordem_meses, title="Mês"),
+            y=alt.Y("Consumo", title="Consumo (L)"),
+            color=alt.Color("Matricula", legend=alt.Legend(title="Matrícula")),
+            tooltip=["Mês", "Matricula", "Consumo"]
+        ).properties(title="Comparação de Consumo entre Viaturas", height=400)
+        
+        labels = alt.Chart(consumo_mes_matricula).mark_text(
+            align='center',
+            baseline='bottom',
+            dy=-10,
+            fontSize=11,
+            fontWeight='bold'
+        ).encode(
+            x=alt.X("Mês", sort=ordem_meses),
+            y="Consumo",
+            text=alt.Text("Consumo:Q", format=".1f"),
+            color="Matricula"
+        )
+        
+        chart = line_chart + labels
+        st.altair_chart(chart, use_container_width=True)
+    else:
+        # Gráfico para uma única viatura
+        consumo_mes = df_filtrado.groupby("Mês")["Consumo"].sum().reindex(ordem_meses, fill_value=0).reset_index()
+        
+        line_chart = alt.Chart(consumo_mes).mark_line(point=True, color="#4E79A7", strokeWidth=3).encode(
+            x=alt.X("Mês", sort=ordem_meses, title="Mês"), 
+            y=alt.Y("Consumo", title="Consumo (L)"), 
+            tooltip=["Mês", "Consumo"]
+        ).properties(title="Consumo Total por Mês", height=400)
+        
+        labels = alt.Chart(consumo_mes).mark_text(
+            align='center',
+            baseline='bottom',
+            dy=-10,
+            fontSize=11,
+            fontWeight='bold',
+            color='#4E79A7'
+        ).encode(
+            x=alt.X("Mês", sort=ordem_meses),
+            y="Consumo",
+            text=alt.Text("Consumo:Q", format=".1f")
+        )
+        
+        chart = line_chart + labels
+        st.altair_chart(chart, use_container_width=True)
+    
+    # Análise adicional de consumo
+    st.subheader("📈 Análise Detalhada de Consumo")
+    
+    col_analise1, col_analise2 = st.columns(2)
+    
+    with col_analise1:
+        # Top 5 viaturas com maior consumo
+        consumo_por_viatura = df_filtrado.groupby('Matricula')['Consumo'].sum().sort_values(ascending=False).head(5)
+        if not consumo_por_viatura.empty:
+            st.markdown("**🏆 Top 5 Viaturas com Maior Consumo**")
+            for i, (matricula, consumo) in enumerate(consumo_por_viatura.items(), 1):
+                st.write(f"{i}. {matricula}: {consumo:.1f} L")
+    
+    with col_analise2:
+        # Consumo por marca
+        consumo_por_marca = df_filtrado.groupby('Marca')['Consumo'].sum().sort_values(ascending=False)
+        if not consumo_por_marca.empty:
+            st.markdown("**🏭 Consumo por Marca**")
+            for marca, consumo in consumo_por_marca.items():
+                st.write(f"{marca}: {consumo:.1f} L")
+
+# 📈 Desvios
 with aba_desvios:
-    st.header("📊 Análise de Desvios e Comparações")
+    st.header("📈 Análise de Desvios e Comparações")
     
     # Seleção de métrica para análise
     metricas_opcoes = {
         "Combustível": "Combustivel",
         "Portagem": "Portagem", 
-        "Manutenção": "Manutenção"
+        "Manutenção": "Manutenção",
+        "Consumo": "Consumo"
     }
     
     col_sel1, col_sel2 = st.columns(2)
@@ -417,7 +544,7 @@ with aba_desvios:
             # Gráfico de comparação
             line_chart = alt.Chart(comparacao_mes_matricula).mark_line(point=True, strokeWidth=3).encode(
                 x=alt.X("Mês", sort=ordem_meses, title="Mês"),
-                y=alt.Y(f"{metrica_coluna}:Q", title=f"{selected_metrica} (€)"),
+                y=alt.Y(f"{metrica_coluna}:Q", title=f"{selected_metrica} ({'€' if selected_metrica != 'Consumo' else 'L'})"),
                 color=alt.Color("Matricula", legend=alt.Legend(title="Matrícula")),
                 tooltip=["Mês", "Matricula", alt.Tooltip(metrica_coluna, format=".2f")]
             ).properties(title=f"Comparação de {selected_metrica} entre Viaturas", height=400)
@@ -499,7 +626,7 @@ with aba_desvios:
             )
             
             bars = base.mark_bar(color='lightblue').encode(
-                y=alt.Y('Total:Q', title=f'{selected_metrica} Total (€)'),
+                y=alt.Y('Total:Q', title=f'{selected_metrica} Total ({ "€" if selected_metrica != "Consumo" else "L" })'),
                 tooltip=['Mês', 'Total']
             )
             
@@ -509,7 +636,7 @@ with aba_desvios:
             )
             
             chart_totais = (bars + media_line).properties(
-                title=f'Totais Mensais vs Média ({media_geral:.2f}€)',
+                title=f'Totais Mensais vs Média ({media_geral:.2f}{"€" if selected_metrica != "Consumo" else "L"})',
                 height=300
             )
             st.altair_chart(chart_totais, use_container_width=True)
@@ -543,8 +670,8 @@ with aba_desvios:
             
             st.metric(
                 label=f"{selected_metrica} - {mes_atual}",
-                value=f"{valor_atual:.1f}€",
-                delta=f"{desvio_atual:+.1f}€ ({percentual_atual:+.1f}%)"
+                value=f"{valor_atual:.1f}{'€' if selected_metrica != 'Consumo' else 'L'}",
+                delta=f"{desvio_atual:+.1f}{'€' if selected_metrica != 'Consumo' else 'L'} ({percentual_atual:+.1f}%)"
             )
         
         with col_kpi2:
@@ -552,7 +679,7 @@ with aba_desvios:
             mes_max_positivo = desvios.idxmax()
             st.metric(
                 label="Maior Desvio Positivo",
-                value=f"{max_desvio_positivo:+.1f}€",
+                value=f"{max_desvio_positivo:+.1f}{'€' if selected_metrica != 'Consumo' else 'L'}",
                 delta=f"{mes_max_positivo}"
             )
         
@@ -561,7 +688,7 @@ with aba_desvios:
             mes_max_negativo = desvios.idxmin()
             st.metric(
                 label="Maior Desvio Negativo", 
-                value=f"{max_desvio_negativo:+.1f}€",
+                value=f"{max_desvio_negativo:+.1f}{'€' if selected_metrica != 'Consumo' else 'L'}",
                 delta=f"{mes_max_negativo}"
             )
         
@@ -592,11 +719,11 @@ with aba_desvios:
             column_config={
                 "Mês": "Mês",
                 "Total": st.column_config.NumberColumn(
-                    f"Total {selected_metrica} (€)",
+                    f"Total {selected_metrica} ({'€' if selected_metrica != 'Consumo' else 'L'})",
                     format="%.2f"
                 ),
                 "Desvio_Absoluto": st.column_config.NumberColumn(
-                    "Desvio Absoluto (€)",
+                    f"Desvio Absoluto ({'€' if selected_metrica != 'Consumo' else 'L'})",
                     format="%.2f"
                 ),
                 "Desvio_Percentual": st.column_config.NumberColumn(
@@ -628,7 +755,7 @@ with aba_desvios:
 
     # KPIs rápidos
     st.subheader("🚀 KPIs Rápidos - Todas as Métricas")
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
 
     with col1:
         combustivel_mes = df_filtrado.groupby("Mês")["Combustivel"].sum().reindex(ordem_meses, fill_value=0)
@@ -641,6 +768,10 @@ with aba_desvios:
     with col3:
         manutencao_mes = df_filtrado.groupby("Mês")["Manutenção"].sum().reindex(ordem_meses, fill_value=0)
         kpi_desvio("Manutenção Total", manutencao_mes, "€")
+
+    with col4:
+        consumo_mes = df_filtrado.groupby("Mês")["Consumo"].sum().reindex(ordem_meses, fill_value=0)
+        kpi_desvio("Consumo Total", consumo_mes, "L")
 
 # 📋 Visualização dos dados
 st.sidebar.header("📋 Dados Filtrados")
