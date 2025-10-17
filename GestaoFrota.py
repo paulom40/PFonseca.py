@@ -86,7 +86,7 @@ if selected_mes != "Todos":
 
 df_filtrado["Mês"] = pd.Categorical(df_filtrado["Mês"], categories=ordem_meses, ordered=True)
 
-# 🧭 Abas temáticas - REMOVIDA a aba Abastecimentos
+# 🧭 Abas temáticas
 aba_combustivel, aba_portagem, aba_manutencao, aba_desvios = st.tabs([
     "⛽ Combustível", "🚧 Portagem", "🛠️ Manutenção", "📊 Desvios"
 ])
@@ -105,7 +105,7 @@ with aba_combustivel:
             if not df_viatura.empty:
                 st.markdown(f"### 📋 Viatura: {matricula}")
                 
-                col1, col2, col3, col4 = st.columns(4)
+                col1, col2, col3 = st.columns(3)
                 
                 with col1:
                     total_combustivel = df_viatura['Combustivel'].sum()
@@ -117,13 +117,6 @@ with aba_combustivel:
                     )
                 
                 with col2:
-                    num_abastecimentos = len(df_viatura[df_viatura['Combustivel'] > 0])
-                    st.metric(
-                        label="Número de Abastecimentos",
-                        value=num_abastecimentos
-                    )
-                
-                with col3:
                     custo_medio_abastecimento = df_viatura[df_viatura['Combustivel'] > 0]['Combustivel'].mean()
                     if pd.isna(custo_medio_abastecimento):
                         st.metric("Custo Médio por Abastecimento", "—")
@@ -133,7 +126,7 @@ with aba_combustivel:
                             value=f"€ {custo_medio_abastecimento:.2f}"
                         )
                 
-                with col4:
+                with col3:
                     meses_com_abastecimento = df_viatura[df_viatura['Combustivel'] > 0]['Mês'].nunique()
                     st.metric(
                         label="Meses com Abastecimento",
@@ -209,7 +202,7 @@ with aba_portagem:
             if not df_viatura.empty:
                 st.markdown(f"### 📋 Viatura: {matricula}")
                 
-                col1, col2, col3, col4 = st.columns(4)
+                col1, col2, col3 = st.columns(3)
                 
                 with col1:
                     total_portagem = df_viatura['Portagem'].sum()
@@ -228,13 +221,6 @@ with aba_portagem:
                     )
                 
                 with col3:
-                    custo_medio_mensal = df_viatura.groupby("Mês")['Portagem'].sum().mean()
-                    st.metric(
-                        label="Custo Médio Mensal",
-                        value=f"€ {custo_medio_mensal:.2f}"
-                    )
-                
-                with col4:
                     max_portagem_mes = df_viatura.groupby("Mês")['Portagem'].sum().max()
                     st.metric(
                         label="Máximo num Mês",
@@ -308,7 +294,7 @@ with aba_manutencao:
             if not df_viatura.empty:
                 st.markdown(f"### 📋 Viatura: {matricula}")
                 
-                col1, col2, col3, col4 = st.columns(4)
+                col1, col2, col3 = st.columns(3)
                 
                 with col1:
                     total_manutencao = df_viatura['Manutenção'].sum()
@@ -327,13 +313,6 @@ with aba_manutencao:
                     )
                 
                 with col3:
-                    num_intervencoes = len(df_viatura[df_viatura['Manutenção'] > 0])
-                    st.metric(
-                        label="Número de Intervenções",
-                        value=num_intervencoes
-                    )
-                
-                with col4:
                     custo_medio_intervencao = df_viatura[df_viatura['Manutenção'] > 0]['Manutenção'].mean()
                     if pd.isna(custo_medio_intervencao):
                         st.metric("Custo Médio por Intervenção", "—")
