@@ -86,9 +86,9 @@ if selected_mes != "Todos":
 
 df_filtrado["Mês"] = pd.Categorical(df_filtrado["Mês"], categories=ordem_meses, ordered=True)
 
-# 🧭 Abas temáticas
-aba_combustivel, aba_portagem, aba_manutencao, aba_consumo, aba_desvios = st.tabs([
-    "⛽ Combustível", "🚧 Portagem", "🛠️ Manutenção", "📊 Consumo", "📈 Desvios"
+# 🧭 Abas temáticas - REMOVIDA aba Desvios
+aba_combustivel, aba_portagem, aba_manutencao, aba_consumo = st.tabs([
+    "⛽ Combustível", "🚧 Portagem", "🛠️ Manutenção", "📊 Consumo"
 ])
 
 # ⛽ Combustível
@@ -524,12 +524,6 @@ with aba_consumo:
             st.markdown("**🏭 Consumo por Marca**")
             for marca, consumo in consumo_por_marca.items():
                 st.write(f"{marca}: {consumo:.1f} L")
-
-# 📈 Desvios (código mantido igual)
-with aba_desvios:
-    st.header("📈 Análise de Desvios e Comparações")
-    
-    # [O código desta aba permanece igual...]
 
 # 📋 Visualização dos dados
 st.sidebar.header("📋 Dados Filtrados")
