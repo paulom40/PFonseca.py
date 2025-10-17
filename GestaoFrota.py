@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import altair as alt
+from io import BytesIO
 
 # 🎨 Configuração visual
 st.set_page_config(
@@ -35,6 +36,36 @@ try:
 except Exception as e:
     st.error(f"❌ Erro ao carregar os dados: {e}")
     st.stop()
+
+# 🔧 Função para exportar para Excel
+def export_to_excel(df, filename="relatorio_frota.xlsx"):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name='Dados Filtrados', index=False)
+        
+        # Adicionar resumos por categoria
+        resumo_combustivel = df.groupby('Matricula')['Combustivel'].agg(['sum', 'mean', 'count']).round(2)
+        resumo_combustivel.columns = ['Total (€)', 'Média (€)', 'Registros']
+        resumo_combustivel.to_excel(writer, sheet_name='Resumo Combustível')
+        
+        resumo_portagem = df.groupby('Matricula')['Portagem'].agg(['sum', 'mean', 'count']).round(2)
+        resumo_portagem.columns = ['Total (€)', 'Média (€)', 'Registros']
+        resumo_portagem.to_excel(writer, sheet_name='Resumo Portagem')
+        
+        resumo_manutencao = df.groupby('Matricula')['Manutenção'].agg(['sum', 'mean', 'count']).round(2)
+        resumo_manutencao.columns = ['Total (€)', 'Média (€)', 'Registros']
+        resumo_manutencao.to_excel(writer, sheet_name='Resumo Manutenção')
+        
+        resumo_consumo = df.groupby('Matricula')['Consumo'].agg(['sum', 'mean', 'count']).round(2)
+        resumo_consumo.columns = ['Total (L)', 'Média (L)', 'Registros']
+        resumo_consumo.to_excel(writer, sheet_name='Resumo Consumo')
+        
+        # Resumo mensal
+        resumo_mensal = df.groupby('Mês')[['Combustivel', 'Portagem', 'Manutenção', 'Consumo']].sum().round(2)
+        resumo_mensal.to_excel(writer, sheet_name='Resumo Mensal')
+    
+    output.seek(0)
+    return output
 
 # 🔧 Função para métricas seguras
 def mostrar_metrica_segura(label, serie, unidade=""):
@@ -86,7 +117,42 @@ if selected_mes != "Todos":
 
 df_filtrado["Mês"] = pd.Categorical(df_filtrado["Mês"], categories=ordem_meses, ordered=True)
 
-# 🧭 Abas temáticas - REMOVIDA aba Desvios
+# 📊 Link de Exportação para Excel
+st.sidebar.markdown("---")
+st.sidebar.header("📤 Exportar Dados")
+
+# Nome personalizado para o arquivo
+nome_arquivo = st.sidebar.text_input("Nome do arquivo Excel", "relatorio_frota")
+
+# Botão para exportar
+if st.sidebar.button("📥 Exportar para Excel"):
+    try:
+        excel_data = export_to_excel(df_filtrado, f"{nome_arquivo}.xlsx")
+        
+        st.sidebar.success("✅ Relatório gerado com sucesso!")
+        
+        # Download button
+        st.sidebar.download_button(
+            label="⬇️ Baixar Arquivo Excel",
+            data=excel_data,
+            file_name=f"{nome_arquivo}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    except Exception as e:
+        st.sidebar.error(f"❌ Erro ao exportar: {e}")
+
+# Informações sobre o relatório
+st.sidebar.markdown("""
+**📋 Conteúdo do Relatório:**
+- Dados Filtrados
+- Resumo por Combustível
+- Resumo por Portagem  
+- Resumo por Manutenção
+- Resumo por Consumo
+- Resumo Mensal
+""")
+
+# 🧭 Abas temáticas
 aba_combustivel, aba_portagem, aba_manutencao, aba_consumo = st.tabs([
     "⛽ Combustível", "🚧 Portagem", "🛠️ Manutenção", "📊 Consumo"
 ])
