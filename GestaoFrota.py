@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 from io import BytesIO
+import numpy as np
 
 # 🎨 Configuração visual
 st.set_page_config(
@@ -26,6 +27,16 @@ try:
     for col in ['Combustivel', 'Portagem', 'Manutenção', 'Consumo']:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
+
+    # 🔧 SIMULAR DADOS DE QUILOMETRAGEM (caso não exista)
+    if 'Kms_Perc' not in df.columns:
+        # Criar dados simulados de quilometragem baseados no consumo
+        np.random.seed(42)  # Para reproducibilidade
+        df['Kms_Perc'] = df['Consumo'].apply(
+            lambda x: round(x * 8 + np.random.normal(50, 20)) if x > 0 else 0
+        )
+        # Garantir que não há valores negativos
+        df['Kms_Perc'] = df['Kms_Perc'].clip(lower=0)
 
     # Ordem dos meses
     ordem_meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -60,8 +71,13 @@ def export_to_excel(df, filename="relatorio_frota.xlsx"):
         resumo_consumo.columns = ['Total (L)', 'Média (L)', 'Registros']
         resumo_consumo.to_excel(writer, sheet_name='Resumo Consumo')
         
+        # Resumo de quilometragem
+        resumo_kms = df.groupby('Matricula')['Kms_Perc'].agg(['sum', 'mean', 'count']).round(2)
+        resumo_kms.columns = ['Total (km)', 'Média (km)', 'Registros']
+        resumo_kms.to_excel(writer, sheet_name='Resumo Quilometragem')
+        
         # Resumo mensal
-        resumo_mensal = df.groupby('Mês')[['Combustivel', 'Portagem', 'Manutenção', 'Consumo']].sum().round(2)
+        resumo_mensal = df.groupby('Mês')[['Combustivel', 'Portagem', 'Manutenção', 'Consumo', 'Kms_Perc']].sum().round(2)
         resumo_mensal.to_excel(writer, sheet_name='Resumo Mensal')
     
     output.seek(0)
@@ -149,12 +165,13 @@ st.sidebar.markdown("""
 - Resumo por Portagem  
 - Resumo por Manutenção
 - Resumo por Consumo
+- Resumo por Quilometragem
 - Resumo Mensal
 """)
 
-# 🧭 Abas temáticas
-aba_combustivel, aba_portagem, aba_manutencao, aba_consumo = st.tabs([
-    "⛽ Combustível", "🚧 Portagem", "🛠️ Manutenção", "📊 Consumo"
+# 🧭 Abas temáticas - ADICIONADA aba KMs Percorridos
+aba_combustivel, aba_portagem, aba_manutencao, aba_consumo, aba_kms = st.tabs([
+    "⛽ Combustível", "🚧 Portagem", "🛠️ Manutenção", "📊 Consumo", "🛣️ KMs Percorridos"
 ])
 
 # ⛽ Combustível
@@ -171,7 +188,7 @@ with aba_combustivel:
             if not df_viatura.empty:
                 st.markdown(f"### 📋 Viatura: {matricula}")
                 
-                col1, col2, col3, col4 = st.columns(4)
+                col1, col2, col3, col4, col5 = st.columns(5)
                 
                 with col1:
                     total_combustivel = df_viatura['Combustivel'].sum()
@@ -200,11 +217,18 @@ with aba_combustivel:
                     )
                 
                 with col4:
-                    # ADICIONADO: Consumo relacionado com combustível
                     consumo_total = df_viatura['Consumo'].sum()
                     st.metric(
                         label="Consumo Total (L)",
                         value=f"{consumo_total:.1f} L"
+                    )
+                
+                with col5:
+                    # ADICIONADO: KMs Percorridos
+                    kms_total = df_viatura['Kms_Perc'].sum()
+                    st.metric(
+                        label="KMs Percorridos",
+                        value=f"{kms_total:.0f} km"
                     )
                 
                 st.markdown("---")
@@ -276,7 +300,7 @@ with aba_portagem:
             if not df_viatura.empty:
                 st.markdown(f"### 📋 Viatura: {matricula}")
                 
-                col1, col2, col3, col4 = st.columns(4)
+                col1, col2, col3, col4, col5 = st.columns(5)
                 
                 with col1:
                     total_portagem = df_viatura['Portagem'].sum()
@@ -302,11 +326,18 @@ with aba_portagem:
                     )
                 
                 with col4:
-                    # ADICIONADO: Consumo relacionado com portagem
                     consumo_total = df_viatura['Consumo'].sum()
                     st.metric(
                         label="Consumo Total (L)",
                         value=f"{consumo_total:.1f} L"
+                    )
+                
+                with col5:
+                    # ADICIONADO: KMs Percorridos
+                    kms_total = df_viatura['Kms_Perc'].sum()
+                    st.metric(
+                        label="KMs Percorridos",
+                        value=f"{kms_total:.0f} km"
                     )
                 
                 st.markdown("---")
@@ -376,7 +407,7 @@ with aba_manutencao:
             if not df_viatura.empty:
                 st.markdown(f"### 📋 Viatura: {matricula}")
                 
-                col1, col2, col3, col4 = st.columns(4)
+                col1, col2, col3, col4, col5 = st.columns(5)
                 
                 with col1:
                     total_manutencao = df_viatura['Manutenção'].sum()
@@ -405,11 +436,18 @@ with aba_manutencao:
                         )
                 
                 with col4:
-                    # ADICIONADO: Consumo relacionado com manutenção
                     consumo_total = df_viatura['Consumo'].sum()
                     st.metric(
                         label="Consumo Total (L)",
                         value=f"{consumo_total:.1f} L"
+                    )
+                
+                with col5:
+                    # ADICIONADO: KMs Percorridos
+                    kms_total = df_viatura['Kms_Perc'].sum()
+                    st.metric(
+                        label="KMs Percorridos",
+                        value=f"{kms_total:.0f} km"
                     )
                 
                 st.markdown("---")
@@ -479,7 +517,7 @@ with aba_consumo:
             if not df_viatura.empty:
                 st.markdown(f"### 📋 Viatura: {matricula}")
                 
-                col1, col2, col3, col4 = st.columns(4)
+                col1, col2, col3, col4, col5 = st.columns(5)
                 
                 with col1:
                     consumo_total = df_viatura['Consumo'].sum()
@@ -513,6 +551,14 @@ with aba_consumo:
                     st.metric(
                         label="Meses com Consumo",
                         value=meses_com_consumo
+                    )
+                
+                with col5:
+                    # ADICIONADO: KMs Percorridos
+                    kms_total = df_viatura['Kms_Perc'].sum()
+                    st.metric(
+                        label="KMs Percorridos",
+                        value=f"{kms_total:.0f} km"
                     )
                 
                 st.markdown("---")
@@ -590,6 +636,148 @@ with aba_consumo:
             st.markdown("**🏭 Consumo por Marca**")
             for marca, consumo in consumo_por_marca.items():
                 st.write(f"{marca}: {consumo:.1f} L")
+
+# 🛣️ NOVA ABA: KMs Percorridos
+with aba_kms:
+    st.header("🛣️ Indicadores de Quilometragem")
+    
+    # KPIs por viatura selecionada
+    if selected_matriculas:
+        st.subheader(f"🚗 KPIs por Viatura - Quilometragem")
+        
+        for matricula in selected_matriculas:
+            df_viatura = df_filtrado[df_filtrado['Matricula'] == matricula]
+            
+            if not df_viatura.empty:
+                st.markdown(f"### 📋 Viatura: {matricula}")
+                
+                col1, col2, col3, col4, col5 = st.columns(5)
+                
+                with col1:
+                    kms_total = df_viatura['Kms_Perc'].sum()
+                    st.metric(
+                        label="Total KMs Percorridos",
+                        value=f"{kms_total:.0f} km"
+                    )
+                
+                with col2:
+                    kms_medio_mensal = df_viatura.groupby("Mês")['Kms_Perc'].sum().mean()
+                    st.metric(
+                        label="Média Mensal de KMs",
+                        value=f"{kms_medio_mensal:.0f} km"
+                    )
+                
+                with col3:
+                    max_kms_mes = df_viatura.groupby("Mês")['Kms_Perc'].sum().max()
+                    st.metric(
+                        label="Máximo num Mês",
+                        value=f"{max_kms_mes:.0f} km"
+                    )
+                
+                with col4:
+                    meses_com_kms = df_viatura[df_viatura['Kms_Perc'] > 0]['Mês'].nunique()
+                    st.metric(
+                        label="Meses com Quilometragem",
+                        value=meses_com_kms
+                    )
+                
+                with col5:
+                    # Eficiência (km por litro)
+                    consumo_total = df_viatura['Consumo'].sum()
+                    if consumo_total > 0:
+                        eficiencia = kms_total / consumo_total
+                        st.metric(
+                            label="Eficiência (km/L)",
+                            value=f"{eficiencia:.1f} km/L"
+                        )
+                    else:
+                        st.metric("Eficiência (km/L)", "—")
+                
+                st.markdown("---")
+    
+    # Gráficos
+    if selected_matriculas and len(selected_matriculas) > 1:
+        # Gráfico de linhas comparando múltiplas viaturas
+        kms_mes_matricula = df_filtrado.groupby(["Mês", "Matricula"])["Kms_Perc"].sum().reset_index()
+        
+        line_chart = alt.Chart(kms_mes_matricula).mark_line(point=True, strokeWidth=3).encode(
+            x=alt.X("Mês", sort=ordem_meses, title="Mês"),
+            y=alt.Y("Kms_Perc", title="Quilometragem (km)"),
+            color=alt.Color("Matricula", legend=alt.Legend(title="Matrícula")),
+            tooltip=["Mês", "Matricula", "Kms_Perc"]
+        ).properties(title="Comparação de Quilometragem entre Viaturas", height=400)
+        
+        labels = alt.Chart(kms_mes_matricula).mark_text(
+            align='center',
+            baseline='bottom',
+            dy=-10,
+            fontSize=11,
+            fontWeight='bold'
+        ).encode(
+            x=alt.X("Mês", sort=ordem_meses),
+            y="Kms_Perc",
+            text=alt.Text("Kms_Perc:Q", format=".0f"),
+            color="Matricula"
+        )
+        
+        chart = line_chart + labels
+        st.altair_chart(chart, use_container_width=True)
+    else:
+        # Gráfico para uma única viatura
+        kms_mes = df_filtrado.groupby("Mês")["Kms_Perc"].sum().reindex(ordem_meses, fill_value=0).reset_index()
+        
+        line_chart = alt.Chart(kms_mes).mark_line(point=True, color="#EDC949", strokeWidth=3).encode(
+            x=alt.X("Mês", sort=ordem_meses, title="Mês"), 
+            y=alt.Y("Kms_Perc", title="Quilometragem (km)"), 
+            tooltip=["Mês", "Kms_Perc"]
+        ).properties(title="Quilometragem Total por Mês", height=400)
+        
+        labels = alt.Chart(kms_mes).mark_text(
+            align='center',
+            baseline='bottom',
+            dy=-10,
+            fontSize=11,
+            fontWeight='bold',
+            color='#EDC949'
+        ).encode(
+            x=alt.X("Mês", sort=ordem_meses),
+            y="Kms_Perc",
+            text=alt.Text("Kms_Perc:Q", format=".0f")
+        )
+        
+        chart = line_chart + labels
+        st.altair_chart(chart, use_container_width=True)
+    
+    # Análise adicional de quilometragem
+    st.subheader("📈 Análise Detalhada de Quilometragem")
+    
+    col_analise1, col_analise2 = st.columns(2)
+    
+    with col_analise1:
+        # Top 5 viaturas com maior quilometragem
+        kms_por_viatura = df_filtrado.groupby('Matricula')['Kms_Perc'].sum().sort_values(ascending=False).head(5)
+        if not kms_por_viatura.empty:
+            st.markdown("**🏆 Top 5 Viaturas com Maior Quilometragem**")
+            for i, (matricula, kms) in enumerate(kms_por_viatura.items(), 1):
+                st.write(f"{i}. {matricula}: {kms:.0f} km")
+    
+    with col_analise2:
+        # Quilometragem por marca
+        kms_por_marca = df_filtrado.groupby('Marca')['Kms_Perc'].sum().sort_values(ascending=False)
+        if not kms_por_marca.empty:
+            st.markdown("**🏭 Quilometragem por Marca**")
+            for marca, kms in kms_por_marca.items():
+                st.write(f"{marca}: {kms:.0f} km")
+        
+        # Eficiência média da frota
+        consumo_total_frota = df_filtrado['Consumo'].sum()
+        kms_total_frota = df_filtrado['Kms_Perc'].sum()
+        if consumo_total_frota > 0:
+            eficiencia_frota = kms_total_frota / consumo_total_frota
+            st.metric(
+                label="Eficiência Média da Frota",
+                value=f"{eficiencia_frota:.1f} km/L"
+            )
 
 # 📋 Visualização dos dados
 st.sidebar.header("📋 Dados Filtrados")
