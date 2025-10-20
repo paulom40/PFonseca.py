@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn.linear_model import LinearRegression
-import numpy as np
 
 st.set_page_config(page_title="Análise de Compras", layout="wide")
 st.title("📊 Análise de Compras por Cliente")
@@ -86,27 +84,6 @@ if all(col in df.columns for col in expected_cols):
     alertas["Queda"] = alertas.groupby(["Nome Cliente", "Ano"])["Total Líq."].diff()
     alertas_queda = alertas[alertas["Queda"] < 0]
     st.dataframe(alertas_queda[["Nome Cliente", "Ano", "Mês", "Total Líq.", "Queda"]])
-
-    # Previsão de compras futuras
-    st.subheader("🔮 Previsão de Compras (Experimental)")
-    cliente_exemplo = st.selectbox("Selecione um cliente para prever", df_filtrado["Nome Cliente"].unique())
-    dados_cliente = compras_mensais[compras_mensais["Nome Cliente"] == cliente_exemplo]
-
-    if len(dados_cliente) >= 3:
-        X = dados_cliente[["Ano", "Mês"]].apply(lambda row: row["Ano"] * 12 + row["Mês"], axis=1).values.reshape(-1, 1)
-        y = dados_cliente["Total Líq."].values
-        modelo = LinearRegression().fit(X, y)
-
-        ult_ano = dados_cliente["Ano"].max()
-        ult_mes = dados_cliente[dados_cliente["Ano"] == ult_ano]["Mês"].max()
-        futuros = [(ult_ano * 12 + ult_mes + i) for i in range(1, 4)]
-        previsoes = modelo.predict(np.array(futuros).reshape(-1, 1))
-
-        st.write("📅 Previsão para os próximos 3 meses:")
-        for i, valor in enumerate(previsoes, 1):
-            st.write(f"Mês +{i}: {valor:.2f}")
-    else:
-        st.info("Cliente selecionado não possui dados suficientes para previsão.")
 
     # Exportação
     st.subheader("📤 Exportar Dados")
