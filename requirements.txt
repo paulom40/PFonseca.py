@@ -5,4 +5,4 @@ xlsxwriter
 matplotlib
 altair
 requests
-
+LinearRegression
