@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 
-st.set_page_config(page_title="Análise de Compras", layout="wide")
-st.title("📊 Análise de Compras por Cliente")
+st.set_page_config(page_title="Análise Segmentada", layout="wide")
+st.title("📊 Análise de Compras por Cliente com Segmentação")
 
 # Upload do arquivo
 uploaded_file = st.file_uploader("Carregue o arquivo Excel", type=["xlsx"])
@@ -12,27 +12,32 @@ if uploaded_file:
     df = pd.read_excel(uploaded_file)
 
     # Verificação de colunas esperadas
-    expected_cols = ["Nome Cliente", "Data Compra", "Valor Compra"]
+    expected_cols = ["Nome Cliente", "Data Compra", "Valor Compra", "Produto", "Canal", "Região"]
     if all(col in df.columns for col in expected_cols):
         df["Data Compra"] = pd.to_datetime(df["Data Compra"])
         df["Ano"] = df["Data Compra"].dt.year
         df["Mês"] = df["Data Compra"].dt.month
 
-        # Filtros
-        clientes = st.multiselect("Selecione os clientes", df["Nome Cliente"].unique())
-        anos = st.multiselect("Selecione os anos", sorted(df["Ano"].unique()))
+        # Filtros interativos
+        clientes = st.multiselect("🧍 Clientes", df["Nome Cliente"].unique())
+        anos = st.multiselect("📅 Anos", sorted(df["Ano"].unique()))
+        produtos = st.multiselect("📦 Produtos", df["Produto"].unique())
+        canais = st.multiselect("🛒 Canais de Venda", df["Canal"].unique())
+        regioes = st.multiselect("🌍 Regiões", df["Região"].unique())
 
+        # Aplicar filtros
         df_filtrado = df.copy()
-        if clientes:
-            df_filtrado = df_filtrado[df_filtrado["Nome Cliente"].isin(clientes)]
-        if anos:
-            df_filtrado = df_filtrado[df_filtrado["Ano"].isin(anos)]
+        if clientes: df_filtrado = df_filtrado[df_filtrado["Nome Cliente"].isin(clientes)]
+        if anos: df_filtrado = df_filtrado[df_filtrado["Ano"].isin(anos)]
+        if produtos: df_filtrado = df_filtrado[df_filtrado["Produto"].isin(produtos)]
+        if canais: df_filtrado = df_filtrado[df_filtrado["Canal"].isin(canais)]
+        if regioes: df_filtrado = df_filtrado[df_filtrado["Região"].isin(regioes)]
 
         # Agrupamento mensal
         compras_mensais = df_filtrado.groupby(["Ano", "Mês", "Nome Cliente"])["Valor Compra"].sum().reset_index()
 
-        # Gráfico de linhas
-        st.subheader("📉 Evolução Mensal das Compras")
+        # Gráfico de linhas por cliente
+        st.subheader("📈 Evolução Mensal por Cliente")
         fig, ax = plt.subplots(figsize=(10, 5))
         for cliente in compras_mensais["Nome Cliente"].unique():
             for ano in compras_mensais["Ano"].unique():
@@ -44,26 +49,40 @@ if uploaded_file:
         ax.legend()
         st.pyplot(fig)
 
-        # Tabela mensal
-        st.subheader("📋 Tabela de Compras por Mês")
-        tabela = compras_mensais.pivot_table(index=["Nome Cliente", "Ano"], columns="Mês", values="Valor Compra", fill_value=0)
-        st.dataframe(tabela)
+        # Gráficos por segmento
+        st.subheader("📊 Gráficos por Segmento")
 
-        # Crescimento percentual
-        st.subheader("📈 Crescimento Percentual Anual")
-        crescimento = df_filtrado.groupby(["Nome Cliente", "Ano"])["Valor Compra"].sum().unstack()
-        crescimento_pct = crescimento.pct_change(axis=1) * 100
-        st.dataframe(crescimento_pct.round(2))
+        def plot_segmento(coluna, titulo):
+            agrupado = df_filtrado.groupby([coluna, "Ano"])["Valor Compra"].sum().unstack().fillna(0)
+            fig, ax = plt.subplots(figsize=(8, 4))
+            agrupado.plot(kind="bar", ax=ax)
+            ax.set_title(titulo)
+            ax.set_ylabel("Valor Total")
+            st.pyplot(fig)
 
-        # Média mensal
-        st.subheader("📊 Média Mensal de Compras")
-        media_mensal = compras_mensais.groupby(["Nome Cliente", "Ano"])["Valor Compra"].mean().unstack()
-        st.dataframe(media_mensal.round(2))
+        plot_segmento("Produto", "Compras por Produto")
+        plot_segmento("Canal", "Compras por Canal de Venda")
+        plot_segmento("Região", "Compras por Região")
 
-        # Sazonalidade (desvio padrão)
-        st.subheader("📉 Sazonalidade (Desvio Padrão Mensal)")
-        sazonalidade = compras_mensais.groupby(["Nome Cliente", "Ano"])["Valor Compra"].std().unstack()
-        st.dataframe(sazonalidade.round(2))
+        # Indicadores
+        st.subheader("📊 Indicadores de Desempenho")
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.markdown("**Crescimento Percentual**")
+            crescimento = df_filtrado.groupby(["Nome Cliente", "Ano"])["Valor Compra"].sum().unstack()
+            crescimento_pct = crescimento.pct_change(axis=1) * 100
+            st.dataframe(crescimento_pct.round(2))
+
+        with col2:
+            st.markdown("**Média Mensal**")
+            media_mensal = compras_mensais.groupby(["Nome Cliente", "Ano"])["Valor Compra"].mean().unstack()
+            st.dataframe(media_mensal.round(2))
+
+        with col3:
+            st.markdown("**Sazonalidade (Desvio Padrão)**")
+            sazonalidade = compras_mensais.groupby(["Nome Cliente", "Ano"])["Valor Compra"].std().unstack()
+            st.dataframe(sazonalidade.round(2))
 
         # Alertas de queda
         st.subheader("⚠️ Alertas de Queda Mensal")
@@ -72,10 +91,10 @@ if uploaded_file:
         alertas_queda = alertas[alertas["Queda"] < 0]
         st.dataframe(alertas_queda[["Nome Cliente", "Ano", "Mês", "Valor Compra", "Queda"]])
 
-        # Exportação
-        st.subheader("📤 Exportar Dados")
-        export_df = compras_mensais.pivot_table(index=["Nome Cliente", "Ano"], columns="Mês", values="Valor Compra", fill_value=0)
-        csv = export_df.to_csv().encode("utf-8")
-        st.download_button("📥 Baixar CSV", data=csv, file_name="compras_analise_completa.csv", mime="text/csv")
+        # Exportação segmentada
+        st.subheader("📤 Exportar Dados Segmentados")
+        export_df = df_filtrado.groupby(["Nome Cliente", "Ano", "Mês", "Produto", "Canal", "Região"])["Valor Compra"].sum().reset_index()
+        csv = export_df.to_csv(index=False).encode("utf-8")
+        st.download_button("📥 Baixar CSV Segmentado", data=csv, file_name="compras_segmentadas_completas.csv", mime="text/csv")
     else:
-        st.error("O arquivo precisa conter as colunas: Nome Cliente, Data Compra, Valor Compra.")
+        st.error("O arquivo precisa conter as colunas: Nome Cliente, Data Compra, Valor Compra, Produto, Canal, Região.")
