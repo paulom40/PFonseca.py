@@ -139,5 +139,5 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
     resumo_mensal.to_excel(writer, index=False, sheet_name="Resumo Mensal")
 
     # Formatação condicional segura
-    if "Clientes Inativos" in writer.sheets:
-
+    if "Clientes Inativos" in writer.sheets and "dias_sem_compra" in alertas_inativos.columns:
+        worksheet = writer.sheets["
