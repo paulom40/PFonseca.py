@@ -46,7 +46,12 @@ if meses:
     df_filtrado = df_filtrado[df_filtrado["mês"].isin(meses)]
 if anos:
     df_filtrado = df_filtrado[df_filtrado["ano"].isin(anos)]
-# Agrupamentos principais
+
+# Verifica se há dados
+if df_filtrado.empty:
+    st.warning("Nenhum dado encontrado com os filtros selecionados.")
+    st.stop()
+# Agrupamentos
 compras_mensais = df_filtrado.groupby(["ano", "mês", "nome_cliente"])["total_liquido"].sum().reset_index()
 compras_trimestrais = df_filtrado.groupby(["trimestre", "nome_cliente"])["total_liquido"].sum().reset_index()
 ticket_medio = df_filtrado.groupby("comercial")["total_liquido"].mean().reset_index()
@@ -82,6 +87,40 @@ resumo_mensal = resumo_mensal.sort_values(["ano", "mês"])
 resumo_mensal = resumo_mensal[["ano", "mês_nome", "total_liquido"]].rename(columns={
     "ano": "Ano", "mês_nome": "Mês", "total_liquido": "Total Compras"
 })
+
+# Exibição visual
+st.subheader("📋 Dados Filtrados")
+st.dataframe(df_filtrado)
+
+st.subheader("🏆 Ranking de Clientes")
+st.dataframe(ranking.style.format({"total_liquido": "€ {:,.2f}"}))
+
+st.subheader("📆 Compras Mensais")
+st.dataframe(compras_mensais.style.format({"total_liquido": "€ {:,.2f}"}))
+
+st.subheader("💼 Ticket Médio por Comercial")
+st.dataframe(ticket_medio.style.format({"total_liquido": "€ {:,.2f}"}))
+
+st.subheader("🧾 Ticket Médio por Cliente")
+st.dataframe(ticket_cliente.style.format({"total_liquido": "€ {:,.2f}"}))
+
+st.subheader("⚠️ Alertas de Queda Mensal")
+st.dataframe(alertas_queda[["nome_cliente", "ano", "mês", "total_liquido", "queda"]].style.format({
+    "total_liquido": "€ {:,.2f}", "queda": "€ {:,.2f}"
+}))
+
+st.subheader("🚨 Clientes sem compras há mais de 60 dias")
+def colorir_linha(row):
+    if row["dias_sem_compra"] > 120:
+        return ["background-color: #ffcccc"] * len(row)
+    elif row["dias_sem_compra"] > 90:
+        return ["background-color: #ffe5b4"] * len(row)
+    else:
+        return ["background-color: #ffffcc"] * len(row)
+st.dataframe(alertas_inativos.style.apply(colorir_linha, axis=1))
+
+st.subheader("📅 Resumo Mensal de Compras por Ano")
+st.dataframe(resumo_mensal.style.format({"Total Compras": "€ {:,.2f}"}))
 # Exportação para Excel
 st.subheader("📤 Exportar Dados para Excel")
 
@@ -100,35 +139,4 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
     resumo_mensal.to_excel(writer, index=False, sheet_name="Resumo Mensal")
 
     # Formatação condicional segura
-    if "Clientes Inativos" in writer.sheets and "dias_sem_compra" in alertas_inativos.columns:
-        worksheet = writer.sheets["Clientes Inativos"]
-        format_red = writer.book.add_format({"bg_color": "#FFCCCC"})
-        format_orange = writer.book.add_format({"bg_color": "#FFE5B4"})
-        format_yellow = writer.book.add_format({"bg_color": "#FFFFCC"})
-
-        col_index = alertas_inativos.columns.get_loc("dias_sem_compra")
-        col_letter = xlsxwriter.utility.xl_col_to_name(col_index)
-
-        worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
-            "type": "cell", "criteria": ">", "value": 120, "format": format_red
-        })
-        worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
-            "type": "cell", "criteria": "between", "minimum": 91, "maximum": 120, "format": format_orange
-        })
-        worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
-            "type": "cell", "criteria": "between", "minimum": 61, "maximum": 90, "format": format_yellow
-        })
-
-    # Formatação geral para todas as abas
-    for sheet in writer.sheets:
-        ws = writer.sheets[sheet]
-        ws.autofilter(0, 0, ws.dim_rowmax, ws.dim_colmax)
-        ws.freeze_panes(1, 0)
-
-# Botão de download
-st.download_button(
-    label="📥 Baixar Excel Completo",
-    data=output.getvalue(),
-    file_name="analise_compras_completa.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
+    if "Clientes Inativos" in
