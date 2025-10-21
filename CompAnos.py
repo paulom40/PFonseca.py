@@ -122,7 +122,23 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
     col_letter = xlsxwriter.utility.xl_col_to_name(col_index)
 
     worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
-        "type": "cell", "criteria": ">120", "format": format_red
-    })
-    worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
-        "type": "cell", "criteria": "between", "minimum": 91, "maximum": 120, "format":
+    "type": "cell",
+    "criteria": ">120",
+    "format": format_red
+})
+
+worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
+    "type": "cell",
+    "criteria": "between",
+    "minimum": 91,
+    "maximum": 120,
+    "format": format_orange
+})
+
+worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
+    "type": "cell",
+    "criteria": "between",
+    "minimum": 61,
+    "maximum": 90,
+    "format": format_yellow
+})
