@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import io
+from datetime import datetime
 
 st.set_page_config(page_title="Análise de Compras", layout="wide")
 st.title("📊 Análise de Compras por Cliente")
@@ -114,6 +115,25 @@ alertas["queda"] = alertas.groupby(["nome_cliente", "ano"])["total_liquido"].dif
 alertas_queda = alertas[alertas["queda"] < 0]
 st.dataframe(alertas_queda[["nome_cliente", "ano", "mês", "total_liquido", "queda"]])
 
+# Clientes inativos
+st.subheader("🚨 Clientes sem compras há mais de 60 dias")
+df_filtrado["data_compra"] = pd.to_datetime(dict(year=df_filtrado["ano"], month=df_filtrado["mês"], day=1))
+ultimas_compras = df_filtrado.groupby("nome_cliente")["data_compra"].max().reset_index()
+ultimas_compras["dias_sem_compra"] = (datetime.today() - ultimas_compras["data_compra"]).dt.days
+alertas_inativos = ultimas_compras[ultimas_compras["dias_sem_compra"] > 60].copy()
+alertas_inativos["status"] = "🔴 Inativo"
+alertas_inativos = alertas_inativos.sort_values("dias_sem_compra", ascending=False)
+
+def colorir_linha(row):
+    if row["dias_sem_compra"] > 120:
+        return ["background-color: #ffcccc"] * len(row)
+    elif row["dias_sem_compra"] > 90:
+        return ["background-color: #ffe5b4"] * len(row)
+    else:
+        return ["background-color: #ffffcc"] * len(row)
+
+st.dataframe(alertas_inativos.style.apply(colorir_linha, axis=1))
+
 # Exportação para Excel
 st.subheader("📤 Exportar Dados para Excel")
 
@@ -127,16 +147,4 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
     alertas_queda.to_excel(writer, index=False, sheet_name="Alertas de Queda")
     crescimento_pct.reset_index().to_excel(writer, index=False, sheet_name="Crescimento %")
     media_mensal.reset_index().to_excel(writer, index=False, sheet_name="Média Mensal")
-    sazonalidade.reset_index().to_excel(writer, index=False, sheet_name="Sazonalidade")
-
-    for sheet in writer.sheets:
-        worksheet = writer.sheets[sheet]
-        worksheet.autofilter(0, 0, worksheet.dim_rowmax, worksheet.dim_colmax)
-        worksheet.freeze_panes(1, 0)
-
-st.download_button(
-    label="📥 Baixar Excel Completo",
-    data=output.getvalue(),
-    file_name="analise_compras_completa.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
+    sazonalidade.reset_index().to_excel(writer
