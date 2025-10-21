@@ -25,43 +25,20 @@ df["mês"] = df["mês"].astype(str).str.strip().str.lower().map(mes_map)
 df["ano"] = pd.to_numeric(df["ano"], errors="coerce").fillna(0).astype(int)
 df["trimestre"] = pd.to_datetime(dict(year=df["ano"], month=df["mês"], day=1)).dt.to_period("Q")
 
-# Filtros na sidebar
+# Filtros
 st.sidebar.header("🎚️ Filtros")
 clientes = st.sidebar.multiselect("🧍 Nome Cliente", df["nome_cliente"].unique())
 comerciais = st.sidebar.multiselect("💼 Comercial", df["comercial"].unique())
 meses = st.sidebar.multiselect("📆 Mês", sorted(df["mês"].dropna().unique()))
 anos = st.sidebar.multiselect("📅 Ano", sorted(df["ano"].dropna().unique()))
 
-# Aplica filtros
 df_filtrado = df.copy()
 if clientes: df_filtrado = df_filtrado[df_filtrado["nome_cliente"].isin(clientes)]
 if comerciais: df_filtrado = df_filtrado[df_filtrado["comercial"].isin(comerciais)]
 if meses: df_filtrado = df_filtrado[df_filtrado["mês"].isin(meses)]
 if anos: df_filtrado = df_filtrado[df_filtrado["ano"].isin(anos)]
-# Agrupamento mensal
+# Agrupamentos
 compras_mensais = df_filtrado.groupby(["ano", "mês", "nome_cliente"])["total_liquido"].sum().reset_index()
-
-# Gráfico com rótulos
-st.subheader("📈 Comparação Mensal por Cliente e Ano")
-fig, ax = plt.subplots(figsize=(10, 6))
-for cliente in compras_mensais["nome_cliente"].unique():
-    for ano in compras_mensais["ano"].unique():
-        dados = compras_mensais[(compras_mensais["nome_cliente"] == cliente) & (compras_mensais["ano"] == ano)]
-        if not dados.empty:
-            ax.plot(dados["mês"], dados["total_liquido"], marker="o", label=f"{cliente} - {ano}")
-            for i in range(len(dados)):
-                x = dados["mês"].iloc[i]
-                y = dados["total_liquido"].iloc[i]
-                ax.text(x, y, f"€{y:,.0f}", ha="center", va="bottom", fontsize=8)
-ax.set_xticks(range(1, 13))
-ax.set_xticklabels(["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"])
-ax.set_xlabel("Mês")
-ax.set_ylabel("Total Líquido (€)")
-ax.set_title("Comparação Mensal com Rótulos")
-ax.legend(loc="upper left")
-st.pyplot(fig)
-
-# Tabelas e indicadores
 compras_trimestrais = df_filtrado.groupby(["trimestre", "nome_cliente"])["total_liquido"].sum().reset_index()
 ticket_medio = df_filtrado.groupby("comercial")["total_liquido"].mean().reset_index()
 ticket_cliente = df_filtrado.groupby("nome_cliente")["total_liquido"].mean().reset_index()
@@ -113,58 +90,11 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
     alertas_inativos.to_excel(writer, index=False, sheet_name="Clientes Inativos")
     resumo_mensal.to_excel(writer, index=False, sheet_name="Resumo Mensal")
 
-    # Formatação condicional segura
+    # Formatação condicional
     worksheet = writer.sheets["Clientes Inativos"]
     format_red = writer.book.add_format({"bg_color": "#FFCCCC"})
     format_orange = writer.book.add_format({"bg_color": "#FFE5B4"})
     format_yellow = writer.book.add_format({"bg_color": "#FFFFCC"})
-    col_index = alertas_inativos.columns.get_loc("dias_sem_compra")
-    col_letter = xlsxwriter.utility.xl_col_to_name(col_index)
-
-    worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
-    "type": "cell",
-    "criteria": ">120",
-    "format": format_red
-})
-
-worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
-    "type": "cell",
-    "criteria": "between",
-    "minimum": 91,
-    "maximum": 120,
-    "format": format_orange
-})
-
-worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
-    "type": "cell",
-    "criteria": "between",
-    "minimum": 61,
-    "maximum": 90,
-    "format": format_yellow
-})
-# Exportação para Excel
-st.subheader("📤 Exportar Dados para Excel")
-
-output = io.BytesIO()
-with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-    compras_mensais.to_excel(writer, index=False, sheet_name="Compras Mensais")
-    compras_trimestrais.to_excel(writer, index=False, sheet_name="Compras Trimestrais")
-    ranking.to_excel(writer, index=False, sheet_name="Ranking Clientes")
-    ticket_medio.to_excel(writer, index=False, sheet_name="Ticket Médio Comercial")
-    ticket_cliente.to_excel(writer, index=False, sheet_name="Ticket Médio Cliente")
-    alertas_queda.to_excel(writer, index=False, sheet_name="Alertas de Queda")
-    crescimento_pct.reset_index().to_excel(writer, index=False, sheet_name="Crescimento %")
-    media_mensal.reset_index().to_excel(writer, index=False, sheet_name="Média Mensal")
-    sazonalidade.reset_index().to_excel(writer, index=False, sheet_name="Sazonalidade")
-    alertas_inativos.to_excel(writer, index=False, sheet_name="Clientes Inativos")
-    resumo_mensal.to_excel(writer, index=False, sheet_name="Resumo Mensal")
-
-    # Formatação condicional segura para aba Clientes Inativos
-    worksheet = writer.sheets["Clientes Inativos"]
-    format_red = writer.book.add_format({"bg_color": "#FFCCCC"})
-    format_orange = writer.book.add_format({"bg_color": "#FFE5B4"})
-    format_yellow = writer.book.add_format({"bg_color": "#FFFFCC"})
-
     col_index = alertas_inativos.columns.get_loc("dias_sem_compra")
     col_letter = xlsxwriter.utility.xl_col_to_name(col_index)
 
@@ -178,7 +108,6 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         "type": "cell", "criteria": "between", "minimum": 61, "maximum": 90, "format": format_yellow
     })
 
-    # Formatação geral para todas as abas
     for sheet in writer.sheets:
         ws = writer.sheets[sheet]
         ws.autofilter(0, 0, ws.dim_rowmax, ws.dim_colmax)
@@ -191,4 +120,3 @@ st.download_button(
     file_name="analise_compras_completa.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
-
