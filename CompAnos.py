@@ -9,7 +9,7 @@ st.title("📊 Análise de Compras por Cliente")
 github_excel_url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Vendas2025.xlsx"
 df = pd.read_excel(github_excel_url)
 
-# Normaliza os nomes das colunas
+# Normaliza nomes de colunas
 df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
 
 # Diagnóstico: mostra colunas detectadas
@@ -18,8 +18,14 @@ st.write("🧾 Colunas detectadas:", df.columns.tolist())
 # Verifica se as colunas esperadas estão presentes
 expected_cols = ["cliente", "nome_cliente", "total_liquido", "comercial", "mês", "ano"]
 if all(col in df.columns for col in expected_cols):
-    df["mês"] = df["mês"].astype(int)
-    df["ano"] = df["ano"].astype(int)
+    # Mapeia nomes de meses para números
+    mes_map = {
+        "janeiro": 1, "fevereiro": 2, "março": 3, "abril": 4,
+        "maio": 5, "junho": 6, "julho": 7, "agosto": 8,
+        "setembro": 9, "outubro": 10, "novembro": 11, "dezembro": 12
+    }
+    df["mês"] = df["mês"].astype(str).str.strip().str.lower().map(mes_map)
+    df["ano"] = pd.to_numeric(df["ano"], errors="coerce").fillna(0).astype(int)
     df["trimestre"] = pd.to_datetime(dict(year=df["ano"], month=df["mês"], day=1)).dt.to_period("Q")
 
     # Filtros
