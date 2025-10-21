@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import io
 from datetime import datetime
+import xlsxwriter.utility
 
 st.set_page_config(page_title="Análise de Compras", layout="wide")
 st.title("📊 Análise de Compras por Cliente")
@@ -58,7 +59,7 @@ ax.set_xticklabels(["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set
 ax.set_xlabel("Mês")
 ax.set_ylabel("Total Líquido (€)")
 ax.set_title("Comparação Mensal com Rótulos")
-ax.legend()
+ax.legend(loc="upper left")
 st.pyplot(fig)
 
 # Tabela mensal
@@ -141,47 +142,4 @@ st.dataframe(alertas_inativos.style.apply(colorir_linha, axis=1))
 resumo_mensal = df_filtrado.groupby(["ano", "mês"])["total_liquido"].sum().reset_index()
 resumo_mensal["mês_nome"] = resumo_mensal["mês"].map({
     1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
-    5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
-    9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
-})
-resumo_mensal = resumo_mensal.sort_values(["ano", "mês"])
-# Exportação para Excel
-st.subheader("📤 Exportar Dados para Excel")
-
-output = io.BytesIO()
-with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-    compras_mensais.to_excel(writer, index=False, sheet_name="Compras Mensais")
-    compras_trimestrais.to_excel(writer, index=False, sheet_name="Compras Trimestrais")
-    ranking.to_excel(writer, index=False, sheet_name="Ranking Clientes")
-    ticket_medio.to_excel(writer, index=False, sheet_name="Ticket Médio Comercial")
-    ticket_cliente.to_excel(writer, index=False, sheet_name="Ticket Médio Cliente")
-    alertas_queda.to_excel(writer, index=False, sheet_name="Alertas de Queda")
-    crescimento_pct.reset_index().to_excel(writer, index=False, sheet_name="Crescimento %")
-    media_mensal.reset_index().to_excel(writer, index=False, sheet_name="Média Mensal")
-    sazonalidade.reset_index().to_excel(writer, index=False, sheet_name="Sazonalidade")
-    alertas_inativos.to_excel(writer, index=False, sheet_name="Clientes Inativos")
-    resumo_mensal.to_excel(writer, index=False, sheet_name="Resumo Mensal")
-
-    # Formatação condicional para aba Clientes Inativos
-    worksheet = writer.sheets["Clientes Inativos"]
-    format_red = writer.book.add_format({"bg_color": "#FFCCCC"})
-    format_orange = writer.book.add_format({"bg_color": "#FFE5B4"})
-    format_yellow = writer.book.add_format({"bg_color": "#FFFFCC"})
-    worksheet.conditional_format("C2:C1000", {"type": "cell", "criteria": ">120", "format": format_red})
-    worksheet.conditional_format("C2:C1000", {"type": "cell", "criteria": "between", "minimum": 91, "maximum": 120, "format": format_orange})
-    worksheet.conditional_format("C2:C1000", {"type": "cell", "criteria": "between", "minimum": 61, "maximum": 90, "format": format_yellow})
-
-    # Formatação geral para todas as abas
-    for sheet in writer.sheets:
-        ws = writer.sheets[sheet]
-        ws.autofilter(0, 0, ws.dim_rowmax, ws.dim_colmax)
-        ws.freeze_panes(1, 0)
-
-st.download_button(
-    label="📥 Baixar Excel Completo",
-    data=output.getvalue(),
-    file_name="analise_compras_completa.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
-
-
+    5: "Maio", 6: "Junho", 7
