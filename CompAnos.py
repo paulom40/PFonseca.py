@@ -1,15 +1,16 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import io
 
 st.set_page_config(page_title="Análise de Compras", layout="wide")
 st.title("📊 Análise de Compras por Cliente")
 
-# Fonte do Excel no GitHub
+# Fonte do Excel
 github_excel_url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Vendas2025.xlsx"
 df = pd.read_excel(github_excel_url)
 
-# Normaliza nomes de colunas
+# Normaliza colunas
 df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
 
 # Mapeia nomes de meses para números
@@ -22,7 +23,7 @@ df["mês"] = df["mês"].astype(str).str.strip().str.lower().map(mes_map)
 df["ano"] = pd.to_numeric(df["ano"], errors="coerce").fillna(0).astype(int)
 df["trimestre"] = pd.to_datetime(dict(year=df["ano"], month=df["mês"], day=1)).dt.to_period("Q")
 
-# 🎛️ Filtros na sidebar
+# Filtros na sidebar
 st.sidebar.header("🎚️ Filtros")
 clientes = st.sidebar.multiselect("🧍 Nome Cliente", df["nome_cliente"].unique())
 comerciais = st.sidebar.multiselect("💼 Comercial", df["comercial"].unique())
@@ -39,16 +40,23 @@ if anos: df_filtrado = df_filtrado[df_filtrado["ano"].isin(anos)]
 # Agrupamento mensal
 compras_mensais = df_filtrado.groupby(["ano", "mês", "nome_cliente"])["total_liquido"].sum().reset_index()
 
-# Gráfico de evolução mensal
-st.subheader("📈 Evolução Mensal por Cliente")
-fig, ax = plt.subplots(figsize=(10, 5))
+# Gráfico com rótulos
+st.subheader("📈 Comparação Mensal por Cliente e Ano")
+fig, ax = plt.subplots(figsize=(10, 6))
 for cliente in compras_mensais["nome_cliente"].unique():
     for ano in compras_mensais["ano"].unique():
         dados = compras_mensais[(compras_mensais["nome_cliente"] == cliente) & (compras_mensais["ano"] == ano)]
-        ax.plot(dados["mês"], dados["total_liquido"], label=f"{cliente} - {ano}")
+        if not dados.empty:
+            ax.plot(dados["mês"], dados["total_liquido"], marker="o", label=f"{cliente} - {ano}")
+            for i in range(len(dados)):
+                x = dados["mês"].iloc[i]
+                y = dados["total_liquido"].iloc[i]
+                ax.text(x, y, f"{y:.0f}", ha="center", va="bottom", fontsize=8)
+ax.set_xticks(range(1, 13))
+ax.set_xticklabels(["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"])
 ax.set_xlabel("Mês")
 ax.set_ylabel("Total Líquido")
-ax.set_title("Comparação Anual por Cliente")
+ax.set_title("Comparação Mensal com Rótulos")
 ax.legend()
 st.pyplot(fig)
 
@@ -88,6 +96,11 @@ st.subheader("💼 Ticket Médio por Comercial")
 ticket_medio = df_filtrado.groupby("comercial")["total_liquido"].mean().reset_index()
 st.dataframe(ticket_medio.round(2))
 
+# Ticket médio por cliente
+st.subheader("🧾 Ticket Médio por Cliente")
+ticket_cliente = df_filtrado.groupby("nome_cliente")["total_liquido"].mean().reset_index()
+st.dataframe(ticket_cliente.round(2))
+
 # Ranking de clientes
 st.subheader("🏆 Ranking de Clientes por Volume Total")
 ranking = df_filtrado.groupby("nome_cliente")["total_liquido"].sum().sort_values(ascending=False).reset_index()
@@ -101,7 +114,29 @@ alertas["queda"] = alertas.groupby(["nome_cliente", "ano"])["total_liquido"].dif
 alertas_queda = alertas[alertas["queda"] < 0]
 st.dataframe(alertas_queda[["nome_cliente", "ano", "mês", "total_liquido", "queda"]])
 
-# Exportação
-st.subheader("📤 Exportar Dados")
-csv = tabela.reset_index().to_csv(index=False).encode("utf-8")
-st.download_button("📥 Baixar CSV", data=csv, file_name="compras_clientes.csv", mime="text/csv")
+# Exportação para Excel
+st.subheader("📤 Exportar Dados para Excel")
+
+output = io.BytesIO()
+with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+    compras_mensais.to_excel(writer, index=False, sheet_name="Compras Mensais")
+    compras_trimestrais.to_excel(writer, index=False, sheet_name="Compras Trimestrais")
+    ranking.to_excel(writer, index=False, sheet_name="Ranking Clientes")
+    ticket_medio.to_excel(writer, index=False, sheet_name="Ticket Médio Comercial")
+    ticket_cliente.to_excel(writer, index=False, sheet_name="Ticket Médio Cliente")
+    alertas_queda.to_excel(writer, index=False, sheet_name="Alertas de Queda")
+    crescimento_pct.reset_index().to_excel(writer, index=False, sheet_name="Crescimento %")
+    media_mensal.reset_index().to_excel(writer, index=False, sheet_name="Média Mensal")
+    sazonalidade.reset_index().to_excel(writer, index=False, sheet_name="Sazonalidade")
+
+    for sheet in writer.sheets:
+        worksheet = writer.sheets[sheet]
+        worksheet.autofilter(0, 0, worksheet.dim_rowmax, worksheet.dim_colmax)
+        worksheet.freeze_panes(1, 0)
+
+st.download_button(
+    label="📥 Baixar Excel Completo",
+    data=output.getvalue(),
+    file_name="analise_compras_completa.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
