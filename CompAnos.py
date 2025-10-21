@@ -90,24 +90,27 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
     alertas_inativos.to_excel(writer, index=False, sheet_name="Clientes Inativos")
     resumo_mensal.to_excel(writer, index=False, sheet_name="Resumo Mensal")
 
-    # Formatação condicional
-    worksheet = writer.sheets["Clientes Inativos"]
-    format_red = writer.book.add_format({"bg_color": "#FFCCCC"})
-    format_orange = writer.book.add_format({"bg_color": "#FFE5B4"})
-    format_yellow = writer.book.add_format({"bg_color": "#FFFFCC"})
-    col_index = alertas_inativos.columns.get_loc("dias_sem_compra")
-    col_letter = xlsxwriter.utility.xl_col_to_name(col_index)
+    # Formatação condicional segura para aba Clientes Inativos
+    if "dias_sem_compra" in alertas_inativos.columns:
+        worksheet = writer.sheets["Clientes Inativos"]
+        format_red = writer.book.add_format({"bg_color": "#FFCCCC"})
+        format_orange = writer.book.add_format({"bg_color": "#FFE5B4"})
+        format_yellow = writer.book.add_format({"bg_color": "#FFFFCC"})
 
-    worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
-        "type": "cell", "criteria": ">120", "format": format_red
-    })
-    worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
-        "type": "cell", "criteria": "between", "minimum": 91, "maximum": 120, "format": format_orange
-    })
-    worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
-        "type": "cell", "criteria": "between", "minimum": 61, "maximum": 90, "format": format_yellow
-    })
+        col_index = alertas_inativos.columns.get_loc("dias_sem_compra")
+        col_letter = xlsxwriter.utility.xl_col_to_name(col_index)
 
+        worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
+            "type": "cell", "criteria": ">120", "format": format_red
+        })
+        worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
+            "type": "cell", "criteria": "between", "minimum": 91, "maximum": 120, "format": format_orange
+        })
+        worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
+            "type": "cell", "criteria": "between", "minimum": 61, "maximum": 90, "format": format_yellow
+        })
+
+    # Formatação geral para todas as abas
     for sheet in writer.sheets:
         ws = writer.sheets[sheet]
         ws.autofilter(0, 0, ws.dim_rowmax, ws.dim_colmax)
