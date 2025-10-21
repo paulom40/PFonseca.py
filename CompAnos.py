@@ -152,4 +152,5 @@ st.subheader("📅 Resumo Mensal de Compras por Ano")
 st.dataframe(resumo_mensal.style.format({"Total Compras": "R$ {:,.2f}"}))
 
 # Exportação para Excel
-st.subheader("📤 Export
+st.subheader("📤 Exportar Dados para Excel")
+
