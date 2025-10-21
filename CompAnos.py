@@ -62,12 +62,11 @@ ax.set_title("Comparação Mensal com Rótulos")
 ax.legend(loc="upper left")
 st.pyplot(fig)
 
-# Tabela mensal
+# Tabelas
 st.subheader("📋 Tabela de Compras por Mês")
 tabela = compras_mensais.pivot_table(index=["nome_cliente", "ano"], columns="mês", values="total_liquido", fill_value=0)
 st.dataframe(tabela.style.format("{:,.2f} €"))
 
-# Tabela trimestral
 st.subheader("📆 Compras por Trimestre")
 compras_trimestrais = df_filtrado.groupby(["trimestre", "nome_cliente"])["total_liquido"].sum().reset_index()
 tabela_tri = compras_trimestrais.pivot_table(index="nome_cliente", columns="trimestre", values="total_liquido", fill_value=0)
@@ -92,23 +91,6 @@ with col3:
     st.markdown("**Sazonalidade (€)**")
     sazonalidade = compras_mensais.groupby(["nome_cliente", "ano"])["total_liquido"].std().unstack()
     st.dataframe(sazonalidade.round(2).style.format("{:,.2f} €"))
-
-# Ticket médio por comercial
-st.subheader("💼 Ticket Médio por Comercial")
-ticket_medio = df_filtrado.groupby("comercial")["total_liquido"].mean().reset_index()
-st.dataframe(ticket_medio.style.format({"total_liquido": "€ {:,.2f}"}))
-
-# Ticket médio por cliente
-st.subheader("🧾 Ticket Médio por Cliente")
-ticket_cliente = df_filtrado.groupby("nome_cliente")["total_liquido"].mean().reset_index()
-st.dataframe(ticket_cliente.style.format({"total_liquido": "€ {:,.2f}"}))
-
-# Ranking de clientes
-st.subheader("🏆 Ranking de Clientes por Volume Total")
-ranking = df_filtrado.groupby("nome_cliente")["total_liquido"].sum().sort_values(ascending=False).reset_index()
-ranking.index += 1
-st.dataframe(ranking.style.format({"total_liquido": "€ {:,.2f}"}))
-
 # Alertas de queda
 st.subheader("⚠️ Alertas de Queda Mensal")
 alertas = compras_mensais.sort_values(["nome_cliente", "ano", "mês"])
@@ -145,4 +127,60 @@ resumo_mensal["mês_nome"] = resumo_mensal["mês"].map({
     5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
     9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
 })
-resumo_mensal = resumo_mensal
+resumo_mensal = resumo_mensal.sort_values(["ano", "mês"])
+resumo_mensal = resumo_mensal[["ano", "mês_nome", "total_liquido"]].rename(columns={
+    "ano": "Ano",
+    "mês_nome": "Mês",
+    "total_liquido": "Total Compras"
+})
+st.subheader("📅 Resumo Mensal de Compras por Ano")
+st.dataframe(resumo_mensal.style.format({"Total Compras": "€ {:,.2f}"}))
+
+# Exportação para Excel
+st.subheader("📤 Exportar Dados para Excel")
+
+output = io.BytesIO()
+with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+    compras_mensais.to_excel(writer, index=False, sheet_name="Compras Mensais")
+    compras_trimestrais.to_excel(writer, index=False, sheet_name="Compras Trimestrais")
+    ranking.to_excel(writer, index=False, sheet_name="Ranking Clientes")
+    ticket_medio.to_excel(writer, index=False, sheet_name="Ticket Médio Comercial")
+    ticket_cliente.to_excel(writer, index=False, sheet_name="Ticket Médio Cliente")
+    alertas_queda.to_excel(writer, index=False, sheet_name="Alertas de Queda")
+    crescimento_pct.reset_index().to_excel(writer, index=False, sheet_name="Crescimento %")
+    media_mensal.reset_index().to_excel(writer, index=False, sheet_name="Média Mensal")
+    sazonalidade.reset_index().to_excel(writer, index=False, sheet_name="Sazonalidade")
+    alertas_inativos.to_excel(writer, index=False, sheet_name="Clientes Inativos")
+    resumo_mensal.to_excel(writer, index=False, sheet_name="Resumo Mensal")
+
+    # Formatação condicional segura para aba Clientes Inativos
+    worksheet = writer.sheets["Clientes Inativos"]
+    format_red = writer.book.add_format({"bg_color": "#FFCCCC"})
+    format_orange = writer.book.add_format({"bg_color": "#FFE5B4"})
+    format_yellow = writer.book.add_format({"bg_color": "#FFFFCC"})
+
+    col_index = alertas_inativos.columns.get_loc("dias_sem_compra")
+    col_letter = xlsxwriter.utility.xl_col_to_name(col_index)
+
+    worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
+        "type": "cell", "criteria": ">120", "format": format_red
+    })
+    worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
+        "type": "cell", "criteria": "between", "minimum": 91, "maximum": 120, "format": format_orange
+    })
+    worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
+        "type": "cell", "criteria": "between", "minimum": 61, "maximum": 90, "format": format_yellow
+    })
+
+    for sheet in writer.sheets:
+        ws = writer.sheets[sheet]
+        ws.autofilter(0, 0, ws.dim_rowmax, ws.dim_colmax)
+        ws.freeze_panes(1, 0)
+
+# Botão de download
+st.download_button(
+    label="📥 Baixar Excel Completo",
+    data=output.getvalue(),
+    file_name="analise_compras_completa.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
