@@ -52,11 +52,11 @@ for cliente in compras_mensais["nome_cliente"].unique():
             for i in range(len(dados)):
                 x = dados["mês"].iloc[i]
                 y = dados["total_liquido"].iloc[i]
-                ax.text(x, y, f"{y:.0f}", ha="center", va="bottom", fontsize=8)
+                ax.text(x, y, f"€{y:,.0f}", ha="center", va="bottom", fontsize=8)
 ax.set_xticks(range(1, 13))
 ax.set_xticklabels(["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"])
 ax.set_xlabel("Mês")
-ax.set_ylabel("Total Líquido")
+ax.set_ylabel("Total Líquido (€)")
 ax.set_title("Comparação Mensal com Rótulos")
 ax.legend()
 st.pyplot(fig)
@@ -64,13 +64,13 @@ st.pyplot(fig)
 # Tabela mensal
 st.subheader("📋 Tabela de Compras por Mês")
 tabela = compras_mensais.pivot_table(index=["nome_cliente", "ano"], columns="mês", values="total_liquido", fill_value=0)
-st.dataframe(tabela)
+st.dataframe(tabela.style.format("{:,.2f} €"))
 
 # Tabela trimestral
 st.subheader("📆 Compras por Trimestre")
 compras_trimestrais = df_filtrado.groupby(["trimestre", "nome_cliente"])["total_liquido"].sum().reset_index()
 tabela_tri = compras_trimestrais.pivot_table(index="nome_cliente", columns="trimestre", values="total_liquido", fill_value=0)
-st.dataframe(tabela_tri)
+st.dataframe(tabela_tri.style.format("{:,.2f} €"))
 
 # Indicadores
 st.subheader("📊 Indicadores de Desempenho")
@@ -83,37 +83,40 @@ with col1:
     st.dataframe(crescimento_pct.round(2))
 
 with col2:
-    st.markdown("**Média Mensal**")
+    st.markdown("**Média Mensal (€)**")
     media_mensal = compras_mensais.groupby(["nome_cliente", "ano"])["total_liquido"].mean().unstack()
-    st.dataframe(media_mensal.round(2))
+    st.dataframe(media_mensal.round(2).style.format("{:,.2f} €"))
 
 with col3:
-    st.markdown("**Sazonalidade (Desvio Padrão)**")
+    st.markdown("**Sazonalidade (€)**")
     sazonalidade = compras_mensais.groupby(["nome_cliente", "ano"])["total_liquido"].std().unstack()
-    st.dataframe(sazonalidade.round(2))
+    st.dataframe(sazonalidade.round(2).style.format("{:,.2f} €"))
 
 # Ticket médio por comercial
 st.subheader("💼 Ticket Médio por Comercial")
 ticket_medio = df_filtrado.groupby("comercial")["total_liquido"].mean().reset_index()
-st.dataframe(ticket_medio.round(2))
+st.dataframe(ticket_medio.style.format({"total_liquido": "€ {:,.2f}"}))
 
 # Ticket médio por cliente
 st.subheader("🧾 Ticket Médio por Cliente")
 ticket_cliente = df_filtrado.groupby("nome_cliente")["total_liquido"].mean().reset_index()
-st.dataframe(ticket_cliente.round(2))
+st.dataframe(ticket_cliente.style.format({"total_liquido": "€ {:,.2f}"}))
 
 # Ranking de clientes
 st.subheader("🏆 Ranking de Clientes por Volume Total")
 ranking = df_filtrado.groupby("nome_cliente")["total_liquido"].sum().sort_values(ascending=False).reset_index()
 ranking.index += 1
-st.dataframe(ranking)
+st.dataframe(ranking.style.format({"total_liquido": "€ {:,.2f}"}))
 
 # Alertas de queda
 st.subheader("⚠️ Alertas de Queda Mensal")
 alertas = compras_mensais.sort_values(["nome_cliente", "ano", "mês"])
 alertas["queda"] = alertas.groupby(["nome_cliente", "ano"])["total_liquido"].diff()
 alertas_queda = alertas[alertas["queda"] < 0]
-st.dataframe(alertas_queda[["nome_cliente", "ano", "mês", "total_liquido", "queda"]])
+st.dataframe(alertas_queda[["nome_cliente", "ano", "mês", "total_liquido", "queda"]].style.format({
+    "total_liquido": "€ {:,.2f}",
+    "queda": "€ {:,.2f}"
+}))
 
 # Clientes inativos
 st.subheader("🚨 Clientes sem compras há mais de 60 dias")
@@ -141,16 +144,4 @@ resumo_mensal["mês_nome"] = resumo_mensal["mês"].map({
     5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
     9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
 })
-resumo_mensal = resumo_mensal.sort_values(["ano", "mês"])
-resumo_mensal = resumo_mensal[["ano", "mês_nome", "total_liquido"]].rename(columns={
-    "ano": "Ano",
-    "mês_nome": "Mês",
-    "total_liquido": "Total Compras"
-})
-
-st.subheader("📅 Resumo Mensal de Compras por Ano")
-st.dataframe(resumo_mensal.style.format({"Total Compras": "R$ {:,.2f}"}))
-
-# Exportação para Excel
-st.subheader("📤 Exportar Dados para Excel")
-
+resumo_mensal = resumo_mensal.sort_values(["ano",
