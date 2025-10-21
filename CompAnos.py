@@ -177,11 +177,11 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         ws.autofilter(0, 0, ws.dim_rowmax, ws.dim_colmax)
         ws.freeze_panes(1, 0)
 
-# Botão de download
 st.download_button(
     label="📥 Baixar Excel Completo",
     data=output.getvalue(),
     file_name="analise_compras_completa.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
+
 
