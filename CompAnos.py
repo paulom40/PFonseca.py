@@ -15,6 +15,10 @@ df = pd.read_excel(github_excel_url)
 # Normaliza colunas
 df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
 
+# Limpa valores para garantir que os filtros funcionem
+df["nome_cliente"] = df["nome_cliente"].astype(str).str.strip()
+df["comercial"] = df["comercial"].astype(str).str.strip()
+
 # Mapeia nomes de meses para números
 mes_map = {
     "janeiro": 1, "fevereiro": 2, "março": 3, "abril": 4,
@@ -25,19 +29,24 @@ df["mês"] = df["mês"].astype(str).str.strip().str.lower().map(mes_map)
 df["ano"] = pd.to_numeric(df["ano"], errors="coerce").fillna(0).astype(int)
 df["trimestre"] = pd.to_datetime(dict(year=df["ano"], month=df["mês"], day=1)).dt.to_period("Q")
 
-# Filtros
+# Filtros na sidebar
 st.sidebar.header("🎚️ Filtros")
-clientes = st.sidebar.multiselect("🧍 Nome Cliente", df["nome_cliente"].unique())
-comerciais = st.sidebar.multiselect("💼 Comercial", df["comercial"].unique())
+clientes = st.sidebar.multiselect("🧍 Nome Cliente", sorted(df["nome_cliente"].dropna().unique()))
+comerciais = st.sidebar.multiselect("💼 Comercial", sorted(df["comercial"].dropna().unique()))
 meses = st.sidebar.multiselect("📆 Mês", sorted(df["mês"].dropna().unique()))
 anos = st.sidebar.multiselect("📅 Ano", sorted(df["ano"].dropna().unique()))
 
+# Aplica filtros
 df_filtrado = df.copy()
-if clientes: df_filtrado = df_filtrado[df_filtrado["nome_cliente"].isin(clientes)]
-if comerciais: df_filtrado = df_filtrado[df_filtrado["comercial"].isin(comerciais)]
-if meses: df_filtrado = df_filtrado[df_filtrado["mês"].isin(meses)]
-if anos: df_filtrado = df_filtrado[df_filtrado["ano"].isin(anos)]
-# Agrupamentos
+if clientes:
+    df_filtrado = df_filtrado[df_filtrado["nome_cliente"].isin(clientes)]
+if comerciais:
+    df_filtrado = df_filtrado[df_filtrado["comercial"].isin(comerciais)]
+if meses:
+    df_filtrado = df_filtrado[df_filtrado["mês"].isin(meses)]
+if anos:
+    df_filtrado = df_filtrado[df_filtrado["ano"].isin(anos)]
+# Agrupamentos principais
 compras_mensais = df_filtrado.groupby(["ano", "mês", "nome_cliente"])["total_liquido"].sum().reset_index()
 compras_trimestrais = df_filtrado.groupby(["trimestre", "nome_cliente"])["total_liquido"].sum().reset_index()
 ticket_medio = df_filtrado.groupby("comercial")["total_liquido"].mean().reset_index()
@@ -46,7 +55,7 @@ ranking = df_filtrado.groupby("nome_cliente")["total_liquido"].sum().sort_values
 ranking.index += 1
 
 crescimento = df_filtrado.groupby(["nome_cliente", "ano"])["total_liquido"].sum().unstack()
-crescimento_pct = crescimento.pct_change(axis=1) * 100
+crescimento_pct = crescimento.pct_change(axis=1, fill_method=None) * 100
 media_mensal = compras_mensais.groupby(["nome_cliente", "ano"])["total_liquido"].mean().unstack()
 sazonalidade = compras_mensais.groupby(["nome_cliente", "ano"])["total_liquido"].std().unstack()
 
@@ -78,7 +87,6 @@ st.subheader("📤 Exportar Dados para Excel")
 
 output = io.BytesIO()
 with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-    # Exporta todas as abas
     compras_mensais.to_excel(writer, index=False, sheet_name="Compras Mensais")
     compras_trimestrais.to_excel(writer, index=False, sheet_name="Compras Trimestrais")
     ranking.to_excel(writer, index=False, sheet_name="Ranking Clientes")
@@ -91,7 +99,7 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
     alertas_inativos.to_excel(writer, index=False, sheet_name="Clientes Inativos")
     resumo_mensal.to_excel(writer, index=False, sheet_name="Resumo Mensal")
 
-    # Formatação condicional segura para aba Clientes Inativos
+    # Formatação condicional segura
     if "Clientes Inativos" in writer.sheets and "dias_sem_compra" in alertas_inativos.columns:
         worksheet = writer.sheets["Clientes Inativos"]
         format_red = writer.book.add_format({"bg_color": "#FFCCCC"})
