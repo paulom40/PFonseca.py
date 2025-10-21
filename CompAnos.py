@@ -148,3 +148,8 @@ resumo_mensal = resumo_mensal[["ano", "mês_nome", "total_liquido"]].rename(colu
     "total_liquido": "Total Compras"
 })
 
+st.subheader("📅 Resumo Mensal de Compras por Ano")
+st.dataframe(resumo_mensal.style.format({"Total Compras": "R$ {:,.2f}"}))
+
+# Exportação para Excel
+st.subheader("📤 Export
