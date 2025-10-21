@@ -10,14 +10,17 @@ github_excel_url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/
 df = pd.read_excel(github_excel_url)
 
 # Normaliza os nomes das colunas
-df.columns = df.columns.str.strip().str.replace(" ", "_").str.replace("í", "i").str.replace("ç", "c").str.replace(".", "").str.lower()
+df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
 
-# Verifica colunas esperadas
-expected_cols = ["cliente", "nome_cliente", "total_liquido", "comercial", "mes", "ano"]
+# Diagnóstico: mostra colunas detectadas
+st.write("🧾 Colunas detectadas:", df.columns.tolist())
+
+# Verifica se as colunas esperadas estão presentes
+expected_cols = ["cliente", "nome_cliente", "total_liquido", "comercial", "mês", "ano"]
 if all(col in df.columns for col in expected_cols):
-    df["mes"] = df["mes"].astype(int)
+    df["mês"] = df["mês"].astype(int)
     df["ano"] = df["ano"].astype(int)
-    df["trimestre"] = pd.to_datetime(dict(year=df["ano"], month=df["mes"], day=1)).dt.to_period("Q")
+    df["trimestre"] = pd.to_datetime(dict(year=df["ano"], month=df["mês"], day=1)).dt.to_period("Q")
 
     # Filtros
     clientes = st.multiselect("🧍 Clientes", df["nome_cliente"].unique())
@@ -30,15 +33,15 @@ if all(col in df.columns for col in expected_cols):
     if comerciais: df_filtrado = df_filtrado[df_filtrado["comercial"].isin(comerciais)]
 
     # Agrupamento mensal
-    compras_mensais = df_filtrado.groupby(["ano", "mes", "nome_cliente"])["total_liquido"].sum().reset_index()
+    compras_mensais = df_filtrado.groupby(["ano", "mês", "nome_cliente"])["total_liquido"].sum().reset_index()
 
-    # Gráfico de linhas
+    # Gráfico de evolução mensal
     st.subheader("📈 Evolução Mensal por Cliente")
     fig, ax = plt.subplots(figsize=(10, 5))
     for cliente in compras_mensais["nome_cliente"].unique():
         for ano in compras_mensais["ano"].unique():
             dados = compras_mensais[(compras_mensais["nome_cliente"] == cliente) & (compras_mensais["ano"] == ano)]
-            ax.plot(dados["mes"], dados["total_liquido"], label=f"{cliente} - {ano}")
+            ax.plot(dados["mês"], dados["total_liquido"], label=f"{cliente} - {ano}")
     ax.set_xlabel("Mês")
     ax.set_ylabel("Total Líquido")
     ax.set_title("Comparação Anual por Cliente")
@@ -47,7 +50,7 @@ if all(col in df.columns for col in expected_cols):
 
     # Tabela mensal
     st.subheader("📋 Tabela de Compras por Mês")
-    tabela = compras_mensais.pivot_table(index=["nome_cliente", "ano"], columns="mes", values="total_liquido", fill_value=0)
+    tabela = compras_mensais.pivot_table(index=["nome_cliente", "ano"], columns="mês", values="total_liquido", fill_value=0)
     st.dataframe(tabela)
 
     # Tabela trimestral
@@ -89,10 +92,10 @@ if all(col in df.columns for col in expected_cols):
 
     # Alertas de queda
     st.subheader("⚠️ Alertas de Queda Mensal")
-    alertas = compras_mensais.sort_values(["nome_cliente", "ano", "mes"])
+    alertas = compras_mensais.sort_values(["nome_cliente", "ano", "mês"])
     alertas["queda"] = alertas.groupby(["nome_cliente", "ano"])["total_liquido"].diff()
     alertas_queda = alertas[alertas["queda"] < 0]
-    st.dataframe(alertas_queda[["nome_cliente", "ano", "mes", "total_liquido", "queda"]])
+    st.dataframe(alertas_queda[["nome_cliente", "ano", "mês", "total_liquido", "queda"]])
 
     # Exportação
     st.subheader("📤 Exportar Dados")
