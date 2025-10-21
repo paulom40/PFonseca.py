@@ -143,4 +143,8 @@ resumo_mensal["mês_nome"] = resumo_mensal["mês"].map({
 })
 resumo_mensal = resumo_mensal.sort_values(["ano", "mês"])
 resumo_mensal = resumo_mensal[["ano", "mês_nome", "total_liquido"]].rename(columns={
-    "ano":
+    "ano": "Ano",
+    "mês_nome": "Mês",
+    "total_liquido": "Total Compras"
+})
+
