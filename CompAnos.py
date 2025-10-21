@@ -38,7 +38,6 @@ if clientes: df_filtrado = df_filtrado[df_filtrado["nome_cliente"].isin(clientes
 if comerciais: df_filtrado = df_filtrado[df_filtrado["comercial"].isin(comerciais)]
 if meses: df_filtrado = df_filtrado[df_filtrado["mês"].isin(meses)]
 if anos: df_filtrado = df_filtrado[df_filtrado["ano"].isin(anos)]
-
 # Agrupamento mensal
 compras_mensais = df_filtrado.groupby(["ano", "mês", "nome_cliente"])["total_liquido"].sum().reset_index()
 
@@ -62,47 +61,23 @@ ax.set_title("Comparação Mensal com Rótulos")
 ax.legend(loc="upper left")
 st.pyplot(fig)
 
-# Tabelas
-st.subheader("📋 Tabela de Compras por Mês")
-tabela = compras_mensais.pivot_table(index=["nome_cliente", "ano"], columns="mês", values="total_liquido", fill_value=0)
-st.dataframe(tabela.style.format("{:,.2f} €"))
-
-st.subheader("📆 Compras por Trimestre")
+# Tabelas e indicadores
 compras_trimestrais = df_filtrado.groupby(["trimestre", "nome_cliente"])["total_liquido"].sum().reset_index()
-tabela_tri = compras_trimestrais.pivot_table(index="nome_cliente", columns="trimestre", values="total_liquido", fill_value=0)
-st.dataframe(tabela_tri.style.format("{:,.2f} €"))
+ticket_medio = df_filtrado.groupby("comercial")["total_liquido"].mean().reset_index()
+ticket_cliente = df_filtrado.groupby("nome_cliente")["total_liquido"].mean().reset_index()
+ranking = df_filtrado.groupby("nome_cliente")["total_liquido"].sum().sort_values(ascending=False).reset_index()
+ranking.index += 1
 
-# Indicadores
-st.subheader("📊 Indicadores de Desempenho")
-col1, col2, col3 = st.columns(3)
+crescimento = df_filtrado.groupby(["nome_cliente", "ano"])["total_liquido"].sum().unstack()
+crescimento_pct = crescimento.pct_change(axis=1) * 100
+media_mensal = compras_mensais.groupby(["nome_cliente", "ano"])["total_liquido"].mean().unstack()
+sazonalidade = compras_mensais.groupby(["nome_cliente", "ano"])["total_liquido"].std().unstack()
 
-with col1:
-    st.markdown("**Crescimento Percentual**")
-    crescimento = df_filtrado.groupby(["nome_cliente", "ano"])["total_liquido"].sum().unstack()
-    crescimento_pct = crescimento.pct_change(axis=1) * 100
-    st.dataframe(crescimento_pct.round(2))
-
-with col2:
-    st.markdown("**Média Mensal (€)**")
-    media_mensal = compras_mensais.groupby(["nome_cliente", "ano"])["total_liquido"].mean().unstack()
-    st.dataframe(media_mensal.round(2).style.format("{:,.2f} €"))
-
-with col3:
-    st.markdown("**Sazonalidade (€)**")
-    sazonalidade = compras_mensais.groupby(["nome_cliente", "ano"])["total_liquido"].std().unstack()
-    st.dataframe(sazonalidade.round(2).style.format("{:,.2f} €"))
-# Alertas de queda
-st.subheader("⚠️ Alertas de Queda Mensal")
+# Alertas
 alertas = compras_mensais.sort_values(["nome_cliente", "ano", "mês"])
 alertas["queda"] = alertas.groupby(["nome_cliente", "ano"])["total_liquido"].diff()
 alertas_queda = alertas[alertas["queda"] < 0]
-st.dataframe(alertas_queda[["nome_cliente", "ano", "mês", "total_liquido", "queda"]].style.format({
-    "total_liquido": "€ {:,.2f}",
-    "queda": "€ {:,.2f}"
-}))
 
-# Clientes inativos
-st.subheader("🚨 Clientes sem compras há mais de 60 dias")
 df_filtrado["data_compra"] = pd.to_datetime(dict(year=df_filtrado["ano"], month=df_filtrado["mês"], day=1))
 ultimas_compras = df_filtrado.groupby("nome_cliente")["data_compra"].max().reset_index()
 ultimas_compras["dias_sem_compra"] = (datetime.today() - ultimas_compras["data_compra"]).dt.days
@@ -110,17 +85,7 @@ alertas_inativos = ultimas_compras[ultimas_compras["dias_sem_compra"] > 60].copy
 alertas_inativos["status"] = "🔴 Inativo"
 alertas_inativos = alertas_inativos.sort_values("dias_sem_compra", ascending=False)
 
-def colorir_linha(row):
-    if row["dias_sem_compra"] > 120:
-        return ["background-color: #ffcccc"] * len(row)
-    elif row["dias_sem_compra"] > 90:
-        return ["background-color: #ffe5b4"] * len(row)
-    else:
-        return ["background-color: #ffffcc"] * len(row)
-
-st.dataframe(alertas_inativos.style.apply(colorir_linha, axis=1))
-
-# Resumo mensal por ano
+# Resumo mensal
 resumo_mensal = df_filtrado.groupby(["ano", "mês"])["total_liquido"].sum().reset_index()
 resumo_mensal["mês_nome"] = resumo_mensal["mês"].map({
     1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
@@ -129,13 +94,8 @@ resumo_mensal["mês_nome"] = resumo_mensal["mês"].map({
 })
 resumo_mensal = resumo_mensal.sort_values(["ano", "mês"])
 resumo_mensal = resumo_mensal[["ano", "mês_nome", "total_liquido"]].rename(columns={
-    "ano": "Ano",
-    "mês_nome": "Mês",
-    "total_liquido": "Total Compras"
+    "ano": "Ano", "mês_nome": "Mês", "total_liquido": "Total Compras"
 })
-st.subheader("📅 Resumo Mensal de Compras por Ano")
-st.dataframe(resumo_mensal.style.format({"Total Compras": "€ {:,.2f}"}))
-
 # Exportação para Excel
 st.subheader("📤 Exportar Dados para Excel")
 
@@ -153,12 +113,11 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
     alertas_inativos.to_excel(writer, index=False, sheet_name="Clientes Inativos")
     resumo_mensal.to_excel(writer, index=False, sheet_name="Resumo Mensal")
 
-    # Formatação condicional segura para aba Clientes Inativos
+    # Formatação condicional segura
     worksheet = writer.sheets["Clientes Inativos"]
     format_red = writer.book.add_format({"bg_color": "#FFCCCC"})
     format_orange = writer.book.add_format({"bg_color": "#FFE5B4"})
     format_yellow = writer.book.add_format({"bg_color": "#FFFFCC"})
-
     col_index = alertas_inativos.columns.get_loc("dias_sem_compra")
     col_letter = xlsxwriter.utility.xl_col_to_name(col_index)
 
@@ -166,23 +125,4 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         "type": "cell", "criteria": ">120", "format": format_red
     })
     worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
-        "type": "cell", "criteria": "between", "minimum": 91, "maximum": 120, "format": format_orange
-    })
-    worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
-        "type": "cell", "criteria": "between", "minimum": 61, "maximum": 90, "format": format_yellow
-    })
-
-    for sheet in writer.sheets:
-        ws = writer.sheets[sheet]
-        ws.autofilter(0, 0, ws.dim_rowmax, ws.dim_colmax)
-        ws.freeze_panes(1, 0)
-
-# Botão de download
-st.download_button(
-    label="📥 Baixar Excel Completo",
-    data=output.getvalue(),
-    file_name="analise_compras_completa.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
-
-
+        "type": "cell", "criteria": "between", "minimum": 91, "maximum": 120, "format":
