@@ -144,4 +144,5 @@ resumo_mensal["mês_nome"] = resumo_mensal["mês"].map({
     5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
     9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
 })
-resumo_mensal = resumo_mensal.sort_values(["ano",
+resumo_mensal = resumo_mensal.sort_values(["ano", "mês"])
+
