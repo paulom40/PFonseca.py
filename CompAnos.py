@@ -134,24 +134,13 @@ def colorir_linha(row):
 
 st.dataframe(alertas_inativos.style.apply(colorir_linha, axis=1))
 
-# Exportação para Excel
-st.subheader("📤 Exportar Dados para Excel")
-
-output = io.BytesIO()
-with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-    compras_mensais.to_excel(writer, index=False, sheet_name="Compras Mensais")
-    compras_trimestrais.to_excel(writer, index=False, sheet_name="Compras Trimestrais")
-    ranking.to_excel(writer, index=False, sheet_name="Ranking Clientes")
-    ticket_medio.to_excel(writer, index=False, sheet_name="Ticket Médio Comercial")
-    ticket_cliente.to_excel(writer, index=False, sheet_name="Ticket Médio Cliente")
-    alertas_queda.to_excel(writer, index=False, sheet_name="Alertas de Queda")
-    crescimento_pct.reset_index().to_excel(writer, index=False, sheet_name="Crescimento %")
-    media_mensal.reset_index().to_excel(writer, index=False, sheet_name="Média Mensal")
-    sazonalidade.reset_index().to_excel(writer, index=False, sheet_name="Sazonalidade")
-st.download_button(
-    label="📥 Baixar Excel Completo",
-    data=output.getvalue(),
-    file_name="analise_compras_completa.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
-
+# Resumo mensal por ano
+resumo_mensal = df_filtrado.groupby(["ano", "mês"])["total_liquido"].sum().reset_index()
+resumo_mensal["mês_nome"] = resumo_mensal["mês"].map({
+    1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+    5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+    9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+})
+resumo_mensal = resumo_mensal.sort_values(["ano", "mês"])
+resumo_mensal = resumo_mensal[["ano", "mês_nome", "total_liquido"]].rename(columns={
+    "ano":
