@@ -147,4 +147,5 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
     alertas_queda.to_excel(writer, index=False, sheet_name="Alertas de Queda")
     crescimento_pct.reset_index().to_excel(writer, index=False, sheet_name="Crescimento %")
     media_mensal.reset_index().to_excel(writer, index=False, sheet_name="Média Mensal")
-    sazonalidade.reset_index().to_excel(writer
+    sazonalidade.reset_index().to_excel(writer, index=False, sheet_name="Sazonalidade")
+
