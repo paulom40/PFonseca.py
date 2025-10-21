@@ -148,4 +148,10 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
     crescimento_pct.reset_index().to_excel(writer, index=False, sheet_name="Crescimento %")
     media_mensal.reset_index().to_excel(writer, index=False, sheet_name="Média Mensal")
     sazonalidade.reset_index().to_excel(writer, index=False, sheet_name="Sazonalidade")
+st.download_button(
+    label="📥 Baixar Excel Completo",
+    data=output.getvalue(),
+    file_name="analise_compras_completa.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
 
