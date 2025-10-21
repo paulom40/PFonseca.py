@@ -138,9 +138,11 @@ def colorir_linha(row):
 
 st.dataframe(alertas_inativos.style.apply(colorir_linha, axis=1))
 
+# Resumo mensal por ano
+resumo_mensal = df_filtrado.groupby(["ano", "mês"])["total_liquido"].sum().reset_index()
 resumo_mensal["mês_nome"] = resumo_mensal["mês"].map({
     1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
     5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
     9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
 })
-
+resumo_mensal = resumo_mensal
