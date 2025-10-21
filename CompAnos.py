@@ -78,6 +78,7 @@ st.subheader("📤 Exportar Dados para Excel")
 
 output = io.BytesIO()
 with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+    # Exporta todas as abas
     compras_mensais.to_excel(writer, index=False, sheet_name="Compras Mensais")
     compras_trimestrais.to_excel(writer, index=False, sheet_name="Compras Trimestrais")
     ranking.to_excel(writer, index=False, sheet_name="Ranking Clientes")
@@ -91,7 +92,7 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
     resumo_mensal.to_excel(writer, index=False, sheet_name="Resumo Mensal")
 
     # Formatação condicional segura para aba Clientes Inativos
-    if "dias_sem_compra" in alertas_inativos.columns:
+    if "Clientes Inativos" in writer.sheets and "dias_sem_compra" in alertas_inativos.columns:
         worksheet = writer.sheets["Clientes Inativos"]
         format_red = writer.book.add_format({"bg_color": "#FFCCCC"})
         format_orange = writer.book.add_format({"bg_color": "#FFE5B4"})
@@ -101,7 +102,7 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         col_letter = xlsxwriter.utility.xl_col_to_name(col_index)
 
         worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
-            "type": "cell", "criteria": ">120", "format": format_red
+            "type": "cell", "criteria": ">", "value": 120, "format": format_red
         })
         worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
             "type": "cell", "criteria": "between", "minimum": 91, "maximum": 120, "format": format_orange
