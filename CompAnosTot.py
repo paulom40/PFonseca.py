@@ -5,6 +5,14 @@ import io
 from datetime import datetime
 import xlsxwriter.utility
 
+st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+
 st.set_page_config(page_title="Análise de Compras", layout="wide")
 st.title("📊 Análise de Compras por Cliente")
 
