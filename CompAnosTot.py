@@ -142,4 +142,41 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
     alertas_queda.to_excel(writer, index=False, sheet_name="Alertas de Queda")
     crescimento_pct.reset_index().to_excel(writer, index=False, sheet_name="Crescimento %")
     media_mensal.reset_index().to_excel(writer, index=False, sheet_name="Média Mensal")
-    sazonal
+        sazonalidade.reset_index().to_excel(writer, index=False, sheet_name="Sazonalidade")
+    alertas_inativos.to_excel(writer, index=False, sheet_name="Clientes Inativos")
+    resumo_comercial.to_excel(writer, index=False, sheet_name="Resumo por Comercial")
+
+    # Formatação condicional para aba "Clientes Inativos"
+    if "Clientes Inativos" in writer.sheets and "dias_sem_compra" in alertas_inativos.columns:
+        worksheet = writer.sheets["Clientes Inativos"]
+        format_red = writer.book.add_format({"bg_color": "#FFCCCC"})
+        format_orange = writer.book.add_format({"bg_color": "#FFE5B4"})
+        format_yellow = writer.book.add_format({"bg_color": "#FFFFCC"})
+
+        col_index = alertas_inativos.columns.get_loc("dias_sem_compra")
+        col_letter = xlsxwriter.utility.xl_col_to_name(col_index)
+
+        worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
+            "type": "cell", "criteria": ">", "value": 120, "format": format_red
+        })
+        worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
+            "type": "cell", "criteria": "between", "minimum": 91, "maximum": 120, "format": format_orange
+        })
+        worksheet.conditional_format(f"{col_letter}2:{col_letter}1000", {
+            "type": "cell", "criteria": "between", "minimum": 61, "maximum": 90, "format": format_yellow
+        })
+
+    # Formatação geral para todas as abas
+    for sheet in writer.sheets:
+        ws = writer.sheets[sheet]
+        ws.autofilter(0, 0, ws.dim_rowmax, ws.dim_colmax)
+        ws.freeze_panes(1, 0)
+
+# Botão de download
+st.download_button(
+    label="📥 Baixar Excel Completo",
+    data=output.getvalue(),
+    file_name="analise_compras_completa.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+
