@@ -9,7 +9,7 @@ st.set_page_config(page_title="Análise de Compras", layout="wide")
 st.title("📊 Análise de Compras por Cliente")
 
 # Fonte do Excel
-github_excel_url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Vendas_Globais.xlsx"
+github_excel_url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/VGlob2425.xlsx"
 df = pd.read_excel(github_excel_url)
 
 # Normaliza colunas
