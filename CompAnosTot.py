@@ -4,6 +4,13 @@ import matplotlib.pyplot as plt
 import io
 from datetime import datetime
 import xlsxwriter.utility
+st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
 
 # Configuração da página
 st.set_page_config(page_title="📊 Análise de Compras", layout="wide")
