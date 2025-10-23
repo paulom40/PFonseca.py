@@ -146,3 +146,4 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
     compras_mensais.to_excel(writer, index=False, sheet_name="Compras Mensais")
     compras_trimestrais.to_excel(writer, index=False, sheet_name="Compras Trimestrais")
 
+
