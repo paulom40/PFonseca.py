@@ -280,7 +280,7 @@ with st.container():
         st.markdown(f"""
         <div class="metric-card-green" style="text-align: center;">
             <h3 style="margin:0; font-size: 0.9rem;">Última Atualização</h3>
-            <p style="margin:0; font-size: 1rem; font-weight: bold;">10/10/2025</p>
+            <p style="margin:0; font-size: 1rem; font-weight: bold;">24/10/2025</p>
         </div>
         """, unsafe_allow_html=True)
 
