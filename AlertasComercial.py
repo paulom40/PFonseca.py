@@ -164,8 +164,17 @@ def load_data():
         response.raise_for_status()
         df = pd.read_excel(BytesIO(response.content), sheet_name="Sheet1", header=0)
         
-        # Processar colunas e dados
+        # Processar colunas e dados - CORREÇÃO: Mapear coluna G para 'Artigo'
         df.columns = [col.strip() for col in df.columns]
+        
+        # Verificar se a coluna G existe e renomear se necessário
+        if len(df.columns) >= 7:  # Coluna G é a 7ª coluna (índice 6)
+            # Verificar o nome atual da coluna G
+            coluna_g_nome = df.columns[6]
+            if coluna_g_nome != 'Artigo':
+                # Renomear a coluna G para 'Artigo'
+                df = df.rename(columns={coluna_g_nome: 'Artigo'})
+                st.info(f"✅ Coluna '{coluna_g_nome}' renomeada para 'Artigo'")
         
         # Converter colunas numéricas
         if 'Qtd.' in df.columns:
@@ -185,8 +194,26 @@ def load_data():
         
         # Processar datas - criar data baseada no mês/ano
         if 'Mês' in df.columns and 'Ano' in df.columns:
+            # Mapear meses em português para inglês
+            meses_map = {
+                'Janeiro': '01', 'Fevereiro': '02', 'Março': '03', 'Abril': '04',
+                'Maio': '05', 'Junho': '06', 'Julho': '07', 'Agosto': '08',
+                'Setembro': '09', 'Outubro': '10', 'Novembro': '11', 'Dezembro': '12',
+                'Jan': '01', 'Fev': '02', 'Mar': '03', 'Abr': '04', 'Mai': '05', 'Jun': '06',
+                'Jul': '07', 'Ago': '08', 'Set': '09', 'Out': '10', 'Nov': '11', 'Dez': '12'
+            }
+            
+            # Aplicar mapeamento
+            df['Mês_Num'] = df['Mês'].map(meses_map)
+            
             # Criar data aproximada (primeiro dia do mês)
-            df['Data'] = pd.to_datetime(df['Ano'].astype(str) + '-' + df['Mês'] + '-01', errors='coerce')
+            df['Data'] = pd.to_datetime(
+                df['Ano'].astype(str) + '-' + df['Mês_Num'] + '-01', 
+                errors='coerce'
+            )
+            
+            # Remover coluna auxiliar
+            df = df.drop('Mês_Num', axis=1, errors='ignore')
         
         return df
     except Exception as e:
@@ -221,10 +248,11 @@ def calcular_alertas_inatividade(df, dias_alerta=30):
     info_clientes = df.groupby('Cliente').agg({
         'V. Líquido': ['sum', 'mean', 'count'],
         'Comercial': 'first',
-        'Categoria': 'first'
+        'Categoria': 'first',
+        'Artigo': lambda x: x.mode().iloc[0] if len(x.mode()) > 0 else 'N/A'
     }).reset_index()
     
-    info_clientes.columns = ['Cliente', 'Total_Historico', 'Ticket_Medio', 'Total_Compras', 'Comercial', 'Categoria_Preferida']
+    info_clientes.columns = ['Cliente', 'Total_Historico', 'Ticket_Medio', 'Total_Compras', 'Comercial', 'Categoria_Preferida', 'Artigo_Mais_Comprado']
     
     # Juntar informações
     alertas_completos = clientes_inativos.merge(info_clientes, on='Cliente', how='left')
@@ -280,6 +308,21 @@ with st.container():
 df = st.session_state.get("df", load_data())
 
 if df is not None:
+    # Mostrar informações sobre as colunas carregadas
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 🔍 Colunas Carregadas")
+    st.sidebar.write(f"📊 **Total de colunas:** {len(df.columns)}")
+    st.sidebar.write(f"📋 **Total de registos:** {len(df)}")
+    
+    # Verificar se a coluna Artigo existe
+    if 'Artigo' not in df.columns:
+        st.sidebar.error("❌ Coluna 'Artigo' não encontrada")
+        st.sidebar.info("Colunas disponíveis:")
+        for col in df.columns:
+            st.sidebar.write(f"- {col}")
+    else:
+        st.sidebar.success("✅ Coluna 'Artigo' carregada")
+
     # Sidebar moderna
     with st.sidebar:
         st.markdown('<div class="sidebar-header">🔎 FILTROS E CONTROLES</div>', unsafe_allow_html=True)
@@ -310,7 +353,7 @@ if df is not None:
             st.warning("Coluna 'Cliente' não encontrada")
             selected_cliente = []
         
-        # Filtro por Artigo
+        # Filtro por Artigo - CORREÇÃO: Usar coluna G corretamente
         if 'Artigo' in df.columns:
             artigos = sorted(df['Artigo'].dropna().unique())
             selected_artigo = st.multiselect(
@@ -698,7 +741,7 @@ if df is not None:
                         <h4 style="margin:0; color: white;">{emoji} {cliente['Cliente']}</h4>
                         <p style="margin:0; font-size: 0.9rem;">
                             <strong>Comercial:</strong> {cliente['Comercial']} | 
-                            <strong>Categoria Preferida:</strong> {cliente['Categoria_Preferida']}
+                            <strong>Artigo Preferido:</strong> {cliente['Artigo_Mais_Comprado']}
                         </p>
                     </div>
                     """, unsafe_allow_html=True)
