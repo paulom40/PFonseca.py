@@ -4,15 +4,13 @@ import requests
 from datetime import datetime
 from io import BytesIO
 import xlsxwriter
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.application import MIMEApplication
-import difflib
+import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 # Configuração da página com layout wide
 st.set_page_config(
-    page_title="Dashboard de Pendências",
+    page_title="Dashboard de Vendas - Análise Cliente x Comercial",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -44,15 +42,6 @@ st.markdown("""
     
     .metric-card-warning {
         background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
-        padding: 1.5rem;
-        border-radius: 15px;
-        color: white;
-        margin: 0.5rem 0;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-    
-    .metric-card-danger {
-        background: linear-gradient(135deg, #ff5858 0%, #f09819 100%);
         padding: 1.5rem;
         border-radius: 15px;
         color: white;
@@ -96,39 +85,6 @@ st.markdown("""
         box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
     }
     
-    /* Download button específico */
-    .download-btn {
-        background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%) !important;
-    }
-    
-    /* Email button específico */
-    .email-btn {
-        background: linear-gradient(135deg, #ff5858 0%, #f09819 100%) !important;
-    }
-    
-    /* Dataframe styling */
-    .dataframe {
-        border-radius: 10px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-    
-    /* Input fields styling */
-    .stTextInput input, .stTextInput textarea {
-        border-radius: 10px;
-        border: 2px solid #e0e0e0;
-        padding: 0.5rem;
-    }
-    
-    .stTextInput input:focus, .stTextInput textarea:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
-    }
-    
-    /* Selectbox styling */
-    .stSelectbox div div {
-        border-radius: 10px;
-    }
-    
     /* Tabs styling */
     .stTabs [data-baseweb="tab-list"] {
         gap: 2rem;
@@ -150,34 +106,19 @@ st.markdown("""
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
         color: white !important;
     }
-    
-    /* Alert boxes customizados */
-    .stAlert {
-        border-radius: 15px;
-        border: none;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-    
-    /* Container principal */
-    .main-container {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        padding: 2rem;
-        border-radius: 20px;
-        margin: 1rem 0;
-    }
 </style>
 """, unsafe_allow_html=True)
 
 # Header principal com gradiente
 st.markdown("""
 <div class="main-header">
-    <h1 style="margin:0; font-size: 2.5rem;">📊 DASHBOARD DE VALORES PENDENTES</h1>
-    <p style="margin:0; opacity: 0.9; font-size: 1.1rem;">Gestão Completa de Valores Futuros e em Atraso</p>
+    <h1 style="margin:0; font-size: 2.5rem;">📊 DASHBOARD DE VENDAS - ANÁLISE CLIENTE x COMERCIAL</h1>
+    <p style="margin:0; opacity: 0.9; font-size: 1.1rem;">Análise Comparativa de Histórico por Artigo</p>
 </div>
 """, unsafe_allow_html=True)
 
 # URL do arquivo Excel
-url = "https://github.com/paulom40/PFonseca.py/raw/main/V0808.xlsx"
+url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
 
 @st.cache_data
 def load_data():
@@ -185,7 +126,26 @@ def load_data():
         response = requests.get(url)
         response.raise_for_status()
         df = pd.read_excel(BytesIO(response.content), sheet_name="Sheet1", header=0)
+        
+        # Processar colunas e dados
         df.columns = [col.strip() for col in df.columns]
+        
+        # Converter colunas numéricas
+        if 'Qtd.' in df.columns:
+            df['Qtd.'] = pd.to_numeric(df['Qtd.'], errors='coerce')
+        if 'V. Líquido' in df.columns:
+            df['V. Líquido'] = pd.to_numeric(df['V. Líquido'], errors='coerce')
+        
+        # Limpar e padronizar textos
+        if 'Cliente' in df.columns:
+            df['Cliente'] = df['Cliente'].astype(str).str.strip()
+        if 'Comercial' in df.columns:
+            df['Comercial'] = df['Comercial'].astype(str).str.strip()
+        if 'Artigo' in df.columns:
+            df['Artigo'] = df['Artigo'].astype(str).str.strip()
+        if 'Categoria' in df.columns:
+            df['Categoria'] = df['Categoria'].astype(str).str.strip()
+        
         return df
     except Exception as e:
         st.error(f"❌ Erro ao carregar ficheiro: {e}")
@@ -194,7 +154,7 @@ def load_data():
 
 # Container principal para controles
 with st.container():
-    col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+    col1, col2, col3 = st.columns([2, 1, 1])
     
     with col1:
         st.markdown("### 🔄 Gestão de Dados")
@@ -227,407 +187,346 @@ if df is not None:
     with st.sidebar:
         st.markdown('<div class="sidebar-header">🔎 FILTROS E CONTROLES</div>', unsafe_allow_html=True)
         
-        st.markdown("### 📊 Filtro por Comercial")
+        st.markdown("### 📊 Filtros Principais")
         
-        # Processar comerciais para a sidebar
+        # Filtro por Comercial
         if 'Comercial' in df.columns:
-            comerciais = sorted(df['Comercial'].dropna().astype(str).unique())
-            opcoes_comerciais = ["Todos"] + comerciais
-            
-            selected_comercial = st.selectbox(
-                "Selecione o Comercial:",
-                opcoes_comerciais,
-                index=0
+            comerciais = sorted(df['Comercial'].dropna().unique())
+            selected_comercial = st.multiselect(
+                "Selecione o(s) Comercial(ais):",
+                comerciais,
+                default=comerciais[:3] if len(comerciais) > 3 else comerciais
             )
         else:
             st.warning("Coluna 'Comercial' não encontrada")
-            selected_comercial = "Todos"
+            selected_comercial = []
+        
+        # Filtro por Cliente
+        if 'Cliente' in df.columns:
+            clientes = sorted(df['Cliente'].dropna().unique())
+            selected_cliente = st.multiselect(
+                "Selecione o(s) Cliente(s):",
+                clientes,
+                default=clientes[:3] if len(clientes) > 3 else clientes
+            )
+        else:
+            st.warning("Coluna 'Cliente' não encontrada")
+            selected_cliente = []
+        
+        # Filtro por Artigo
+        if 'Artigo' in df.columns:
+            artigos = sorted(df['Artigo'].dropna().unique())
+            selected_artigo = st.multiselect(
+                "Selecione o(s) Artigo(s):",
+                artigos,
+                default=artigos[:5] if len(artigos) > 5 else artigos
+            )
+        else:
+            st.warning("Coluna 'Artigo' não encontrada")
+            selected_artigo = []
+        
+        # Filtro por Categoria
+        if 'Categoria' in df.columns:
+            categorias = sorted(df['Categoria'].dropna().unique())
+            selected_categoria = st.multiselect(
+                "Selecione a(s) Categoria(s):",
+                categorias,
+                default=categorias
+            )
+        else:
+            st.warning("Coluna 'Categoria' não encontrada")
+            selected_categoria = []
         
         st.markdown("---")
-        st.markdown("### 🔍 Busca Avançada")
-        search_term = st.text_input("Digite o nome do Comercial:")
-        
-        st.markdown("---")
-        st.markdown("### 📈 Tipo de Análise")
-        tipo_analise = st.radio(
-            "Selecione o tipo de análise:",
-            ["💰 Valores Futuros (Dias ≥ 0)", "⚠️ Valores em Atraso (Dias < 0)"],
-            index=0
-        )
-        
-        st.markdown("---")
-        st.markdown("### 📊 Estatísticas Rápidas")
+        st.markdown("### 📈 Métricas")
         
         if len(df) > 0:
-            total_registros = len(df)
-            colunas_disponiveis = df.columns.tolist()
+            total_vendas = df['V. Líquido'].sum() if 'V. Líquido' in df.columns else 0
+            total_clientes = df['Cliente'].nunique() if 'Cliente' in df.columns else 0
+            total_comerciais = df['Comercial'].nunique() if 'Comercial' in df.columns else 0
+            total_artigos = df['Artigo'].nunique() if 'Artigo' in df.columns else 0
             
-            st.metric("📋 Total de Registros", f"{total_registros:,}")
-            st.metric("📊 Colunas", f"{len(colunas_disponiveis)}")
+            st.metric("💰 Total Vendas", f"€{total_vendas:,.2f}")
+            st.metric("👥 Total Clientes", total_clientes)
+            st.metric("👨‍💼 Total Comerciais", total_comerciais)
+            st.metric("📦 Total Artigos", total_artigos)
 
     # Layout principal com tabs
-    tab1, tab2, tab3 = st.tabs(["📊 Dashboard Principal", "📁 Exportação", "📧 Envio por Email"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Dashboard Principal", "📈 Análise Comparativa", "📋 Detalhes por Artigo", "📁 Exportação"])
 
     with tab1:
-        # Verificar colunas necessárias
-        colunas_necessarias = ['Dias', 'Valor Pendente', 'Comercial', 'Entidade']
-        colunas_faltantes = [col for col in colunas_necessarias if col not in df.columns]
+        # Aplicar filtros
+        df_filtrado = df.copy()
         
-        if colunas_faltantes:
-            st.error(f"❌ Colunas em falta: {', '.join(colunas_faltantes)}")
-            st.info("ℹ️ Verifique se o ficheiro Excel tem as colunas necessárias:")
-            for col in colunas_necessarias:
-                status = "✅" if col in df.columns else "❌"
-                st.write(f"{status} {col}")
+        if selected_comercial:
+            df_filtrado = df_filtrado[df_filtrado['Comercial'].isin(selected_comercial)]
+        
+        if selected_cliente:
+            df_filtrado = df_filtrado[df_filtrado['Cliente'].isin(selected_cliente)]
+        
+        if selected_artigo:
+            df_filtrado = df_filtrado[df_filtrado['Artigo'].isin(selected_artigo)]
+        
+        if selected_categoria:
+            df_filtrado = df_filtrado[df_filtrado['Categoria'].isin(selected_categoria)]
+        
+        if len(df_filtrado) == 0:
+            st.warning("❌ Nenhum dado encontrado com os filtros aplicados.")
         else:
-            st.success("✅ Todas as colunas necessárias estão presentes!")
+            st.success(f"✅ {len(df_filtrado)} registros encontrados")
             
-            # Processamento dos dados
-            st.markdown("### 🔧 Processamento de Dados")
+            # Métricas principais
+            col1, col2, col3, col4 = st.columns(4)
             
-            # Limpeza e preparação
-            df_clean = df.copy()
-            df_clean['Dias'] = pd.to_numeric(df_clean['Dias'], errors='coerce')
-            df_clean['Valor Pendente'] = pd.to_numeric(df_clean['Valor Pendente'], errors='coerce')
-            df_clean['Comercial'] = df_clean['Comercial'].astype(str).str.replace(r'[\t\n\r ]+', ' ', regex=True).str.strip()
-            df_clean['Entidade'] = df_clean['Entidade'].astype(str).str.strip()
-
-            # CORREÇÃO: INCLUIR TODOS OS VALORES PENDENTES (positivos, negativos e zero)
-            if "Valores Futuros" in tipo_analise:
-                # VALORES FUTUROS: Dias ≥ 0 (inclui TODOS os valores pendentes)
-                df_base = df_clean[df_clean['Dias'] >= 0].copy()
-                tipo_filtro = "Valores Futuros (Dias ≥ 0)"
-                st.info("💰 Analisando: **Valores Futuros/Em Dia** - Faturas com vencimento hoje ou no futuro")
-            else:
-                # VALORES EM ATRASO: Dias < 0 (inclui TODOS os valores pendentes)
-                df_base = df_clean[df_clean['Dias'] < 0].copy()
-                tipo_filtro = "Valores em Atraso (Dias < 0)"
-                st.warning("⚠️ Analisando: **Valores em Atraso** - Faturas vencidas")
-
-            # Aplicar filtros de Comercial - CORREÇÃO DA F-STRING
-            if selected_comercial == "Todos" and not search_term:
-                df_filtrado = df_base.copy()
-                filtro_aplicado = f"Todos os comerciais - {tipo_filtro}"
-            elif selected_comercial != "Todos":
-                df_filtrado = df_base[df_base['Comercial'] == selected_comercial].copy()
-                filtro_aplicado = f"Comercial: {selected_comercial} - {tipo_filtro}"
-            elif search_term:
-                search_upper = search_term.upper().strip()
-                mask_partial = df_base['Comercial'].str.upper().str.contains(search_upper, na=False)
-                df_filtrado = df_base[mask_partial].copy()
-                filtro_aplicado = f"Busca: '{search_term}' - {tipo_filtro}"
-            else:
-                df_filtrado = df_base.copy()
-                filtro_aplicado = f"Todos os comerciais - {tipo_filtro}"
-
-            # Resumo analítico - SOMA POR COMERCIAL E ENTIDADE (INCLUI TODOS OS VALORES)
-            st.markdown("### 📋 Resumo por Comercial e Entidade")
+            with col1:
+                total_vendas_filtrado = df_filtrado['V. Líquido'].sum()
+                st.markdown(f"""
+                <div class="metric-card-success">
+                    <h3 style="margin:0; font-size: 0.9rem;">Total Vendas Filtrado</h3>
+                    <p style="margin:0; font-size: 1.5rem; font-weight: bold;">€{total_vendas_filtrado:,.2f}</p>
+                </div>
+                """, unsafe_allow_html=True)
             
-            if len(df_filtrado) > 0:
-                # Agrupamento e cálculo - INCLUI TODOS OS VALORES (positivos e negativos)
-                summary = df_filtrado.groupby(['Comercial', 'Entidade'], as_index=False).agg({
-                    'Valor Pendente': 'sum',
-                    'Dias': 'mean'
-                })
-                summary['Valor Pendente'] = summary['Valor Pendente'].round(2)
-                summary['Dias'] = summary['Dias'].round(1)
-                summary = summary.rename(columns={
-                    'Dias': 'Dias Médios',
-                    'Valor Pendente': 'Total Pendente'
-                })
-                summary = summary.sort_values('Total Pendente', ascending=False)
-
-                # Métricas em cards
-                col1, col2, col3, col4 = st.columns(4)
-                
-                sub_total = summary['Total Pendente'].sum()
-                num_entidades = summary['Entidade'].nunique()
-                num_comerciais = summary['Comercial'].nunique()
-                dias_medios = summary['Dias Médios'].mean()
-
-                with col1:
-                    if "Futuros" in tipo_filtro:
-                        card_class = "metric-card-success" if sub_total >= 0 else "metric-card-warning"
-                    else:
-                        card_class = "metric-card-danger" if sub_total < 0 else "metric-card-warning" if abs(sub_total) > 5000 else "metric-card"
-                    
-                    st.markdown(f"""
-                    <div class="{card_class}">
-                        <h3 style="margin:0; font-size: 0.9rem;">Total Pendente</h3>
-                        <p style="margin:0; font-size: 1.5rem; font-weight: bold;">€{sub_total:,.2f}</p>
-                        <p style="margin:0; font-size: 0.8rem;">{tipo_filtro.split(' - ')[0]}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                with col2:
-                    st.markdown(f"""
-                    <div class="metric-card">
-                        <h3 style="margin:0; font-size: 0.9rem;">Entidades</h3>
-                        <p style="margin:0; font-size: 1.5rem; font-weight: bold;">{num_entidades}</p>
-                        <p style="margin:0; font-size: 0.8rem;">Clientes únicos</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                with col3:
-                    st.markdown(f"""
-                    <div class="metric-card">
-                        <h3 style="margin:0; font-size: 0.9rem;">Comerciais</h3>
-                        <p style="margin:0; font-size: 1.5rem; font-weight: bold;">{num_comerciais}</p>
-                        <p style="margin:0; font-size: 0.8rem;">Em análise</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                with col4:
-                    dias_texto = "Futuros" if dias_medios >= 0 else "Atraso"
-                    st.markdown(f"""
-                    <div class="metric-card">
-                        <h3 style="margin:0; font-size: 0.9rem;">Dias Médios</h3>
-                        <p style="margin:0; font-size: 1.5rem; font-weight: bold;">{abs(dias_medios):.1f}</p>
-                        <p style="margin:0; font-size: 0.8rem;">{dias_texto}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                # ANÁLISE ESPECÍFICA PARA VALORES NEGATIVOS COM DIAS ≥ 0
-                st.markdown("### 📊 Análise de Valores Negativos Futuros")
-                
-                # CORREÇÃO: Valores Negativos apenas onde Dias ≥ 0
-                if "Futuros" in tipo_filtro:
-                    # Para análise de valores futuros: mostrar negativos futuros
-                    valores_negativos_futuros = df_filtrado[
-                        (df_filtrado['Valor Pendente'] < 0) & 
-                        (df_filtrado['Dias'] >= 0)
-                    ]['Valor Pendente'].sum()
-                    
-                    num_negativos_futuros = len(df_filtrado[
-                        (df_filtrado['Valor Pendente'] < 0) & 
-                        (df_filtrado['Dias'] >= 0)
-                    ])
-                else:
-                    # Para análise de valores em atraso: mostrar negativos em atraso
-                    valores_negativos_futuros = df_filtrado[
-                        (df_filtrado['Valor Pendente'] < 0) & 
-                        (df_filtrado['Dias'] < 0)
-                    ]['Valor Pendente'].sum()
-                    
-                    num_negativos_futuros = len(df_filtrado[
-                        (df_filtrado['Valor Pendente'] < 0) & 
-                        (df_filtrado['Dias'] < 0)
-                    ])
-
-                # Estatísticas gerais dos valores
-                valores_positivos = df_filtrado[df_filtrado['Valor Pendente'] > 0]['Valor Pendente'].sum()
-                valores_negativos = df_filtrado[df_filtrado['Valor Pendente'] < 0]['Valor Pendente'].sum()
-                valores_zero = len(df_filtrado[df_filtrado['Valor Pendente'] == 0])
-                
-                col_anal1, col_anal2, col_anal3, col_anal4 = st.columns(4)
-                
-                with col_anal1:
-                    st.metric("💰 Valores Positivos", f"€{valores_positivos:,.2f}")
-                
-                with col_anal2:
-                    st.metric("📉 Valores Negativos", f"€{valores_negativos:,.2f}")
-                
-                with col_anal3:
-                    st.metric("🔴 Negativos Futuros", f"€{valores_negativos_futuros:,.2f}", 
-                             delta=f"{num_negativos_futuros} registos")
-                
-                with col_anal4:
-                    st.metric("⚖️ Saldo Líquido", f"€{sub_total:,.2f}")
-
-                # Alertas específicos para cada tipo
-                st.markdown("### ⚠️ Status da Análise")
-                if "Futuros" in tipo_filtro:
-                    if valores_negativos_futuros < 0:
-                        st.warning(f"🚨 **VALORES NEGATIVOS FUTUROS**: €{abs(valores_negativos_futuros):,.2f} em valores futuros negativos")
-                    if sub_total < 0:
-                        st.error(f"⚠️ **SALDO NEGATIVO**: Saldo total negativo de €{abs(sub_total):,.2f} em valores futuros")
-                    else:
-                        st.success(f"✅ **VALORES FUTUROS**: Saldo positivo de €{sub_total:,.2f}")
-                else:
-                    if sub_total < 0:
-                        st.error(f"🚨 **CRÍTICO**: Saldo negativo de €{abs(sub_total):,.2f} em valores em atraso!")
-                    elif sub_total > 10000:
-                        st.error(f"🚨 ALERTA: €{sub_total:,.2f} em valores em atraso!")
-                    elif sub_total > 5000:
-                        st.warning(f"⚠️ AVISO: €{sub_total:,.2f} em valores em atraso.")
-                    else:
-                        st.success(f"✅ SITUAÇÃO CONTROLADA: €{sub_total:,.2f} em valores em atraso")
-
-                # Tabela de dados
-                st.markdown("### 📋 Detalhamento por Comercial e Entidade")
-                st.dataframe(
-                    summary,
-                    use_container_width=True,
-                    height=400
-                )
-                
-                # Gráfico de barras para visualização
-                st.markdown("### 📊 Visualização por Comercial")
-                if num_comerciais > 1:
-                    comercial_summary = summary.groupby('Comercial')['Total Pendente'].sum().sort_values(ascending=False)
-                    st.bar_chart(comercial_summary)
-                else:
-                    st.info("ℹ️ Adicione mais comerciais ao filtro para ver o gráfico comparativo")
-
-            else:
-                st.warning(f"📭 Nenhum dado encontrado para: {filtro_aplicado}")
-                
-            # Visualização dos dados brutos filtrados
-            with st.expander("🔍 Visualizar Dados Brutos Filtrados"):
-                st.dataframe(df_filtrado.head(10))
-                st.write(f"**Total de registros:** {len(df_filtrado)}")
-                st.write(f"**Valor Pendente mínimo:** €{df_filtrado['Valor Pendente'].min():,.2f}")
-                st.write(f"**Valor Pendente máximo:** €{df_filtrado['Valor Pendente'].max():,.2f}")
-                
-                # Mostrar específicamente os valores negativos futuros
-                if "Futuros" in tipo_filtro:
-                    negativos_futuros_df = df_filtrado[
-                        (df_filtrado['Valor Pendente'] < 0) & 
-                        (df_filtrado['Dias'] >= 0)
-                    ]
-                    if len(negativos_futuros_df) > 0:
-                        st.markdown("#### 🔴 Valores Negativos Futuros (Dias ≥ 0)")
-                        st.dataframe(negativos_futuros_df)
+            with col2:
+                qtd_total = df_filtrado['Qtd.'].sum() if 'Qtd.' in df_filtrado.columns else 0
+                st.markdown(f"""
+                <div class="metric-card">
+                    <h3 style="margin:0; font-size: 0.9rem;">Quantidade Total</h3>
+                    <p style="margin:0; font-size: 1.5rem; font-weight: bold;">{qtd_total:,.0f}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col3:
+                clientes_unicos = df_filtrado['Cliente'].nunique()
+                st.markdown(f"""
+                <div class="metric-card">
+                    <h3 style="margin:0; font-size: 0.9rem;">Clientes Únicos</h3>
+                    <p style="margin:0; font-size: 1.5rem; font-weight: bold;">{clientes_unicos}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col4:
+                ticket_medio = total_vendas_filtrado / len(df_filtrado) if len(df_filtrado) > 0 else 0
+                st.markdown(f"""
+                <div class="metric-card">
+                    <h3 style="margin:0; font-size: 0.9rem;">Ticket Médio</h3>
+                    <p style="margin:0; font-size: 1.5rem; font-weight: bold;">€{ticket_medio:,.2f}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # Gráficos
+            col_chart1, col_chart2 = st.columns(2)
+            
+            with col_chart1:
+                st.markdown("### 📈 Vendas por Comercial")
+                if 'Comercial' in df_filtrado.columns and 'V. Líquido' in df_filtrado.columns:
+                    vendas_comercial = df_filtrado.groupby('Comercial')['V. Líquido'].sum().sort_values(ascending=False)
+                    fig1 = px.bar(
+                        vendas_comercial, 
+                        x=vendas_comercial.index, 
+                        y=vendas_comercial.values,
+                        title="Vendas Totais por Comercial",
+                        color=vendas_comercial.values,
+                        color_continuous_scale='viridis'
+                    )
+                    fig1.update_layout(showlegend=False)
+                    st.plotly_chart(fig1, use_container_width=True)
+            
+            with col_chart2:
+                st.markdown("### 📊 Vendas por Categoria")
+                if 'Categoria' in df_filtrado.columns and 'V. Líquido' in df_filtrado.columns:
+                    vendas_categoria = df_filtrado.groupby('Categoria')['V. Líquido'].sum().sort_values(ascending=False)
+                    fig2 = px.pie(
+                        vendas_categoria, 
+                        values=vendas_categoria.values, 
+                        names=vendas_categoria.index,
+                        title="Distribuição de Vendas por Categoria"
+                    )
+                    st.plotly_chart(fig2, use_container_width=True)
+            
+            # Top clientes e artigos
+            col_top1, col_top2 = st.columns(2)
+            
+            with col_top1:
+                st.markdown("### 🏆 Top 10 Clientes")
+                if 'Cliente' in df_filtrado.columns and 'V. Líquido' in df_filtrado.columns:
+                    top_clientes = df_filtrado.groupby('Cliente')['V. Líquido'].sum().nlargest(10)
+                    st.dataframe(top_clientes.reset_index().rename(columns={'V. Líquido': 'Total Vendas'}), use_container_width=True)
+            
+            with col_top2:
+                st.markdown("### 🎯 Top 10 Artigos")
+                if 'Artigo' in df_filtrado.columns and 'V. Líquido' in df_filtrado.columns:
+                    top_artigos = df_filtrado.groupby('Artigo')['V. Líquido'].sum().nlargest(10)
+                    st.dataframe(top_artigos.reset_index().rename(columns={'V. Líquido': 'Total Vendas'}), use_container_width=True)
 
     with tab2:
-        st.markdown("### 📁 Exportação de Dados")
+        st.markdown("## 📊 Análise Comparativa: Cliente x Comercial")
         
-        if 'df_filtrado' in locals() and len(df_filtrado) > 0 and 'summary' in locals():
-            # Criar arquivo Excel
+        if len(df_filtrado) > 0:
+            # Heatmap de Vendas por Cliente e Comercial
+            st.markdown("### 🔥 Heatmap - Vendas por Cliente e Comercial")
+            
+            if all(col in df_filtrado.columns for col in ['Cliente', 'Comercial', 'V. Líquido']):
+                # Agrupar por Cliente e Comercial
+                pivot_data = df_filtrado.pivot_table(
+                    values='V. Líquido', 
+                    index='Cliente', 
+                    columns='Comercial', 
+                    aggfunc='sum',
+                    fill_value=0
+                )
+                
+                # Criar heatmap
+                fig_heatmap = px.imshow(
+                    pivot_data,
+                    title="Heatmap de Vendas - Cliente vs Comercial",
+                    color_continuous_scale='viridis',
+                    aspect="auto"
+                )
+                fig_heatmap.update_layout(height=600)
+                st.plotly_chart(fig_heatmap, use_container_width=True)
+                
+                # Tabela de dados do heatmap
+                with st.expander("📋 Ver Dados do Heatmap"):
+                    st.dataframe(pivot_data, use_container_width=True)
+            
+            # Análise de performance por comercial
+            st.markdown("### 📈 Performance por Comercial")
+            
+            if all(col in df_filtrado.columns for col in ['Comercial', 'Cliente', 'V. Líquido']):
+                performance_data = df_filtrado.groupby('Comercial').agg({
+                    'V. Líquido': ['sum', 'mean', 'count'],
+                    'Cliente': 'nunique'
+                }).round(2)
+                
+                performance_data.columns = ['Total Vendas', 'Ticket Médio', 'Nº Vendas', 'Clientes Únicos']
+                performance_data = performance_data.sort_values('Total Vendas', ascending=False)
+                
+                col_perf1, col_perf2 = st.columns(2)
+                
+                with col_perf1:
+                    st.dataframe(performance_data, use_container_width=True)
+                
+                with col_perf2:
+                    fig_perf = px.bar(
+                        performance_data.reset_index(), 
+                        x='Comercial', 
+                        y='Total Vendas',
+                        title="Comparação de Vendas por Comercial",
+                        color='Total Vendas',
+                        color_continuous_scale='plasma'
+                    )
+                    st.plotly_chart(fig_perf, use_container_width=True)
+
+    with tab3:
+        st.markdown("## 📋 Análise Detalhada por Artigo")
+        
+        if len(df_filtrado) > 0 and 'Artigo' in df_filtrado.columns:
+            # Selecionar artigo para análise detalhada
+            artigos_disponiveis = sorted(df_filtrado['Artigo'].unique())
+            artigo_selecionado = st.selectbox("Selecione um Artigo para análise detalhada:", artigos_disponiveis)
+            
+            if artigo_selecionado:
+                dados_artigo = df_filtrado[df_filtrado['Artigo'] == artigo_selecionado]
+                
+                col_art1, col_art2, col_art3 = st.columns(3)
+                
+                with col_art1:
+                    total_artigo = dados_artigo['V. Líquido'].sum()
+                    st.metric("💰 Total do Artigo", f"€{total_artigo:,.2f}")
+                
+                with col_art2:
+                    qtd_artigo = dados_artigo['Qtd.'].sum() if 'Qtd.' in dados_artigo.columns else 0
+                    st.metric("📦 Quantidade Vendida", f"{qtd_artigo:,.0f}")
+                
+                with col_art3:
+                    clientes_artigo = dados_artigo['Cliente'].nunique()
+                    st.metric("👥 Clientes que Compraram", clientes_artigo)
+                
+                # Top clientes para este artigo
+                st.markdown(f"### 🏆 Top Clientes - {artigo_selecionado}")
+                top_clientes_artigo = dados_artigo.groupby('Cliente')['V. Líquido'].sum().nlargest(10)
+                
+                col_clientes1, col_clientes2 = st.columns(2)
+                
+                with col_clientes1:
+                    st.dataframe(
+                        top_clientes_artigo.reset_index().rename(columns={'V. Líquido': 'Total Gasto'}),
+                        use_container_width=True
+                    )
+                
+                with col_clientes2:
+                    fig_clientes_artigo = px.bar(
+                        top_clientes_artigo.reset_index(), 
+                        x='Cliente', 
+                        y='V. Líquido',
+                        title=f"Top Clientes - {artigo_selecionado}",
+                        color='V. Líquido',
+                        color_continuous_scale='thermal'
+                    )
+                    fig_clientes_artigo.update_layout(xaxis_tickangle=-45)
+                    st.plotly_chart(fig_clientes_artigo, use_container_width=True)
+                
+                # Performance por comercial para este artigo
+                st.markdown(f"### 👨‍💼 Performance Comercial - {artigo_selecionado}")
+                performance_artigo = dados_artigo.groupby('Comercial').agg({
+                    'V. Líquido': ['sum', 'count'],
+                    'Cliente': 'nunique'
+                }).round(2)
+                
+                performance_artigo.columns = ['Total Vendas', 'Nº Vendas', 'Clientes Únicos']
+                performance_artigo = performance_artigo.sort_values('Total Vendas', ascending=False)
+                
+                st.dataframe(performance_artigo, use_container_width=True)
+
+    with tab4:
+        st.markdown("## 📁 Exportação de Dados")
+        
+        if len(df_filtrado) > 0:
+            # Criar arquivo Excel com múltiplas abas
             excel_buffer = BytesIO()
             with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
-                summary.to_excel(writer, index=False, sheet_name='Resumo')
-                df_filtrado.to_excel(writer, index=False, sheet_name='Dados_Detalhados')
+                # Dados filtrados
+                df_filtrado.to_excel(writer, sheet_name='Dados_Filtrados', index=False)
                 
-                worksheet_resumo = writer.sheets['Resumo']
-                worksheet_detalhes = writer.sheets['Dados_Detalhados']
+                # Resumos
+                if all(col in df_filtrado.columns for col in ['Comercial', 'V. Líquido']):
+                    resumo_comercial = df_filtrado.groupby('Comercial').agg({
+                        'V. Líquido': ['sum', 'mean', 'count'],
+                        'Cliente': 'nunique',
+                        'Qtd.': 'sum' if 'Qtd.' in df_filtrado.columns else None
+                    }).round(2)
+                    resumo_comercial.columns = ['Total Vendas', 'Ticket Médio', 'Nº Vendas', 'Clientes Únicos', 'Quantidade Total']
+                    resumo_comercial.to_excel(writer, sheet_name='Resumo_Comercial')
                 
-                # Formatação
-                format_currency = writer.book.add_format({'num_format': '#,##0.00€'})
-                worksheet_resumo.set_column('A:D', 25)
-                worksheet_resumo.set_column('C:C', 20, format_currency)
-                worksheet_detalhes.set_column('A:Z', 15)
+                if all(col in df_filtrado.columns for col in ['Cliente', 'V. Líquido']):
+                    resumo_cliente = df_filtrado.groupby('Cliente')['V. Líquido'].sum().nlargest(50)
+                    resumo_cliente.to_excel(writer, sheet_name='Top_Clientes')
                 
-            excel_buffer.seek(0)
-
-            # Nome do arquivo
-            if selected_comercial != "Todos":
-                filename_base = selected_comercial.replace(' ', '_')
-            elif search_term:
-                filename_base = f"busca_{search_term.replace(' ', '_')}"
-            else:
-                filename_base = "todos_comerciais"
+                if all(col in df_filtrado.columns for col in ['Artigo', 'V. Líquido']):
+                    resumo_artigo = df_filtrado.groupby('Artigo')['V. Líquido'].sum().nlargest(50)
+                    resumo_artigo.to_excel(writer, sheet_name='Top_Artigos')
             
-            tipo_arquivo = "futuros" if "Futuros" in tipo_filtro else "atrasos"
-            filename = f"Resumo_{tipo_arquivo}_{filename_base}.xlsx"
+            excel_buffer.seek(0)
             
             # Botão de download
             st.download_button(
-                label="⬇️ BAIXAR RELATÓRIO EXCEL",
+                label="⬇️ BAIXAR RELATÓRIO COMPLETO (Excel)",
                 data=excel_buffer.getvalue(),
-                file_name=filename,
+                file_name=f"analise_vendas_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-                key="download_excel"
+                use_container_width=True
             )
             
-            st.info(f"📊 Relatório contendo {len(summary)} registros de {num_comerciais} comerciais e {num_entidades} entidades")
-        else:
-            st.warning("ℹ️ Processe os dados primeiro no separador 'Dashboard Principal'")
-
-    with tab3:
-        st.markdown("### 📧 Envio de Relatório por Email")
-        
-        if 'df_filtrado' in locals() and len(df_filtrado) > 0 and 'summary' in locals():
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.markdown("#### 🔐 Configuração do Email")
-                sender_email = st.text_input("✉️ Email Remetente", value="paulocosta@bracar.pt")
-                sender_password = st.text_input("🔑 Password", type="password", placeholder="Digite a password do email")
-                receiver_email = st.text_input("📨 Email Destinatário", value="eliasilva@bracar.pt")
-            
-            with col2:
-                st.markdown("#### 🌐 Configuração SMTP")
-                smtp_server = st.text_input("Servidor SMTP", value="mail.bracar.pt")
-                smtp_port = st.number_input("Porta SMTP", value=587, min_value=1, max_value=65535)
-                
-                st.markdown("---")
-                st.markdown("#### 📋 Pré-visualização")
-                st.write(f"**Tipo:** {tipo_filtro}")
-                st.write(f"**Registros:** {len(summary)} entradas")
-                st.write(f"**Saldo Líquido:** €{sub_total:,.2f}")
-
-            if st.button("📬 ENVIAR RELATÓRIO POR EMAIL", use_container_width=True, key="send_email"):
-                if not all([sender_email, sender_password, receiver_email]):
-                    st.error("❌ Preencha todos os campos de email.")
-                else:
-                    try:
-                        # Criar arquivo para anexo
-                        email_excel_buffer = BytesIO()
-                        with pd.ExcelWriter(email_excel_buffer, engine='xlsxwriter') as writer:
-                            summary.to_excel(writer, index=False, sheet_name='Resumo')
-                            df_filtrado.to_excel(writer, index=False, sheet_name='Dados_Detalhados')
-                            writer.sheets['Resumo'].set_column('A:D', 25)
-                            writer.sheets['Dados_Detalhados'].set_column('A:Z', 15)
-                        email_excel_buffer.seek(0)
-
-                        # Criar mensagem
-                        msg = MIMEMultipart()
-                        msg['From'] = sender_email
-                        msg['To'] = receiver_email
-                        msg['Subject'] = f"📊 Relatório de {tipo_filtro} - {selected_comercial if selected_comercial != 'Todos' else 'Todos Comerciais'}"
-
-                        body = f"""
-                        <html>
-                            <body style="font-family: Arial, sans-serif;">
-                                <h2 style="color: #667eea;">📊 Relatório de Valores Pendentes - BRACAR</h2>
-                                <p>Prezado(a),</p>
-                                <p>Segue em anexo o relatório de <strong>{tipo_filtro}</strong> para <strong>{filtro_aplicado}</strong>.</p>
-                                
-                                <div style="background: #f8f9fa; padding: 15px; border-radius: 10px; margin: 15px 0;">
-                                    <h3 style="color: #333;">📈 Resumo Estatístico:</h3>
-                                    <ul>
-                                        <li><strong>Saldo Líquido:</strong> €{sub_total:,.2f}</li>
-                                        <li><strong>Valores Positivos:</strong> €{valores_positivos:,.2f}</li>
-                                        <li><strong>Valores Negativos:</strong> €{valores_negativos:,.2f}</li>
-                                        <li><strong>Valores Negativos Futuros:</strong> €{valores_negativos_futuros:,.2f}</li>
-                                        <li><strong>Número de Comerciais:</strong> {num_comerciais}</li>
-                                        <li><strong>Número de Entidades:</strong> {num_entidades}</li>
-                                        <li><strong>Dias Médios:</strong> {abs(dias_medios):.1f} dias {'futuros' if dias_medios >= 0 else 'em atraso'}</li>
-                                        <li><strong>Data do Relatório:</strong> {datetime.now().strftime('%d/%m/%Y %H:%M')}</li>
-                                    </ul>
-                                </div>
-                                
-                                <p>Atenciosamente,<br>
-                                <strong>Sistema de Gestão - BRACAR</strong></p>
-                            </body>
-                        </html>
-                        """
-                        
-                        msg.attach(MIMEText(body, 'html'))
-
-                        # Anexar arquivo
-                        attachment = MIMEApplication(email_excel_buffer.getvalue(), _subtype="xlsx")
-                        attachment.add_header('Content-Disposition', 'attachment', filename=filename)
-                        msg.attach(attachment)
-
-                        # Enviar email
-                        st.info("🔄 A enviar email...")
-                        
-                        server = smtplib.SMTP(smtp_server, smtp_port, timeout=30)
-                        server.starttls()
-                        server.login(sender_email, sender_password)
-                        server.sendmail(sender_email, receiver_email, msg.as_string())
-                        server.quit()
-
-                        st.success("✅ Email enviado com sucesso!")
-                        st.balloons()
-                        
-                    except Exception as e:
-                        st.error(f"❌ Erro ao enviar email: {str(e)}")
-        else:
-            st.warning("ℹ️ Processe os dados primeiro no separador 'Dashboard Principal'")
+            # Estatísticas do relatório
+            st.info(f"""
+            **📊 Relatório contém:**
+            - {len(df_filtrado)} registros de vendas
+            - {df_filtrado['Cliente'].nunique()} clientes únicos
+            - {df_filtrado['Comercial'].nunique()} comerciais
+            - {df_filtrado['Artigo'].nunique()} artigos diferentes
+            - Total de vendas: €{df_filtrado['V. Líquido'].sum():,.2f}
+            """)
 
 else:
     st.error("❌ Não foi possível carregar os dados do Excel.")
@@ -636,7 +535,7 @@ else:
 st.markdown("---")
 st.markdown(
     "<div style='text-align: center; color: #666; font-size: 0.9rem;'>"
-    "📊 Dashboard desenvolvido para gestão eficiente de valores • "
+    "📊 Dashboard de Análise de Vendas - Cliente x Comercial • "
     f"Última execução: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
     "</div>", 
     unsafe_allow_html=True
