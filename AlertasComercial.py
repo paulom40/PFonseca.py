@@ -12,23 +12,98 @@ from datetime import datetime, timedelta
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="Customer KPI Dashboard", layout="wide", initial_sidebar_state="expanded")
 
-# --- CUSTOM STYLING ---
+# --- CUSTOM STYLING WITH VIBRANT COLORS AND GRADIENTS ---
 st.markdown("""
     <style>
-    .main { background-color: #0f1419; color: #e0e0e0; }
-    .stApp { background-color: #0f1419; }
-    h1, h2, h3 { color: #6366f1; font-weight: 700; }
-    .metric-card { 
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        padding: 20px; border-radius: 10px; border-left: 4px solid #6366f1;
-        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+    /* Enhanced with vibrant colors, gradients, and better visual hierarchy */
+    .main { background: linear-gradient(135deg, #0f0f1e 0%, #1a0f2e 100%); color: #e0e0e0; }
+    .stApp { background: linear-gradient(135deg, #0f0f1e 0%, #1a0f2e 100%); }
+    
+    h1 { 
+        color: #00d4ff; 
+        font-weight: 800; 
+        font-size: 2.5em;
+        text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        margin-bottom: 20px;
     }
-    .trend-positive { color: #10b981; font-weight: bold; }
-    .trend-negative { color: #ef4444; font-weight: bold; }
-    .stSelectbox label, .stMultiSelect label { font-weight: 600; color: #c7d2fe; }
+    h2 { 
+        background: linear-gradient(135deg, #ff006e 0%, #8338ec 50%, #3a86ff 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-weight: 700;
+        margin-top: 30px;
+    }
+    h3 { 
+        color: #00f5ff; 
+        font-weight: 700;
+    }
+    
+    /* Metric cards with vibrant gradients */
+    [data-testid="metric-container"] {
+        background: linear-gradient(135deg, #1a0f2e 0%, #2d0f4e 100%);
+        border: 2px solid rgba(0, 212, 255, 0.3);
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 8px 32px rgba(0, 212, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+    
+    /* Sidebar styling */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0a0a15 0%, #1a0f2e 100%);
+        border-right: 2px solid rgba(0, 212, 255, 0.2);
+    }
+    
+    .stRadio label, .stSelectbox label, .stMultiSelect label { 
+        font-weight: 700; 
+        color: #00f5ff;
+        font-size: 1.05em;
+    }
+    
+    /* Selectbox styling */
+    [data-testid="stSelectbox"] {
+        background: linear-gradient(135deg, #1a0f2e 0%, #2d0f4e 100%);
+        border-radius: 8px;
+    }
+    
+    /* Download button with vibrant gradient */
     .stDownloadButton button { 
-        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-        color: white; border: none; border-radius: 6px; font-weight: 600;
+        background: linear-gradient(135deg, #ff006e 0%, #8338ec 50%, #3a86ff 100%);
+        color: white; 
+        border: none; 
+        border-radius: 8px; 
+        font-weight: 700;
+        padding: 12px 24px;
+        box-shadow: 0 4px 15px rgba(255, 0, 110, 0.4);
+        transition: all 0.3s ease;
+    }
+    
+    .stDownloadButton button:hover {
+        box-shadow: 0 8px 25px rgba(255, 0, 110, 0.6);
+        transform: translateY(-2px);
+    }
+    
+    /* Text input styling */
+    .stTextInput input {
+        background: linear-gradient(135deg, #1a0f2e 0%, #2d0f4e 100%);
+        color: #00f5ff;
+        border: 2px solid rgba(0, 212, 255, 0.3);
+        border-radius: 8px;
+    }
+    
+    /* Info/Warning/Error box styling */
+    .stInfo, .stSuccess, .stWarning, .stError {
+        border-radius: 10px;
+        padding: 15px;
+        font-weight: 600;
+    }
+    
+    /* Divider styling */
+    hr {
+        border: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.3), transparent);
+        margin: 20px 0;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -94,14 +169,52 @@ pagina = st.sidebar.radio("Navigate", [
     "📊 Comparative View"
 ])
 
-# --- FILTERS ---
+# --- FILTERS WITH CASCADING LOGIC - Fixed to work properly with dynamic options ---
 st.sidebar.markdown("### 🔍 Filters")
 dados_base = df.copy()
 
-ano = st.sidebar.selectbox("Year", ["All"] + sorted([int(x) for x in df['ano'].dropna().unique()]))
-comercial = st.sidebar.selectbox("Commercial", ["All"] + sorted(df['comercial'].dropna().unique()))
-cliente = st.sidebar.selectbox("Customer", ["All"] + sorted(df['cliente'].dropna().unique()))
+# Initialize session state for filters
+if 'ano_filter' not in st.session_state:
+    st.session_state.ano_filter = "All"
+if 'comercial_filter' not in st.session_state:
+    st.session_state.comercial_filter = "All"
+if 'cliente_filter' not in st.session_state:
+    st.session_state.cliente_filter = "All"
 
+# Get available options based on current filters
+def get_filtro_opcoes(dados, ano, comercial):
+    temp = dados.copy()
+    
+    # Filter by year
+    if ano != "All":
+        temp = temp[temp['ano'] == ano]
+    
+    # Filter by commercial
+    if comercial != "All":
+        temp = temp[temp['comercial'] == comercial]
+    
+    anos = sorted([int(x) for x in temp['ano'].dropna().unique()])
+    comerciais = sorted(temp['comercial'].dropna().unique())
+    clientes = sorted(temp['cliente'].dropna().unique())
+    
+    return anos, comerciais, clientes
+
+# Year filter
+anos_disponiveis, _, _ = get_filtro_opcoes(dados_base, "All", "All")
+ano = st.sidebar.selectbox("Year", ["All"] + anos_disponiveis, key="year_select")
+st.session_state.ano_filter = ano
+
+# Commercial filter (updates based on year)
+_, comerciais_disponiveis, _ = get_filtro_opcoes(dados_base, ano, "All")
+comercial = st.sidebar.selectbox("Commercial", ["All"] + comerciais_disponiveis, key="commercial_select")
+st.session_state.comercial_filter = comercial
+
+# Customer filter (updates based on year and commercial)
+_, _, clientes_disponiveis = get_filtro_opcoes(dados_base, ano, comercial)
+cliente = st.sidebar.selectbox("Customer", ["All"] + clientes_disponiveis, key="customer_select")
+st.session_state.cliente_filter = cliente
+
+# Apply filters to data
 def aplicar_filtros(dados, ano, comercial, cliente):
     resultado = dados.copy()
     if ano != "All":
@@ -121,6 +234,11 @@ def gerar_excel(dados):
         dados.to_excel(writer, index=False, sheet_name='Data')
     return output.getvalue()
 
+# --- VIBRANT COLOR SCHEMES ---
+color_scale_primary = ['#ff006e', '#8338ec', '#3a86ff', '#06ffa5', '#ffbe0b']
+color_scale_gradient = 'Viridis'
+template_chart = 'plotly_dark'
+
 # --- PAGE 1: OVERVIEW ---
 if pagina == "📈 Overview":
     st.title("📊 KPI Dashboard Overview")
@@ -132,10 +250,10 @@ if pagina == "📈 Overview":
     num_customers = dados_filtrados['cliente'].nunique()
     num_commercials = dados_filtrados['comercial'].nunique()
     
-    col1.metric("📦 Total Quantity", f"{total_qty:,.0f}", delta=f"{total_qty/10000:.1%}")
-    col2.metric("💰 Total Value", f"R$ {total_value:,.0f}", delta=f"{total_value/100000:.1%}")
-    col3.metric("👥 Unique Customers", f"{num_customers}", delta=f"{num_customers}")
-    col4.metric("🧑‍💼 Active Commercials", f"{num_commercials}", delta=f"{num_commercials}")
+    col1.metric("📦 Total Quantity", f"{total_qty:,.0f}")
+    col2.metric("💰 Total Value", f"R$ {total_value:,.0f}")
+    col3.metric("👥 Unique Customers", f"{num_customers}")
+    col4.metric("🧑‍💼 Active Commercials", f"{num_commercials}")
     
     st.markdown("---")
     
@@ -149,10 +267,11 @@ if pagina == "📈 Overview":
         x='cliente',
         y='qtd',
         color='v_liquido',
-        title='Top 10 Customers',
+        title='Top 10 Customers by Quantity',
         labels={'qtd': 'Quantity', 'cliente': 'Customer', 'v_liquido': 'Value (R$)'},
-        color_continuous_scale='Viridis'
+        color_continuous_scale='Turbo'
     )
+    fig_top.update_layout(template=template_chart, showlegend=True, hovermode='x unified')
     st.plotly_chart(fig_top, use_container_width=True)
     
     # KPI by Commercial
@@ -162,11 +281,12 @@ if pagina == "📈 Overview":
     fig_comercial = px.bar(
         kpi_comercial.reset_index(),
         x='comercial',
-        y=['qtd'],
+        y='qtd',
+        color='v_liquido',
         title='Quantity by Commercial',
-        barmode='group',
-        color_discrete_sequence=['#6366f1']
+        color_continuous_scale='Plasma'
     )
+    fig_comercial.update_layout(template=template_chart, showlegend=True)
     st.plotly_chart(fig_comercial, use_container_width=True)
     
     # Data Table
@@ -209,15 +329,16 @@ elif pagina == "🎯 Custom KPIs":
     
     kpi_data = kpi_data.sort_values(ascending=False)
     
-    # Display KPI
+    # Display KPI with vibrant colors
     fig_kpi = px.bar(
         x=kpi_data.index,
         y=kpi_data.values,
         title=f"{kpi_name} - {kpi_metric}({kpi_field})",
         labels={'x': kpi_groupby.title(), 'y': 'Value'},
         color=kpi_data.values,
-        color_continuous_scale='Blues'
+        color_continuous_scale='Rainbow'
     )
+    fig_kpi.update_layout(template=template_chart, showlegend=False)
     st.plotly_chart(fig_kpi, use_container_width=True)
     
     # Summary
@@ -256,7 +377,7 @@ elif pagina == "📉 Trends":
     # Add moving average
     trend_data['MA'] = trend_data['value'].rolling(window=trend_window, center=True).mean()
     
-    # Plot trend
+    # Plot trend with vibrant colors
     fig_trend = go.Figure()
     
     fig_trend.add_trace(go.Scatter(
@@ -264,8 +385,10 @@ elif pagina == "📉 Trends":
         y=trend_data['value'],
         mode='lines+markers',
         name='Actual',
-        line=dict(color='#6366f1', width=2),
-        fill='tozeroy'
+        line=dict(color='#ff006e', width=3),
+        marker=dict(size=8, color='#ff006e'),
+        fill='tozeroy',
+        fillcolor='rgba(255, 0, 110, 0.1)'
     ))
     
     fig_trend.add_trace(go.Scatter(
@@ -273,7 +396,7 @@ elif pagina == "📉 Trends":
         y=trend_data['MA'],
         mode='lines',
         name=f'MA({trend_window})',
-        line=dict(color='#f97316', width=2, dash='dash')
+        line=dict(color='#00f5ff', width=2, dash='dash')
     ))
     
     fig_trend.update_layout(
@@ -281,7 +404,7 @@ elif pagina == "📉 Trends":
         xaxis_title=trend_groupby.title(),
         yaxis_title="Value",
         hovermode='x unified',
-        template='plotly_dark'
+        template=template_chart
     )
     
     st.plotly_chart(fig_trend, use_container_width=True)
@@ -374,8 +497,9 @@ elif pagina == "👥 Customer Analysis":
                 y='qtd',
                 markers=True,
                 title=f"Monthly Performance - {cliente}",
-                color_discrete_sequence=['#6366f1']
+                color_discrete_sequence=['#00f5ff']
             )
+            fig_historico.update_layout(template=template_chart)
             st.plotly_chart(fig_historico, use_container_width=True)
             
             # Comparison with others
@@ -383,10 +507,29 @@ elif pagina == "👥 Customer Analysis":
             media_mercado = dados_filtrados.groupby(['ano', 'mes'])['qtd'].mean().reset_index()
             
             fig_comp = go.Figure()
-            fig_comp.add_trace(go.Scatter(x=historico['mes'], y=historico['qtd'], mode='lines+markers', name=cliente, line=dict(color='#6366f1', width=3)))
-            fig_comp.add_trace(go.Scatter(x=media_mercado['mes'], y=media_mercado['qtd'], mode='lines', name='Market Avg', line=dict(color='#94a3b8', width=2, dash='dash')))
+            fig_comp.add_trace(go.Scatter(
+                x=historico['mes'], 
+                y=historico['qtd'], 
+                mode='lines+markers', 
+                name=cliente, 
+                line=dict(color='#ff006e', width=3),
+                marker=dict(size=8)
+            ))
+            fig_comp.add_trace(go.Scatter(
+                x=media_mercado['mes'], 
+                y=media_mercado['qtd'], 
+                mode='lines', 
+                name='Market Avg', 
+                line=dict(color='#00f5ff', width=2, dash='dash')
+            ))
             
-            fig_comp.update_layout(title="Customer vs Market Trend", xaxis_title="Month", yaxis_title="Quantity", hovermode='x unified', template='plotly_dark')
+            fig_comp.update_layout(
+                title="Customer vs Market Trend", 
+                xaxis_title="Month", 
+                yaxis_title="Quantity", 
+                hovermode='x unified', 
+                template=template_chart
+            )
             st.plotly_chart(fig_comp, use_container_width=True)
             
             # Data
@@ -408,7 +551,7 @@ else:
     # Get top items
     top_items = dados_filtrados.groupby(comp_groupby1)[comp_metric1].sum().nlargest(comp_top)
     
-    # Create comparative visualizations
+    # Create comparative visualizations with vibrant colors
     fig_comp = make_subplots(
         rows=1, cols=2,
         specs=[[{"type": "bar"}, {"type": "pie"}]],
@@ -416,7 +559,12 @@ else:
     )
     
     fig_comp.add_trace(
-        go.Bar(x=top_items.index, y=top_items.values, marker=dict(color=top_items.values, colorscale='Viridis'), name=comp_metric1),
+        go.Bar(
+            x=top_items.index, 
+            y=top_items.values, 
+            marker=dict(color=top_items.values, colorscale='Rainbow'),
+            name=comp_metric1
+        ),
         row=1, col=1
     )
     
@@ -425,7 +573,7 @@ else:
         row=1, col=2
     )
     
-    fig_comp.update_layout(height=500, showlegend=False, template='plotly_dark')
+    fig_comp.update_layout(height=500, showlegend=False, template=template_chart)
     st.plotly_chart(fig_comp, use_container_width=True)
     
     # Statistics
