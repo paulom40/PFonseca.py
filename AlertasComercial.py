@@ -116,22 +116,19 @@ def gerar_excel(dados):
 if pagina == "Visão Geral":
     st.subheader("📊 Visão Geral das Compras")
 
-    total_vl = dados_filtrados['v_liquido'].sum()
     total_qtd = dados_filtrados['qtd'].sum()
     clientes_ativos = dados_filtrados['cliente'].nunique()
     comerciais_ativos = dados_filtrados['comercial'].nunique()
-    pm_medio = total_vl / total_qtd if total_qtd > 0 else 0
-    media_por_cliente = total_vl / clientes_ativos if clientes_ativos > 0 else 0
+    media_por_cliente = total_qtd / clientes_ativos if clientes_ativos > 0 else 0
 
     col1, col2, col3 = st.columns(3)
-    col1.metric("💰 Total V. Líquido", f"{total_vl:,.2f} €")
-    col2.metric("📦 Total Qtd.", f"{total_qtd:,.0f}")
-    col3.metric("🧮 PM Médio", f"{pm_medio:,.2f} €")
+    col1.metric("📦 Total Qtd.", f"{total_qtd:,.0f}")
+    col2.metric("👥 Clientes Ativos", clientes_ativos)
+    col3.metric("🧑‍💼 Comerciais Ativos", comerciais_ativos)
 
-    col4, col5, col6 = st.columns(3)
-    col4.metric("👥 Clientes Ativos", clientes_ativos)
-    col5.metric("🧑‍💼 Comerciais Ativos", comerciais_ativos)
-    col6.metric("📈 Média por Cliente", f"{media_por_cliente:,.2f} €")
+    col4, _, col6 = st.columns(3)
+    col4.metric("📈 Média por Cliente", f"{media_por_cliente:,.2f}")
+    col6.empty()
 
     st.markdown("### 📋 Tabela de Compras Filtradas")
     st.dataframe(dados_filtrados)
@@ -141,18 +138,19 @@ if pagina == "Visão Geral":
     if cliente != "Todos":
         st.subheader(f"📋 Detalhes do Cliente: {cliente}")
         dados_cliente = df[df['cliente'] == cliente]
-        resumo = dados_cliente.groupby(['cliente', 'comercial', 'categoria', 'ano', 'mes']).agg({
-            'qtd': 'sum',
-            'pm': 'mean',
-            'v_liquido': 'sum'
-        }).reset_index()
-        resumo.rename(columns={'qtd': 'Total Qtd.', 'pm': 'PM Médio', 'v_liquido': 'Total V. Líquido'}, inplace=True)
+        resumo = dados_cliente.groupby(['cliente', 'comercial', 'categoria', 'ano', 'mes'])['qtd'].sum().reset_index()
+        resumo.rename(columns={'qtd': 'Total Qtd.'}, inplace=True)
         st.dataframe(resumo)
         st.download_button("📥 Exportar resumo do cliente", data=gerar_excel(resumo), file_name=f"resumo_{cliente}.xlsx")
 # --- Página: Gráficos ---
 elif pagina == "Gráficos":
     st.subheader("📉 Quantidade por Cliente ao Longo dos Meses")
-    pivot_cliente = dados_filtrados.pivot_table(index='mes', columns='cliente', values='qtd', aggfunc='sum').fillna(0)
+
+    dados_grafico = dados_filtrados.copy()
+    if cliente != "Todos":
+        dados_grafico = dados_grafico[dados_grafico['cliente'] == cliente]
+
+    pivot_cliente = dados_grafico.pivot_table(index='mes', columns='cliente', values='qtd', aggfunc='sum').fillna(0)
     if not pivot_cliente.empty:
         fig1, ax1 = plt.subplots(figsize=(10, 5))
         pivot_cliente.plot(kind='bar', stacked=True, ax=ax1, colormap='tab20')
@@ -160,9 +158,11 @@ elif pagina == "Gráficos":
         ax1.set_xlabel('Mês')
         ax1.set_ylabel('Quantidade Total')
         st.pyplot(fig1)
+    else:
+        st.warning("⚠️ Sem dados para o gráfico de clientes.")
 
     st.subheader("📈 Evolução Mensal por Comercial")
-    pivot_comercial = dados_filtrados.pivot_table(index='mes', columns='comercial', values='qtd', aggfunc='sum').fillna(0)
+    pivot_comercial = dados_grafico.pivot_table(index='mes', columns='comercial', values='qtd', aggfunc='sum').fillna(0)
     if not pivot_comercial.empty:
         fig2, ax2 = plt.subplots(figsize=(10, 5))
         pivot_comercial.plot(kind='line', marker='o', ax=ax2, colormap='Set1')
@@ -170,12 +170,19 @@ elif pagina == "Gráficos":
         ax2.set_xlabel('Mês')
         ax2.set_ylabel('Quantidade Total')
         st.pyplot(fig2)
+    else:
+        st.warning("⚠️ Sem dados para o gráfico de comerciais.")
 
 # --- Página: Alertas ---
 elif pagina == "Alertas":
     st.subheader("🚨 Clientes com meses em falta")
-    todos_meses = sorted(dados_filtrados['mes'].dropna().unique())
-    presenca = dados_filtrados.groupby(['cliente', 'mes'])['qtd'].sum().unstack(fill_value=0)
+
+    dados_alerta = dados_filtrados.copy()
+    if cliente != "Todos":
+        dados_alerta = dados_alerta[dados_alerta['cliente'] == cliente]
+
+    todos_meses = sorted(dados_alerta['mes'].dropna().unique())
+    presenca = dados_alerta.groupby(['cliente', 'mes'])['qtd'].sum().unstack(fill_value=0)
     presenca = presenca.reindex(columns=todos_meses, fill_value=0)
 
     ausentes = presenca[presenca.eq(0)].astype(bool)
@@ -194,97 +201,62 @@ elif pagina == "Alertas":
 
         st.dataframe(tabela_alerta.style.applymap(destacar_faltas))
         st.download_button("📥 Exportar presença mensal", data=gerar_excel(tabela_alerta.reset_index()), file_name="presenca_clientes.xlsx")
-# --- Página: Histórico do Cliente ---
-elif pagina == "Histórico do Cliente":
-    st.subheader("📅 Histórico Mensal de Compras")
+# --- Página: Gráficos ---
+elif pagina == "Gráficos":
+    st.subheader("📉 Quantidade por Cliente ao Longo dos Meses")
 
-    if cliente == "Todos":
-        st.info("👈 Seleciona um cliente na barra lateral para ver o histórico.")
+    dados_grafico = dados_filtrados.copy()
+    if cliente != "Todos":
+        dados_grafico = dados_grafico[dados_grafico['cliente'] == cliente]
+
+    pivot_cliente = dados_grafico.pivot_table(index='mes', columns='cliente', values='qtd', aggfunc='sum').fillna(0)
+    if not pivot_cliente.empty:
+        fig1, ax1 = plt.subplots(figsize=(10, 5))
+        pivot_cliente.plot(kind='bar', stacked=True, ax=ax1, colormap='tab20')
+        ax1.set_title('Compras por Cliente')
+        ax1.set_xlabel('Mês')
+        ax1.set_ylabel('Quantidade Total')
+        st.pyplot(fig1)
     else:
-        dados_cliente = df[df['cliente'] == cliente]
+        st.warning("⚠️ Sem dados para o gráfico de clientes.")
 
-        if dados_cliente.empty:
-            st.warning("⚠️ Sem dados disponíveis para este cliente.")
-        else:
-            historico = dados_cliente.groupby(['ano', 'mes']).agg({
-                'qtd': 'sum',
-                'v_liquido': 'sum',
-                'pm': 'mean'
-            }).reset_index().sort_values(['ano', 'mes'])
+    st.subheader("📈 Evolução Mensal por Comercial")
+    pivot_comercial = dados_grafico.pivot_table(index='mes', columns='comercial', values='qtd', aggfunc='sum').fillna(0)
+    if not pivot_comercial.empty:
+        fig2, ax2 = plt.subplots(figsize=(10, 5))
+        pivot_comercial.plot(kind='line', marker='o', ax=ax2, colormap='Set1')
+        ax2.set_title('Evolução Mensal por Comercial')
+        ax2.set_xlabel('Mês')
+        ax2.set_ylabel('Quantidade Total')
+        st.pyplot(fig2)
+    else:
+        st.warning("⚠️ Sem dados para o gráfico de comerciais.")
 
-            historico.rename(columns={
-                'qtd': 'Qtd. Comprada',
-                'v_liquido': 'V. Líquido',
-                'pm': 'PM Médio'
-            }, inplace=True)
+# --- Página: Alertas ---
+elif pagina == "Alertas":
+    st.subheader("🚨 Clientes com meses em falta")
 
-            st.markdown("### 📋 Tabela de Compras por Mês")
-            st.dataframe(historico)
-            st.download_button("📥 Exportar histórico do cliente", data=gerar_excel(historico), file_name=f"historico_{cliente}.xlsx")
+    dados_alerta = dados_filtrados.copy()
+    if cliente != "Todos":
+        dados_alerta = dados_alerta[dados_alerta['cliente'] == cliente]
 
-            # --- Gráfico com destaque de crescimento e queda ---
-            st.markdown("### 📈 Evolução Mensal com Destaques")
-            historico['Delta'] = historico['V. Líquido'].diff()
-            historico['Crescimento'] = historico['Delta'] > 0
-            historico['Queda'] = historico['Delta'] < 0
+    todos_meses = sorted(dados_alerta['mes'].dropna().unique())
+    presenca = dados_alerta.groupby(['cliente', 'mes'])['qtd'].sum().unstack(fill_value=0)
+    presenca = presenca.reindex(columns=todos_meses, fill_value=0)
 
-            fig = px.line(
-                historico,
-                x='mes',
-                y='V. Líquido',
-                markers=True,
-                title=f"Evolução Mensal - {cliente}",
-                labels={'V. Líquido': 'Valor (€)', 'mes': 'Mês'}
-            )
+    ausentes = presenca[presenca.eq(0)].astype(bool)
+    clientes_inativos = ausentes.any(axis=1)
 
-            fig.add_scatter(
-                x=historico.loc[historico['Crescimento'], 'mes'],
-                y=historico.loc[historico['Crescimento'], 'V. Líquido'],
-                mode='markers',
-                marker=dict(color='green', size=10, symbol='circle'),
-                name='Crescimento'
-            )
+    if not clientes_inativos.any():
+        st.success("✅ Todos os clientes compraram em todos os meses disponíveis.")
+    else:
+        st.error(f"⚠️ {clientes_inativos.sum()} clientes com meses em falta")
 
-            fig.add_scatter(
-                x=historico.loc[historico['Queda'], 'mes'],
-                y=historico.loc[historico['Queda'], 'V. Líquido'],
-                mode='markers',
-                marker=dict(color='red', size=10, symbol='x'),
-                name='Queda'
-            )
+        st.markdown("### 📋 Tabela de presença mensal por cliente")
+        tabela_alerta = presenca.copy().astype(int)
 
-            fig.update_layout(xaxis_title="Mês", yaxis_title="Valor (€)", legend_title="Indicador")
-            st.plotly_chart(fig, use_container_width=True)
+        def destacar_faltas(val):
+            return 'background-color: #f8d7da' if val == 0 else ''
 
-            # --- Comparação com média dos clientes ---
-            st.markdown("### 📊 Comparação com Média dos Clientes")
-            media_geral = (
-                df[df['cliente'] != cliente]
-                .groupby(['ano', 'mes'])[['v_liquido', 'qtd']]
-                .mean()
-                .reset_index()
-                .rename(columns={'v_liquido': 'V. Líquido Média', 'qtd': 'Qtd. Média'})
-            )
-
-            comparativo = pd.merge(historico, media_geral, on=['ano', 'mes'], how='left')
-
-            fig_comp = px.line(
-                comparativo,
-                x='mes',
-                y=['V. Líquido', 'V. Líquido Média'],
-                markers=True,
-                labels={'value': 'Valor (€)', 'variable': 'Indicador'},
-                title=f"Comparativo de Valor Líquido - {cliente} vs Média"
-            )
-            fig_comp.update_layout(xaxis_title="Mês", yaxis_title="Valor (€)", legend_title="Indicador")
-            st.plotly_chart(fig_comp, use_container_width=True)
-
-            # --- Botão para destacar meses com crescimento ---
-            st.markdown("### 📈 Destaque de Crescimentos Mensais")
-            if st.button("🔍 Mostrar meses com crescimento"):
-                crescimentos = historico[historico['Delta'] > 0]
-                if crescimentos.empty:
-                    st.info("ℹ️ Não houve crescimento em relação ao mês anterior.")
-                else:
-                    st.success(f"✅ {len(crescimentos)} meses com crescimento detectado:")
-                    st.dataframe(crescimentos[['ano', 'mes', 'V. Líquido', 'Delta']])
+        st.dataframe(tabela_alerta.style.applymap(destacar_faltas))
+        st.download_button("📥 Exportar presença mensal", data=gerar_excel(tabela_alerta.reset_index()), file_name="presenca_clientes.xlsx")
