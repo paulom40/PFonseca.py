@@ -516,10 +516,30 @@ elif pagina == "⚠️ Alerts":
             # Calculate gap percentage
             display_gaps['Gap %'] = (display_gaps['Months with Gap'] / display_gaps['Expected Months'] * 100).round(1)
             
-            display_gaps['Missing Month Names'] = display_gaps['Missing Months'].apply(
-                lambda x: ', '.join([month_names.get(int(float(m)), f'Month {m}') for m in sorted(list(x))])
-                if isinstance(x, set) and len(x) > 0 else 'N/A'
-            )
+            # Function to safely convert month numbers to names
+            def safe_convert_month(x):
+                if not isinstance(x, set) or len(x) == 0:
+                    return 'N/A'
+                
+                month_names = {
+                    1: 'January', 2: 'February', 3: 'March', 4: 'April',
+                    5: 'May', 6: 'June', 7: 'July', 8: 'August',
+                    9: 'September', 10: 'October', 11: 'November', 12: 'December'
+                }
+                
+                try:
+                    month_list = []
+                    for m in sorted(list(x)):
+                        try:
+                            month_num = int(float(m))
+                            month_list.append(month_names.get(month_num, f'Month {month_num}'))
+                        except (ValueError, TypeError):
+                            month_list.append(f'Month {m}')
+                    return ', '.join(month_list)
+                except Exception:
+                    return 'Error reading months'
+            
+            display_gaps['Missing Month Names'] = display_gaps['Missing Months'].apply(safe_convert_month)
             
             # Format final display table with percentage as primary column
             final_display = display_gaps[['Customer', 'Months Purchased', 'Expected Months', 'Gap %', 'Missing Month Names']].copy()
