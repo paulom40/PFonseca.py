@@ -187,19 +187,62 @@ def gerar_excel(dados):
 if pagina == "Visão Geral":
     st.subheader("📊 Visão Geral das Compras")
 
+    # KPIs baseados em QTD
     total_qtd = dados_filtrados['qtd'].sum()
     clientes_ativos = dados_filtrados['cliente'].nunique()
     comerciais_ativos = dados_filtrados['comercial'].nunique()
     media_por_cliente = total_qtd / clientes_ativos if clientes_ativos > 0 else 0
+    
+    # KPIs Adicionais
+    qtd_media = dados_filtrados['qtd'].mean()
+    qtd_maxima = dados_filtrados['qtd'].max()
+    qtd_minima = dados_filtrados['qtd'].min()
+    mediana_qtd = dados_filtrados['qtd'].median()
+    
+    # Variação comparada ao período anterior
+    if ano != "Todos" and mes != "Todos":
+        ano_int = int(ano)
+        mes_int = int(mes)
+        
+        if mes_int > 1:
+            mes_anterior = mes_int - 1
+            ano_anterior = ano_int
+        else:
+            mes_anterior = 12
+            ano_anterior = ano_int - 1
+        
+        qtd_periodo_anterior = df[
+            (df['ano'] == ano_anterior) & 
+            (df['mes'] == mes_anterior) &
+            (df['comercial'] == comercial if comercial != "Todos" else True) &
+            (df['cliente'] == cliente if cliente != "Todos" else True)
+        ]['qtd'].sum()
+        
+        variacao = ((total_qtd - qtd_periodo_anterior) / qtd_periodo_anterior * 100) if qtd_periodo_anterior > 0 else 0
+    else:
+        variacao = 0
 
     col1, col2, col3 = st.columns(3)
     col1.metric("📦 Total Qtd.", f"{total_qtd:,.0f}")
     col2.metric("👥 Clientes Ativos", clientes_ativos)
     col3.metric("🧑‍💼 Comerciais Ativos", comerciais_ativos)
 
-    col4, _, col6 = st.columns(3)
+    col4, col5, col6 = st.columns(3)
     col4.metric("📈 Média por Cliente", f"{media_por_cliente:,.2f}")
-    col6.empty()
+    col5.metric("📊 Média Geral QTD", f"{qtd_media:,.2f}")
+    col6.metric("📈 Variação %", f"{variacao:+.1f}%")
+    
+    col7, col8, col9 = st.columns(3)
+    col7.metric("⬆️ Máxima QTD", f"{qtd_maxima:,.0f}")
+    col8.metric("⬇️ Mínima QTD", f"{qtd_minima:,.0f}")
+    col9.metric("📍 Mediana QTD", f"{mediana_qtd:,.0f}")
+    
+    # Tabela com top clientes por QTD
+    st.markdown("### 🏆 Top 10 Clientes por Quantidade")
+    top_clientes = dados_filtrados.groupby('cliente')['qtd'].sum().sort_values(ascending=False).head(10).reset_index()
+    top_clientes.columns = ['Cliente', 'Total QTD']
+    top_clientes['%'] = (top_clientes['Total QTD'] / top_clientes['Total QTD'].sum() * 100).round(2)
+    st.dataframe(top_clientes, use_container_width=True)
 
     st.markdown("### 📋 Tabela de Compras Filtradas")
     st.dataframe(dados_filtrados)
