@@ -517,7 +517,8 @@ elif pagina == "⚠️ Alerts":
             display_gaps['Gap %'] = (display_gaps['Months with Gap'] / display_gaps['Expected Months'] * 100).round(1)
             
             display_gaps['Missing Month Names'] = display_gaps['Missing Months'].apply(
-                lambda x: ', '.join([month_names.get(int(m), f'Month {m}') for m in sorted(x)])
+                lambda x: ', '.join([month_names.get(int(float(m)), f'Month {m}') for m in sorted(list(x))])
+                if isinstance(x, set) and len(x) > 0 else 'N/A'
             )
             
             # Format final display table with percentage as primary column
