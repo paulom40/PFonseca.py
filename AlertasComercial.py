@@ -217,8 +217,14 @@ elif pagina == "Histórico do Cliente":
         if dados_cliente.empty:
             st.warning("⚠️ Sem dados disponíveis para este cliente.")
         else:
-            historico = dados_cliente.groupby(['ano', 'mes'])['qtd'].sum().reset_index().sort_values(['ano', 'mes'])
-            historico.rename(columns={'qtd': 'Qtd. Comprada'}, inplace=True)
+            historico = (
+                dados_cliente
+                .groupby(['ano', 'mes'])['qtd']
+                .sum()
+                .reset_index()
+                .sort_values(['ano', 'mes'])
+                .rename(columns={'qtd': 'Qtd. Comprada'})
+            )
 
             # Corrigir colunas para Arrow
             for col in historico.select_dtypes(include='object').columns:
@@ -226,8 +232,13 @@ elif pagina == "Histórico do Cliente":
 
             st.markdown("### 📋 Tabela de Compras por Mês")
             st.dataframe(historico)
-            st.download_button("📥 Exportar histórico do cliente", data=gerar_excel(historico), file_name=f"historico_{cliente}.xlsx")
+            st.download_button(
+                "📥 Exportar histórico do cliente",
+                data=gerar_excel(historico),
+                file_name=f"historico_{cliente}.xlsx"
+            )
 
+            # Análise de crescimento/queda
             historico['Delta'] = historico['Qtd. Comprada'].diff()
             historico['Crescimento'] = historico['Delta'] > 0
             historico['Queda'] = historico['Delta'] < 0
@@ -260,7 +271,7 @@ elif pagina == "Histórico do Cliente":
             fig.update_layout(xaxis_title="Mês", yaxis_title="Quantidade", legend_title="Indicador")
             st.plotly_chart(fig, use_container_width=True)
 
-            # --- Comparação com média dos clientes ---
+            # Comparação com média dos demais clientes
             st.markdown("### 📊 Comparação com Média dos Clientes")
             media_geral = (
                 df[df['cliente'] != cliente]
@@ -283,7 +294,7 @@ elif pagina == "Histórico do Cliente":
             fig_comp.update_layout(xaxis_title="Mês", yaxis_title="Quantidade", legend_title="Indicador")
             st.plotly_chart(fig_comp, use_container_width=True)
 
-            # --- Botão para destacar meses com crescimento ---
+            # Destaque de crescimento
             st.markdown("### 📈 Destaque de Crescimentos Mensais")
             if st.button("🔍 Mostrar meses com crescimento"):
                 crescimentos = historico[historico['Delta'] > 0]
