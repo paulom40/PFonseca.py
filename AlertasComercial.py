@@ -27,9 +27,8 @@ st.title("📦 Dashboard de Compras")
 def carregar_dados():
     url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
     df = pd.read_excel(url)
-    df['Data'] = pd.to_datetime(df['Data'], errors='coerce')
-    df['Ano'] = df['Data'].dt.year
-    df['Mes'] = df['Data'].dt.month
+    df['Ano'] = pd.to_numeric(df['Ano'], errors='coerce')
+    df['Mes'] = pd.to_numeric(df['Mes'], errors='coerce')
     return df
 
 df = carregar_dados()
@@ -45,7 +44,7 @@ comercial = st.sidebar.selectbox("Seleciona o Comercial", comerciais)
 
 # --- Dados filtrados ---
 dados_filtrados = df[(df['Ano'] == ano) & (df['Comercial'] == comercial)]
-agrupado = dados_filtrados.groupby(['Cliente', 'Ano', 'Mes'])['Quantidade'].sum().reset_index()
+agrupado = dados_filtrados.groupby(['Cliente', 'Comercial', 'Ano', 'Mes'])['Quantidade'].sum().reset_index()
 
 # --- Função para exportar Excel ---
 def gerar_excel(dados):
