@@ -115,22 +115,16 @@ def carregar_dados():
     try:
         url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Vendas_Globais.xlsx"
         
-        st.write(f"[DEBUG] Attempting to load from: {url}")
-        
         response = requests.get(url, timeout=15, allow_redirects=True)
-        st.write(f"[DEBUG] Response status: {response.status_code}")
         
         if response.status_code != 200:
             st.error(f"❌ GitHub returned status {response.status_code}. File may not exist or be inaccessible.")
             return pd.DataFrame()
         
         df = pd.read_excel(BytesIO(response.content))
-        st.write(f"[DEBUG] Successfully loaded data with {len(df)} rows")
         
         original_columns = df.columns.tolist()
-        st.write(f"[DEBUG] Original columns: {original_columns}")
         
-        # Define expected columns with their variants (keep accent variants!)
         col_map = {}
         
         expected_cols = {
@@ -147,24 +141,23 @@ def carregar_dados():
             'un': ['un', 'UN', 'unidade', 'Unidade', 'UNIDADE']
         }
         
-        # Map each original column to standardized name
+        # Map each original column to standardized name - direct match first
         for original_col in original_columns:
-            col_matched = False
             for standard_name, variants in expected_cols.items():
-                # Direct match first (preserves exact names like 'Qtd.')
                 if original_col in variants:
                     col_map[original_col] = standard_name
-                    col_matched = True
                     break
-                # Then try case-insensitive match
-                if not col_matched:
+        
+        # Second pass for case-insensitive matches
+        for original_col in original_columns:
+            if original_col not in col_map:
+                for standard_name, variants in expected_cols.items():
                     for variant in variants:
-                        if original_col.lower() == variant.lower():
+                        if original_col.lower().strip() == variant.lower().strip():
                             col_map[original_col] = standard_name
-                            col_matched = True
                             break
-                if col_matched:
-                    break
+                    if original_col in col_map:
+                        break
         
         # Rename columns
         df = df.rename(columns=col_map)
@@ -174,7 +167,8 @@ def carregar_dados():
         
         if missing_cols:
             st.error(f"❌ Missing critical columns: {missing_cols}")
-            st.info(f"✓ Available columns: {list(df.columns)}")
+            st.error(f"✓ Available columns after mapping: {list(df.columns)}")
+            st.error(f"📋 Original columns: {original_columns}")
             return pd.DataFrame()
         
         df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
@@ -185,16 +179,23 @@ def carregar_dados():
         if 'pm' in df.columns:
             df['pm'] = pd.to_numeric(df['pm'], errors='coerce')
         
-        # Remove rows with NaN values in critical columns
-        df = df.dropna(subset=['mes', 'qtd', 'ano', 'cliente', 'comercial'])
+        nan_counts = df[critical_cols].isna().sum()
+        if nan_counts.sum() > 0:
+            st.warning(f"⚠️ NaN values found: {dict(nan_counts[nan_counts > 0])}")
         
-        st.write(f"[DEBUG] Final data: {len(df)} rows after cleaning")
+        df = df.dropna(subset=['mes', 'qtd', 'ano', 'cliente', 'comercial'], how='all')
+        # Also remove rows where any of the numeric columns (mes, qtd, ano) are NaN
+        df = df.dropna(subset=['mes', 'qtd', 'ano'])
+        
+        # Filter to valid months (1-12)
+        df = df[(df['mes'] >= 1) & (df['mes'] <= 12)]
         
         return df
     
     except Exception as e:
         st.error(f"❌ Error loading data: {str(e)}")
-        st.write(f"[DEBUG] Exception: {type(e).__name__}: {str(e)}")
+        import traceback
+        st.error(traceback.format_exc())
         return pd.DataFrame()
 
 df = carregar_dados()
