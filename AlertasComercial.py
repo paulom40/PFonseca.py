@@ -179,7 +179,6 @@ def load():
     if num_colunas == 6:
         st.warning("⚠️ Arquivo tem 6 colunas. Adaptando estrutura...")
         # Mapear as 6 colunas para nomes padrão baseado na estrutura típica
-        # Assumindo a estrutura: Código, Cliente, Qtd, UN, V. Líquido, Artigo
         cols = ["Código", "Cliente", "Qtd.", "UN", "V. Líquido", "Artigo"]
         df = df.iloc[:, :6].copy()
         df.columns = cols
@@ -277,23 +276,51 @@ def load():
     df["Ano"] = df["Ano"].astype(int)
     df = df[df["Ano"].between(2000, 2100)]
 
-    # Criar data
-    df["Data"] = pd.to_datetime(df[["Ano", "Mês_Num"]].assign(day=1)[["Ano", "Mês_Num", "day"]])
+    # CORREÇÃO: Criar data de forma mais robusta
+    try:
+        # Método 1: Tentar criar data diretamente
+        df["Data"] = pd.to_datetime({
+            'year': df['Ano'],
+            'month': df['Mês_Num'], 
+            'day': 1
+        })
+    except Exception as e:
+        st.warning(f"⚠️ Erro ao criar data (método 1): {e}")
+        try:
+            # Método 2: Criar string de data e converter
+            df["Data"] = df["Ano"].astype(str) + "-" + df["Mês_Num"].astype(str) + "-01"
+            df["Data"] = pd.to_datetime(df["Data"], errors='coerce')
+        except Exception as e2:
+            st.warning(f"⚠️ Erro ao criar data (método 2): {e2}")
+            # Método 3: Usar data fixa se tudo falhar
+            df["Data"] = pd.Timestamp('2024-07-01')
+    
+    # Verificar se as datas foram criadas corretamente
+    if df["Data"].isna().any():
+        st.warning("⚠️ Algumas datas não puderam ser criadas. Usando data padrão.")
+        df["Data"] = df["Data"].fillna(pd.Timestamp('2024-07-01'))
 
     # Processar valor líquido
     df["V. Líquido"] = pd.to_numeric(df["V. Líquido"], errors="coerce").fillna(0)
     
     st.success(f"✅ {len(df)} registros processados com sucesso")
+    st.success(f"📅 Período dos dados: {df['Data'].min().strftime('%d/%m/%Y')} a {df['Data'].max().strftime('%d/%m/%Y')}")
+    
     return df
 
-# Carregar dados
-df = load()
+# Carregar dados com tratamento de erro
+try:
+    df = load()
+except Exception as e:
+    st.error(f"❌ Erro crítico ao carregar dados: {e}")
+    st.stop()
 
 # Mostrar preview dos dados
 with st.expander("🔍 Visualizar Dados Carregados"):
     st.dataframe(df.head(10), use_container_width=True)
     st.write(f"**Total de registros:** {len(df)}")
     st.write(f"**Colunas disponíveis:** {list(df.columns)}")
+    st.write(f"**Período dos dados:** {df['Data'].min().strftime('%d/%m/%Y')} a {df['Data'].max().strftime('%d/%m/%Y')}")
 
 # Container principal
 with st.container():
@@ -318,35 +345,40 @@ with st.sidebar:
     ano_sel = st.multiselect("**Selecione o Ano:**", anos, default=anos)
     
     if ano_sel:
-        df = df[df["Ano"].isin(ano_sel)]
-        meses_disponiveis = sorted(df["Mês"].str.capitalize().unique())
+        df_filtered = df[df["Ano"].isin(ano_sel)]
+        meses_disponiveis = sorted(df_filtered["Mês"].str.capitalize().unique())
         mes_sel = st.multiselect("**Selecione o Mês:**", meses_disponiveis, default=meses_disponiveis)
         if mes_sel: 
-            df = df[df["Mês"].str.capitalize().isin(mes_sel)]
+            df_filtered = df_filtered[df_filtered["Mês"].str.capitalize().isin(mes_sel)]
+    else:
+        df_filtered = df.copy()
     
     st.markdown('<div class="filter-section">👥 Filtros de Pessoas</div>', unsafe_allow_html=True)
     
-    if 'Comercial' in df.columns:
-        comerciais = sorted(df["Comercial"].unique())
+    if 'Comercial' in df_filtered.columns:
+        comerciais = sorted(df_filtered["Comercial"].unique())
         com_sel = st.multiselect("**Selecione o Comercial:**", comerciais, default=comerciais)
         if com_sel: 
-            df = df[df["Comercial"].isin(com_sel)]
+            df_filtered = df_filtered[df_filtered["Comercial"].isin(com_sel)]
     
-    cli_sel = st.multiselect("**Selecione o Cliente:**", sorted(df["Cliente"].unique()), default=[])
+    cli_sel = st.multiselect("**Selecione o Cliente:**", sorted(df_filtered["Cliente"].unique()), default=[])
     if cli_sel: 
-        df = df[df["Cliente"].isin(cli_sel)]
+        df_filtered = df_filtered[df_filtered["Cliente"].isin(cli_sel)]
 
     # Estatísticas rápidas na sidebar
     st.markdown("---")
     st.markdown("### 📈 Estatísticas Rápidas")
-    if len(df) > 0:
-        total_vendas = df["V. Líquido"].sum()
-        total_clientes = df["Cliente"].nunique()
-        total_artigos = df["Artigo"].nunique()
+    if len(df_filtered) > 0:
+        total_vendas = df_filtered["V. Líquido"].sum()
+        total_clientes = df_filtered["Cliente"].nunique()
+        total_artigos = df_filtered["Artigo"].nunique()
         
         st.metric("💰 Vendas Filtradas", f"€{total_vendas:,.0f}")
         st.metric("👥 Clientes", total_clientes)
         st.metric("📦 Artigos", total_artigos)
+
+# Usar dados filtrados
+df = df_filtered
 
 # Verificar se temos dados após filtros
 if len(df) == 0:
@@ -426,57 +458,60 @@ with col4:
     """, unsafe_allow_html=True)
 
 # -------------------------------------------------
-# 5. GRÁFICO DE EVOLUÇÃO
+# 5. GRÁFICO DE EVOLUÇÃO (apenas se houver dados suficientes)
 # -------------------------------------------------
-if len(anos_disponiveis) >= 2:
+if len(anos_disponiveis) >= 2 and not df_prev.empty:
     st.markdown(f'<div class="section-title">📈 EVOLUÇÃO DE VENDAS - {cur} vs {prev}</div>', unsafe_allow_html=True)
     
-    meses = "Janeiro Fevereiro Março Abril Maio Junho Julho Agosto Setembro Outubro Novembro Dezembro".split()
-    fig = go.Figure()
+    try:
+        meses = "Janeiro Fevereiro Março Abril Maio Junho Julho Agosto Setembro Outubro Novembro Dezembro".split()
+        fig = go.Figure()
 
-    # Adicionar traço do ano atual
-    m_cur = df_cur.groupby("Mês_Num")["V. Líquido"].sum().reindex(range(1,13), fill_value=0)
-    fig.add_trace(go.Scatter(
-        x=meses, 
-        y=m_cur, 
-        name=str(cur), 
-        line=dict(color="#667eea", width=4),
-        mode='lines+markers',
-        marker=dict(size=8)
-    ))
+        # Adicionar traço do ano atual
+        m_cur = df_cur.groupby("Mês_Num")["V. Líquido"].sum().reindex(range(1,13), fill_value=0)
+        fig.add_trace(go.Scatter(
+            x=meses, 
+            y=m_cur, 
+            name=str(cur), 
+            line=dict(color="#667eea", width=4),
+            mode='lines+markers',
+            marker=dict(size=8)
+        ))
 
-    # Adicionar traço do ano anterior
-    m_prev = df_prev.groupby("Mês_Num")["V. Líquido"].sum().reindex(range(1,13), fill_value=0)
-    fig.add_trace(go.Scatter(
-        x=meses, 
-        y=m_prev, 
-        name=str(prev), 
-        line=dict(color="#f093fb", width=3, dash='dot'),
-        mode='lines+markers',
-        marker=dict(size=6)
-    ))
+        # Adicionar traço do ano anterior
+        m_prev = df_prev.groupby("Mês_Num")["V. Líquido"].sum().reindex(range(1,13), fill_value=0)
+        fig.add_trace(go.Scatter(
+            x=meses, 
+            y=m_prev, 
+            name=str(prev), 
+            line=dict(color="#f093fb", width=3, dash='dot'),
+            mode='lines+markers',
+            marker=dict(size=6)
+        ))
 
-    fig.update_layout(
-        hovermode="x unified", 
-        xaxis_title="Mês", 
-        yaxis_title="Vendas (€)",
-        template="plotly_white",
-        height=500,
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
+        fig.update_layout(
+            hovermode="x unified", 
+            xaxis_title="Mês", 
+            yaxis_title="Vendas (€)",
+            template="plotly_white",
+            height=500,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            )
         )
-    )
 
-    st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True)
+    except Exception as e:
+        st.warning(f"⚠️ Não foi possível criar o gráfico de comparação: {e}")
 else:
-    st.info("📈 Gráfico de comparação anual disponível apenas com dados de pelo menos 2 anos")
+    st.info("📈 Gráfico de comparação anual disponível apenas com dados de pelo menos 2 anos diferentes")
 
 # -------------------------------------------------
-# 6. ANÁLISE DE CLIENTES
+# 6. TOP CLIENTES E DOWNLOAD
 # -------------------------------------------------
 st.markdown('<div class="section-title">🏆 TOP CLIENTES</div>', unsafe_allow_html=True)
 
@@ -492,16 +527,19 @@ if len(top_clientes) > 0:
         )
     
     with col_clientes2:
-        fig_clientes = px.bar(
-            top_clientes.reset_index(), 
-            x='Cliente', 
-            y='V. Líquido',
-            title="Top 10 Clientes por Vendas",
-            color='V. Líquido',
-            color_continuous_scale='viridis'
-        )
-        fig_clientes.update_layout(xaxis_tickangle=-45, showlegend=False)
-        st.plotly_chart(fig_clientes, use_container_width=True)
+        try:
+            fig_clientes = px.bar(
+                top_clientes.reset_index(), 
+                x='Cliente', 
+                y='V. Líquido',
+                title="Top 10 Clientes por Vendas",
+                color='V. Líquido',
+                color_continuous_scale='viridis'
+            )
+            fig_clientes.update_layout(xaxis_tickangle=-45, showlegend=False)
+            st.plotly_chart(fig_clientes, use_container_width=True)
+        except Exception as e:
+            st.warning(f"⚠️ Não foi possível criar o gráfico de clientes: {e}")
 
 # -------------------------------------------------
 # 7. DOWNLOAD
