@@ -39,7 +39,7 @@ def carregar_dados():
     )
 
     # Verificação de colunas obrigatórias
-    obrigatorias = ['cliente', 'comercial', 'ano', 'mes', 'qtd']
+    obrigatorias = ['cliente', 'comercial', 'ano', 'mes', 'qtd', 'vl_liquido', 'pm', 'categoria']
     faltantes = [col for col in obrigatorias if col not in df.columns]
     if faltantes:
         st.error(f"⚠️ Colunas ausentes no ficheiro: {faltantes}")
@@ -48,6 +48,8 @@ def carregar_dados():
     df['ano'] = pd.to_numeric(df['ano'], errors='coerce')
     df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
     df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce')
+    df['vl_liquido'] = pd.to_numeric(df['vl_liquido'], errors='coerce')
+    df['pm'] = pd.to_numeric(df['pm'], errors='coerce')
     return df
 
 df = carregar_dados()
@@ -74,7 +76,7 @@ if cliente != "Todos":
 
 agrupado = dados_filtrados.groupby(['cliente', 'comercial', 'ano', 'mes'])['qtd'].sum().reset_index()
 
-# --- Exportação Excel ---
+# --- Função para exportar Excel ---
 def gerar_excel(dados):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -97,22 +99,33 @@ if pagina == "Visão Geral":
     if dados_filtrados.empty:
         st.warning("⚠️ Nenhum dado encontrado com os filtros selecionados.")
     else:
+        st.markdown("### 📋 Tabela agregada")
         st.dataframe(agrupado)
+
         excel_bytes = gerar_excel(agrupado)
         st.download_button("📥 Exportar para Excel", data=excel_bytes, file_name="compras_clientes.xlsx")
 
-# --- Página: Alertas ---
-elif pagina == "Alertas":
-    st.subheader("🚨 Clientes que não compraram todos os meses")
+        # --- Detalhes do cliente selecionado ---
+        if cliente != "Todos":
+            st.subheader(f"📋 Detalhes do Cliente: {cliente}")
+            dados_cliente = df[df['cliente'] == cliente]
 
-    def clientes_inativos(df):
-        todos_meses = sorted(df['mes'].unique())
-        meses_por_cliente = df.groupby('cliente')['mes'].unique()
-        return [cliente for cliente, meses in meses_por_cliente.items() if len(set(meses)) < len(todos_meses)]
+            resumo = dados_cliente.groupby(['cliente', 'comercial', 'categoria', 'ano', 'mes']).agg({
+                'qtd': 'sum',
+                'pm': 'mean',
+                'vl_liquido': 'sum'
+            }).reset_index()
 
-    inativos = clientes_inativos(dados_filtrados)
-    st.write(inativos)
-    st.markdown(f"**Total de clientes inativos:** {len(inativos)}")
+            resumo.rename(columns={
+                'qtd': 'Total Qtd.',
+                'pm': 'PM Médio',
+                'vl_liquido': 'Total V. Líquido'
+            }, inplace=True)
+
+            st.dataframe(resumo)
+
+            excel_bytes_cliente = gerar_excel(resumo)
+            st.download_button("📥 Exportar resumo do cliente", data=excel_bytes_cliente, file_name=f"resumo_{cliente}.xlsx")
 # --- Página: Gráficos ---
 elif pagina == "Gráficos":
     st.subheader("📉 Quantidade por Cliente ao Longo dos Meses")
@@ -146,3 +159,19 @@ elif pagina == "Gráficos":
         ax2.set_xlabel('Mês')
         ax2.set_ylabel('Quantidade Total')
         st.pyplot(fig2)
+
+# --- Página: Alertas ---
+elif pagina == "Alertas":
+    st.subheader("🚨 Clientes que não compraram todos os meses")
+
+    def clientes_inativos(df):
+        todos_meses = sorted(df['mes'].unique())
+        meses_por_cliente = df.groupby('cliente')['mes'].unique()
+        return [cliente for cliente, meses in meses_por_cliente.items() if len(set(meses)) < len(todos_meses)]
+
+    inativos = clientes_inativos(dados_filtrados)
+    if not inativos:
+        st.success("✅ Todos os clientes compraram em todos os meses disponíveis.")
+    else:
+        st.write(inativos)
+        st.markdown(f"**Total de clientes inativos:** {len(inativos)}")
