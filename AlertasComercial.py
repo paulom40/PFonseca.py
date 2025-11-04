@@ -78,32 +78,100 @@ def carregar_dados():
     return df
 
 df = carregar_dados()
+
 # --- Sidebar: Filtros e navegação ---
 st.sidebar.title("📂 Navegação")
 pagina = st.sidebar.radio("Ir para:", [
     "Visão Geral", "Gráficos", "Alertas", "Histórico do Cliente"
 ])
 
-anos = sorted(df['ano'].dropna().unique())
-comerciais = sorted(df['comercial'].dropna().unique())
-clientes = sorted(df['cliente'].dropna().unique())
-meses = sorted(df['mes'].dropna().unique())
+# --- FILTROS DINÂMICOS CORRIGIDOS ---
+# Criar dados base sem filtros
+dados_base = df.copy()
 
-ano = st.sidebar.selectbox("Seleciona o Ano", ["Todos"] + anos)
-comercial = st.sidebar.selectbox("Seleciona o Comercial", ["Todos"] + comerciais)
-cliente = st.sidebar.selectbox("Seleciona o Cliente", ["Todos"] + clientes)
-mes = st.sidebar.selectbox("Seleciona o Mês", ["Todos"] + meses)
+# Inicializar filtros no session state
+if 'ano_selecionado' not in st.session_state:
+    st.session_state.ano_selecionado = "Todos"
+if 'comercial_selecionado' not in st.session_state:
+    st.session_state.comercial_selecionado = "Todos"
+if 'cliente_selecionado' not in st.session_state:
+    st.session_state.cliente_selecionado = "Todos"
+if 'mes_selecionado' not in st.session_state:
+    st.session_state.mes_selecionado = "Todos"
 
-# --- Filtro adaptativo ---
-dados_filtrados = df.copy()
-if ano != "Todos":
-    dados_filtrados = dados_filtrados[dados_filtrados['ano'] == ano]
-if comercial != "Todos":
-    dados_filtrados = dados_filtrados[dados_filtrados['comercial'] == comercial]
-if cliente != "Todos":
-    dados_filtrados = dados_filtrados[dados_filtrados['cliente'] == cliente]
-if mes != "Todos":
-    dados_filtrados = dados_filtrados[dados_filtrados['mes'] == mes]
+# Função para aplicar filtros progressivamente
+def aplicar_filtros(dados, ano, comercial, cliente, mes):
+    resultado = dados.copy()
+    
+    if ano != "Todos":
+        resultado = resultado[resultado['ano'] == ano]
+    if comercial != "Todos":
+        resultado = resultado[resultado['comercial'] == comercial]
+    if cliente != "Todos":
+        resultado = resultado[resultado['cliente'] == cliente]
+    if mes != "Todos":
+        resultado = resultado[resultado['mes'] == mes]
+    
+    return resultado
+
+# Obter opções disponíveis baseado nos filtros anteriores
+def get_opcoes_dinamicas(dados, filtros_atuais):
+    """Retorna opções disponíveis para cada filtro"""
+    anos_disponiveis = sorted(dados['ano'].dropna().unique())
+    comerciais_disponiveis = sorted(dados['comercial'].dropna().unique())
+    clientes_disponiveis = sorted(dados['cliente'].dropna().unique())
+    meses_disponiveis = sorted(dados['mes'].dropna().unique())
+    
+    return {
+        'anos': anos_disponiveis,
+        'comerciais': comerciais_disponiveis,
+        'clientes': clientes_disponiveis,
+        'meses': meses_disponiveis
+    }
+
+opcoes = get_opcoes_dinamicas(dados_base, None)
+
+# Selecionar filtros
+ano = st.sidebar.selectbox(
+    "Seleciona o Ano",
+    ["Todos"] + opcoes['anos'],
+    index=["Todos"] + opcoes['anos'].tolist().index(st.session_state.ano_selecionado) 
+    if st.session_state.ano_selecionado in ["Todos"] + opcoes['anos'].tolist() else 0
+)
+st.session_state.ano_selecionado = ano
+
+# Atualizar dados para próximos filtros
+dados_filtrados_ano = aplicar_filtros(dados_base, ano, "Todos", "Todos", "Todos")
+opcoes_comercial = sorted(dados_filtrados_ano['comercial'].dropna().unique())
+
+comercial = st.sidebar.selectbox(
+    "Seleciona o Comercial",
+    ["Todos"] + opcoes_comercial
+)
+st.session_state.comercial_selecionado = comercial
+
+# Atualizar dados para próximos filtros
+dados_filtrados_comercial = aplicar_filtros(dados_base, ano, comercial, "Todos", "Todos")
+opcoes_cliente = sorted(dados_filtrados_comercial['cliente'].dropna().unique())
+
+cliente = st.sidebar.selectbox(
+    "Seleciona o Cliente",
+    ["Todos"] + opcoes_cliente
+)
+st.session_state.cliente_selecionado = cliente
+
+# Atualizar dados para próximo filtro
+dados_filtrados_cliente = aplicar_filtros(dados_base, ano, comercial, cliente, "Todos")
+opcoes_mes = sorted(dados_filtrados_cliente['mes'].dropna().unique())
+
+mes = st.sidebar.selectbox(
+    "Seleciona o Mês",
+    ["Todos"] + opcoes_mes
+)
+st.session_state.mes_selecionado = mes
+
+# Aplicar todos os filtros
+dados_filtrados = aplicar_filtros(dados_base, ano, comercial, cliente, mes)
 
 # --- Corrigir colunas problemáticas para Arrow ---
 for col in dados_filtrados.select_dtypes(include='object').columns:
@@ -115,6 +183,7 @@ def gerar_excel(dados):
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         dados.to_excel(writer, index=False, sheet_name='Compras')
     return output.getvalue()
+
 # --- Página: Visão Geral ---
 if pagina == "Visão Geral":
     st.subheader("📊 Visão Geral das Compras")
@@ -149,6 +218,7 @@ if pagina == "Visão Geral":
 
         st.dataframe(resumo)
         st.download_button("📥 Exportar resumo do cliente", data=gerar_excel(resumo), file_name=f"resumo_{cliente}.xlsx")
+
 # --- Página: Gráficos ---
 elif pagina == "Gráficos":
     st.subheader("📉 Quantidade por Cliente ao Longo dos Meses")
@@ -201,6 +271,7 @@ elif pagina == "Alertas":
         tabela_alerta.index = tabela_alerta.index.astype(str)
         st.dataframe(tabela_alerta.style.applymap(destacar_faltas))
         st.download_button("📥 Exportar presença mensal", data=gerar_excel(tabela_alerta.reset_index()), file_name="presenca_clientes.xlsx")
+
 # --- Página: Histórico do Cliente ---
 elif pagina == "Histórico do Cliente":
     st.subheader("📅 Histórico Mensal de Compras")
