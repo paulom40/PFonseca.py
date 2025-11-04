@@ -115,43 +115,40 @@ def gerar_excel(dados):
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         dados.to_excel(writer, index=False, sheet_name='Compras')
     return output.getvalue()
-# --- Sidebar: Filtros e navegação ---
-st.sidebar.title("📂 Navegação")
-pagina = st.sidebar.radio("Ir para:", [
-    "Visão Geral", "Gráficos", "Alertas", "Histórico do Cliente"
-])
+# --- Página: Visão Geral ---
+if pagina == "Visão Geral":
+    st.subheader("📊 Visão Geral das Compras")
 
-anos = sorted(df['ano'].dropna().unique())
-comerciais = sorted(df['comercial'].dropna().unique())
-clientes = sorted(df['cliente'].dropna().unique())
-meses = sorted(df['mes'].dropna().unique())
+    total_qtd = dados_filtrados['qtd'].sum()
+    clientes_ativos = dados_filtrados['cliente'].nunique()
+    comerciais_ativos = dados_filtrados['comercial'].nunique()
+    media_por_cliente = total_qtd / clientes_ativos if clientes_ativos > 0 else 0
 
-ano = st.sidebar.selectbox("Seleciona o Ano", ["Todos"] + anos)
-comercial = st.sidebar.selectbox("Seleciona o Comercial", ["Todos"] + comerciais)
-cliente = st.sidebar.selectbox("Seleciona o Cliente", ["Todos"] + clientes)
-mes = st.sidebar.selectbox("Seleciona o Mês", ["Todos"] + meses)
+    col1, col2, col3 = st.columns(3)
+    col1.metric("📦 Total Qtd.", f"{total_qtd:,.0f}")
+    col2.metric("👥 Clientes Ativos", clientes_ativos)
+    col3.metric("🧑‍💼 Comerciais Ativos", comerciais_ativos)
 
-# --- Filtro adaptativo ---
-dados_filtrados = df.copy()
-if ano != "Todos":
-    dados_filtrados = dados_filtrados[dados_filtrados['ano'] == ano]
-if comercial != "Todos":
-    dados_filtrados = dados_filtrados[dados_filtrados['comercial'] == comercial]
-if cliente != "Todos":
-    dados_filtrados = dados_filtrados[dados_filtrados['cliente'] == cliente]
-if mes != "Todos":
-    dados_filtrados = dados_filtrados[dados_filtrados['mes'] == mes]
+    col4, _, col6 = st.columns(3)
+    col4.metric("📈 Média por Cliente", f"{media_por_cliente:,.2f}")
+    col6.empty()
 
-# --- Corrigir colunas problemáticas para Arrow ---
-for col in dados_filtrados.select_dtypes(include='object').columns:
-    dados_filtrados[col] = dados_filtrados[col].astype(str)
+    st.markdown("### 📋 Tabela de Compras Filtradas")
+    st.dataframe(dados_filtrados)
+    st.download_button("📥 Exportar dados filtrados", data=gerar_excel(dados_filtrados), file_name="compras_filtradas.xlsx")
 
-# --- Função para exportar Excel ---
-def gerar_excel(dados):
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        dados.to_excel(writer, index=False, sheet_name='Compras')
-    return output.getvalue()
+    # --- Detalhes do cliente selecionado ---
+    if cliente != "Todos":
+        st.subheader(f"📋 Detalhes do Cliente: {cliente}")
+        dados_cliente = dados_filtrados[dados_filtrados['cliente'] == cliente]
+        resumo = dados_cliente.groupby(['comercial', 'categoria', 'ano', 'mes'])['qtd'].sum().reset_index()
+        resumo.rename(columns={'qtd': 'Total Qtd.'}, inplace=True)
+
+        for col in resumo.select_dtypes(include='object').columns:
+            resumo[col] = resumo[col].astype(str)
+
+        st.dataframe(resumo)
+        st.download_button("📥 Exportar resumo do cliente", data=gerar_excel(resumo), file_name=f"resumo_{cliente}.xlsx")
 # --- Página: Gráficos ---
 elif pagina == "Gráficos":
     st.subheader("📉 Quantidade por Cliente ao Longo dos Meses")
@@ -201,7 +198,6 @@ elif pagina == "Alertas":
         def destacar_faltas(val):
             return 'background-color: #f8d7da' if val == 0 else ''
 
-        # Corrigir colunas para Arrow
         tabela_alerta.index = tabela_alerta.index.astype(str)
         st.dataframe(tabela_alerta.style.applymap(destacar_faltas))
         st.download_button("📥 Exportar presença mensal", data=gerar_excel(tabela_alerta.reset_index()), file_name="presenca_clientes.xlsx")
