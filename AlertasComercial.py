@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 import unicodedata
 
-# --- Estilo CSS moderno ---
+# --- Estilo visual ---
 st.markdown("""
     <style>
     .stApp { background-color: #f4f6f9; font-family: 'Segoe UI', sans-serif; }
@@ -37,14 +37,14 @@ def carregar_dados():
         .map(lambda x: unicodedata.normalize('NFKD', x).encode('ascii', errors='ignore').decode('utf-8'))
     )
 
-    # --- Diagnóstico inteligente de colunas ---
+    # --- Mapeamento inteligente ---
     esperadas = {
         'cliente': ['cliente'],
         'comercial': ['comercial'],
         'ano': ['ano'],
         'mes': ['mes'],
         'qtd': ['qtd', 'quantidade'],
-        'v_liquido': ['v_liquido', 'vl_liquido', 'valor_liquido', 'vliquido'],
+        'v_liquido': ['v_liquido', 'vl_liquido', 'valor_liquido'],
         'pm': ['pm', 'preco_medio'],
         'categoria': ['categoria', 'segmento']
     }
@@ -64,13 +64,11 @@ def carregar_dados():
     faltantes = [chave for chave in esperadas if chave not in col_map]
     if faltantes:
         st.warning(f"⚠️ Colunas não encontradas ou ambíguas: {faltantes}")
-        st.write("🔍 Colunas detectadas no ficheiro:", detectadas)
+        st.write("🔍 Colunas detectadas:", detectadas)
         st.stop()
 
-    # --- Renomear colunas para padrão interno ---
     df = df.rename(columns=col_map)
 
-    # --- Conversão de tipos ---
     df['ano'] = pd.to_numeric(df['ano'], errors='coerce')
     df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
     df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce')
@@ -87,10 +85,12 @@ pagina = st.sidebar.radio("Ir para:", ["Visão Geral", "Gráficos", "Alertas"])
 anos = sorted(df['ano'].dropna().unique())
 comerciais = sorted(df['comercial'].dropna().unique())
 clientes = sorted(df['cliente'].dropna().unique())
+meses = sorted(df['mes'].dropna().unique())
 
 ano = st.sidebar.selectbox("Seleciona o Ano", ["Todos"] + anos)
 comercial = st.sidebar.selectbox("Seleciona o Comercial", ["Todos"] + comerciais)
 cliente = st.sidebar.selectbox("Seleciona o Cliente", ["Todos"] + clientes)
+mes = st.sidebar.selectbox("Seleciona o Mês", ["Todos"] + meses)
 
 # --- Filtro adaptativo ---
 dados_filtrados = df.copy()
@@ -100,6 +100,8 @@ if comercial != "Todos":
     dados_filtrados = dados_filtrados[dados_filtrados['comercial'] == comercial]
 if cliente != "Todos":
     dados_filtrados = dados_filtrados[dados_filtrados['cliente'] == cliente]
+if mes != "Todos":
+    dados_filtrados = dados_filtrados[dados_filtrados['mes'] == mes]
 
 agrupado = dados_filtrados.groupby(['cliente', 'comercial', 'ano', 'mes'])['qtd'].sum().reset_index()
 
@@ -109,11 +111,10 @@ def gerar_excel(dados):
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         dados.to_excel(writer, index=False, sheet_name='Compras')
     return output.getvalue()
-# --- Página: Visão Geral ---
 if pagina == "Visão Geral":
     st.subheader("📊 Visão Geral das Compras")
 
-    # --- KPIs principais ---
+    # --- KPIs dinâmicos ---
     total_vl = dados_filtrados['v_liquido'].sum()
     total_qtd = dados_filtrados['qtd'].sum()
     clientes_ativos = dados_filtrados['cliente'].nunique()
@@ -131,12 +132,12 @@ if pagina == "Visão Geral":
     col5.metric("🧑‍💼 Comerciais Ativos", comerciais_ativos)
     col6.metric("📈 Média por Cliente", f"{media_por_cliente:,.2f} €")
 
-    # --- Tabela agregada por cliente ---
-    st.markdown("### 📋 Tabela agregada")
-    st.dataframe(agrupado)
+    # --- Tabela com dados filtrados ---
+    st.markdown("### 📋 Tabela de Compras Filtradas")
+    st.dataframe(dados_filtrados)
 
-    excel_bytes = gerar_excel(agrupado)
-    st.download_button("📥 Exportar para Excel", data=excel_bytes, file_name="compras_clientes.xlsx")
+    excel_bytes = gerar_excel(dados_filtrados)
+    st.download_button("📥 Exportar dados filtrados", data=excel_bytes, file_name="compras_filtradas.xlsx")
 
     # --- Detalhes do cliente selecionado ---
     if cliente != "Todos":
@@ -172,7 +173,7 @@ elif pagina == "Gráficos":
     else:
         fig1, ax1 = plt.subplots(figsize=(10, 5))
         pivot_cliente.plot(kind='bar', stacked=True, ax=ax1, colormap='tab20')
-        ax1.set_title(f'Compras por Cliente')
+        ax1.set_title('Compras por Cliente')
         ax1.set_xlabel('Mês')
         ax1.set_ylabel('Quantidade Total')
         st.pyplot(fig1)
@@ -188,23 +189,34 @@ elif pagina == "Gráficos":
     else:
         fig2, ax2 = plt.subplots(figsize=(10, 5))
         pivot_comercial.plot(kind='line', marker='o', ax=ax2, colormap='Set1')
-        ax2.set_title(f'Evolução Mensal por Comercial')
+        ax2.set_title('Evolução Mensal por Comercial')
         ax2.set_xlabel('Mês')
         ax2.set_ylabel('Quantidade Total')
         st.pyplot(fig2)
 
 # --- Página: Alertas ---
 elif pagina == "Alertas":
-    st.subheader("🚨 Clientes que não compraram todos os meses")
+    st.subheader("🚨 Clientes com meses em falta")
 
-    def clientes_inativos(df):
-        todos_meses = sorted(df['mes'].unique())
-        meses_por_cliente = df.groupby('cliente')['mes'].unique()
-        return [cliente for cliente, meses in meses_por_cliente.items() if len(set(meses)) < len(todos_meses)]
+    todos_meses = sorted(dados_filtrados['mes'].dropna().unique())
+    presenca = dados_filtrados.groupby(['cliente', 'mes'])['qtd'].sum().unstack(fill_value=0)
+    presenca = presenca.reindex(columns=todos_meses, fill_value=0)
 
-    inativos = clientes_inativos(dados_filtrados)
-    if not inativos:
+    ausentes = presenca[presenca.eq(0)].astype(bool)
+    clientes_inativos = ausentes.any(axis=1)
+
+    if not clientes_inativos.any():
         st.success("✅ Todos os clientes compraram em todos os meses disponíveis.")
     else:
-        st.write(inativos)
-        st.markdown(f"**Total de clientes inativos:** {len(inativos)}")
+        st.error(f"⚠️ {clientes_inativos.sum()} clientes com meses em falta")
+
+        st.markdown("### 📋 Tabela de presença mensal por cliente")
+        tabela_alerta = presenca.copy().astype(int)
+
+        def destacar_faltas(val):
+            return 'background-color: #f8d7da' if val == 0 else ''
+
+        st.dataframe(tabela_alerta.style.applymap(destacar_faltas))
+
+        excel_alerta = gerar_excel(tabela_alerta.reset_index())
+        st.download_button("📥 Exportar presença mensal", data=excel_alerta, file_name="presenca_clientes.xlsx")
