@@ -56,12 +56,17 @@ pagina = st.sidebar.radio("Ir para:", ["Visão Geral", "Gráficos", "Alertas"])
 
 anos = sorted(df['ano'].dropna().unique())
 comerciais = sorted(df['comercial'].dropna().unique())
+clientes = sorted(df['cliente'].dropna().unique())
 
 ano = st.sidebar.selectbox("Seleciona o Ano", anos)
 comercial = st.sidebar.selectbox("Seleciona o Comercial", comerciais)
+cliente = st.sidebar.selectbox("Seleciona o Cliente", ["Todos"] + clientes)
 
 # --- Dados filtrados ---
 dados_filtrados = df[(df['ano'] == ano) & (df['comercial'] == comercial)]
+if cliente != "Todos":
+    dados_filtrados = dados_filtrados[dados_filtrados['cliente'] == cliente]
+
 agrupado = dados_filtrados.groupby(['cliente', 'comercial', 'ano', 'mes'])['qtd'].sum().reset_index()
 
 # --- Função para exportar Excel ---
@@ -79,6 +84,9 @@ if pagina == "Visão Geral":
     col2.metric("📅 Meses no período", df['mes'].nunique())
     col3.metric("🧑‍💼 Comerciais", df['comercial'].nunique())
 
+    if cliente != "Todos":
+        st.markdown(f"**Cliente selecionado:** {cliente}")
+
     st.dataframe(agrupado)
 
     excel_bytes = gerar_excel(agrupado)
@@ -93,33 +101,39 @@ elif pagina == "Alertas":
         meses_por_cliente = df.groupby('cliente')['mes'].unique()
         return [cliente for cliente, meses in meses_por_cliente.items() if len(set(meses)) < len(todos_meses)]
 
-    inativos = clientes_inativos(df)
+    inativos = clientes_inativos(dados_filtrados)
     st.write(inativos)
     st.markdown(f"**Total de clientes inativos:** {len(inativos)}")
 # --- Página: Gráficos ---
 elif pagina == "Gráficos":
     st.subheader("📉 Quantidade por Cliente ao Longo dos Meses")
 
-    pivot_cliente = df[df['ano'] == ano].pivot_table(
+    pivot_cliente = dados_filtrados.pivot_table(
         index='mes', columns='cliente', values='qtd', aggfunc='sum'
     ).fillna(0)
 
-    fig1, ax1 = plt.subplots(figsize=(10, 5))
-    pivot_cliente.plot(kind='bar', stacked=True, ax=ax1, colormap='tab20')
-    ax1.set_title(f'Compras por Cliente - {ano}')
-    ax1.set_xlabel('Mês')
-    ax1.set_ylabel('Quantidade Total')
-    st.pyplot(fig1)
+    if pivot_cliente.empty or not pivot_cliente.select_dtypes(include='number').any().any():
+        st.warning("⚠️ Não há dados numéricos disponíveis para o gráfico de clientes.")
+    else:
+        fig1, ax1 = plt.subplots(figsize=(10, 5))
+        pivot_cliente.plot(kind='bar', stacked=True, ax=ax1, colormap='tab20')
+        ax1.set_title(f'Compras por Cliente - {ano}')
+        ax1.set_xlabel('Mês')
+        ax1.set_ylabel('Quantidade Total')
+        st.pyplot(fig1)
 
     st.subheader("📈 Evolução Mensal por Comercial")
 
-    pivot_comercial = df[df['ano'] == ano].pivot_table(
+    pivot_comercial = dados_filtrados.pivot_table(
         index='mes', columns='comercial', values='qtd', aggfunc='sum'
     ).fillna(0)
 
-    fig2, ax2 = plt.subplots(figsize=(10, 5))
-    pivot_comercial.plot(kind='line', marker='o', ax=ax2, colormap='Set1')
-    ax2.set_title(f'Evolução Mensal por Comercial - {ano}')
-    ax2.set_xlabel('Mês')
-    ax2.set_ylabel('Quantidade Total')
-    st.pyplot(fig2)
+    if pivot_comercial.empty or not pivot_comercial.select_dtypes(include='number').any().any():
+        st.warning("⚠️ Não há dados numéricos disponíveis para o gráfico de comerciais.")
+    else:
+        fig2, ax2 = plt.subplots(figsize=(10, 5))
+        pivot_comercial.plot(kind='line', marker='o', ax=ax2, colormap='Set1')
+        ax2.set_title(f'Evolução Mensal por Comercial - {ano}')
+        ax2.set_xlabel('Mês')
+        ax2.set_ylabel('Quantidade Total')
+        st.pyplot(fig2)
