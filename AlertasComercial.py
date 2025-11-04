@@ -110,6 +110,20 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- DATA LOADING ---
+month_names_to_number = {
+    'janeiro': 1, 'february': 2, 'março': 3, 'abril': 4,
+    'maio': 5, 'junho': 6, 'julho': 7, 'agosto': 8,
+    'setembro': 9, 'outubro': 10, 'novembro': 11, 'dezembro': 12,
+    # English versions as backup
+    'january': 1, 'february': 2, 'march': 3, 'april': 4,
+    'may': 5, 'june': 6, 'july': 7, 'august': 8,
+    'september': 9, 'october': 10, 'november': 11, 'december': 12,
+    # Uppercase versions
+    'Janeiro': 1, 'Fevereiro': 2, 'Março': 3, 'Abril': 4,
+    'Maio': 5, 'Junho': 6, 'Julho': 7, 'Agosto': 8,
+    'Setembro': 9, 'Outubro': 10, 'Novembro': 11, 'Dezembro': 12
+}
+
 @st.cache_data
 def carregar_dados():
     try:
@@ -188,30 +202,18 @@ def carregar_dados():
             st.error(f"📋 Original columns from file: {original_columns}")
             return pd.DataFrame()
         
-        # The mes column likely contains actual month numbers, extract them properly
-        st.write(f"[DEBUG] Sample mes values before conversion: {df['mes'].head(10).tolist()}")
-        st.write(f"[DEBUG] mes dtype before conversion: {df['mes'].dtype}")
-        
-        # Try to convert to numeric - if all become NaN, the values are likely in a different format
-        df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
-        
-        # Check if conversion failed completely
-        if df['mes'].isna().all():
-            st.warning("⚠️ All mes values became NaN during conversion. Checking original format...")
-            # Reload and try a different approach
-            df = pd.read_excel(BytesIO(response.content))
-            df = df.rename(columns=col_map)
-            # If mes is already numeric in the original, keep it as is
-            if pd.api.types.is_numeric_dtype(df['mes']):
-                st.write("[DEBUG] mes is already numeric, keeping as is")
-            else:
-                st.write(f"[DEBUG] mes is {df['mes'].dtype}, converting...")
-                # Try direct conversion without errors='coerce'
-                try:
-                    df['mes'] = df['mes'].astype(int)
-                except:
-                    st.error("❌ Could not convert mes column to numeric")
-                    return pd.DataFrame()
+        # Check if mes column contains strings (month names) instead of numbers
+        if df['mes'].dtype == 'object':
+            def convert_month_name_to_number(month_str):
+                if pd.isna(month_str):
+                    return np.nan
+                month_str = str(month_str).strip()
+                return month_names_to_number.get(month_str, np.nan)
+            
+            df['mes'] = df['mes'].apply(convert_month_name_to_number)
+        else:
+            # Already numeric, just ensure it's int
+            df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
         
         # Convert other numeric columns
         df['ano'] = pd.to_numeric(df['ano'], errors='coerce')
@@ -221,20 +223,14 @@ def carregar_dados():
         if 'pm' in df.columns:
             df['pm'] = pd.to_numeric(df['pm'], errors='coerce')
         
-        st.write(f"[DEBUG] NaN counts after numeric conversion: {df[critical_cols].isna().sum().to_dict()}")
-        
         # Remove rows where critical numeric columns are NaN
         df = df.dropna(subset=['mes', 'qtd', 'ano'])
-        
-        st.write(f"[DEBUG] Rows after removing NaN: {len(df)}")
         
         # Filter to valid months (1-12)
         df = df[(df['mes'] >= 1) & (df['mes'] <= 12)]
         
         # Remove rows where cliente or comercial are completely empty
         df = df.dropna(subset=['cliente', 'comercial'], how='any')
-        
-        st.write(f"[DEBUG] Final data: {len(df)} rows")
         
         return df
     
