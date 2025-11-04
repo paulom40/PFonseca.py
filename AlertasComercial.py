@@ -124,7 +124,6 @@ def carregar_dados():
         df = pd.read_excel(BytesIO(response.content))
         
         original_columns = df.columns.tolist()
-        st.write(f"[DEBUG] Original columns from Excel: {original_columns}")
         
         col_map = {}
         
@@ -163,7 +162,6 @@ def carregar_dados():
             'artigo': 'artigo',
             'ARTIGO': 'artigo',
             'Código': 'codigo',
-            'Código': 'codigo',
             'codigo': 'codigo',
             'CODIGO': 'codigo',
             'UN': 'un',
@@ -180,9 +178,6 @@ def carregar_dados():
         # Rename columns with mapping
         df = df.rename(columns=col_map)
         
-        st.write(f"[DEBUG] After renaming: {df.columns.tolist()}")
-        st.write(f"[DEBUG] Mapping applied: {col_map}")
-        
         # Check for critical columns
         critical_cols = ['mes', 'qtd', 'ano', 'cliente', 'comercial']
         missing_cols = [col for col in critical_cols if col not in df.columns]
@@ -193,8 +188,32 @@ def carregar_dados():
             st.error(f"📋 Original columns from file: {original_columns}")
             return pd.DataFrame()
         
-        # Convert to numeric with error coercion
+        # The mes column likely contains actual month numbers, extract them properly
+        st.write(f"[DEBUG] Sample mes values before conversion: {df['mes'].head(10).tolist()}")
+        st.write(f"[DEBUG] mes dtype before conversion: {df['mes'].dtype}")
+        
+        # Try to convert to numeric - if all become NaN, the values are likely in a different format
         df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
+        
+        # Check if conversion failed completely
+        if df['mes'].isna().all():
+            st.warning("⚠️ All mes values became NaN during conversion. Checking original format...")
+            # Reload and try a different approach
+            df = pd.read_excel(BytesIO(response.content))
+            df = df.rename(columns=col_map)
+            # If mes is already numeric in the original, keep it as is
+            if pd.api.types.is_numeric_dtype(df['mes']):
+                st.write("[DEBUG] mes is already numeric, keeping as is")
+            else:
+                st.write(f"[DEBUG] mes is {df['mes'].dtype}, converting...")
+                # Try direct conversion without errors='coerce'
+                try:
+                    df['mes'] = df['mes'].astype(int)
+                except:
+                    st.error("❌ Could not convert mes column to numeric")
+                    return pd.DataFrame()
+        
+        # Convert other numeric columns
         df['ano'] = pd.to_numeric(df['ano'], errors='coerce')
         df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce')
         if 'v_liquido' in df.columns:
