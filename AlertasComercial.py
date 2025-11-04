@@ -476,6 +476,60 @@ elif pagina == "⚠️ Alerts":
         st.dataframe(criticos, use_container_width=True)
     else:
         st.success("✅ No critical alerts!")
+    
+    st.markdown("---")
+    
+    # Customers with Purchase Gaps (Don't Buy Every Month)
+    st.subheader("📅 Customers with Purchase Gaps (Don't Buy Every Month)")
+    
+    if not dados_filtrados.empty:
+        # Get unique months in dataset
+        unique_months = sorted(dados_filtrados['mes'].unique())
+        expected_months = set(unique_months)
+        
+        # Check which customers bought in every month
+        customer_months = dados_filtrados.groupby('cliente')['mes'].apply(lambda x: set(x.unique())).reset_index()
+        customer_months.columns = ['cliente', 'months_purchased']
+        
+        # Find customers with gaps (not all months)
+        customer_months['months_missing'] = customer_months['months_purchased'].apply(
+            lambda x: expected_months - x
+        )
+        customer_months['gap_count'] = customer_months['months_missing'].apply(len)
+        customer_months['purchase_frequency'] = customer_months['months_purchased'].apply(len)
+        customer_months['total_expected_months'] = len(expected_months)
+        
+        # Filter only customers with gaps
+        customers_with_gaps = customer_months[customer_months['gap_count'] > 0].copy()
+        customers_with_gaps = customers_with_gaps.sort_values('gap_count', ascending=False)
+        
+        if not customers_with_gaps.empty:
+            # Prepare display data
+            display_gaps = customers_with_gaps[['cliente', 'purchase_frequency', 'gap_count', 'total_expected_months']].copy()
+            display_gaps.columns = ['Customer', 'Months Purchased', 'Months with Gap', 'Expected Months']
+            display_gaps['Gap %'] = (display_gaps['Months with Gap'] / display_gaps['Expected Months'] * 100).round(1)
+            display_gaps = display_gaps.sort_values('Gap %', ascending=False)
+            
+            # Show summary metrics
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Customers with Gaps", len(customers_with_gaps))
+            col2.metric("Avg Gap Count", f"{customers_with_gaps['gap_count'].mean():.1f}")
+            col3.metric("Max Gap Count", f"{customers_with_gaps['gap_count'].max():.0f}")
+            
+            # Display alert table
+            st.warning(f"⚠️ {len(customers_with_gaps)} customers have not purchased in every month!")
+            st.dataframe(display_gaps, use_container_width=True)
+            
+            # Export gaps report
+            st.download_button(
+                "📥 Export Gap Report", 
+                data=gerar_excel(display_gaps), 
+                file_name="customers_with_gaps.xlsx"
+            )
+        else:
+            st.success("✅ All customers are buying every month!")
+    
+    st.markdown("---")
 
 # --- PAGE 5: CUSTOMER ANALYSIS ---
 elif pagina == "👥 Customer Analysis":
