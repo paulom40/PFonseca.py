@@ -115,12 +115,20 @@ def carregar_dados():
     try:
         url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Vendas_Globais.xlsx"
         
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
+        st.write(f"[DEBUG] Attempting to load from: {url}")
+        
+        response = requests.get(url, timeout=15, allow_redirects=True)
+        st.write(f"[DEBUG] Response status: {response.status_code}")
+        
+        if response.status_code != 200:
+            st.error(f"❌ GitHub returned status {response.status_code}. File may not exist or be inaccessible.")
+            return pd.DataFrame()
         
         df = pd.read_excel(BytesIO(response.content))
+        st.write(f"[DEBUG] Successfully loaded data with {len(df)} rows")
         
         original_columns = df.columns.tolist()
+        st.write(f"[DEBUG] Original columns: {original_columns}")
         
         # Define expected columns with their variants (keep accent variants!)
         col_map = {}
@@ -180,16 +188,22 @@ def carregar_dados():
         # Remove rows with NaN values in critical columns
         df = df.dropna(subset=['mes', 'qtd', 'ano', 'cliente', 'comercial'])
         
+        st.write(f"[DEBUG] Final data: {len(df)} rows after cleaning")
+        
         return df
     
     except Exception as e:
         st.error(f"❌ Error loading data: {str(e)}")
+        st.write(f"[DEBUG] Exception: {type(e).__name__}: {str(e)}")
         return pd.DataFrame()
 
 df = carregar_dados()
 
 if df.empty:
-    st.error("❌ Failed to load data. Please check the GitHub URL and ensure the file is accessible.")
+    st.error("❌ Failed to load data. Please check:")
+    st.info("1. GitHub URL is correct")
+    st.info("2. File 'Vendas_Globais.xlsx' exists in the main branch")
+    st.info("3. Your internet connection is active")
     st.stop()
 
 # --- SIDEBAR NAVIGATION ---
