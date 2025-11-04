@@ -124,53 +124,76 @@ def carregar_dados():
         df = pd.read_excel(BytesIO(response.content))
         
         original_columns = df.columns.tolist()
+        st.write(f"[DEBUG] Original columns from Excel: {original_columns}")
         
         col_map = {}
         
-        expected_cols = {
-            'cliente': ['cliente', 'Cliente', 'CLIENTE'],
-            'comercial': ['comercial', 'Comercial', 'COMERCIAL'],
-            'ano': ['ano', 'Ano', 'ANO'],
-            'mes': ['mes', 'Mês', 'mês', 'MÊS'],
-            'qtd': ['qtd', 'Qtd', 'QTD', 'Qtd.', 'quantidade', 'Quantidade', 'QUANTIDADE'],
-            'v_liquido': ['v_liquido', 'V_Liquido', 'V. Líquido', 'vl_liquido', 'valor_liquido', 'V_LIQUIDO', 'V. LÍQUIDO'],
-            'pm': ['pm', 'PM', 'preco_medio', 'Preco_Medio', 'preço_médio', 'Preço Médio'],
-            'categoria': ['categoria', 'Categoria', 'CATEGORIA', 'segmento', 'Segmento'],
-            'artigo': ['artigo', 'Artigo', 'ARTIGO'],
-            'codigo': ['código', 'Código', 'CÓDIGO', 'Cod.', 'cod', 'codigo', 'Codigo'],
-            'un': ['un', 'UN', 'unidade', 'Unidade', 'UNIDADE']
+        # Define column mappings with exact matches first (to handle accents properly)
+        col_mappings = {
+            'Mês': 'mes',
+            'mes': 'mes',
+            'MÊS': 'mes',
+            'Qtd.': 'qtd',
+            'Qtd': 'qtd',
+            'qtd': 'qtd',
+            'QTD': 'qtd',
+            'Quantidade': 'qtd',
+            'quantidade': 'qtd',
+            'Ano': 'ano',
+            'ano': 'ano',
+            'ANO': 'ano',
+            'Cliente': 'cliente',
+            'cliente': 'cliente',
+            'CLIENTE': 'cliente',
+            'Comercial': 'comercial',
+            'comercial': 'comercial',
+            'COMERCIAL': 'comercial',
+            'V. Líquido': 'v_liquido',
+            'V_Liquido': 'v_liquido',
+            'V Liquido': 'v_liquido',
+            'V. LÍQUIDO': 'v_liquido',
+            'PM': 'pm',
+            'pm': 'pm',
+            'Preço Médio': 'pm',
+            'Preco Medio': 'pm',
+            'Categoria': 'categoria',
+            'categoria': 'categoria',
+            'CATEGORIA': 'categoria',
+            'Artigo': 'artigo',
+            'artigo': 'artigo',
+            'ARTIGO': 'artigo',
+            'Código': 'codigo',
+            'Código': 'codigo',
+            'codigo': 'codigo',
+            'CODIGO': 'codigo',
+            'UN': 'un',
+            'un': 'un',
+            'Unidade': 'un',
+            'unidade': 'un'
         }
         
-        # Map each original column to standardized name - direct match first
+        # First pass - exact matches
         for original_col in original_columns:
-            for standard_name, variants in expected_cols.items():
-                if original_col in variants:
-                    col_map[original_col] = standard_name
-                    break
+            if original_col in col_mappings:
+                col_map[original_col] = col_mappings[original_col]
         
-        # Second pass for case-insensitive matches
-        for original_col in original_columns:
-            if original_col not in col_map:
-                for standard_name, variants in expected_cols.items():
-                    for variant in variants:
-                        if original_col.lower().strip() == variant.lower().strip():
-                            col_map[original_col] = standard_name
-                            break
-                    if original_col in col_map:
-                        break
-        
-        # Rename columns
+        # Rename columns with mapping
         df = df.rename(columns=col_map)
         
+        st.write(f"[DEBUG] After renaming: {df.columns.tolist()}")
+        st.write(f"[DEBUG] Mapping applied: {col_map}")
+        
+        # Check for critical columns
         critical_cols = ['mes', 'qtd', 'ano', 'cliente', 'comercial']
         missing_cols = [col for col in critical_cols if col not in df.columns]
         
         if missing_cols:
-            st.error(f"❌ Missing critical columns: {missing_cols}")
-            st.error(f"✓ Available columns after mapping: {list(df.columns)}")
-            st.error(f"📋 Original columns: {original_columns}")
+            st.error(f"❌ Missing critical columns after mapping: {missing_cols}")
+            st.error(f"✓ Available columns: {df.columns.tolist()}")
+            st.error(f"📋 Original columns from file: {original_columns}")
             return pd.DataFrame()
         
+        # Convert to numeric with error coercion
         df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
         df['ano'] = pd.to_numeric(df['ano'], errors='coerce')
         df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce')
@@ -179,16 +202,20 @@ def carregar_dados():
         if 'pm' in df.columns:
             df['pm'] = pd.to_numeric(df['pm'], errors='coerce')
         
-        nan_counts = df[critical_cols].isna().sum()
-        if nan_counts.sum() > 0:
-            st.warning(f"⚠️ NaN values found: {dict(nan_counts[nan_counts > 0])}")
+        st.write(f"[DEBUG] NaN counts after numeric conversion: {df[critical_cols].isna().sum().to_dict()}")
         
-        df = df.dropna(subset=['mes', 'qtd', 'ano', 'cliente', 'comercial'], how='all')
-        # Also remove rows where any of the numeric columns (mes, qtd, ano) are NaN
+        # Remove rows where critical numeric columns are NaN
         df = df.dropna(subset=['mes', 'qtd', 'ano'])
+        
+        st.write(f"[DEBUG] Rows after removing NaN: {len(df)}")
         
         # Filter to valid months (1-12)
         df = df[(df['mes'] >= 1) & (df['mes'] <= 12)]
+        
+        # Remove rows where cliente or comercial are completely empty
+        df = df.dropna(subset=['cliente', 'comercial'], how='any')
+        
+        st.write(f"[DEBUG] Final data: {len(df)} rows")
         
         return df
     
