@@ -487,6 +487,12 @@ elif pagina == "⚠️ Alerts":
         unique_months = sorted(dados_filtrados['mes'].unique())
         expected_months = set(unique_months)
         
+        month_names = {
+            1: 'January', 2: 'February', 3: 'March', 4: 'April',
+            5: 'May', 6: 'June', 7: 'July', 8: 'August',
+            9: 'September', 10: 'October', 11: 'November', 12: 'December'
+        }
+        
         # Check which customers bought in every month
         customer_months = dados_filtrados.groupby('cliente')['mes'].apply(lambda x: set(x.unique())).reset_index()
         customer_months.columns = ['cliente', 'months_purchased']
@@ -504,26 +510,34 @@ elif pagina == "⚠️ Alerts":
         customers_with_gaps = customers_with_gaps.sort_values('gap_count', ascending=False)
         
         if not customers_with_gaps.empty:
-            # Prepare display data
-            display_gaps = customers_with_gaps[['cliente', 'purchase_frequency', 'gap_count', 'total_expected_months']].copy()
-            display_gaps.columns = ['Customer', 'Months Purchased', 'Months with Gap', 'Expected Months']
+            display_gaps = customers_with_gaps[['cliente', 'purchase_frequency', 'gap_count', 'total_expected_months', 'months_missing']].copy()
+            display_gaps.columns = ['Customer', 'Months Purchased', 'Months with Gap', 'Expected Months', 'Missing Months']
+            
+            # Calculate gap percentage
             display_gaps['Gap %'] = (display_gaps['Months with Gap'] / display_gaps['Expected Months'] * 100).round(1)
-            display_gaps = display_gaps.sort_values('Gap %', ascending=False)
+            
+            display_gaps['Missing Month Names'] = display_gaps['Missing Months'].apply(
+                lambda x: ', '.join([month_names.get(int(m), f'Month {m}') for m in sorted(x)])
+            )
+            
+            # Format final display table with percentage as primary column
+            final_display = display_gaps[['Customer', 'Months Purchased', 'Expected Months', 'Gap %', 'Missing Month Names']].copy()
+            final_display = final_display.sort_values('Gap %', ascending=False)
             
             # Show summary metrics
             col1, col2, col3 = st.columns(3)
             col1.metric("Customers with Gaps", len(customers_with_gaps))
-            col2.metric("Avg Gap Count", f"{customers_with_gaps['gap_count'].mean():.1f}")
-            col3.metric("Max Gap Count", f"{customers_with_gaps['gap_count'].max():.0f}")
+            col2.metric("Avg Gap Percentage", f"{(customers_with_gaps['gap_count'].mean() / len(expected_months) * 100):.1f}%")
+            col3.metric("Max Gap Percentage", f"{(customers_with_gaps['gap_count'].max() / len(expected_months) * 100):.1f}%")
             
             # Display alert table
             st.warning(f"⚠️ {len(customers_with_gaps)} customers have not purchased in every month!")
-            st.dataframe(display_gaps, use_container_width=True)
+            st.dataframe(final_display, use_container_width=True)
             
             # Export gaps report
             st.download_button(
                 "📥 Export Gap Report", 
-                data=gerar_excel(display_gaps), 
+                data=gerar_excel(final_display), 
                 file_name="customers_with_gaps.xlsx"
             )
         else:
