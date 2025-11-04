@@ -123,8 +123,8 @@ def carregar_dados():
         'cliente': ['cliente', 'Cliente', 'CLIENTE'],
         'comercial': ['comercial', 'Comercial', 'COMERCIAL'],
         'ano': ['ano', 'Ano', 'ANO'],
-        'mes': ['mes', 'Mês', 'mês', 'MÊS'],  # Handle all case variants of Mês
-        'qtd': ['qtd', 'Qtd', 'QTD', 'Qtd.', 'quantidade', 'Quantidade', 'QUANTIDADE'],  # Added 'Qtd.' with dot
+        'mes': ['mes', 'Mês', 'mês', 'MÊS'],
+        'qtd': ['qtd', 'Qtd', 'QTD', 'Qtd.', 'quantidade', 'Quantidade', 'QUANTIDADE'],
         'v_liquido': ['v_liquido', 'V_Liquido', 'V. Líquido', 'vl_liquido', 'valor_liquido', 'V_LIQUIDO', 'V. LÍQUIDO'],
         'pm': ['pm', 'PM', 'preco_medio', 'Preco_Medio', 'preço_médio', 'Preço Médio'],
         'categoria': ['categoria', 'Categoria', 'CATEGORIA', 'segmento', 'Segmento'],
@@ -155,18 +155,12 @@ def carregar_dados():
     # Rename columns
     df = df.rename(columns=col_map)
     
-    # Log available columns for debugging
-    st.write(f"[DEBUG] Mapped columns: {list(df.columns)}")
-    st.write(f"[DEBUG] Column mapping used: {col_map}")
-    
-    # Verify critical columns exist
     critical_cols = ['mes', 'qtd', 'ano', 'cliente', 'comercial']
     missing_cols = [col for col in critical_cols if col not in df.columns]
     
     if missing_cols:
         st.error(f"❌ Missing critical columns: {missing_cols}")
         st.info(f"✓ Available columns: {list(df.columns)}")
-        st.info(f"Original columns: {original_columns}")
         return pd.DataFrame()
     
     df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
@@ -182,6 +176,10 @@ def carregar_dados():
 
 df = carregar_dados()
 
+if df.empty:
+    st.error("❌ Failed to load data. Please check the data source.")
+    st.stop()
+
 # --- SIDEBAR NAVIGATION ---
 st.sidebar.markdown("# 📊 KPI Dashboard")
 st.sidebar.markdown("---")
@@ -195,7 +193,7 @@ pagina = st.sidebar.radio("Navigate", [
     "📊 Comparative View"
 ])
 
-# --- FILTERS WITH CASCADING LOGIC - Fixed to work properly with dynamic options ---
+# --- FILTERS WITH CASCADING LOGIC ---
 st.sidebar.markdown("### 🔍 Filters")
 dados_base = df.copy()
 
@@ -213,42 +211,52 @@ def get_filtro_opcoes(dados, ano, comercial):
     
     # Filter by year
     if ano != "All":
-        temp = temp[temp['ano'] == ano]
+        temp = temp[temp['ano'] == int(ano)]
     
     # Filter by commercial
     if comercial != "All":
-        temp = temp[temp['comercial'] == comercial]
+        temp = temp[temp['comercial'].astype(str) == str(comercial)]
     
     anos = sorted([int(x) for x in temp['ano'].dropna().unique()])
-    comerciais = sorted(temp['comercial'].dropna().unique())
-    clientes = sorted(temp['cliente'].dropna().unique())
+    comerciais = sorted(list(temp['comercial'].dropna().unique()))
+    clientes = sorted(list(temp['cliente'].dropna().unique()))
     
     return anos, comerciais, clientes
 
+anos_disponiveis, comerciais_disponiveis, clientes_disponiveis = get_filtro_opcoes(dados_base, "All", "All")
+
 # Year filter
-anos_disponiveis, _, _ = get_filtro_opcoes(dados_base, "All", "All")
-ano = st.sidebar.selectbox("Year", ["All"] + anos_disponiveis, key="year_select")
-st.session_state.ano_filter = ano
+ano = st.sidebar.selectbox(
+    "Year", 
+    ["All"] + anos_disponiveis, 
+    key="year_select"
+)
 
 # Commercial filter (updates based on year)
-_, comerciais_disponiveis, _ = get_filtro_opcoes(dados_base, ano, "All")
-comercial = st.sidebar.selectbox("Commercial", ["All"] + comerciais_disponiveis, key="commercial_select")
-st.session_state.comercial_filter = comercial
+_, comerciais_for_year, _ = get_filtro_opcoes(dados_base, ano, "All")
+comercial = st.sidebar.selectbox(
+    "Commercial", 
+    ["All"] + comerciais_for_year, 
+    key="commercial_select"
+)
 
 # Customer filter (updates based on year and commercial)
-_, _, clientes_disponiveis = get_filtro_opcoes(dados_base, ano, comercial)
-cliente = st.sidebar.selectbox("Customer", ["All"] + clientes_disponiveis, key="customer_select")
-st.session_state.cliente_filter = cliente
+_, _, clientes_for_filters = get_filtro_opcoes(dados_base, ano, comercial)
+cliente = st.sidebar.selectbox(
+    "Customer", 
+    ["All"] + clientes_for_filters, 
+    key="customer_select"
+)
 
 # Apply filters to data
 def aplicar_filtros(dados, ano, comercial, cliente):
     resultado = dados.copy()
     if ano != "All":
-        resultado = resultado[resultado['ano'] == ano]
+        resultado = resultado[resultado['ano'] == int(ano)]
     if comercial != "All":
-        resultado = resultado[resultado['comercial'] == comercial]
+        resultado = resultado[resultado['comercial'].astype(str) == str(comercial)]
     if cliente != "All":
-        resultado = resultado[resultado['cliente'] == cliente]
+        resultado = resultado[resultado['cliente'].astype(str) == str(cliente)]
     return resultado
 
 dados_filtrados = aplicar_filtros(dados_base, ano, comercial, cliente)
