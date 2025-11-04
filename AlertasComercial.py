@@ -355,17 +355,28 @@ if df is not None:
             st.warning("Coluna 'Cliente' não encontrada")
             selected_cliente = []
         
-        # Filtro por Artigo - CORREÇÃO: Usar coluna G corretamente
+        # FILTRO POR ARTIGO CORRIGIDO - Usando valores únicos da coluna G
         if 'Artigo' in df.columns:
+            # Garantir que estamos a usar valores únicos da coluna G (Artigo)
             artigos = sorted(df['Artigo'].dropna().unique())
+            
+            # Opcional: Mostrar apenas os primeiros X artigos no default para não sobrecarregar
+            default_artigos = artigos[:5] if len(artigos) > 5 else artigos
+            
             selected_artigo = st.multiselect(
                 "Selecione o(s) Artigo(s):",
                 artigos,
-                default=artigos[:5] if len(artigos) > 5 else artigos
+                default=default_artigos,
+                help=f"Total de {len(artigos)} artigos únicos disponíveis"
             )
             
-            # Mostrar estatísticas dos artigos
-            st.info(f"📦 {len(artigos)} artigos disponíveis")
+            # Mostrar estatísticas mais detalhadas
+            col_info1, col_info2 = st.columns(2)
+            with col_info1:
+                st.info(f"📦 **{len(artigos)}** artigos únicos")
+            with col_info2:
+                if selected_artigo:
+                    st.success(f"✅ **{len(selected_artigo)}** selecionados")
         else:
             st.error("❌ Coluna 'Artigo' não encontrada")
             st.info("📋 Colunas disponíveis:")
@@ -529,7 +540,117 @@ if df is not None:
                     top_artigos = df_filtrado.groupby('Artigo')['V. Líquido'].sum().nlargest(10)
                     st.dataframe(top_artigos.reset_index().rename(columns={'V. Líquido': 'Total Vendas'}), use_container_width=True)
 
-    # ... (resto do código mantém-se igual para as outras tabs)
+    # Resto das abas mantêm-se iguais...
+    with tab2:
+        st.markdown("### 📈 Análise Comparativa")
+        st.info("Funcionalidade em desenvolvimento...")
+        
+    with tab3:
+        st.markdown("### 📋 Detalhes por Artigo")
+        if 'Artigo' in df.columns:
+            # Análise detalhada dos artigos usando a coluna G
+            analise_artigos = df.groupby('Artigo').agg({
+                'V. Líquido': ['sum', 'mean', 'count'],
+                'Qtd.': 'sum',
+                'Cliente': 'nunique'
+            }).round(2)
+            
+            analise_artigos.columns = ['Total_Vendas', 'Ticket_Medio', 'Num_Vendas', 'Quantidade_Total', 'Clientes_Unicos']
+            analise_artigos = analise_artigos.sort_values('Total_Vendas', ascending=False)
+            
+            st.dataframe(analise_artigos, use_container_width=True)
+        else:
+            st.error("Coluna 'Artigo' não disponível para análise")
+    
+    with tab4:
+        st.markdown("### 🚨 Alertas de Inatividade")
+        alertas = calcular_alertas_inatividade(df, dias_alerta)
+        
+        if len(alertas) > 0:
+            # Filtrar por valor mínimo
+            alertas = alertas[alertas['Total_Historico'] >= valor_minimo_alerta]
+            
+            if len(alertas) > 0:
+                st.warning(f"🚨 {len(alertas)} clientes inativos há mais de {dias_alerta} dias")
+                
+                for _, cliente in alertas.iterrows():
+                    risco = classificar_risco_cliente(cliente['Dias_Sem_Comprar'], cliente['Total_Historico'])
+                    
+                    if risco == "CRÍTICO":
+                        css_class = "alert-card-critical"
+                    elif risco == "ALTO":
+                        css_class = "alert-card-warning"
+                    else:
+                        css_class = "alert-card-info"
+                    
+                    st.markdown(f"""
+                    <div class="{css_class}">
+                        <h4 style="margin:0;">{cliente['Cliente']} - {risco}</h4>
+                        <p style="margin:0.2rem 0;"><strong>{cliente['Dias_Sem_Comprar']} dias</strong> sem comprar</p>
+                        <p style="margin:0.2rem 0;">Histórico: €{cliente['Total_Historico']:,.2f} | Comercial: {cliente['Comercial']}</p>
+                        <p style="margin:0.2rem 0;">Artigo mais comprado: {cliente['Artigo_Mais_Comprado']}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.success(f"✅ Nenhum cliente inativo com valor histórico acima de €{valor_minimo_alerta:,.2f}")
+        else:
+            st.success("✅ Todos os clientes estão ativos!")
+    
+    with tab5:
+        st.markdown("### 📁 Exportação de Dados")
+        
+        col_exp1, col_exp2 = st.columns(2)
+        
+        with col_exp1:
+            st.markdown("#### 📊 Exportar Dados Filtrados")
+            if len(df_filtrado) > 0:
+                # Converter para Excel
+                output = BytesIO()
+                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                    df_filtrado.to_excel(writer, sheet_name='Dados_Filtrados', index=False)
+                    
+                    # Adicionar resumo
+                    resumo = pd.DataFrame({
+                        'Métrica': ['Total Vendas', 'Quantidade Total', 'Clientes Únicos', 'Ticket Médio'],
+                        'Valor': [total_vendas_filtrado, qtd_total, clientes_unicos, ticket_medio]
+                    })
+                    resumo.to_excel(writer, sheet_name='Resumo', index=False)
+                
+                excel_data = output.getvalue()
+                
+                st.download_button(
+                    label="📥 Download Excel Filtrado",
+                    data=excel_data,
+                    file_name=f"dados_filtrados_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+                    mime="application/vnd.ms-excel",
+                    use_container_width=True
+                )
+        
+        with col_exp2:
+            st.markdown("#### 📋 Exportar Análise de Artigos")
+            if 'Artigo' in df.columns:
+                analise_artigos = df.groupby('Artigo').agg({
+                    'V. Líquido': ['sum', 'mean', 'count'],
+                    'Qtd.': 'sum',
+                    'Cliente': 'nunique'
+                }).round(2)
+                
+                analise_artigos.columns = ['Total_Vendas', 'Ticket_Medio', 'Num_Vendas', 'Quantidade_Total', 'Clientes_Unicos']
+                analise_artigos = analise_artigos.sort_values('Total_Vendas', ascending=False)
+                
+                output_artigos = BytesIO()
+                with pd.ExcelWriter(output_artigos, engine='xlsxwriter') as writer:
+                    analise_artigos.to_excel(writer, sheet_name='Analise_Artigos', index=True)
+                
+                excel_artigos = output_artigos.getvalue()
+                
+                st.download_button(
+                    label="📥 Download Análise Artigos",
+                    data=excel_artigos,
+                    file_name=f"analise_artigos_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+                    mime="application/vnd.ms-excel",
+                    use_container_width=True
+                )
 
 else:
     st.error("❌ Não foi possível carregar os dados do Excel.")
