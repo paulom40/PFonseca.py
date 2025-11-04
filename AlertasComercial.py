@@ -139,10 +139,11 @@ def carregar_dados():
     for chave, variantes in esperadas.items():
         for variante in variantes:
             for col in detectadas:
-                col_normalized = unicodedata.normalize('NFKD', col.lower()).encode('ascii', errors='ignore').decode('utf-8')
-                variante_normalized = unicodedata.normalize('NFKD', variante.lower()).encode('ascii', errors='ignore').decode('utf-8')
+                col_normalized = col.lower().strip()
+                variante_normalized = variante.lower().strip()
                 
-                if variante_normalized == col_normalized or variante_normalized.replace("_", "") in col_normalized.replace("_", ""):
+                # Check exact match after normalization
+                if variante_normalized == col_normalized:
                     col_map[chave] = col
                     break
             if chave in col_map:
