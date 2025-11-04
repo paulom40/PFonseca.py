@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 from io import BytesIO
+import unicodedata
 
 # --- Estilo CSS moderno ---
 st.markdown("""
@@ -26,30 +27,56 @@ def carregar_dados():
     url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
     df = pd.read_excel(url)
 
-    # Normalizar nomes de colunas
+    # --- Normalizar nomes de colunas ---
     df.columns = (
         df.columns
         .str.strip()
         .str.lower()
         .str.replace(" ", "_")
         .str.replace(".", "", regex=False)
-        .str.normalize('NFKD')
-        .str.encode('ascii', errors='ignore')
-        .str.decode('utf-8')
+        .map(lambda x: unicodedata.normalize('NFKD', x).encode('ascii', errors='ignore').decode('utf-8'))
     )
 
-    # Verificação de colunas obrigatórias
-    obrigatorias = ['cliente', 'comercial', 'ano', 'mes', 'qtd', 'vl_liquido', 'pm', 'categoria']
-    faltantes = [col for col in obrigatorias if col not in df.columns]
+    # --- Diagnóstico inteligente de colunas ---
+    esperadas = {
+        'cliente': ['cliente'],
+        'comercial': ['comercial'],
+        'ano': ['ano'],
+        'mes': ['mes'],
+        'qtd': ['qtd', 'quantidade'],
+        'v_liquido': ['v_liquido', 'vl_liquido', 'valor_liquido', 'vliquido'],
+        'pm': ['pm', 'preco_medio'],
+        'categoria': ['categoria', 'segmento']
+    }
+
+    detectadas = list(df.columns)
+    col_map = {}
+
+    for chave, variantes in esperadas.items():
+        for variante in variantes:
+            for col in detectadas:
+                if variante == col or variante.replace("_", "") in col.replace("_", ""):
+                    col_map[chave] = col
+                    break
+            if chave in col_map:
+                break
+
+    faltantes = [chave for chave in esperadas if chave not in col_map]
     if faltantes:
-        st.error(f"⚠️ Colunas ausentes no ficheiro: {faltantes}")
+        st.warning(f"⚠️ Colunas não encontradas ou ambíguas: {faltantes}")
+        st.write("🔍 Colunas detectadas no ficheiro:", detectadas)
         st.stop()
 
+    # --- Renomear colunas para padrão interno ---
+    df = df.rename(columns=col_map)
+
+    # --- Conversão de tipos ---
     df['ano'] = pd.to_numeric(df['ano'], errors='coerce')
     df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
     df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce')
-    df['vl_liquido'] = pd.to_numeric(df['vl_liquido'], errors='coerce')
+    df['v_liquido'] = pd.to_numeric(df['v_liquido'], errors='coerce')
     df['pm'] = pd.to_numeric(df['pm'], errors='coerce')
+
     return df
 
 df = carregar_dados()
@@ -84,48 +111,54 @@ def gerar_excel(dados):
     return output.getvalue()
 # --- Página: Visão Geral ---
 if pagina == "Visão Geral":
-    st.subheader("📊 Compras por Cliente")
+    st.subheader("📊 Visão Geral das Compras")
+
+    # --- KPIs principais ---
+    total_vl = dados_filtrados['v_liquido'].sum()
+    total_qtd = dados_filtrados['qtd'].sum()
+    clientes_ativos = dados_filtrados['cliente'].nunique()
+    comerciais_ativos = dados_filtrados['comercial'].nunique()
+    pm_medio = total_vl / total_qtd if total_qtd > 0 else 0
+    media_por_cliente = total_vl / clientes_ativos if clientes_ativos > 0 else 0
 
     col1, col2, col3 = st.columns(3)
-    col1.metric("👥 Clientes únicos", dados_filtrados['cliente'].nunique())
-    col2.metric("📅 Meses no período", dados_filtrados['mes'].nunique())
-    col3.metric("🧑‍💼 Comerciais", dados_filtrados['comercial'].nunique())
+    col1.metric("💰 Total V. Líquido", f"{total_vl:,.2f} €")
+    col2.metric("📦 Total Qtd.", f"{total_qtd:,.0f}")
+    col3.metric("🧮 PM Médio", f"{pm_medio:,.2f} €")
 
-    st.markdown("### 🔎 Filtros aplicados")
-    if ano != "Todos": st.write(f"**Ano:** {ano}")
-    if comercial != "Todos": st.write(f"**Comercial:** {comercial}")
-    if cliente != "Todos": st.write(f"**Cliente:** {cliente}")
+    col4, col5, col6 = st.columns(3)
+    col4.metric("👥 Clientes Ativos", clientes_ativos)
+    col5.metric("🧑‍💼 Comerciais Ativos", comerciais_ativos)
+    col6.metric("📈 Média por Cliente", f"{media_por_cliente:,.2f} €")
 
-    if dados_filtrados.empty:
-        st.warning("⚠️ Nenhum dado encontrado com os filtros selecionados.")
-    else:
-        st.markdown("### 📋 Tabela agregada")
-        st.dataframe(agrupado)
+    # --- Tabela agregada por cliente ---
+    st.markdown("### 📋 Tabela agregada")
+    st.dataframe(agrupado)
 
-        excel_bytes = gerar_excel(agrupado)
-        st.download_button("📥 Exportar para Excel", data=excel_bytes, file_name="compras_clientes.xlsx")
+    excel_bytes = gerar_excel(agrupado)
+    st.download_button("📥 Exportar para Excel", data=excel_bytes, file_name="compras_clientes.xlsx")
 
-        # --- Detalhes do cliente selecionado ---
-        if cliente != "Todos":
-            st.subheader(f"📋 Detalhes do Cliente: {cliente}")
-            dados_cliente = df[df['cliente'] == cliente]
+    # --- Detalhes do cliente selecionado ---
+    if cliente != "Todos":
+        st.subheader(f"📋 Detalhes do Cliente: {cliente}")
+        dados_cliente = df[df['cliente'] == cliente]
 
-            resumo = dados_cliente.groupby(['cliente', 'comercial', 'categoria', 'ano', 'mes']).agg({
-                'qtd': 'sum',
-                'pm': 'mean',
-                'vl_liquido': 'sum'
-            }).reset_index()
+        resumo = dados_cliente.groupby(['cliente', 'comercial', 'categoria', 'ano', 'mes']).agg({
+            'qtd': 'sum',
+            'pm': 'mean',
+            'v_liquido': 'sum'
+        }).reset_index()
 
-            resumo.rename(columns={
-                'qtd': 'Total Qtd.',
-                'pm': 'PM Médio',
-                'vl_liquido': 'Total V. Líquido'
-            }, inplace=True)
+        resumo.rename(columns={
+            'qtd': 'Total Qtd.',
+            'pm': 'PM Médio',
+            'v_liquido': 'Total V. Líquido'
+        }, inplace=True)
 
-            st.dataframe(resumo)
+        st.dataframe(resumo)
 
-            excel_bytes_cliente = gerar_excel(resumo)
-            st.download_button("📥 Exportar resumo do cliente", data=excel_bytes_cliente, file_name=f"resumo_{cliente}.xlsx")
+        excel_bytes_cliente = gerar_excel(resumo)
+        st.download_button("📥 Exportar resumo do cliente", data=excel_bytes_cliente, file_name=f"resumo_{cliente}.xlsx")
 # --- Página: Gráficos ---
 elif pagina == "Gráficos":
     st.subheader("📉 Quantidade por Cliente ao Longo dos Meses")
