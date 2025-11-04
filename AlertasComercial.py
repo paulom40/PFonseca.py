@@ -1,43 +1,52 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from io import BytesIO
 import unicodedata
+from datetime import datetime, timedelta
 
-# --- Estilo visual ---
-st.set_page_config(page_title="Compras por Cliente", layout="wide")
+# --- PAGE CONFIG ---
+st.set_page_config(page_title="Customer KPI Dashboard", layout="wide", initial_sidebar_state="expanded")
+
+# --- CUSTOM STYLING ---
 st.markdown("""
     <style>
-    .stApp { background-color: #f4f6f9; font-family: 'Segoe UI', sans-serif; }
-    h1, h2, h3 { color: #2c3e50; font-weight: 600; }
-    .stSelectbox label { font-weight: bold; color: #34495e; }
-    .stDownloadButton button {
-        background-color: #3498db; color: white; border-radius: 5px;
-        padding: 0.5em 1em; font-weight: bold;
+    .main { background-color: #0f1419; color: #e0e0e0; }
+    .stApp { background-color: #0f1419; }
+    h1, h2, h3 { color: #6366f1; font-weight: 700; }
+    .metric-card { 
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        padding: 20px; border-radius: 10px; border-left: 4px solid #6366f1;
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
     }
-    .stDownloadButton button:hover { background-color: #2980b9; }
+    .trend-positive { color: #10b981; font-weight: bold; }
+    .trend-negative { color: #ef4444; font-weight: bold; }
+    .stSelectbox label, .stMultiSelect label { font-weight: 600; color: #c7d2fe; }
+    .stDownloadButton button { 
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        color: white; border: none; border-radius: 6px; font-weight: 600;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📦 Dashboard de Compras")
-
+# --- DATA LOADING ---
 @st.cache_data
 def carregar_dados():
     url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
     df = pd.read_excel(url)
-
-    # --- Normalizar nomes de colunas ---
+    
+    # Normalize column names
     df.columns = (
-        df.columns
-        .str.strip()
-        .str.lower()
-        .str.replace(" ", "_")
+        df.columns.str.strip().str.lower().str.replace(" ", "_")
         .str.replace(".", "", regex=False)
         .map(lambda x: unicodedata.normalize('NFKD', x).encode('ascii', errors='ignore').decode('utf-8'))
     )
-
-    # --- Mapeamento inteligente ---
+    
+    # Mapping
     esperadas = {
         'cliente': ['cliente'],
         'comercial': ['comercial'],
@@ -48,10 +57,10 @@ def carregar_dados():
         'pm': ['pm', 'preco_medio'],
         'categoria': ['categoria', 'segmento']
     }
-
+    
     detectadas = list(df.columns)
     col_map = {}
-
+    
     for chave, variantes in esperadas.items():
         for variante in variantes:
             for col in detectadas:
@@ -60,437 +69,372 @@ def carregar_dados():
                     break
             if chave in col_map:
                 break
-
-    faltantes = [chave for chave in esperadas if chave not in col_map]
-    if faltantes:
-        st.warning(f"⚠️ Colunas não encontradas ou ambíguas: {faltantes}")
-        st.write("🔍 Colunas detectadas:", detectadas)
-        st.stop()
-
+    
     df = df.rename(columns=col_map)
-
     df['ano'] = pd.to_numeric(df['ano'], errors='coerce')
     df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
     df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce')
     df['v_liquido'] = pd.to_numeric(df['v_liquido'], errors='coerce')
     df['pm'] = pd.to_numeric(df['pm'], errors='coerce')
-
+    
     return df
 
 df = carregar_dados()
 
-# --- Sidebar: Filtros e navegação ---
-st.sidebar.title("📂 Navegação")
-pagina = st.sidebar.radio("Ir para:", [
-    "Visão Geral", "Gráficos", "Alertas", "Histórico do Cliente"
+# --- SIDEBAR NAVIGATION ---
+st.sidebar.markdown("# 📊 KPI Dashboard")
+st.sidebar.markdown("---")
+
+pagina = st.sidebar.radio("Navigate", [
+    "📈 Overview", 
+    "🎯 Custom KPIs", 
+    "📉 Trends", 
+    "⚠️ Alerts",
+    "👥 Customer Analysis",
+    "📊 Comparative View"
 ])
 
-# --- FILTROS DINÂMICOS CORRIGIDOS ---
-# Criar dados base sem filtros
+# --- FILTERS ---
+st.sidebar.markdown("### 🔍 Filters")
 dados_base = df.copy()
 
-# Inicializar filtros no session state
-if 'ano_selecionado' not in st.session_state:
-    st.session_state.ano_selecionado = "Todos"
-if 'comercial_selecionado' not in st.session_state:
-    st.session_state.comercial_selecionado = "Todos"
-if 'cliente_selecionado' not in st.session_state:
-    st.session_state.cliente_selecionado = "Todos"
-if 'mes_selecionado' not in st.session_state:
-    st.session_state.mes_selecionado = "Todos"
+ano = st.sidebar.selectbox("Year", ["All"] + sorted([int(x) for x in df['ano'].dropna().unique()]))
+comercial = st.sidebar.selectbox("Commercial", ["All"] + sorted(df['comercial'].dropna().unique()))
+cliente = st.sidebar.selectbox("Customer", ["All"] + sorted(df['cliente'].dropna().unique()))
 
-# Função para aplicar filtros progressivamente
-def aplicar_filtros(dados, ano, comercial, cliente, mes):
+def aplicar_filtros(dados, ano, comercial, cliente):
     resultado = dados.copy()
-    
-    if ano != "Todos":
+    if ano != "All":
         resultado = resultado[resultado['ano'] == ano]
-    if comercial != "Todos":
+    if comercial != "All":
         resultado = resultado[resultado['comercial'] == comercial]
-    if cliente != "Todos":
+    if cliente != "All":
         resultado = resultado[resultado['cliente'] == cliente]
-    if mes != "Todos":
-        resultado = resultado[resultado['mes'] == mes]
-    
     return resultado
 
-# Obter opções disponíveis baseado nos filtros anteriores
-def get_opcoes_dinamicas(dados, filtros_atuais):
-    """Retorna opções disponíveis para cada filtro"""
-    anos_disponiveis = sorted(dados['ano'].dropna().unique())
-    comerciais_disponiveis = sorted(dados['comercial'].dropna().unique())
-    clientes_disponiveis = sorted(dados['cliente'].dropna().unique())
-    meses_disponiveis = sorted(dados['mes'].dropna().unique())
-    
-    return {
-        'anos': anos_disponiveis,
-        'comerciais': comerciais_disponiveis,
-        'clientes': clientes_disponiveis,
-        'meses': meses_disponiveis
-    }
+dados_filtrados = aplicar_filtros(dados_base, ano, comercial, cliente)
 
-opcoes = get_opcoes_dinamicas(dados_base, None)
-
-# Selecionar filtros
-anos_lista = list(opcoes['anos'])
-ano = st.sidebar.selectbox(
-    "Seleciona o Ano",
-    ["Todos"] + anos_lista
-)
-st.session_state.ano_selecionado = ano
-
-# Atualizar dados para próximos filtros
-dados_filtrados_ano = aplicar_filtros(dados_base, ano, "Todos", "Todos", "Todos")
-opcoes_comercial = sorted(dados_filtrados_ano['comercial'].dropna().unique())
-
-comercial = st.sidebar.selectbox(
-    "Seleciona o Comercial",
-    ["Todos"] + opcoes_comercial
-)
-st.session_state.comercial_selecionado = comercial
-
-# Atualizar dados para próximos filtros
-dados_filtrados_comercial = aplicar_filtros(dados_base, ano, comercial, "Todos", "Todos")
-opcoes_cliente = sorted(dados_filtrados_comercial['cliente'].dropna().unique())
-
-cliente = st.sidebar.selectbox(
-    "Seleciona o Cliente",
-    ["Todos"] + opcoes_cliente
-)
-st.session_state.cliente_selecionado = cliente
-
-# Atualizar dados para próximo filtro
-dados_filtrados_cliente = aplicar_filtros(dados_base, ano, comercial, cliente, "Todos")
-opcoes_mes = sorted(dados_filtrados_cliente['mes'].dropna().unique())
-
-mes = st.sidebar.selectbox(
-    "Seleciona o Mês",
-    ["Todos"] + opcoes_mes
-)
-st.session_state.mes_selecionado = mes
-
-# Aplicar todos os filtros
-dados_filtrados = aplicar_filtros(dados_base, ano, comercial, cliente, mes)
-
-# --- Corrigir colunas problemáticas para Arrow ---
-for col in dados_filtrados.select_dtypes(include='object').columns:
-    dados_filtrados[col] = dados_filtrados[col].astype(str)
-
-# --- Função para exportar Excel ---
+# --- FUNCTION: EXPORT EXCEL ---
 def gerar_excel(dados):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        dados.to_excel(writer, index=False, sheet_name='Compras')
+        dados.to_excel(writer, index=False, sheet_name='Data')
     return output.getvalue()
 
-# --- Página: Visão Geral ---
-if pagina == "Visão Geral":
-    st.subheader("📊 Visão Geral das Compras")
+# --- PAGE 1: OVERVIEW ---
+if pagina == "📈 Overview":
+    st.title("📊 KPI Dashboard Overview")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    total_qty = dados_filtrados['qtd'].sum()
+    total_value = dados_filtrados['v_liquido'].sum()
+    num_customers = dados_filtrados['cliente'].nunique()
+    num_commercials = dados_filtrados['comercial'].nunique()
+    
+    col1.metric("📦 Total Quantity", f"{total_qty:,.0f}", delta=f"{total_qty/10000:.1%}")
+    col2.metric("💰 Total Value", f"R$ {total_value:,.0f}", delta=f"{total_value/100000:.1%}")
+    col3.metric("👥 Unique Customers", f"{num_customers}", delta=f"{num_customers}")
+    col4.metric("🧑‍💼 Active Commercials", f"{num_commercials}", delta=f"{num_commercials}")
+    
+    st.markdown("---")
+    
+    # KPI by Customer
+    st.subheader("🏆 Top 10 Customers by Quantity")
+    top_clientes = dados_filtrados.groupby('cliente')[['qtd', 'v_liquido']].sum().sort_values('qtd', ascending=False).head(10)
+    top_clientes['Share %'] = (top_clientes['qtd'] / top_clientes['qtd'].sum() * 100).round(2)
+    
+    fig_top = px.bar(
+        top_clientes.reset_index(),
+        x='cliente',
+        y='qtd',
+        color='v_liquido',
+        title='Top 10 Customers',
+        labels={'qtd': 'Quantity', 'cliente': 'Customer', 'v_liquido': 'Value (R$)'},
+        color_continuous_scale='Viridis'
+    )
+    st.plotly_chart(fig_top, use_container_width=True)
+    
+    # KPI by Commercial
+    st.subheader("🧑‍💼 Performance by Commercial")
+    kpi_comercial = dados_filtrados.groupby('comercial')[['qtd', 'v_liquido']].sum().sort_values('qtd', ascending=False)
+    
+    fig_comercial = px.bar(
+        kpi_comercial.reset_index(),
+        x='comercial',
+        y=['qtd'],
+        title='Quantity by Commercial',
+        barmode='group',
+        color_discrete_sequence=['#6366f1']
+    )
+    st.plotly_chart(fig_comercial, use_container_width=True)
+    
+    # Data Table
+    st.subheader("📋 Detailed Data")
+    st.dataframe(dados_filtrados, use_container_width=True)
+    st.download_button("📥 Export Data", data=gerar_excel(dados_filtrados), file_name="kpi_data.xlsx")
 
-    # KPIs baseados em QTD
-    total_qtd = dados_filtrados['qtd'].sum()
-    clientes_ativos = dados_filtrados['cliente'].nunique()
-    comerciais_ativos = dados_filtrados['comercial'].nunique()
-    media_por_cliente = total_qtd / clientes_ativos if clientes_ativos > 0 else 0
+# --- PAGE 2: CUSTOM KPIs ---
+elif pagina == "🎯 Custom KPIs":
+    st.title("🎯 Custom KPI Creator")
     
-    # KPIs Adicionais
-    qtd_media = dados_filtrados['qtd'].mean()
-    qtd_maxima = dados_filtrados['qtd'].max()
-    qtd_minima = dados_filtrados['qtd'].min()
-    mediana_qtd = dados_filtrados['qtd'].median()
+    st.markdown("### Create Your Custom KPIs")
     
-    # Variação comparada ao período anterior
-    if ano != "Todos" and mes != "Todos":
-        ano_int = int(ano)
-        mes_int = int(mes)
-        
-        if mes_int > 1:
-            mes_anterior = mes_int - 1
-            ano_anterior = ano_int
-        else:
-            mes_anterior = 12
-            ano_anterior = ano_int - 1
-        
-        qtd_periodo_anterior = df[
-            (df['ano'] == ano_anterior) & 
-            (df['mes'] == mes_anterior) &
-            (df['comercial'] == comercial if comercial != "Todos" else True) &
-            (df['cliente'] == cliente if cliente != "Todos" else True)
-        ]['qtd'].sum()
-        
-        variacao = ((total_qtd - qtd_periodo_anterior) / qtd_periodo_anterior * 100) if qtd_periodo_anterior > 0 else 0
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        kpi_name = st.text_input("KPI Name", value="Revenue Growth")
+        kpi_metric = st.selectbox("Select Metric", ["Sum", "Average", "Max", "Min", "Count", "Median"])
+        kpi_field = st.selectbox("Field", ["qtd", "v_liquido", "pm"])
+        kpi_groupby = st.selectbox("Group By", ["cliente", "comercial", "categoria", "mes", "ano"])
+    
+    with col2:
+        kpi_period = st.selectbox("Period", ["Monthly", "Quarterly", "Yearly"])
+        show_trend = st.checkbox("Show Trend Line", value=True)
+        show_forecast = st.checkbox("Show Forecast", value=False)
+    
+    # Calculate KPI
+    if kpi_metric == "Sum":
+        kpi_data = dados_filtrados.groupby(kpi_groupby)[kpi_field].sum()
+    elif kpi_metric == "Average":
+        kpi_data = dados_filtrados.groupby(kpi_groupby)[kpi_field].mean()
+    elif kpi_metric == "Max":
+        kpi_data = dados_filtrados.groupby(kpi_groupby)[kpi_field].max()
+    elif kpi_metric == "Min":
+        kpi_data = dados_filtrados.groupby(kpi_groupby)[kpi_field].min()
+    elif kpi_metric == "Count":
+        kpi_data = dados_filtrados.groupby(kpi_groupby)[kpi_field].count()
     else:
-        variacao = 0
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric("📦 Total Qtd.", f"{total_qtd:,.0f}")
-    col2.metric("👥 Clientes Ativos", clientes_ativos)
-    col3.metric("🧑‍💼 Comerciais Ativos", comerciais_ativos)
-
-    col4, col5, col6 = st.columns(3)
-    col4.metric("📈 Média por Cliente", f"{media_por_cliente:,.2f}")
-    col5.metric("📊 Média Geral QTD", f"{qtd_media:,.2f}")
-    col6.metric("📈 Variação %", f"{variacao:+.1f}%")
+        kpi_data = dados_filtrados.groupby(kpi_groupby)[kpi_field].median()
     
-    col7, col8, col9 = st.columns(3)
-    col7.metric("⬆️ Máxima QTD", f"{qtd_maxima:,.0f}")
-    col8.metric("⬇️ Mínima QTD", f"{qtd_minima:,.0f}")
-    col9.metric("📍 Mediana QTD", f"{mediana_qtd:,.0f}")
+    kpi_data = kpi_data.sort_values(ascending=False)
     
-    # Tabela com top clientes por QTD
-    st.markdown("### 🏆 Top 10 Clientes por Quantidade")
-    top_clientes = dados_filtrados.groupby('cliente')['qtd'].sum().sort_values(ascending=False).head(10).reset_index()
-    top_clientes.columns = ['Cliente', 'Total QTD']
-    top_clientes['%'] = (top_clientes['Total QTD'] / top_clientes['Total QTD'].sum() * 100).round(2)
-    st.dataframe(top_clientes, use_container_width=True)
-
-    st.markdown("### 📋 Tabela de Compras Filtradas")
-    st.dataframe(dados_filtrados)
-    st.download_button("📥 Exportar dados filtrados", data=gerar_excel(dados_filtrados), file_name="compras_filtradas.xlsx")
+    # Display KPI
+    fig_kpi = px.bar(
+        x=kpi_data.index,
+        y=kpi_data.values,
+        title=f"{kpi_name} - {kpi_metric}({kpi_field})",
+        labels={'x': kpi_groupby.title(), 'y': 'Value'},
+        color=kpi_data.values,
+        color_continuous_scale='Blues'
+    )
+    st.plotly_chart(fig_kpi, use_container_width=True)
     
-    # Gráfico KPI por Comercial
-    st.markdown("### 📊 KPI por Comercial (Total QTD)")
-    kpi_comercial = dados_filtrados.groupby('comercial')['qtd'].sum().sort_values(ascending=False)
-    if not kpi_comercial.empty:
-        fig_kpi = px.bar(
-            x=kpi_comercial.index,
-            y=kpi_comercial.values,
-            labels={'x': 'Comercial', 'y': 'Total QTD'},
-            title='Total de Quantidade por Comercial',
-            color=kpi_comercial.values,
-            color_continuous_scale='Viridis'
-        )
-        st.plotly_chart(fig_kpi, use_container_width=True)
+    # Summary
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("🔝 Maximum", f"{kpi_data.max():,.2f}")
+    col2.metric("📉 Minimum", f"{kpi_data.min():,.2f}")
+    col3.metric("📊 Average", f"{kpi_data.mean():,.2f}")
+    col4.metric("📈 Median", f"{kpi_data.median():,.2f}")
+    
+    # Data Table
+    st.dataframe(kpi_data.reset_index().rename(columns={0: kpi_name}), use_container_width=True)
 
-    # --- Detalhes do cliente selecionado ---
-    if cliente != "Todos":
-        st.subheader(f"📋 Detalhes do Cliente: {cliente}")
-        dados_cliente = dados_filtrados[dados_filtrados['cliente'] == cliente]
-        resumo = dados_cliente.groupby(['comercial', 'categoria', 'ano', 'mes'])['qtd'].sum().reset_index()
-        resumo.rename(columns={'qtd': 'Total Qtd.'}, inplace=True)
-
-        for col in resumo.select_dtypes(include='object').columns:
-            resumo[col] = resumo[col].astype(str)
-
-        st.dataframe(resumo)
-        st.download_button("📥 Exportar resumo do cliente", data=gerar_excel(resumo), file_name=f"resumo_{cliente}.xlsx")
-
-# --- Página: Gráficos ---
-elif pagina == "Gráficos":
-    st.subheader("📉 Quantidade por Cliente ao Longo dos Meses")
-
-    pivot_cliente = dados_filtrados.pivot_table(index='mes', columns='cliente', values='qtd', aggfunc='sum').fillna(0)
-    if not pivot_cliente.empty:
-        fig1, ax1 = plt.subplots(figsize=(10, 5))
-        pivot_cliente.plot(kind='bar', stacked=True, ax=ax1, colormap='tab20')
-        ax1.set_title('Compras por Cliente')
-        ax1.set_xlabel('Mês')
-        ax1.set_ylabel('Quantidade Total')
-        st.pyplot(fig1)
+# --- PAGE 3: TRENDS ---
+elif pagina == "📉 Trends":
+    st.title("📉 Trend Analysis")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        trend_metric = st.selectbox("Select Metric", ["Quantity", "Value"])
+        trend_groupby = st.selectbox("Group By", ["mes", "ano", "cliente", "comercial"])
+    
+    with col2:
+        trend_window = st.slider("Moving Average (months)", 1, 12, 3)
+    
+    # Prepare trend data
+    if trend_metric == "Quantity":
+        trend_data = dados_filtrados.groupby(trend_groupby)['qtd'].sum().reset_index()
+        trend_data.columns = [trend_groupby, 'value']
     else:
-        st.warning("⚠️ Sem dados para o gráfico de clientes.")
-
-    st.subheader("📈 Evolução Mensal por Comercial")
-    pivot_comercial = dados_filtrados.pivot_table(index='mes', columns='comercial', values='qtd', aggfunc='sum').fillna(0)
-    if not pivot_comercial.empty:
-        fig2, ax2 = plt.subplots(figsize=(10, 5))
-        pivot_comercial.plot(kind='line', marker='o', ax=ax2, colormap='Set1')
-        ax2.set_title('Evolução Mensal por Comercial')
-        ax2.set_xlabel('Mês')
-        ax2.set_ylabel('Quantidade Total')
-        st.pyplot(fig2)
-    else:
-        st.warning("⚠️ Sem dados para o gráfico de comerciais.")
-
-# --- Página: Alertas ---
-elif pagina == "Alertas":
-    st.subheader("🚨 Alertas e KPIs Dinâmicos")
+        trend_data = dados_filtrados.groupby(trend_groupby)['v_liquido'].sum().reset_index()
+        trend_data.columns = [trend_groupby, 'value']
     
-    # KPIs RESUMIDOS
-    st.markdown("### 📊 KPIs do Filtro Selecionado")
+    trend_data = trend_data.sort_values(trend_groupby)
     
-    kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
+    # Add moving average
+    trend_data['MA'] = trend_data['value'].rolling(window=trend_window, center=True).mean()
     
-    total_qtd_alerta = dados_filtrados['qtd'].sum()
-    media_qtd_alerta = dados_filtrados['qtd'].mean()
-    max_qtd_alerta = dados_filtrados['qtd'].max()
-    min_qtd_alerta = dados_filtrados['qtd'].min()
+    # Plot trend
+    fig_trend = go.Figure()
     
-    kpi_col1.metric("📦 Total QTD", f"{total_qtd_alerta:,.0f}")
-    kpi_col2.metric("📊 Média QTD", f"{media_qtd_alerta:,.2f}")
-    kpi_col3.metric("⬆️ Máx QTD", f"{max_qtd_alerta:,.0f}")
-    kpi_col4.metric("⬇️ Mín QTD", f"{min_qtd_alerta:,.0f}")
+    fig_trend.add_trace(go.Scatter(
+        x=trend_data[trend_groupby],
+        y=trend_data['value'],
+        mode='lines+markers',
+        name='Actual',
+        line=dict(color='#6366f1', width=2),
+        fill='tozeroy'
+    ))
     
-    # TABELA DE ALERTAS E ANÁLISE
-    st.markdown("### ⚠️ Tabela de Análise e Alertas")
+    fig_trend.add_trace(go.Scatter(
+        x=trend_data[trend_groupby],
+        y=trend_data['MA'],
+        mode='lines',
+        name=f'MA({trend_window})',
+        line=dict(color='#f97316', width=2, dash='dash')
+    ))
     
-    # Criar tabela de análise por cliente
-    analise_clientes = dados_filtrados.groupby('cliente').agg({
-        'qtd': ['sum', 'mean', 'max', 'min', 'count'],
-        'comercial': 'first'
-    }).reset_index()
-    
-    analise_clientes.columns = ['Cliente', 'Total QTD', 'Média QTD', 'Máx QTD', 'Mín QTD', 'Transações', 'Comercial']
-    analise_clientes = analise_clientes.sort_values('Total QTD', ascending=False)
-    
-    # Adicionar coluna de alerta
-    media_geral = dados_filtrados['qtd'].mean()
-    analise_clientes['Status'] = analise_clientes['Média QTD'].apply(
-        lambda x: '🟢 OK' if x >= media_geral else '🟡 ABAIXO' if x >= media_geral * 0.7 else '🔴 CRÍTICO'
+    fig_trend.update_layout(
+        title=f"Trend: {trend_metric} by {trend_groupby.title()}",
+        xaxis_title=trend_groupby.title(),
+        yaxis_title="Value",
+        hovermode='x unified',
+        template='plotly_dark'
     )
     
-    # Formatação
-    analise_clientes['Total QTD'] = analise_clientes['Total QTD'].round(0).astype(int)
-    analise_clientes['Média QTD'] = analise_clientes['Média QTD'].round(2)
-    analise_clientes['Máx QTD'] = analise_clientes['Máx QTD'].round(0).astype(int)
-    analise_clientes['Mín QTD'] = analise_clientes['Mín QTD'].round(0).astype(int)
+    st.plotly_chart(fig_trend, use_container_width=True)
     
+    # Trend Statistics
+    st.subheader("📊 Trend Statistics")
+    col1, col2, col3, col4 = st.columns(4)
+    
+    trend_pct_change = ((trend_data['value'].iloc[-1] - trend_data['value'].iloc[0]) / trend_data['value'].iloc[0] * 100) if trend_data['value'].iloc[0] != 0 else 0
+    
+    col1.metric("Current Value", f"{trend_data['value'].iloc[-1]:,.0f}")
+    col2.metric("Previous Value", f"{trend_data['value'].iloc[-2]:,.0f}" if len(trend_data) > 1 else "N/A")
+    col3.metric("% Change", f"{trend_pct_change:+.1f}%")
+    col4.metric("Trend", "📈 Up" if trend_pct_change > 0 else "📉 Down")
+
+# --- PAGE 4: ALERTS ---
+elif pagina == "⚠️ Alerts":
+    st.title("⚠️ Alert System")
+    
+    st.markdown("### Performance Alerts")
+    
+    # Customer Performance Analysis
+    analise_clientes = dados_filtrados.groupby('cliente').agg({
+        'qtd': ['sum', 'mean', 'count'],
+        'v_liquido': 'sum'
+    }).reset_index()
+    
+    analise_clientes.columns = ['Cliente', 'Total_Qtd', 'Avg_Qtd', 'Transactions', 'Total_Value']
+    analise_clientes = analise_clientes.sort_values('Total_Qtd', ascending=False)
+    
+    media_geral = dados_filtrados['qtd'].mean()
+    
+    analise_clientes['Status'] = analise_clientes['Avg_Qtd'].apply(
+        lambda x: '🟢 Excellent' if x >= media_geral else '🟡 Warning' if x >= media_geral * 0.7 else '🔴 Critical'
+    )
+    
+    col1, col2, col3 = st.columns(3)
+    
+    excellent = len(analise_clientes[analise_clientes['Status'] == '🟢 Excellent'])
+    warning = len(analise_clientes[analise_clientes['Status'] == '🟡 Warning'])
+    critical = len(analise_clientes[analise_clientes['Status'] == '🔴 Critical'])
+    
+    col1.metric("🟢 Excellent", excellent)
+    col2.metric("🟡 Warning", warning)
+    col3.metric("🔴 Critical", critical)
+    
+    st.markdown("---")
+    
+    st.subheader("📋 Customer Status Report")
     st.dataframe(analise_clientes, use_container_width=True)
-    st.download_button("📥 Exportar análise de alertas", data=gerar_excel(analise_clientes), file_name="alertas_clientes.xlsx")
     
-    # ALERTAS ESPECÍFICOS
-    st.markdown("### 🚨 Alertas Gerados")
-    
-    col_alerta1, col_alerta2 = st.columns(2)
-    
-    with col_alerta1:
-        # Clientes abaixo da média
-        clientes_abaixo = analise_clientes[analise_clientes['Média QTD'] < media_geral]
-        if not clientes_abaixo.empty:
-            st.warning(f"⚠️ {len(clientes_abaixo)} cliente(s) com média abaixo do esperado")
-            st.write(clientes_abaixo[['Cliente', 'Média QTD']].to_string(index=False))
-        else:
-            st.success("✅ Todos os clientes estão acima da média")
-    
-    with col_alerta2:
-        # Clientes críticos
-        clientes_criticos = analise_clientes[analise_clientes['Média QTD'] < (media_geral * 0.7)]
-        if not clientes_criticos.empty:
-            st.error(f"🔴 {len(clientes_criticos)} cliente(s) em estado CRÍTICO")
-            st.write(clientes_criticos[['Cliente', 'Média QTD']].to_string(index=False))
-        else:
-            st.info("ℹ️ Nenhum cliente em estado crítico")
-    
-    # Presença mensal
-    st.markdown("### 📋 Tabela de Presença Mensal por Cliente")
-    
-    todos_meses = sorted(df['mes'].dropna().unique())
-    presenca = dados_filtrados.groupby(['cliente', 'mes'])['qtd'].sum().unstack(fill_value=0)
-    presenca = presenca.reindex(columns=todos_meses, fill_value=0)
-
-    ausentes = presenca[presenca.eq(0)].astype(bool)
-    clientes_inativos = ausentes.any(axis=1)
-
-    if not clientes_inativos.any():
-        st.success("✅ Todos os clientes compraram em todos os meses disponíveis.")
+    # Critical Customers
+    st.subheader("🔴 Critical Alert Customers")
+    criticos = analise_clientes[analise_clientes['Status'] == '🔴 Critical']
+    if not criticos.empty:
+        st.error(f"⚠️ {len(criticos)} customers need immediate attention!")
+        st.dataframe(criticos, use_container_width=True)
     else:
-        st.error(f"⚠️ {clientes_inativos.sum()} clientes com meses em falta")
+        st.success("✅ No critical alerts!")
 
-        st.markdown("### 📋 Meses ausentes por cliente")
-        tabela_alerta = presenca.copy().astype(int)
-
-        def destacar_faltas(val):
-            return 'background-color: #f8d7da' if val == 0 else ''
-
-        tabela_alerta.index = tabela_alerta.index.astype(str)
-        st.dataframe(tabela_alerta.style.applymap(destacar_faltas))
-        st.download_button("📥 Exportar presença mensal", data=gerar_excel(tabela_alerta.reset_index()), file_name="presenca_clientes.xlsx")
-
-# --- Página: Histórico do Cliente ---
-elif pagina == "Histórico do Cliente":
-    st.subheader("📅 Histórico Mensal de Compras")
-
-    if cliente == "Todos":
-        st.info("👈 Seleciona um cliente na barra lateral para ver o histórico.")
+# --- PAGE 5: CUSTOMER ANALYSIS ---
+elif pagina == "👥 Customer Analysis":
+    st.title("👥 Customer Analysis")
+    
+    if cliente == "All":
+        st.info("👈 Select a specific customer in the sidebar")
     else:
-        dados_cliente = dados_filtrados[dados_filtrados['cliente'] == cliente]
-
-        if dados_cliente.empty:
-            st.warning("⚠️ Sem dados disponíveis para este cliente.")
+        cliente_data = dados_filtrados[dados_filtrados['cliente'] == cliente]
+        
+        if cliente_data.empty:
+            st.warning("No data available")
         else:
-            historico = (
-                dados_cliente
-                .groupby(['ano', 'mes'])['qtd']
-                .sum()
-                .reset_index()
-                .sort_values(['ano', 'mes'])
-                .rename(columns={'qtd': 'Qtd. Comprada'})
-            )
-
-            # Corrigir colunas para Arrow
-            for col in historico.select_dtypes(include='object').columns:
-                historico[col] = historico[col].astype(str)
-
-            st.markdown("### 📋 Tabela de Compras por Mês")
-            st.dataframe(historico)
-            st.download_button(
-                "📥 Exportar histórico do cliente",
-                data=gerar_excel(historico),
-                file_name=f"historico_{cliente}.xlsx"
-            )
-
-            # Análise de crescimento/queda
-            historico['Delta'] = historico['Qtd. Comprada'].diff()
-            historico['Crescimento'] = historico['Delta'] > 0
-            historico['Queda'] = historico['Delta'] < 0
-
-            fig = px.line(
+            # Customer Summary
+            st.subheader(f"📊 Customer Profile: {cliente}")
+            
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Total Quantity", f"{cliente_data['qtd'].sum():,.0f}")
+            col2.metric("Total Value", f"R$ {cliente_data['v_liquido'].sum():,.0f}")
+            col3.metric("Avg per Transaction", f"{cliente_data['qtd'].mean():,.2f}")
+            col4.metric("Transactions", len(cliente_data))
+            
+            # Trend
+            st.subheader("📈 Customer Trend")
+            historico = cliente_data.groupby(['ano', 'mes'])['qtd'].sum().reset_index()
+            historico = historico.sort_values(['ano', 'mes'])
+            
+            fig_historico = px.line(
                 historico,
                 x='mes',
-                y='Qtd. Comprada',
+                y='qtd',
                 markers=True,
-                title=f"Evolução Mensal - {cliente}",
-                labels={'Qtd. Comprada': 'Quantidade', 'mes': 'Mês'}
+                title=f"Monthly Performance - {cliente}",
+                color_discrete_sequence=['#6366f1']
             )
-
-            fig.add_scatter(
-                x=historico.loc[historico['Crescimento'], 'mes'],
-                y=historico.loc[historico['Crescimento'], 'Qtd. Comprada'],
-                mode='markers',
-                marker=dict(color='green', size=10, symbol='circle'),
-                name='Crescimento'
-            )
-
-            fig.add_scatter(
-                x=historico.loc[historico['Queda'], 'mes'],
-                y=historico.loc[historico['Queda'], 'Qtd. Comprada'],
-                mode='markers',
-                marker=dict(color='red', size=10, symbol='x'),
-                name='Queda'
-            )
-
-            fig.update_layout(xaxis_title="Mês", yaxis_title="Quantidade", legend_title="Indicador")
-            st.plotly_chart(fig, use_container_width=True)
-
-            # Comparação com média dos demais clientes
-            st.markdown("### 📊 Comparação com Média dos Clientes")
-            media_geral = (
-                df[df['cliente'] != cliente]
-                .groupby(['ano', 'mes'])['qtd']
-                .mean()
-                .reset_index()
-                .rename(columns={'qtd': 'Qtd. Média'})
-            )
-
-            comparativo = pd.merge(historico, media_geral, on=['ano', 'mes'], how='left')
-
-            fig_comp = px.line(
-                comparativo,
-                x='mes',
-                y=['Qtd. Comprada', 'Qtd. Média'],
-                markers=True,
-                labels={'value': 'Quantidade', 'variable': 'Indicador'},
-                title=f"Comparativo de Quantidade - {cliente} vs Média"
-            )
-            fig_comp.update_layout(xaxis_title="Mês", yaxis_title="Quantidade", legend_title="Indicador")
+            st.plotly_chart(fig_historico, use_container_width=True)
+            
+            # Comparison with others
+            st.subheader("🔄 vs. Market Average")
+            media_mercado = dados_filtrados.groupby(['ano', 'mes'])['qtd'].mean().reset_index()
+            
+            fig_comp = go.Figure()
+            fig_comp.add_trace(go.Scatter(x=historico['mes'], y=historico['qtd'], mode='lines+markers', name=cliente, line=dict(color='#6366f1', width=3)))
+            fig_comp.add_trace(go.Scatter(x=media_mercado['mes'], y=media_mercado['qtd'], mode='lines', name='Market Avg', line=dict(color='#94a3b8', width=2, dash='dash')))
+            
+            fig_comp.update_layout(title="Customer vs Market Trend", xaxis_title="Month", yaxis_title="Quantity", hovermode='x unified', template='plotly_dark')
             st.plotly_chart(fig_comp, use_container_width=True)
+            
+            # Data
+            st.dataframe(cliente_data, use_container_width=True)
 
-            # Destaque de crescimento
-            st.markdown("### 📈 Destaque de Crescimentos Mensais")
-            if st.button("🔍 Mostrar meses com crescimento"):
-                crescimentos = historico[historico['Delta'] > 0]
-                if crescimentos.empty:
-                    st.info("ℹ️ Não houve crescimento em relação ao mês anterior.")
-                else:
-                    st.success(f"✅ {len(crescimentos)} meses com crescimento detectado:")
-                    st.dataframe(crescimentos[['ano', 'mes', 'Qtd. Comprada', 'Delta']])
+# --- PAGE 6: COMPARATIVE VIEW ---
+else:
+    st.title("📊 Comparative Analysis")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        comp_metric1 = st.selectbox("Metric 1", ["qtd", "v_liquido", "pm"])
+        comp_groupby1 = st.selectbox("Group By 1", ["cliente", "comercial", "categoria"])
+    
+    with col2:
+        comp_top = st.slider("Top N Items", 5, 20, 10)
+    
+    # Get top items
+    top_items = dados_filtrados.groupby(comp_groupby1)[comp_metric1].sum().nlargest(comp_top)
+    
+    # Create comparative visualizations
+    fig_comp = make_subplots(
+        rows=1, cols=2,
+        specs=[[{"type": "bar"}, {"type": "pie"}]],
+        subplot_titles=("Bar Chart", "Pie Chart")
+    )
+    
+    fig_comp.add_trace(
+        go.Bar(x=top_items.index, y=top_items.values, marker=dict(color=top_items.values, colorscale='Viridis'), name=comp_metric1),
+        row=1, col=1
+    )
+    
+    fig_comp.add_trace(
+        go.Pie(labels=top_items.index, values=top_items.values, name=comp_metric1),
+        row=1, col=2
+    )
+    
+    fig_comp.update_layout(height=500, showlegend=False, template='plotly_dark')
+    st.plotly_chart(fig_comp, use_container_width=True)
+    
+    # Statistics
+    st.subheader("📈 Comparative Statistics")
+    comp_stats = pd.DataFrame({
+        comp_groupby1: top_items.index,
+        comp_metric1: top_items.values,
+        'Share %': (top_items.values / top_items.sum() * 100).round(2)
+    })
+    
+    st.dataframe(comp_stats, use_container_width=True)
+    st.download_button("📥 Export Analysis", data=gerar_excel(comp_stats), file_name="comparative_analysis.xlsx")
