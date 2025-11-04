@@ -239,6 +239,12 @@ color_scale_primary = ['#ff006e', '#8338ec', '#3a86ff', '#06ffa5', '#ffbe0b']
 color_scale_gradient = 'Viridis'
 template_chart = 'plotly_dark'
 
+month_names_pt = {
+    1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril',
+    5: 'Maio', 6: 'Junho', 7: 'Julho', 8: 'Agosto',
+    9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
+}
+
 # --- PAGE 1: OVERVIEW ---
 if pagina == "📈 Overview":
     st.title("📊 KPI Dashboard Overview")
@@ -487,12 +493,6 @@ elif pagina == "⚠️ Alerts":
         unique_months = sorted(dados_filtrados['mes'].unique())
         expected_months = set(unique_months)
         
-        month_names = {
-            1: 'January', 2: 'February', 3: 'March', 4: 'April',
-            5: 'May', 6: 'June', 7: 'July', 8: 'August',
-            9: 'September', 10: 'October', 11: 'November', 12: 'December'
-        }
-        
         # Check which customers bought in every month
         customer_months = dados_filtrados.groupby('cliente')['mes'].apply(lambda x: set(x.unique())).reset_index()
         customer_months.columns = ['cliente', 'months_purchased']
@@ -516,30 +516,23 @@ elif pagina == "⚠️ Alerts":
             # Calculate gap percentage
             display_gaps['Gap %'] = (display_gaps['Months with Gap'] / display_gaps['Expected Months'] * 100).round(1)
             
-            # Function to safely convert month numbers to names
-            def safe_convert_month(x):
+            def safe_convert_month_pt(x):
                 if not isinstance(x, set) or len(x) == 0:
                     return 'N/A'
-                
-                month_names = {
-                    1: 'January', 2: 'February', 3: 'March', 4: 'April',
-                    5: 'May', 6: 'June', 7: 'July', 8: 'August',
-                    9: 'September', 10: 'October', 11: 'November', 12: 'December'
-                }
                 
                 try:
                     month_list = []
                     for m in sorted(list(x)):
                         try:
                             month_num = int(float(m))
-                            month_list.append(month_names.get(month_num, f'Month {month_num}'))
+                            month_list.append(month_names_pt.get(month_num, f'Mês {month_num}'))
                         except (ValueError, TypeError):
-                            month_list.append(f'Month {m}')
+                            month_list.append(f'Mês {m}')
                     return ', '.join(month_list)
-                except Exception:
-                    return 'Error reading months'
+                except Exception as e:
+                    return 'Erro ao ler meses'
             
-            display_gaps['Missing Month Names'] = display_gaps['Missing Months'].apply(safe_convert_month)
+            display_gaps['Missing Month Names'] = display_gaps['Missing Months'].apply(safe_convert_month_pt)
             
             # Format final display table with percentage as primary column
             final_display = display_gaps[['Customer', 'Months Purchased', 'Expected Months', 'Gap %', 'Missing Month Names']].copy()
@@ -571,15 +564,15 @@ elif pagina == "👥 Customer Analysis":
     st.title("👥 Customer Analysis")
     
     if cliente == "All":
-        st.info("👈 Select a specific customer in the sidebar")
+        st.info("👈 Selecione um cliente específico no painel lateral")
     else:
         cliente_data = dados_filtrados[dados_filtrados['cliente'] == cliente]
         
         if cliente_data.empty:
-            st.warning("No data available")
+            st.warning("Não disponível")
         else:
             # Customer Summary
-            st.subheader(f"📊 Customer Profile: {cliente}")
+            st.subheader(f"📊 Perfil do Cliente: {cliente}")
             
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("Total Quantity", f"{cliente_data['qtd'].sum():,.0f}")
@@ -621,9 +614,9 @@ elif pagina == "👥 Customer Analysis":
             media_mercado = media_mercado.rename(columns={'qtd': 'market_qtd'})
             
             # Merge to align periods
-            comparison_data = historico[['period', 'qtd']].rename(columns={'qtd': 'Customer'})
+            comparison_data = historico[['period', 'qtd']].rename(columns={'qtd': 'Cliente'})
             comparison_data = comparison_data.merge(
-                media_mercado[['period', 'market_qtd']].rename(columns={'market_qtd': 'Market Average'}),
+                media_mercado[['period', 'market_qtd']].rename(columns={'market_qtd': 'Média do Mercado'}),
                 on='period',
                 how='outer'
             ).fillna(0)
@@ -633,24 +626,24 @@ elif pagina == "👥 Customer Analysis":
             # Customer line
             fig_comp.add_trace(go.Scatter(
                 x=comparison_data['period'], 
-                y=comparison_data['Customer'], 
+                y=comparison_data['Cliente'], 
                 mode='lines+markers', 
                 name=cliente, 
                 line=dict(color='#ff006e', width=3),
                 marker=dict(size=8),
-                text=comparison_data['Customer'].astype(str),
+                text=comparison_data['Cliente'].astype(str),
                 textposition='top center'
             ))
             
             # Market average line
             fig_comp.add_trace(go.Scatter(
                 x=comparison_data['period'], 
-                y=comparison_data['Market Average'], 
+                y=comparison_data['Média do Mercado'], 
                 mode='lines+markers', 
-                name='Market Avg', 
+                name='Média do Mercado', 
                 line=dict(color='#00f5ff', width=2, dash='dash'),
                 marker=dict(size=6),
-                text=comparison_data['Market Average'].astype(str),
+                text=comparison_data['Média do Mercado'].astype(str),
                 textposition='bottom center'
             ))
             
@@ -667,14 +660,14 @@ elif pagina == "👥 Customer Analysis":
             # Display comparison metrics
             st.subheader("📊 Performance Comparison")
             comp_metrics = pd.DataFrame({
-                'Metric': ['Total Quantity', 'Average Monthly', 'Best Month', 'Worst Month'],
+                'Metrica': ['Total Quantity', 'Average Monthly', 'Best Month', 'Worst Month'],
                 cliente: [
                     f"{historico['qtd'].sum():,.0f}",
                     f"{historico['qtd'].mean():,.0f}",
                     f"{historico['qtd'].max():,.0f}",
                     f"{historico['qtd'].min():,.0f}"
                 ],
-                'Market Average': [
+                'Média do Mercado': [
                     f"{media_mercado['market_qtd'].sum():,.0f}",
                     f"{media_mercado['market_qtd'].mean():,.0f}",
                     f"{media_mercado['market_qtd'].max():,.0f}",
@@ -684,7 +677,7 @@ elif pagina == "👥 Customer Analysis":
             st.dataframe(comp_metrics, use_container_width=True)
             
             # Data
-            st.subheader("📋 Detailed Customer Data")
+            st.subheader("📋 Dados Detalhados do Cliente")
             st.dataframe(cliente_data, use_container_width=True)
 
 # --- PAGE 6: COMPARATIVE VIEW ---
@@ -694,11 +687,11 @@ else:
     col1, col2 = st.columns(2)
     
     with col1:
-        comp_metric1 = st.selectbox("Metric 1", ["qtd", "v_liquido", "pm"])
-        comp_groupby1 = st.selectbox("Group By 1", ["cliente", "comercial", "categoria"])
+        comp_metric1 = st.selectbox("Metrica 1", ["qtd", "v_liquido", "pm"])
+        comp_groupby1 = st.selectbox("Agrupar Por 1", ["cliente", "comercial", "categoria"])
     
     with col2:
-        comp_top = st.slider("Top N Items", 5, 20, 10)
+        comp_top = st.slider("Top N Itens", 5, 20, 10)
     
     # Get top items
     top_items = dados_filtrados.groupby(comp_groupby1)[comp_metric1].sum().nlargest(comp_top)
@@ -707,7 +700,7 @@ else:
     fig_comp = make_subplots(
         rows=1, cols=2,
         specs=[[{"type": "bar"}, {"type": "pie"}]],
-        subplot_titles=("Bar Chart", "Pie Chart")
+        subplot_titles=("Gráfico de Barras", "Gráfico de Pizza")
     )
     
     fig_comp.add_trace(
@@ -737,4 +730,4 @@ else:
     })
     
     st.dataframe(comp_stats, use_container_width=True)
-    st.download_button("📥 Export Analysis", data=gerar_excel(comp_stats), file_name="comparative_analysis.xlsx")
+    st.download_button("📥 Exportar Análise", data=gerar_excel(comp_stats), file_name="comparative_analysis.xlsx")
