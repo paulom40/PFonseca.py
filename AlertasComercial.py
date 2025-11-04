@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 from io import BytesIO
-import unicodedata
 
 # --- Estilo CSS moderno ---
 st.markdown("""
@@ -33,13 +32,14 @@ def carregar_dados():
         .str.strip()
         .str.lower()
         .str.replace(" ", "_")
+        .str.replace(".", "", regex=False)
         .str.normalize('NFKD')
         .str.encode('ascii', errors='ignore')
         .str.decode('utf-8')
     )
 
     # Verificação de colunas obrigatórias
-    obrigatorias = ['cliente', 'comercial', 'ano', 'mes', 'quantidade']
+    obrigatorias = ['cliente', 'comercial', 'ano', 'mes', 'qtd']
     faltantes = [col for col in obrigatorias if col not in df.columns]
     if faltantes:
         st.error(f"⚠️ Colunas ausentes no ficheiro: {faltantes}")
@@ -62,7 +62,7 @@ comercial = st.sidebar.selectbox("Seleciona o Comercial", comerciais)
 
 # --- Dados filtrados ---
 dados_filtrados = df[(df['ano'] == ano) & (df['comercial'] == comercial)]
-agrupado = dados_filtrados.groupby(['cliente', 'comercial', 'ano', 'mes'])['quantidade'].sum().reset_index()
+agrupado = dados_filtrados.groupby(['cliente', 'comercial', 'ano', 'mes'])['qtd'].sum().reset_index()
 
 # --- Função para exportar Excel ---
 def gerar_excel(dados):
@@ -101,7 +101,7 @@ elif pagina == "Gráficos":
     st.subheader("📉 Quantidade por Cliente ao Longo dos Meses")
 
     pivot_cliente = df[df['ano'] == ano].pivot_table(
-        index='mes', columns='cliente', values='quantidade', aggfunc='sum'
+        index='mes', columns='cliente', values='qtd', aggfunc='sum'
     ).fillna(0)
 
     fig1, ax1 = plt.subplots(figsize=(10, 5))
@@ -114,7 +114,7 @@ elif pagina == "Gráficos":
     st.subheader("📈 Evolução Mensal por Comercial")
 
     pivot_comercial = df[df['ano'] == ano].pivot_table(
-        index='mes', columns='comercial', values='quantidade', aggfunc='sum'
+        index='mes', columns='comercial', values='qtd', aggfunc='sum'
     ).fillna(0)
 
     fig2, ax2 = plt.subplots(figsize=(10, 5))
