@@ -47,6 +47,7 @@ def carregar_dados():
 
     df['ano'] = pd.to_numeric(df['ano'], errors='coerce')
     df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
+    df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce')
     return df
 
 df = carregar_dados()
@@ -113,7 +114,7 @@ elif pagina == "Gráficos":
     ).fillna(0)
 
     if pivot_cliente.empty or not pivot_cliente.select_dtypes(include='number').any().any():
-        st.warning("⚠️ Não há dados numéricos disponíveis para o gráfico de clientes.")
+        st.warning("⚠️ Sem dados numéricos para o gráfico de clientes.")
     else:
         fig1, ax1 = plt.subplots(figsize=(10, 5))
         pivot_cliente.plot(kind='bar', stacked=True, ax=ax1, colormap='tab20')
@@ -129,7 +130,7 @@ elif pagina == "Gráficos":
     ).fillna(0)
 
     if pivot_comercial.empty or not pivot_comercial.select_dtypes(include='number').any().any():
-        st.warning("⚠️ Não há dados numéricos disponíveis para o gráfico de comerciais.")
+        st.warning("⚠️ Sem dados numéricos para o gráfico de comerciais.")
     else:
         fig2, ax2 = plt.subplots(figsize=(10, 5))
         pivot_comercial.plot(kind='line', marker='o', ax=ax2, colormap='Set1')
