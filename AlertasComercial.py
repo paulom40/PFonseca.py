@@ -123,19 +123,33 @@ def carregar_dados():
         'cliente': ['cliente', 'Cliente', 'CLIENTE'],
         'comercial': ['comercial', 'Comercial', 'COMERCIAL'],
         'ano': ['ano', 'Ano', 'ANO'],
-        'mes': ['mes', 'Mês', 'mes', 'Mês'],  # Keep accent variants
-        'qtd': ['qtd', 'Qtd', 'QTD', 'quantidade', 'Quantidade', 'QUANTIDADE'],
-        'v_liquido': ['v_liquido', 'V_Liquido', 'vl_liquido', 'valor_liquido', 'V_LIQUIDO'],
-        'pm': ['pm', 'PM', 'preco_medio', 'Preco_Medio', 'preço_médio'],
-        'categoria': ['categoria', 'Categoria', 'CATEGORIA', 'segmento', 'Segmento']
+        'mes': ['mes', 'Mês', 'mês', 'MÊS'],  # Handle all case variants of Mês
+        'qtd': ['qtd', 'Qtd', 'QTD', 'Qtd.', 'quantidade', 'Quantidade', 'QUANTIDADE'],  # Added 'Qtd.' with dot
+        'v_liquido': ['v_liquido', 'V_Liquido', 'V. Líquido', 'vl_liquido', 'valor_liquido', 'V_LIQUIDO', 'V. LÍQUIDO'],
+        'pm': ['pm', 'PM', 'preco_medio', 'Preco_Medio', 'preço_médio', 'Preço Médio'],
+        'categoria': ['categoria', 'Categoria', 'CATEGORIA', 'segmento', 'Segmento'],
+        'artigo': ['artigo', 'Artigo', 'ARTIGO'],
+        'codigo': ['código', 'Código', 'CÓDIGO', 'Cod.', 'cod', 'codigo', 'Codigo'],
+        'un': ['un', 'UN', 'unidade', 'Unidade', 'UNIDADE']
     }
     
     # Map each original column to standardized name
     for original_col in original_columns:
+        col_matched = False
         for standard_name, variants in expected_cols.items():
-            # Check exact match first, then case-insensitive
-            if original_col in variants or original_col.lower() in [v.lower() for v in variants]:
+            # Direct match first (preserves exact names like 'Qtd.')
+            if original_col in variants:
                 col_map[original_col] = standard_name
+                col_matched = True
+                break
+            # Then try case-insensitive match
+            if not col_matched:
+                for variant in variants:
+                    if original_col.lower() == variant.lower():
+                        col_map[original_col] = standard_name
+                        col_matched = True
+                        break
+            if col_matched:
                 break
     
     # Rename columns
@@ -143,6 +157,7 @@ def carregar_dados():
     
     # Log available columns for debugging
     st.write(f"[DEBUG] Mapped columns: {list(df.columns)}")
+    st.write(f"[DEBUG] Column mapping used: {col_map}")
     
     # Verify critical columns exist
     critical_cols = ['mes', 'qtd', 'ano', 'cliente', 'comercial']
