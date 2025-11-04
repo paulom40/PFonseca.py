@@ -132,11 +132,10 @@ def get_opcoes_dinamicas(dados, filtros_atuais):
 opcoes = get_opcoes_dinamicas(dados_base, None)
 
 # Selecionar filtros
+anos_lista = list(opcoes['anos'])
 ano = st.sidebar.selectbox(
     "Seleciona o Ano",
-    ["Todos"] + opcoes['anos'],
-    index=["Todos"] + opcoes['anos'].tolist().index(st.session_state.ano_selecionado) 
-    if st.session_state.ano_selecionado in ["Todos"] + opcoes['anos'].tolist() else 0
+    ["Todos"] + anos_lista
 )
 st.session_state.ano_selecionado = ano
 
