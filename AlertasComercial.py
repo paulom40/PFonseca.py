@@ -116,44 +116,52 @@ def carregar_dados():
     
     original_columns = df.columns.tolist()
     
-    # Create mapping from original columns to standardized names
+    # Define expected columns with their variants (keep accent variants!)
     col_map = {}
     
-    # Define expected columns with their variants (keep accent variants!)
-    esperadas = {
-        'cliente': ['cliente', 'Cliente'],
-        'comercial': ['comercial', 'Comercial'],
-        'ano': ['ano', 'Ano'],
-        'mes': ['mes', 'mês', 'Mês', 'month', 'Month'],  # Keep accent variants
-        'qtd': ['qtd', 'Qtd', 'QTD', 'quantidade', 'Quantidade'],
-        'v_liquido': ['v_liquido', 'V_Liquido', 'vl_liquido', 'valor_liquido', 'value'],
-        'pm': ['pm', 'PM', 'preco_medio', 'preço_médio'],
-        'categoria': ['categoria', 'segmento', 'category']
+    expected_cols = {
+        'cliente': ['cliente', 'Cliente', 'CLIENTE'],
+        'comercial': ['comercial', 'Comercial', 'COMERCIAL'],
+        'ano': ['ano', 'Ano', 'ANO'],
+        'mes': ['mes', 'Mês', 'mes', 'Mês'],  # Keep accent variants
+        'qtd': ['qtd', 'Qtd', 'QTD', 'quantidade', 'Quantidade', 'QUANTIDADE'],
+        'v_liquido': ['v_liquido', 'V_Liquido', 'vl_liquido', 'valor_liquido', 'V_LIQUIDO'],
+        'pm': ['pm', 'PM', 'preco_medio', 'Preco_Medio', 'preço_médio'],
+        'categoria': ['categoria', 'Categoria', 'CATEGORIA', 'segmento', 'Segmento']
     }
     
-    # Map original columns to standardized names
-    for chave, variantes in esperadas.items():
-        for col in original_columns:
-            # Check if column name matches any variant (exact match first)
-            if col in variantes or col.lower() in [v.lower() for v in variantes]:
-                col_map[col] = chave
+    # Map each original column to standardized name
+    for original_col in original_columns:
+        for standard_name, variants in expected_cols.items():
+            # Check exact match first, then case-insensitive
+            if original_col in variants or original_col.lower() in [v.lower() for v in variants]:
+                col_map[original_col] = standard_name
                 break
     
-    # Rename columns using the mapping
+    # Rename columns
     df = df.rename(columns=col_map)
     
+    # Log available columns for debugging
+    st.write(f"[DEBUG] Mapped columns: {list(df.columns)}")
+    
     # Verify critical columns exist
-    if 'mes' not in df.columns:
-        st.error(f"❌ Column 'mes' not found! Available columns: {list(df.columns)}")
+    critical_cols = ['mes', 'qtd', 'ano', 'cliente', 'comercial']
+    missing_cols = [col for col in critical_cols if col not in df.columns]
+    
+    if missing_cols:
+        st.error(f"❌ Missing critical columns: {missing_cols}")
+        st.info(f"✓ Available columns: {list(df.columns)}")
         st.info(f"Original columns: {original_columns}")
         return pd.DataFrame()
     
     df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
-    
     df['ano'] = pd.to_numeric(df['ano'], errors='coerce')
     df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce')
     df['v_liquido'] = pd.to_numeric(df['v_liquido'], errors='coerce')
     df['pm'] = pd.to_numeric(df['pm'], errors='coerce')
+    
+    # Remove rows with NaN values in critical columns
+    df = df.dropna(subset=['mes', 'qtd', 'ano', 'cliente', 'comercial'])
     
     return df
 
