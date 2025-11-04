@@ -8,6 +8,7 @@ from plotly.subplots import make_subplots
 from io import BytesIO
 import unicodedata
 from datetime import datetime, timedelta
+import requests
 
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="Customer KPI Dashboard", layout="wide", initial_sidebar_state="expanded")
@@ -113,7 +114,11 @@ st.markdown("""
 def carregar_dados():
     try:
         url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Vendas_Globais.xlsx"
-        df = pd.read_excel(url)
+        
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        
+        df = pd.read_excel(BytesIO(response.content))
         
         original_columns = df.columns.tolist()
         
