@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 from io import BytesIO
+import unicodedata
 
 # --- Estilo CSS moderno ---
 st.markdown("""
@@ -18,17 +19,34 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- Configuração da página ---
 st.set_page_config(page_title="Compras por Cliente", layout="wide")
 st.title("📦 Dashboard de Compras")
 
-# --- Função para carregar dados ---
 @st.cache_data
 def carregar_dados():
     url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
     df = pd.read_excel(url)
-    df['Ano'] = pd.to_numeric(df['Ano'], errors='coerce')
-    df['Mes'] = pd.to_numeric(df['Mes'], errors='coerce')
+
+    # Normalizar nomes de colunas
+    df.columns = (
+        df.columns
+        .str.strip()
+        .str.lower()
+        .str.replace(" ", "_")
+        .str.normalize('NFKD')
+        .str.encode('ascii', errors='ignore')
+        .str.decode('utf-8')
+    )
+
+    # Verificação de colunas obrigatórias
+    obrigatorias = ['cliente', 'comercial', 'ano', 'mes', 'quantidade']
+    faltantes = [col for col in obrigatorias if col not in df.columns]
+    if faltantes:
+        st.error(f"⚠️ Colunas ausentes no ficheiro: {faltantes}")
+        st.stop()
+
+    df['ano'] = pd.to_numeric(df['ano'], errors='coerce')
+    df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
     return df
 
 df = carregar_dados()
@@ -36,15 +54,15 @@ df = carregar_dados()
 st.sidebar.title("📂 Navegação")
 pagina = st.sidebar.radio("Ir para:", ["Visão Geral", "Gráficos", "Alertas"])
 
-anos = sorted(df['Ano'].dropna().unique())
-comerciais = sorted(df['Comercial'].dropna().unique())
+anos = sorted(df['ano'].dropna().unique())
+comerciais = sorted(df['comercial'].dropna().unique())
 
 ano = st.sidebar.selectbox("Seleciona o Ano", anos)
 comercial = st.sidebar.selectbox("Seleciona o Comercial", comerciais)
 
 # --- Dados filtrados ---
-dados_filtrados = df[(df['Ano'] == ano) & (df['Comercial'] == comercial)]
-agrupado = dados_filtrados.groupby(['Cliente', 'Comercial', 'Ano', 'Mes'])['Quantidade'].sum().reset_index()
+dados_filtrados = df[(df['ano'] == ano) & (df['comercial'] == comercial)]
+agrupado = dados_filtrados.groupby(['cliente', 'comercial', 'ano', 'mes'])['quantidade'].sum().reset_index()
 
 # --- Função para exportar Excel ---
 def gerar_excel(dados):
@@ -57,9 +75,9 @@ if pagina == "Visão Geral":
     st.subheader("📊 Compras por Cliente")
 
     col1, col2, col3 = st.columns(3)
-    col1.metric("👥 Clientes únicos", df['Cliente'].nunique())
-    col2.metric("📅 Meses no período", df['Mes'].nunique())
-    col3.metric("🧑‍💼 Comerciais", df['Comercial'].nunique())
+    col1.metric("👥 Clientes únicos", df['cliente'].nunique())
+    col2.metric("📅 Meses no período", df['mes'].nunique())
+    col3.metric("🧑‍💼 Comerciais", df['comercial'].nunique())
 
     st.dataframe(agrupado)
 
@@ -71,8 +89,8 @@ elif pagina == "Alertas":
     st.subheader("🚨 Clientes que não compraram todos os meses")
 
     def clientes_inativos(df):
-        todos_meses = sorted(df['Mes'].unique())
-        meses_por_cliente = df.groupby('Cliente')['Mes'].unique()
+        todos_meses = sorted(df['mes'].unique())
+        meses_por_cliente = df.groupby('cliente')['mes'].unique()
         return [cliente for cliente, meses in meses_por_cliente.items() if len(set(meses)) < len(todos_meses)]
 
     inativos = clientes_inativos(df)
@@ -82,8 +100,8 @@ elif pagina == "Alertas":
 elif pagina == "Gráficos":
     st.subheader("📉 Quantidade por Cliente ao Longo dos Meses")
 
-    pivot_cliente = df[df['Ano'] == ano].pivot_table(
-        index='Mes', columns='Cliente', values='Quantidade', aggfunc='sum'
+    pivot_cliente = df[df['ano'] == ano].pivot_table(
+        index='mes', columns='cliente', values='quantidade', aggfunc='sum'
     ).fillna(0)
 
     fig1, ax1 = plt.subplots(figsize=(10, 5))
@@ -95,8 +113,8 @@ elif pagina == "Gráficos":
 
     st.subheader("📈 Evolução Mensal por Comercial")
 
-    pivot_comercial = df[df['Ano'] == ano].pivot_table(
-        index='Mes', columns='Comercial', values='Quantidade', aggfunc='sum'
+    pivot_comercial = df[df['ano'] == ano].pivot_table(
+        index='mes', columns='comercial', values='quantidade', aggfunc='sum'
     ).fillna(0)
 
     fig2, ax2 = plt.subplots(figsize=(10, 5))
