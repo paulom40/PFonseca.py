@@ -304,56 +304,45 @@ elif pagina == "🎯 Custom KPIs":
     
     with col1:
         kpi_name = st.text_input("KPI Name", value="Revenue Growth")
-        kpi_metric = st.selectbox("Select Metric", ["Sum", "Average", "Max", "Min", "Count", "Median"])
-        kpi_field = "qtd"
-        kpi_groupby = st.selectbox("Group By", ["mes", "cliente", "comercial", "categoria"])
+        st.info("📊 KPI displays monthly performance (Sum of Quantity)")
     
     with col2:
         kpi_period = st.selectbox("Period", ["Monthly", "Quarterly", "Yearly"])
         show_trend = st.checkbox("Show Trend Line", value=True)
-        show_forecast = st.checkbox("Show Forecast", value=False)
     
-    # Calculate KPI
-    if kpi_metric == "Sum":
-        kpi_data = dados_filtrados.groupby(kpi_groupby)[kpi_field].sum()
-    elif kpi_metric == "Average":
-        kpi_data = dados_filtrados.groupby(kpi_groupby)[kpi_field].mean()
-    elif kpi_metric == "Max":
-        kpi_data = dados_filtrados.groupby(kpi_groupby)[kpi_field].max()
-    elif kpi_metric == "Min":
-        kpi_data = dados_filtrados.groupby(kpi_groupby)[kpi_field].min()
-    elif kpi_metric == "Count":
-        kpi_data = dados_filtrados.groupby(kpi_groupby)[kpi_field].count()
+    if dados_filtrados.empty:
+        st.warning("⚠️ No data available for selected filters. Please adjust your filters.")
     else:
-        kpi_data = dados_filtrados.groupby(kpi_groupby)[kpi_field].median()
-    
-    kpi_data = kpi_data.sort_values(ascending=False)
-    
-    kpi_df = kpi_data.reset_index()
-    kpi_df.columns = [kpi_groupby, 'value']
-    
-    # Display KPI with vibrant colors
-    fig_kpi = px.bar(
-        kpi_df,
-        x=kpi_groupby,
-        y='value',
-        title=f"{kpi_name} - {kpi_metric}({kpi_field})",
-        labels={'value': 'Quantity (Sum)', kpi_groupby: kpi_groupby.title()},
-        color='value',
-        color_continuous_scale='Rainbow'
-    )
-    fig_kpi.update_layout(template=template_chart, showlegend=False)
-    st.plotly_chart(fig_kpi, use_container_width=True)
-    
-    # Summary
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("🔝 Maximum", f"{kpi_data.max():,.2f}")
-    col2.metric("📉 Minimum", f"{kpi_data.min():,.2f}")
-    col3.metric("📊 Average", f"{kpi_data.mean():,.2f}")
-    col4.metric("📈 Median", f"{kpi_data.median():,.2f}")
-    
-    # Data Table
-    st.dataframe(kpi_df.rename(columns={'value': kpi_name}), use_container_width=True)
+        # Prepare KPI data - always sum qtd by month
+        kpi_data = dados_filtrados.groupby('mes')['qtd'].sum().reset_index()
+        kpi_data.columns = ['mes', 'value']
+        kpi_data = kpi_data.sort_values('mes')
+        
+        # Display KPI with vibrant colors
+        fig_kpi = px.bar(
+            kpi_data,
+            x='mes',
+            y='value',
+            title=f"Monthly Performance - {kpi_name}",
+            labels={'value': 'Quantity (Sum)', 'mes': 'Month'},
+            color='value',
+            text='value',
+            color_continuous_scale='Rainbow'
+        )
+        fig_kpi.update_traces(textposition='outside', textfont=dict(color='#00f5ff'))
+        fig_kpi.update_layout(template=template_chart, showlegend=False, xaxis_title="Month", yaxis_title="Quantity (Sum)")
+        st.plotly_chart(fig_kpi, use_container_width=True)
+        
+        # Summary
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("🔝 Maximum", f"{kpi_data['value'].max():,.0f}")
+        col2.metric("📉 Minimum", f"{kpi_data['value'].min():,.0f}")
+        col3.metric("📊 Average", f"{kpi_data['value'].mean():,.2f}")
+        col4.metric("📈 Median", f"{kpi_data['value'].median():,.2f}")
+        
+        # Data Table
+        st.subheader("📋 Monthly KPI Data")
+        st.dataframe(kpi_data, use_container_width=True)
 
 # --- PAGE 3: TRENDS ---
 elif pagina == "📉 Trends":
