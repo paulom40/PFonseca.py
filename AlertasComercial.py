@@ -329,13 +329,17 @@ elif pagina == "🎯 Custom KPIs":
     
     kpi_data = kpi_data.sort_values(ascending=False)
     
+    kpi_df = kpi_data.reset_index()
+    kpi_df.columns = [kpi_groupby, 'value']
+    
     # Display KPI with vibrant colors
     fig_kpi = px.bar(
-        x=kpi_data.index,
-        y=kpi_data.values,
+        kpi_df,
+        x=kpi_groupby,
+        y='value',
         title=f"{kpi_name} - {kpi_metric}({kpi_field})",
-        labels={'x': kpi_groupby.title(), 'y': 'Value'},
-        color=kpi_data.values,
+        labels={'value': 'Value', kpi_groupby: kpi_groupby.title()},
+        color='value',
         color_continuous_scale='Rainbow'
     )
     fig_kpi.update_layout(template=template_chart, showlegend=False)
@@ -349,7 +353,7 @@ elif pagina == "🎯 Custom KPIs":
     col4.metric("📈 Median", f"{kpi_data.median():,.2f}")
     
     # Data Table
-    st.dataframe(kpi_data.reset_index().rename(columns={0: kpi_name}), use_container_width=True)
+    st.dataframe(kpi_df.rename(columns={'value': kpi_name}), use_container_width=True)
 
 # --- PAGE 3: TRENDS ---
 elif pagina == "📉 Trends":
