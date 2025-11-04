@@ -148,12 +148,12 @@ st.markdown("""
 st.markdown("""
 <div class="main-header">
     <h1 style="margin:0; font-size: 2.5rem;">📊 DASHBOARD VENDAS GLOBAIS</h1>
-    <p style="margin:0; opacity: 0.9; font-size: 1.1rem;">Análise Comparativa de Vendas - VGlob2425</p>
+    <p style="margin:0; opacity: 0.9; font-size: 1.1rem;">Análise de Vendas - VGlob2425</p>
 </div>
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------
-# 1. LOAD FROM GITHUB
+# 1. LOAD FROM GITHUB - VERSÃO CORRIGIDA
 # -------------------------------------------------
 @st.cache_data(ttl=3600)
 def load():
@@ -165,46 +165,135 @@ def load():
         st.error(f"❌ Erro ao carregar Excel: {e}")
         st.stop()
 
-    # Verificar número de colunas
-    if df.shape[1] < 11:
-        st.error(f"⚠️ Arquivo tem apenas {df.shape[1]} colunas. Esperado: 11.")
+    # VERIFICAR ESTRUTURA REAL DO ARQUIVO
+    st.info(f"📋 Estrutura do arquivo: {df.shape[1]} colunas, {df.shape[0]} linhas")
+    
+    # Mostrar as colunas disponíveis
+    st.write("🔍 **Colunas disponíveis no arquivo:**")
+    for i, col in enumerate(df.columns):
+        st.write(f"   {i+1}. {col}")
+    
+    # Verificar número de colunas e adaptar
+    num_colunas = df.shape[1]
+    
+    if num_colunas == 6:
+        st.warning("⚠️ Arquivo tem 6 colunas. Adaptando estrutura...")
+        # Mapear as 6 colunas para nomes padrão baseado na estrutura típica
+        # Assumindo a estrutura: Código, Cliente, Qtd, UN, V. Líquido, Artigo
+        cols = ["Código", "Cliente", "Qtd.", "UN", "V. Líquido", "Artigo"]
+        df = df.iloc[:, :6].copy()
+        df.columns = cols
+        
+        # Adicionar colunas faltantes com valores padrão
+        df["Comercial"] = "Não Especificado"
+        df["Categoria"] = "Geral"
+        df["Mês"] = "Julho"  # Valor padrão
+        df["Ano"] = 2024     # Valor padrão
+        
+    elif num_colunas >= 11:
+        # Usar estrutura completa se tiver 11+ colunas
+        cols = ["Código","Cliente","Qtd.","UN","PM","V. Líquido",
+                "Artigo","Comercial","Categoria","Mês","Ano"]
+        df = df.iloc[:, :11].copy()
+        df.columns = cols
+    else:
+        # Estrutura personalizada para outros casos
+        st.warning(f"⚠️ Estrutura personalizada com {num_colunas} colunas")
+        # Manter colunas originais e tentar mapear
+        available_cols = list(df.columns)
+        st.write("📝 **Mapeamento de colunas:**", available_cols)
+        
+        # Tentar identificar colunas chave
+        col_mapping = {}
+        for col in available_cols:
+            col_lower = str(col).lower()
+            if 'cliente' in col_lower:
+                col_mapping[col] = 'Cliente'
+            elif 'artigo' in col_lower or 'produto' in col_lower:
+                col_mapping[col] = 'Artigo'
+            elif 'comercial' in col_lower or 'vendedor' in col_lower:
+                col_mapping[col] = 'Comercial'
+            elif 'valor' in col_lower or 'líquido' in col_lower or 'preço' in col_lower:
+                col_mapping[col] = 'V. Líquido'
+            elif 'quant' in col_lower or 'qtd' in col_lower:
+                col_mapping[col] = 'Qtd.'
+            elif 'mês' in col_lower or 'mes' in col_lower:
+                col_mapping[col] = 'Mês'
+            elif 'ano' in col_lower:
+                col_mapping[col] = 'Ano'
+        
+        # Renomear colunas identificadas
+        df = df.rename(columns=col_mapping)
+        
+        # Adicionar colunas faltantes se necessário
+        required_cols = ['Cliente', 'Artigo', 'V. Líquido', 'Mês', 'Ano']
+        for col in required_cols:
+            if col not in df.columns:
+                if col == 'Mês':
+                    df[col] = 'Julho'
+                elif col == 'Ano':
+                    df[col] = 2024
+                elif col == 'Comercial':
+                    df[col] = 'Não Especificado'
+                elif col == 'Categoria':
+                    df[col] = 'Geral'
+
+    # Limpeza básica dos dados
+    df = df.dropna(subset=["Cliente", "Artigo"])
+    
+    # Garantir que temos as colunas mínimas necessárias
+    required_minimum = ['Cliente', 'Artigo', 'V. Líquido']
+    missing_cols = [col for col in required_minimum if col not in df.columns]
+    if missing_cols:
+        st.error(f"❌ Colunas essenciais em falta: {missing_cols}")
         st.stop()
 
-    # Renomear apenas as primeiras 11 colunas
-    cols = ["Código","Cliente","Qtd.","UN","PM","V. Líquido",
-            "Artigo","Comercial","Categoria","Mês","Ano"]
-    df = df.iloc[:, :11].copy()
-    df.columns = cols
-
-    df = df.dropna(subset=["Cliente","Comercial","Artigo","Mês","Ano"])
+    # Processar Mês e Ano
+    if 'Mês' not in df.columns:
+        df['Mês'] = 'Julho'
+    
+    if 'Ano' not in df.columns:
+        df['Ano'] = 2024
 
     # Normalizar mês
     df["Mês"] = df["Mês"].astype(str).str.strip().str.lower().apply(unidecode)\
                 .str.replace(r"[^a-z]","",regex=True)
+    
     meses = {m:i for i,m in enumerate("janeiro fevereiro marco abril maio junho julho agosto setembro outubro novembro dezembro".split(),1)}
     df["Mês_Num"] = df["Mês"].map(meses)
 
+    # Se houver meses inválidos, usar valor padrão
     if df["Mês_Num"].isna().any():
-        bad = df[df["Mês_Num"].isna()]["Mês"].unique()
-        st.error(f"❌ Meses inválidos: {', '.join(sorted(bad))}")
-        st.stop()
+        invalid_months = df[df["Mês_Num"].isna()]["Mês"].unique()
+        st.warning(f"⚠️ Meses inválidos encontrados: {', '.join(sorted(invalid_months))}. Usando valor padrão.")
+        df["Mês_Num"] = df["Mês_Num"].fillna(7)  # Julho como padrão
 
+    # Processar Ano
     df["Ano"] = pd.to_numeric(df["Ano"], errors="coerce")
     if df["Ano"].isna().any():
-        st.error("❌ Ano inválido encontrado.")
-        st.stop()
+        st.warning("⚠️ Anos inválidos encontrados. Usando 2024 como padrão.")
+        df["Ano"] = df["Ano"].fillna(2024)
+    
     df["Ano"] = df["Ano"].astype(int)
     df = df[df["Ano"].between(2000, 2100)]
 
-    # Data correta: year, month, day
+    # Criar data
     df["Data"] = pd.to_datetime(df[["Ano", "Mês_Num"]].assign(day=1)[["Ano", "Mês_Num", "day"]])
 
+    # Processar valor líquido
     df["V. Líquido"] = pd.to_numeric(df["V. Líquido"], errors="coerce").fillna(0)
     
-    st.success(f"📊 {len(df)} registros processados com sucesso")
+    st.success(f"✅ {len(df)} registros processados com sucesso")
     return df
 
+# Carregar dados
 df = load()
+
+# Mostrar preview dos dados
+with st.expander("🔍 Visualizar Dados Carregados"):
+    st.dataframe(df.head(10), use_container_width=True)
+    st.write(f"**Total de registros:** {len(df)}")
+    st.write(f"**Colunas disponíveis:** {list(df.columns)}")
 
 # Container principal
 with st.container():
@@ -226,44 +315,68 @@ with st.sidebar:
     
     st.markdown('<div class="filter-section">📅 Filtros Temporais</div>', unsafe_allow_html=True)
     anos = sorted(df["Ano"].unique())
-    ano_sel = st.multiselect("**Selecione o Ano:**", anos, default=anos[-2:] if len(anos)>=2 else anos)
+    ano_sel = st.multiselect("**Selecione o Ano:**", anos, default=anos)
     
     if ano_sel:
         df = df[df["Ano"].isin(ano_sel)]
-        mes_sel = st.multiselect("**Selecione o Mês:**", sorted(df["Mês"].str.capitalize().unique()), default=[])
+        meses_disponiveis = sorted(df["Mês"].str.capitalize().unique())
+        mes_sel = st.multiselect("**Selecione o Mês:**", meses_disponiveis, default=meses_disponiveis)
         if mes_sel: 
             df = df[df["Mês"].str.capitalize().isin(mes_sel)]
     
     st.markdown('<div class="filter-section">👥 Filtros de Pessoas</div>', unsafe_allow_html=True)
-    com_sel = st.multiselect("**Selecione o Comercial:**", sorted(df["Comercial"].unique()), default=[])
-    if com_sel: 
-        df = df[df["Comercial"].isin(com_sel)]
+    
+    if 'Comercial' in df.columns:
+        comerciais = sorted(df["Comercial"].unique())
+        com_sel = st.multiselect("**Selecione o Comercial:**", comerciais, default=comerciais)
+        if com_sel: 
+            df = df[df["Comercial"].isin(com_sel)]
     
     cli_sel = st.multiselect("**Selecione o Cliente:**", sorted(df["Cliente"].unique()), default=[])
     if cli_sel: 
         df = df[df["Cliente"].isin(cli_sel)]
-    
+
     # Estatísticas rápidas na sidebar
     st.markdown("---")
     st.markdown("### 📈 Estatísticas Rápidas")
     if len(df) > 0:
         total_vendas = df["V. Líquido"].sum()
         total_clientes = df["Cliente"].nunique()
-        total_comerciais = df["Comercial"].nunique()
+        total_artigos = df["Artigo"].nunique()
         
         st.metric("💰 Vendas Filtradas", f"€{total_vendas:,.0f}")
         st.metric("👥 Clientes", total_clientes)
-        st.metric("👨‍💼 Comerciais", total_comerciais)
+        st.metric("📦 Artigos", total_artigos)
+
+# Verificar se temos dados após filtros
+if len(df) == 0:
+    st.error("❌ Nenhum dado encontrado com os filtros aplicados.")
+    st.stop()
 
 # -------------------------------------------------
-# 3. COMPARATIVO
+# 3. COMPARATIVO ANUAL
 # -------------------------------------------------
-cur = df["Ano"].max()
-df_cur = df[df["Ano"]==cur]
-df_prev = df[df["Ano"]==cur-1] if cur-1 in df["Ano"].values else pd.DataFrame()
+anos_disponiveis = sorted(df["Ano"].unique())
+if len(anos_disponiveis) >= 1:
+    cur = anos_disponiveis[-1]  # Ano mais recente
+    df_cur = df[df["Ano"] == cur]
+    
+    # Tentar obter ano anterior para comparação
+    if len(anos_disponiveis) >= 2:
+        prev = anos_disponiveis[-2]
+        df_prev = df[df["Ano"] == prev]
+    else:
+        df_prev = pd.DataFrame()
+        st.info("ℹ️ Apenas um ano de dados disponível para análise")
+else:
+    st.error("❌ Nenhum ano de dados disponível")
+    st.stop()
 
-v_cur, v_prev = df_cur["V. Líquido"].sum(), df_prev["V. Líquido"].sum()
-c_cur, c_prev = df_cur["Cliente"].nunique(), df_prev["Cliente"].nunique()
+v_cur = df_cur["V. Líquido"].sum()
+v_prev = df_prev["V. Líquido"].sum() if not df_prev.empty else 0
+
+c_cur = df_cur["Cliente"].nunique()
+c_prev = df_prev["Cliente"].nunique() if not df_prev.empty else 0
 
 # -------------------------------------------------
 # 4. KPIs
@@ -273,22 +386,22 @@ st.markdown('<div class="section-title">📊 MÉTRICAS PRINCIPAIS</div>', unsafe
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    delta_vendas = f"{(v_cur-v_prev)/v_prev*100:+.1f}%" if v_prev and v_prev > 0 else None
+    delta_vendas = f"{(v_cur-v_prev)/v_prev*100:+.1f}%" if v_prev > 0 else "N/A"
     st.markdown(f"""
     <div class="metric-card-success">
         <h3 style="margin:0; font-size: 0.9rem;">💰 Total Vendas</h3>
         <p style="margin:0; font-size: 1.5rem; font-weight: bold;">€{v_cur:,.0f}</p>
-        <p style="margin:0; font-size: 0.8rem;">{delta_vendas if delta_vendas else 'Sem comparação'}</p>
+        <p style="margin:0; font-size: 0.8rem;">{delta_vendas}</p>
     </div>
     """, unsafe_allow_html=True)
 
 with col2:
-    delta_clientes = f"{(c_cur-c_prev)/c_prev*100:+.1f}%" if c_prev and c_prev > 0 else None
+    delta_clientes = f"{(c_cur-c_prev)/c_prev*100:+.1f}%" if c_prev > 0 else "N/A"
     st.markdown(f"""
     <div class="metric-card">
         <h3 style="margin:0; font-size: 0.9rem;">👥 Clientes Ativos</h3>
         <p style="margin:0; font-size: 1.5rem; font-weight: bold;">{c_cur}</p>
-        <p style="margin:0; font-size: 0.8rem;">{delta_clientes if delta_clientes else 'Sem comparação'}</p>
+        <p style="margin:0; font-size: 0.8rem;">{delta_clientes}</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -313,16 +426,16 @@ with col4:
     """, unsafe_allow_html=True)
 
 # -------------------------------------------------
-# 5. GRÁFICO
+# 5. GRÁFICO DE EVOLUÇÃO
 # -------------------------------------------------
-st.markdown(f'<div class="section-title">📈 EVOLUÇÃO DE VENDAS - {cur} vs {cur-1}</div>', unsafe_allow_html=True)
+if len(anos_disponiveis) >= 2:
+    st.markdown(f'<div class="section-title">📈 EVOLUÇÃO DE VENDAS - {cur} vs {prev}</div>', unsafe_allow_html=True)
+    
+    meses = "Janeiro Fevereiro Março Abril Maio Junho Julho Agosto Setembro Outubro Novembro Dezembro".split()
+    fig = go.Figure()
 
-meses = "Janeiro Fevereiro Março Abril Maio Junho Julho Agosto Setembro Outubro Novembro Dezembro".split()
-fig = go.Figure()
-
-# Adicionar traço do ano atual
-if not df_cur.empty:
-    m_cur = df_cur.groupby("Mês_Num")["V. Líquido"].sum().reindex(range(1,13),fill_value=0)
+    # Adicionar traço do ano atual
+    m_cur = df_cur.groupby("Mês_Num")["V. Líquido"].sum().reindex(range(1,13), fill_value=0)
     fig.add_trace(go.Scatter(
         x=meses, 
         y=m_cur, 
@@ -332,75 +445,63 @@ if not df_cur.empty:
         marker=dict(size=8)
     ))
 
-# Adicionar traço do ano anterior
-if not df_prev.empty:
-    m_prev = df_prev.groupby("Mês_Num")["V. Líquido"].sum().reindex(range(1,13),fill_value=0)
+    # Adicionar traço do ano anterior
+    m_prev = df_prev.groupby("Mês_Num")["V. Líquido"].sum().reindex(range(1,13), fill_value=0)
     fig.add_trace(go.Scatter(
         x=meses, 
         y=m_prev, 
-        name=str(cur-1), 
+        name=str(prev), 
         line=dict(color="#f093fb", width=3, dash='dot'),
         mode='lines+markers',
         marker=dict(size=6)
     ))
 
-fig.update_layout(
-    hovermode="x unified", 
-    xaxis_title="Mês", 
-    yaxis_title="Vendas (€)",
-    template="plotly_white",
-    height=500,
-    legend=dict(
-        orientation="h",
-        yanchor="bottom",
-        y=1.02,
-        xanchor="right",
-        x=1
-    )
-)
-
-st.plotly_chart(fig, use_container_width=True)
-
-# -------------------------------------------------
-# 6. QUEDA >30%
-# -------------------------------------------------
-st.markdown('<div class="section-title">🚨 ALERTAS - CLIENTES COM QUEDA >30%</div>', unsafe_allow_html=True)
-
-if not df_prev.empty and not df_cur.empty:
-    comp = df_cur.groupby("Cliente")["V. Líquido"].sum().to_frame("Atual")
-    comp["Anterior"] = df_prev.groupby("Cliente")["V. Líquido"].sum()
-    comp = comp[comp["Anterior"]>0].fillna(0)
-    comp["Var%"] = (comp["Atual"]/comp["Anterior"]-1)*100
-    q = comp[comp["Var%"]<=-30]
-    
-    if not q.empty:
-        st.markdown(f"""
-        <div class="alert-box">
-            <h4 style="margin:0; color: white;">⚠️ ALERTA: {len(q)} CLIENTE(S) COM QUEDA SUPERIOR A 30%</h4>
-            <p style="margin:0; font-size: 0.9rem;">Clientes que precisam de atenção especial</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Formatar a tabela
-        q_display = q.copy()
-        q_display["Atual"] = q_display["Atual"].apply(lambda x: f"€{x:,.0f}")
-        q_display["Anterior"] = q_display["Anterior"].apply(lambda x: f"€{x:,.0f}")
-        q_display["Var%"] = q_display["Var%"].apply(lambda x: f"{x:+.1f}%")
-        
-        st.dataframe(
-            q_display,
-            use_container_width=True,
-            height=min(400, len(q) * 35 + 38)
+    fig.update_layout(
+        hovermode="x unified", 
+        xaxis_title="Mês", 
+        yaxis_title="Vendas (€)",
+        template="plotly_white",
+        height=500,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
         )
-    else:
-        st.markdown("""
-        <div class="success-box">
-            <h4 style="margin:0; color: white;">✅ SITUAÇÃO ESTÁVEL</h4>
-            <p style="margin:0; font-size: 0.9rem;">Nenhum cliente com queda superior a 30%</p>
-        </div>
-        """, unsafe_allow_html=True)
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
 else:
-    st.info("ℹ️ Dados insuficientes para comparação anual")
+    st.info("📈 Gráfico de comparação anual disponível apenas com dados de pelo menos 2 anos")
+
+# -------------------------------------------------
+# 6. ANÁLISE DE CLIENTES
+# -------------------------------------------------
+st.markdown('<div class="section-title">🏆 TOP CLIENTES</div>', unsafe_allow_html=True)
+
+# Top 10 clientes por valor
+top_clientes = df_cur.groupby("Cliente")["V. Líquido"].sum().nlargest(10)
+if len(top_clientes) > 0:
+    col_clientes1, col_clientes2 = st.columns(2)
+    
+    with col_clientes1:
+        st.dataframe(
+            top_clientes.reset_index().rename(columns={"V. Líquido": "Total Vendas"}),
+            use_container_width=True
+        )
+    
+    with col_clientes2:
+        fig_clientes = px.bar(
+            top_clientes.reset_index(), 
+            x='Cliente', 
+            y='V. Líquido',
+            title="Top 10 Clientes por Vendas",
+            color='V. Líquido',
+            color_continuous_scale='viridis'
+        )
+        fig_clientes.update_layout(xaxis_tickangle=-45, showlegend=False)
+        st.plotly_chart(fig_clientes, use_container_width=True)
 
 # -------------------------------------------------
 # 7. DOWNLOAD
@@ -415,14 +516,15 @@ with col_dl1:
 with col_dl2:
     st.download_button(
         "📥 Baixar CSV", 
-        df.to_csv(index=False).encode(), 
+        df.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig'), 
         "vendas_filtradas.csv", 
         "text/csv",
-        use_container_width=True
+        use_container_width=True,
+        key="download_csv"
     )
 
 with col_dl3:
-    if st.button("🔄 Limpar Filtros", use_container_width=True):
+    if st.button("🔄 Limpar Filtros", use_container_width=True, key="clear_filters"):
         st.cache_data.clear()
         st.rerun()
 
