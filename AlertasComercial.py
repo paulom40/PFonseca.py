@@ -114,50 +114,41 @@ def carregar_dados():
     url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
     df = pd.read_excel(url)
     
-    # Normalize column names
-    df.columns = (
-        df.columns.str.strip().str.lower().str.replace(" ", "_")
-        .str.replace(".", "", regex=False)
-        .map(lambda x: unicodedata.normalize('NFKD', x).encode('ascii', errors='ignore').decode('utf-8'))
-    )
+    original_columns = df.columns.tolist()
     
-    # Mapping
+    # Create mapping from original columns to standardized names
+    col_map = {}
+    
+    # Define expected columns with their variants (keep accent variants!)
     esperadas = {
-        'cliente': ['cliente'],
-        'comercial': ['comercial'],
-        'ano': ['ano'],
-        'mes': ['mes', 'mês', 'month'],  # added 'mês' with accent and 'month' as variants
-        'qtd': ['qtd', 'quantidade', 'quantity'],
-        'v_liquido': ['v_liquido', 'vl_liquido', 'valor_liquido', 'value'],
-        'pm': ['pm', 'preco_medio', 'preço_médio'],
+        'cliente': ['cliente', 'Cliente'],
+        'comercial': ['comercial', 'Comercial'],
+        'ano': ['ano', 'Ano'],
+        'mes': ['mes', 'mês', 'Mês', 'month', 'Month'],  # Keep accent variants
+        'qtd': ['qtd', 'Qtd', 'QTD', 'quantidade', 'Quantidade'],
+        'v_liquido': ['v_liquido', 'V_Liquido', 'vl_liquido', 'valor_liquido', 'value'],
+        'pm': ['pm', 'PM', 'preco_medio', 'preço_médio'],
         'categoria': ['categoria', 'segmento', 'category']
     }
     
-    detectadas = list(df.columns)
-    col_map = {}
-    
+    # Map original columns to standardized names
     for chave, variantes in esperadas.items():
-        for variante in variantes:
-            for col in detectadas:
-                col_normalized = col.lower().strip()
-                variante_normalized = variante.lower().strip()
-                
-                # Check exact match after normalization
-                if variante_normalized == col_normalized:
-                    col_map[chave] = col
-                    break
-            if chave in col_map:
+        for col in original_columns:
+            # Check if column name matches any variant (exact match first)
+            if col in variantes or col.lower() in [v.lower() for v in variantes]:
+                col_map[col] = chave
                 break
     
-    if 'mes' not in col_map:
-        st.warning(f"⚠️ Coluna 'mes' não encontrada. Colunas disponíveis: {detectadas}")
-    
+    # Rename columns using the mapping
     df = df.rename(columns=col_map)
     
-    if 'mes' in df.columns:
-        df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
-    else:
-        st.error("❌ Coluna 'mes' não foi encontrada após o mapeamento!")
+    # Verify critical columns exist
+    if 'mes' not in df.columns:
+        st.error(f"❌ Column 'mes' not found! Available columns: {list(df.columns)}")
+        st.info(f"Original columns: {original_columns}")
+        return pd.DataFrame()
+    
+    df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
     
     df['ano'] = pd.to_numeric(df['ano'], errors='coerce')
     df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce')
