@@ -80,37 +80,29 @@ def load_data():
         
         st.info(f"📊 Colunas originais carregadas: {list(df.columns)}")
         
-        # VERIFICAÇÃO DETALHADA DAS COLUNAS
-        st.info("🔍 Diagnóstico das colunas:")
+        # VERIFICAÇÃO DAS COLUNAS - CORREÇÃO: Já temos a coluna "Artigo"
+        st.info("🔍 Estrutura das colunas identificada:")
         for i, col in enumerate(df.columns):
-            st.write(f"Coluna {i}: '{col}' - Primeiros valores: {df[col].head(3).tolist()}")
+            st.write(f"Coluna {i}: '{col}'")
         
-        # CORREÇÃO CRÍTICA: Identificar corretamente a coluna G (índice 6)
-        if len(df.columns) > 6:
-            coluna_g_original = df.columns[6]
-            st.info(f"🎯 COLUNA G IDENTIFICADA: '{coluna_g_original}' (índice 6)")
+        # CORREÇÃO CRÍTICA: Não precisamos renomear, a coluna "Artigo" já existe
+        if 'Artigo' in df.columns:
+            st.success("✅ COLUNA 'ARTIGO' JÁ EXISTE NO DATASET!")
             
-            # Verificar o conteúdo real da coluna G
-            st.info(f"📦 Conteúdo da Coluna G - Primeiros 10 valores:")
-            st.write(df[coluna_g_original].head(10).tolist())
-            
-            # Renomear a coluna G para 'Artigo'
-            df = df.rename(columns={coluna_g_original: 'Artigo'})
-            st.success(f"✅ Coluna G renomeada de '{coluna_g_original}' para 'Artigo'")
+            # Verificar o conteúdo real da coluna Artigo
+            st.info("📦 Conteúdo da Coluna Artigo - Primeiros 15 valores:")
+            artigos_sample = df['Artigo'].dropna().head(15).tolist()
+            for i, artigo in enumerate(artigos_sample):
+                st.write(f"  {i+1}. {artigo}")
+        else:
+            st.error("❌ Coluna 'Artigo' não encontrada!")
+            st.info("📋 Colunas disponíveis:")
+            for i, col in enumerate(df.columns):
+                st.write(f"{i}: {col}")
+            return None
         
         # Processar colunas
         df.columns = [col.strip() for col in df.columns]
-        
-        # VERIFICAÇÃO FINAL
-        if 'Artigo' in df.columns:
-            st.success(f"✅ COLUNA 'ARTIGO' CONFIRMADA!")
-            st.info(f"📋 Primeiros 10 artigos únicos:")
-            artigos_unicos = df['Artigo'].dropna().unique()[:10]
-            for artigo in artigos_unicos:
-                st.write(f"  - {artigo}")
-        else:
-            st.error("❌ COLUNA 'ARTIGO' NÃO ENCONTRADA!")
-            return None
         
         # Converter colunas numéricas
         if 'Qtd.' in df.columns:
@@ -187,17 +179,17 @@ if df is not None:
                 default=clientes[:3] if len(clientes) > 3 else clientes
             )
         
-        # FILTRO POR ARTIGO - CORREÇÃO CRÍTICA
+        # FILTRO POR ARTIGO - CORREÇÃO: Usar a coluna Artigo correta
         st.markdown("### 📦 Filtro por Artigo")
         if 'Artigo' in df.columns:
-            # Obter valores únicos da coluna G (Artigo)
+            # Obter valores únicos da coluna Artigo
             artigos = sorted(df['Artigo'].dropna().unique())
             
-            st.info(f"🎯 Total de artigos únicos: {len(artigos)}")
+            st.success(f"🎯 {len(artigos)} artigos únicos carregados da coluna 'Artigo'")
             
-            # Mostrar alguns exemplos para debug
-            with st.expander("🔍 Ver primeiros 15 artigos disponíveis"):
-                for i, artigo in enumerate(artigos[:15]):
+            # Mostrar alguns exemplos para confirmação
+            with st.expander("🔍 Ver primeiros 20 artigos disponíveis"):
+                for i, artigo in enumerate(artigos[:20]):
                     st.write(f"{i+1}. {artigo}")
             
             # Filtro multiselect
@@ -208,10 +200,20 @@ if df is not None:
                 help="Selecione os artigos que deseja analisar"
             )
             
-            st.success(f"✅ {len(selected_artigo)} artigo(s) selecionado(s)")
+            if selected_artigo:
+                st.success(f"✅ {len(selected_artigo)} artigo(s) selecionado(s)")
         else:
             st.error("❌ Coluna 'Artigo' não encontrada!")
             selected_artigo = []
+        
+        # Filtro por Categoria
+        if 'Categoria' in df.columns:
+            categorias = sorted(df['Categoria'].dropna().unique())
+            selected_categoria = st.multiselect(
+                "Selecione a(s) Categoria(s):",
+                categorias,
+                default=categorias
+            )
         
         # Estatísticas rápidas
         st.markdown("---")
@@ -220,31 +222,30 @@ if df is not None:
         if len(df) > 0:
             total_vendas = df['V. Líquido'].sum() if 'V. Líquido' in df.columns else 0
             total_artigos = df['Artigo'].nunique() if 'Artigo' in df.columns else 0
+            total_clientes = df['Cliente'].nunique() if 'Cliente' in df.columns else 0
             
             st.metric("💰 Total Vendas", f"€{total_vendas:,.2f}")
             st.metric("📦 Total Artigos", total_artigos)
+            st.metric("👥 Total Clientes", total_clientes)
 
     # Layout principal
-    tab1, tab2 = st.tabs(["📊 Dashboard Principal", "📋 Dados Detalhados"])
+    tab1, tab2, tab3 = st.tabs(["📊 Dashboard Principal", "📋 Dados Detalhados", "🎯 Análise por Artigo"])
 
     with tab1:
         # Aplicar filtros
         df_filtrado = df.copy()
         
-        filter_applied = False
-        
         if selected_comercial:
             df_filtrado = df_filtrado[df_filtrado['Comercial'].isin(selected_comercial)]
-            filter_applied = True
         
         if selected_cliente:
             df_filtrado = df_filtrado[df_filtrado['Cliente'].isin(selected_cliente)]
-            filter_applied = True
         
         if selected_artigo:
             df_filtrado = df_filtrado[df_filtrado['Artigo'].isin(selected_artigo)]
-            filter_applied = True
-            st.success(f"🎯 Filtro de Artigos aplicado: {len(selected_artigo)} artigo(s)")
+        
+        if selected_categoria:
+            df_filtrado = df_filtrado[df_filtrado['Categoria'].isin(selected_categoria)]
         
         if len(df_filtrado) == 0:
             st.warning("❌ Nenhum dado encontrado com os filtros aplicados.")
@@ -252,13 +253,13 @@ if df is not None:
             st.success(f"✅ {len(df_filtrado)} registos encontrados")
             
             # Métricas principais
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4 = st.columns(4)
             
             with col1:
                 total_vendas_filtrado = df_filtrado['V. Líquido'].sum()
                 st.markdown(f"""
                 <div class="metric-card-success">
-                    <h3 style="margin:0; font-size: 0.9rem;">Total Vendas Filtrado</h3>
+                    <h3 style="margin:0; font-size: 0.9rem;">Total Vendas</h3>
                     <p style="margin:0; font-size: 1.5rem; font-weight: bold;">€{total_vendas_filtrado:,.2f}</p>
                 </div>
                 """, unsafe_allow_html=True)
@@ -273,6 +274,15 @@ if df is not None:
                 """, unsafe_allow_html=True)
             
             with col3:
+                clientes_unicos_filtrado = df_filtrado['Cliente'].nunique()
+                st.markdown(f"""
+                <div class="metric-card">
+                    <h3 style="margin:0; font-size: 0.9rem;">Clientes Únicos</h3>
+                    <p style="margin:0; font-size: 1.5rem; font-weight: bold;">{clientes_unicos_filtrado}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col4:
                 ticket_medio = total_vendas_filtrado / len(df_filtrado) if len(df_filtrado) > 0 else 0
                 st.markdown(f"""
                 <div class="metric-card">
@@ -281,45 +291,83 @@ if df is not None:
                 </div>
                 """, unsafe_allow_html=True)
             
-            # Top Artigos
-            st.markdown("### 🎯 Top Artigos (Vendas)")
-            if 'Artigo' in df_filtrado.columns and 'V. Líquido' in df_filtrado.columns:
-                top_artigos = df_filtrado.groupby('Artigo')['V. Líquido'].sum().nlargest(15)
-                
-                fig = px.bar(
-                    top_artigos, 
-                    x=top_artigos.values,
-                    y=top_artigos.index,
-                    orientation='h',
-                    title="Top 15 Artigos por Vendas",
-                    color=top_artigos.values,
-                    color_continuous_scale='viridis'
-                )
-                fig.update_layout(showlegend=False, yaxis={'categoryorder':'total ascending'})
-                st.plotly_chart(fig, use_container_width=True)
+            # Gráficos
+            col_chart1, col_chart2 = st.columns(2)
+            
+            with col_chart1:
+                st.markdown("### 📈 Top Artigos por Vendas")
+                if 'Artigo' in df_filtrado.columns and 'V. Líquido' in df_filtrado.columns:
+                    top_artigos = df_filtrado.groupby('Artigo')['V. Líquido'].sum().nlargest(10)
+                    
+                    fig = px.bar(
+                        top_artigos, 
+                        x=top_artigos.values,
+                        y=top_artigos.index,
+                        orientation='h',
+                        title="Top 10 Artigos por Vendas",
+                        color=top_artigos.values,
+                        color_continuous_scale='viridis'
+                    )
+                    fig.update_layout(showlegend=False, yaxis={'categoryorder':'total ascending'})
+                    st.plotly_chart(fig, use_container_width=True)
+            
+            with col_chart2:
+                st.markdown("### 📊 Vendas por Categoria")
+                if 'Categoria' in df_filtrado.columns and 'V. Líquido' in df_filtrado.columns:
+                    vendas_categoria = df_filtrado.groupby('Categoria')['V. Líquido'].sum()
+                    
+                    fig2 = px.pie(
+                        vendas_categoria, 
+                        values=vendas_categoria.values, 
+                        names=vendas_categoria.index,
+                        title="Distribuição de Vendas por Categoria"
+                    )
+                    st.plotly_chart(fig2, use_container_width=True)
 
     with tab2:
-        st.markdown("### 📋 Dados Detalhados - Todos os Artigos")
+        st.markdown("### 📋 Dados Detalhados")
+        
+        # Mostrar dados filtrados
+        st.dataframe(
+            df_filtrado[['Artigo', 'Cliente', 'Comercial', 'Categoria', 'Qtd.', 'V. Líquido', 'Mês', 'Ano']],
+            use_container_width=True
+        )
+
+    with tab3:
+        st.markdown("### 🎯 Análise Detalhada por Artigo")
         
         if 'Artigo' in df.columns:
-            # Lista completa de artigos
-            st.dataframe(
-                df[['Artigo', 'V. Líquido', 'Qtd.', 'Cliente', 'Comercial']].head(100),
-                use_container_width=True
-            )
-            
             # Estatísticas por artigo
-            st.markdown("### 📊 Estatísticas por Artigo")
             stats_artigos = df.groupby('Artigo').agg({
                 'V. Líquido': ['sum', 'mean', 'count'],
                 'Qtd.': 'sum',
-                'Cliente': 'nunique'
+                'Cliente': 'nunique',
+                'Comercial': 'nunique'
             }).round(2)
             
-            stats_artigos.columns = ['Total_Vendas', 'Ticket_Medio', 'Num_Vendas', 'Quantidade_Total', 'Clientes_Unicos']
+            stats_artigos.columns = [
+                'Total_Vendas', 'Ticket_Medio', 'Num_Vendas', 
+                'Quantidade_Total', 'Clientes_Unicos', 'Comerciais_Unicos'
+            ]
             stats_artigos = stats_artigos.sort_values('Total_Vendas', ascending=False)
             
-            st.dataframe(stats_artigos.head(20), use_container_width=True)
+            st.dataframe(stats_artigos, use_container_width=True)
+            
+            # Download da análise
+            st.markdown("### 📁 Exportar Dados")
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                stats_artigos.to_excel(writer, sheet_name='Analise_Artigos', index=True)
+            
+            excel_data = output.getvalue()
+            
+            st.download_button(
+                label="📥 Download Análise de Artigos",
+                data=excel_data,
+                file_name=f"analise_artigos_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+                mime="application/vnd.ms-excel",
+                use_container_width=True
+            )
 
 else:
     st.error("❌ Não foi possível carregar os dados do Excel.")
