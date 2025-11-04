@@ -113,8 +113,10 @@ elif pagina == "Gráficos":
         index='mes', columns='cliente', values='qtd', aggfunc='sum'
     ).fillna(0)
 
-    if pivot_cliente.empty or not pivot_cliente.select_dtypes(include='number').any().any():
-        st.warning("⚠️ Sem dados numéricos para o gráfico de clientes.")
+    if pivot_cliente.empty:
+        st.warning("⚠️ Nenhum dado disponível para o gráfico de clientes.")
+    elif pivot_cliente.select_dtypes(include='number').shape[1] == 0:
+        st.warning("⚠️ Os dados do gráfico de clientes não são numéricos.")
     else:
         fig1, ax1 = plt.subplots(figsize=(10, 5))
         pivot_cliente.plot(kind='bar', stacked=True, ax=ax1, colormap='tab20')
@@ -129,8 +131,10 @@ elif pagina == "Gráficos":
         index='mes', columns='comercial', values='qtd', aggfunc='sum'
     ).fillna(0)
 
-    if pivot_comercial.empty or not pivot_comercial.select_dtypes(include='number').any().any():
-        st.warning("⚠️ Sem dados numéricos para o gráfico de comerciais.")
+    if pivot_comercial.empty:
+        st.warning("⚠️ Nenhum dado disponível para o gráfico de comerciais.")
+    elif pivot_comercial.select_dtypes(include='number').shape[1] == 0:
+        st.warning("⚠️ Os dados do gráfico de comerciais não são numéricos.")
     else:
         fig2, ax2 = plt.subplots(figsize=(10, 5))
         pivot_comercial.plot(kind='line', marker='o', ax=ax2, colormap='Set1')
