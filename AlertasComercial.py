@@ -323,14 +323,15 @@ elif pagina == "🎯 Custom KPIs":
         kpi_data = dados_filtrados.groupby('mes')['qtd'].sum().reset_index()
         kpi_data.columns = ['mes', 'value']
         kpi_data = kpi_data.sort_values('mes')
+        kpi_data['month_name'] = kpi_data['mes'].map(month_names_pt)
         
         # Display KPI with vibrant colors
         fig_kpi = px.bar(
             kpi_data,
-            x='mes',
+            x='month_name',
             y='value',
             title=f"Monthly Performance - {kpi_name}",
-            labels={'value': 'Quantity (Sum)', 'mes': 'Month'},
+            labels={'value': 'Quantity (Sum)', 'month_name': 'Month'},
             color='value',
             text='value',
             color_continuous_scale='Rainbow'
@@ -348,7 +349,7 @@ elif pagina == "🎯 Custom KPIs":
         
         # Data Table
         st.subheader("📋 Monthly KPI Data")
-        st.dataframe(kpi_data, use_container_width=True)
+        st.dataframe(kpi_data[['month_name', 'value']], use_container_width=True)
 
 # --- PAGE 3: TRENDS ---
 elif pagina == "📉 Trends":
@@ -372,6 +373,7 @@ elif pagina == "📉 Trends":
         trend_data = dados_filtrados.groupby('mes')['qtd'].sum().reset_index()
         trend_data.columns = ['mes', 'value']
         trend_data = trend_data.sort_values('mes')
+        trend_data['month_name'] = trend_data['mes'].map(month_names_pt)
         
         # Check if trend_data has at least 2 rows
         if len(trend_data) < 2:
@@ -384,7 +386,7 @@ elif pagina == "📉 Trends":
             fig_trend = go.Figure()
             
             fig_trend.add_trace(go.Scatter(
-                x=trend_data['mes'].astype(str),
+                x=trend_data['month_name'],
                 y=trend_data['value'],
                 mode='lines+markers',
                 name='Actual',
@@ -398,7 +400,7 @@ elif pagina == "📉 Trends":
             ))
             
             fig_trend.add_trace(go.Scatter(
-                x=trend_data['mes'].astype(str),
+                x=trend_data['month_name'],
                 y=trend_data['MA'],
                 mode='lines',
                 name=f'MA({trend_window})',
@@ -434,9 +436,10 @@ elif pagina == "📉 Trends":
             col3.metric("% Change", f"{trend_pct_change:+.1f}%")
             col4.metric("Trend", trend_direction)
             
-            # Display trend data table
+            # Display trend data table with month names
             st.subheader("📋 Monthly Trend Data")
-            st.dataframe(trend_data, use_container_width=True)
+            display_trend = trend_data[['month_name', 'value', 'MA']].rename(columns={'month_name': 'Month', 'value': 'Quantity', 'MA': 'Moving Avg'})
+            st.dataframe(display_trend, use_container_width=True)
 
 # --- PAGE 4: ALERTS ---
 elif pagina == "⚠️ Alerts":
@@ -585,15 +588,16 @@ elif pagina == "👥 Customer Analysis":
             # Create a date key for proper chronological sorting with month on x-axis
             historico = cliente_data.groupby(['ano', 'mes']).agg({'qtd': 'sum'}).reset_index()
             historico['period'] = historico['ano'].astype(str) + '-' + historico['mes'].astype(str).str.zfill(2)
+            historico['month_name'] = historico['mes'].map(month_names_pt)
             historico = historico.sort_values(['ano', 'mes'])
             
             fig_historico = px.line(
                 historico,
-                x='period',
+                x='month_name',
                 y='qtd',
                 markers=True,
                 title=f"Monthly Performance (Quantity Sum) - {cliente}",
-                labels={'qtd': 'Quantity (Sum)', 'period': 'Month'},
+                labels={'qtd': 'Quantity (Sum)', 'month_name': 'Month'},
                 color_discrete_sequence=['#00f5ff'],
                 text='qtd'
             )
@@ -609,15 +613,15 @@ elif pagina == "👥 Customer Analysis":
             
             # Get market average for all customers in the filtered dataset
             media_mercado = dados_filtrados.groupby(['ano', 'mes']).agg({'qtd': 'sum'}).reset_index()
-            media_mercado['period'] = media_mercado['ano'].astype(str) + '-' + media_mercado['mes'].astype(str).str.zfill(2)
+            media_mercado['month_name'] = media_mercado['mes'].map(month_names_pt)
             media_mercado = media_mercado.sort_values(['ano', 'mes'])
             media_mercado = media_mercado.rename(columns={'qtd': 'market_qtd'})
             
-            # Merge to align periods
-            comparison_data = historico[['period', 'qtd']].rename(columns={'qtd': 'Cliente'})
-            comparison_data = comparison_data.merge(
-                media_mercado[['period', 'market_qtd']].rename(columns={'market_qtd': 'Média do Mercado'}),
-                on='period',
+            # Merge to align periods by month name
+            historico_display = historico[['month_name', 'qtd']].rename(columns={'qtd': 'Cliente'})
+            comparison_data = historico_display.merge(
+                media_mercado[['month_name', 'market_qtd']].rename(columns={'market_qtd': 'Média do Mercado'}),
+                on='month_name',
                 how='outer'
             ).fillna(0)
             
@@ -625,7 +629,7 @@ elif pagina == "👥 Customer Analysis":
             
             # Customer line
             fig_comp.add_trace(go.Scatter(
-                x=comparison_data['period'], 
+                x=comparison_data['month_name'], 
                 y=comparison_data['Cliente'], 
                 mode='lines+markers', 
                 name=cliente, 
@@ -637,7 +641,7 @@ elif pagina == "👥 Customer Analysis":
             
             # Market average line
             fig_comp.add_trace(go.Scatter(
-                x=comparison_data['period'], 
+                x=comparison_data['month_name'], 
                 y=comparison_data['Média do Mercado'], 
                 mode='lines+markers', 
                 name='Média do Mercado', 
