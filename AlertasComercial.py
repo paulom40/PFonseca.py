@@ -364,61 +364,83 @@ elif pagina == "📉 Trends":
     with col2:
         trend_window = st.slider("Moving Average (months)", 1, 12, 3)
     
-    # Prepare trend data
-    if trend_metric == "Quantity":
-        trend_data = dados_filtrados.groupby(trend_groupby)['qtd'].sum().reset_index()
-        trend_data.columns = [trend_groupby, 'value']
+    # Check if filtered data is empty
+    if dados_filtrados.empty:
+        st.warning("⚠️ No data available for selected filters. Please adjust your filters.")
     else:
-        trend_data = dados_filtrados.groupby(trend_groupby)['v_liquido'].sum().reset_index()
-        trend_data.columns = [trend_groupby, 'value']
-    
-    trend_data = trend_data.sort_values(trend_groupby)
-    
-    # Add moving average
-    trend_data['MA'] = trend_data['value'].rolling(window=trend_window, center=True).mean()
-    
-    # Plot trend with vibrant colors
-    fig_trend = go.Figure()
-    
-    fig_trend.add_trace(go.Scatter(
-        x=trend_data[trend_groupby],
-        y=trend_data['value'],
-        mode='lines+markers',
-        name='Actual',
-        line=dict(color='#ff006e', width=3),
-        marker=dict(size=8, color='#ff006e'),
-        fill='tozeroy',
-        fillcolor='rgba(255, 0, 110, 0.1)'
-    ))
-    
-    fig_trend.add_trace(go.Scatter(
-        x=trend_data[trend_groupby],
-        y=trend_data['MA'],
-        mode='lines',
-        name=f'MA({trend_window})',
-        line=dict(color='#00f5ff', width=2, dash='dash')
-    ))
-    
-    fig_trend.update_layout(
-        title=f"Trend: {trend_metric} by {trend_groupby.title()}",
-        xaxis_title=trend_groupby.title(),
-        yaxis_title="Value",
-        hovermode='x unified',
-        template=template_chart
-    )
-    
-    st.plotly_chart(fig_trend, use_container_width=True)
-    
-    # Trend Statistics
-    st.subheader("📊 Trend Statistics")
-    col1, col2, col3, col4 = st.columns(4)
-    
-    trend_pct_change = ((trend_data['value'].iloc[-1] - trend_data['value'].iloc[0]) / trend_data['value'].iloc[0] * 100) if trend_data['value'].iloc[0] != 0 else 0
-    
-    col1.metric("Current Value", f"{trend_data['value'].iloc[-1]:,.0f}")
-    col2.metric("Previous Value", f"{trend_data['value'].iloc[-2]:,.0f}" if len(trend_data) > 1 else "N/A")
-    col3.metric("% Change", f"{trend_pct_change:+.1f}%")
-    col4.metric("Trend", "📈 Up" if trend_pct_change > 0 else "📉 Down")
+        # Prepare trend data
+        if trend_metric == "Quantity":
+            trend_data = dados_filtrados.groupby(trend_groupby)['qtd'].sum().reset_index()
+            trend_data.columns = [trend_groupby, 'value']
+        else:
+            trend_data = dados_filtrados.groupby(trend_groupby)['v_liquido'].sum().reset_index()
+            trend_data.columns = [trend_groupby, 'value']
+        
+        trend_data = trend_data.sort_values(trend_groupby)
+        
+        # Check if trend_data has at least 2 rows
+        if len(trend_data) < 2:
+            st.warning("⚠️ Insufficient data points for trend analysis. At least 2 data points are required.")
+        else:
+            # Add moving average
+            trend_data['MA'] = trend_data['value'].rolling(window=trend_window, center=True).mean()
+            
+            # Plot trend with vibrant colors
+            fig_trend = go.Figure()
+            
+            fig_trend.add_trace(go.Scatter(
+                x=trend_data[trend_groupby],
+                y=trend_data['value'],
+                mode='lines+markers',
+                name='Actual',
+                line=dict(color='#ff006e', width=3),
+                marker=dict(size=8, color='#ff006e'),
+                fill='tozeroy',
+                fillcolor='rgba(255, 0, 110, 0.1)'
+            ))
+            
+            fig_trend.add_trace(go.Scatter(
+                x=trend_data[trend_groupby],
+                y=trend_data['MA'],
+                mode='lines',
+                name=f'MA({trend_window})',
+                line=dict(color='#00f5ff', width=2, dash='dash')
+            ))
+            
+            fig_trend.update_layout(
+                title=f"Trend: {trend_metric} by {trend_groupby.title()}",
+                xaxis_title=trend_groupby.title(),
+                yaxis_title="Value",
+                hovermode='x unified',
+                template=template_chart
+            )
+            
+            st.plotly_chart(fig_trend, use_container_width=True)
+            
+            # Trend Statistics - safely calculate percentage change
+            st.subheader("📊 Trend Statistics")
+            col1, col2, col3, col4 = st.columns(4)
+            
+            current_value = trend_data['value'].iloc[-1]
+            previous_value = trend_data['value'].iloc[-2] if len(trend_data) > 1 else trend_data['value'].iloc[0]
+            
+            # Safe calculation of percentage change
+            if trend_data['value'].iloc[0] != 0:
+                trend_pct_change = ((current_value - trend_data['value'].iloc[0]) / trend_data['value'].iloc[0] * 100)
+            else:
+                trend_pct_change = 0
+            
+            # Determine trend direction
+            trend_direction = "📈 Up" if trend_pct_change > 0 else "📉 Down" if trend_pct_change < 0 else "➡️ Stable"
+            
+            col1.metric("Current Value", f"{current_value:,.0f}")
+            col2.metric("Previous Value", f"{previous_value:,.0f}")
+            col3.metric("% Change", f"{trend_pct_change:+.1f}%")
+            col4.metric("Trend", trend_direction)
+            
+            # Display trend data table
+            st.subheader("📋 Trend Data")
+            st.dataframe(trend_data, use_container_width=True)
 
 # --- PAGE 4: ALERTS ---
 elif pagina == "⚠️ Alerts":
@@ -486,53 +508,101 @@ elif pagina == "👥 Customer Analysis":
             col3.metric("Avg per Transaction", f"{cliente_data['qtd'].mean():,.2f}")
             col4.metric("Transactions", len(cliente_data))
             
-            # Trend
-            st.subheader("📈 Customer Trend")
+            # Customer Trend - Monthly Performance
+            st.subheader("📈 Customer Trend - Monthly Performance")
+            
+            # Create a date key for proper chronological sorting
             historico = cliente_data.groupby(['ano', 'mes'])['qtd'].sum().reset_index()
+            historico['period'] = historico['ano'].astype(str) + '-' + historico['mes'].astype(str).str.zfill(2)
             historico = historico.sort_values(['ano', 'mes'])
             
             fig_historico = px.line(
                 historico,
-                x='mes',
+                x='period',
                 y='qtd',
                 markers=True,
-                title=f"Monthly Performance - {cliente}",
-                color_discrete_sequence=['#00f5ff']
+                title=f"Monthly Performance (Quantity) - {cliente}",
+                labels={'qtd': 'Quantity', 'period': 'Month'},
+                color_discrete_sequence=['#00f5ff'],
+                text='qtd'
             )
-            fig_historico.update_layout(template=template_chart)
+            fig_historico.update_traces(textposition='top center', textfont=dict(color='#00f5ff'))
+            fig_historico.update_layout(
+                template=template_chart,
+                hovermode='x unified',
+                xaxis_tickangle=-45
+            )
             st.plotly_chart(fig_historico, use_container_width=True)
             
-            # Comparison with others
-            st.subheader("🔄 vs. Market Average")
+            # vs. Market Average - Monthly Comparison
+            st.subheader("🔄 vs. Market Average - Monthly Comparison")
+            
+            # Get market average for all customers in the filtered dataset (same year/commercial filters)
             media_mercado = dados_filtrados.groupby(['ano', 'mes'])['qtd'].mean().reset_index()
+            media_mercado['period'] = media_mercado['ano'].astype(str) + '-' + media_mercado['mes'].astype(str).str.zfill(2)
+            media_mercado = media_mercado.sort_values(['ano', 'mes'])
+            
+            # Merge to align periods
+            comparison_data = historico[['period', 'qtd']].rename(columns={'qtd': 'Customer'})
+            comparison_data = comparison_data.merge(
+                media_mercado[['period', 'qtd']].rename(columns={'qtd': 'Market Average'}),
+                on='period',
+                how='outer'
+            ).fillna(0)
             
             fig_comp = go.Figure()
+            
+            # Customer line
             fig_comp.add_trace(go.Scatter(
-                x=historico['mes'], 
-                y=historico['qtd'], 
+                x=comparison_data['period'], 
+                y=comparison_data['Customer'], 
                 mode='lines+markers', 
                 name=cliente, 
                 line=dict(color='#ff006e', width=3),
                 marker=dict(size=8)
             ))
+            
+            # Market average line
             fig_comp.add_trace(go.Scatter(
-                x=media_mercado['mes'], 
-                y=media_mercado['qtd'], 
-                mode='lines', 
+                x=comparison_data['period'], 
+                y=comparison_data['Market Average'], 
+                mode='lines+markers', 
                 name='Market Avg', 
-                line=dict(color='#00f5ff', width=2, dash='dash')
+                line=dict(color='#00f5ff', width=2, dash='dash'),
+                marker=dict(size=6)
             ))
             
             fig_comp.update_layout(
-                title="Customer vs Market Trend", 
+                title="Monthly Performance: Customer vs Market Average", 
                 xaxis_title="Month", 
                 yaxis_title="Quantity", 
                 hovermode='x unified', 
-                template=template_chart
+                template=template_chart,
+                xaxis_tickangle=-45
             )
             st.plotly_chart(fig_comp, use_container_width=True)
             
+            # Display comparison metrics
+            st.subheader("📊 Performance Comparison")
+            comp_metrics = pd.DataFrame({
+                'Metric': ['Total Quantity', 'Average Monthly', 'Best Month', 'Worst Month'],
+                cliente: [
+                    f"{historico['qtd'].sum():,.0f}",
+                    f"{historico['qtd'].mean():,.0f}",
+                    f"{historico['qtd'].max():,.0f}",
+                    f"{historico['qtd'].min():,.0f}"
+                ],
+                'Market Average': [
+                    f"{media_mercado['qtd'].sum():,.0f}",
+                    f"{media_mercado['qtd'].mean():,.0f}",
+                    f"{media_mercado['qtd'].max():,.0f}",
+                    f"{media_mercado['qtd'].min():,.0f}"
+                ]
+            })
+            st.dataframe(comp_metrics, use_container_width=True)
+            
             # Data
+            st.subheader("📋 Detailed Customer Data")
             st.dataframe(cliente_data, use_container_width=True)
 
 # --- PAGE 6: COMPARATIVE VIEW ---
