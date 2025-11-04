@@ -247,6 +247,20 @@ if pagina == "Visão Geral":
     st.markdown("### 📋 Tabela de Compras Filtradas")
     st.dataframe(dados_filtrados)
     st.download_button("📥 Exportar dados filtrados", data=gerar_excel(dados_filtrados), file_name="compras_filtradas.xlsx")
+    
+    # Gráfico KPI por Comercial
+    st.markdown("### 📊 KPI por Comercial (Total QTD)")
+    kpi_comercial = dados_filtrados.groupby('comercial')['qtd'].sum().sort_values(ascending=False)
+    if not kpi_comercial.empty:
+        fig_kpi = px.bar(
+            x=kpi_comercial.index,
+            y=kpi_comercial.values,
+            labels={'x': 'Comercial', 'y': 'Total QTD'},
+            title='Total de Quantidade por Comercial',
+            color=kpi_comercial.values,
+            color_continuous_scale='Viridis'
+        )
+        st.plotly_chart(fig_kpi, use_container_width=True)
 
     # --- Detalhes do cliente selecionado ---
     if cliente != "Todos":
@@ -290,8 +304,76 @@ elif pagina == "Gráficos":
 
 # --- Página: Alertas ---
 elif pagina == "Alertas":
-    st.subheader("🚨 Clientes com meses em falta")
-
+    st.subheader("🚨 Alertas e KPIs Dinâmicos")
+    
+    # KPIs RESUMIDOS
+    st.markdown("### 📊 KPIs do Filtro Selecionado")
+    
+    kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
+    
+    total_qtd_alerta = dados_filtrados['qtd'].sum()
+    media_qtd_alerta = dados_filtrados['qtd'].mean()
+    max_qtd_alerta = dados_filtrados['qtd'].max()
+    min_qtd_alerta = dados_filtrados['qtd'].min()
+    
+    kpi_col1.metric("📦 Total QTD", f"{total_qtd_alerta:,.0f}")
+    kpi_col2.metric("📊 Média QTD", f"{media_qtd_alerta:,.2f}")
+    kpi_col3.metric("⬆️ Máx QTD", f"{max_qtd_alerta:,.0f}")
+    kpi_col4.metric("⬇️ Mín QTD", f"{min_qtd_alerta:,.0f}")
+    
+    # TABELA DE ALERTAS E ANÁLISE
+    st.markdown("### ⚠️ Tabela de Análise e Alertas")
+    
+    # Criar tabela de análise por cliente
+    analise_clientes = dados_filtrados.groupby('cliente').agg({
+        'qtd': ['sum', 'mean', 'max', 'min', 'count'],
+        'comercial': 'first'
+    }).reset_index()
+    
+    analise_clientes.columns = ['Cliente', 'Total QTD', 'Média QTD', 'Máx QTD', 'Mín QTD', 'Transações', 'Comercial']
+    analise_clientes = analise_clientes.sort_values('Total QTD', ascending=False)
+    
+    # Adicionar coluna de alerta
+    media_geral = dados_filtrados['qtd'].mean()
+    analise_clientes['Status'] = analise_clientes['Média QTD'].apply(
+        lambda x: '🟢 OK' if x >= media_geral else '🟡 ABAIXO' if x >= media_geral * 0.7 else '🔴 CRÍTICO'
+    )
+    
+    # Formatação
+    analise_clientes['Total QTD'] = analise_clientes['Total QTD'].round(0).astype(int)
+    analise_clientes['Média QTD'] = analise_clientes['Média QTD'].round(2)
+    analise_clientes['Máx QTD'] = analise_clientes['Máx QTD'].round(0).astype(int)
+    analise_clientes['Mín QTD'] = analise_clientes['Mín QTD'].round(0).astype(int)
+    
+    st.dataframe(analise_clientes, use_container_width=True)
+    st.download_button("📥 Exportar análise de alertas", data=gerar_excel(analise_clientes), file_name="alertas_clientes.xlsx")
+    
+    # ALERTAS ESPECÍFICOS
+    st.markdown("### 🚨 Alertas Gerados")
+    
+    col_alerta1, col_alerta2 = st.columns(2)
+    
+    with col_alerta1:
+        # Clientes abaixo da média
+        clientes_abaixo = analise_clientes[analise_clientes['Média QTD'] < media_geral]
+        if not clientes_abaixo.empty:
+            st.warning(f"⚠️ {len(clientes_abaixo)} cliente(s) com média abaixo do esperado")
+            st.write(clientes_abaixo[['Cliente', 'Média QTD']].to_string(index=False))
+        else:
+            st.success("✅ Todos os clientes estão acima da média")
+    
+    with col_alerta2:
+        # Clientes críticos
+        clientes_criticos = analise_clientes[analise_clientes['Média QTD'] < (media_geral * 0.7)]
+        if not clientes_criticos.empty:
+            st.error(f"🔴 {len(clientes_criticos)} cliente(s) em estado CRÍTICO")
+            st.write(clientes_criticos[['Cliente', 'Média QTD']].to_string(index=False))
+        else:
+            st.info("ℹ️ Nenhum cliente em estado crítico")
+    
+    # Presença mensal
+    st.markdown("### 📋 Tabela de Presença Mensal por Cliente")
+    
     todos_meses = sorted(df['mes'].dropna().unique())
     presenca = dados_filtrados.groupby(['cliente', 'mes'])['qtd'].sum().unstack(fill_value=0)
     presenca = presenca.reindex(columns=todos_meses, fill_value=0)
@@ -304,7 +386,7 @@ elif pagina == "Alertas":
     else:
         st.error(f"⚠️ {clientes_inativos.sum()} clientes com meses em falta")
 
-        st.markdown("### 📋 Tabela de presença mensal por cliente")
+        st.markdown("### 📋 Meses ausentes por cliente")
         tabela_alerta = presenca.copy().astype(int)
 
         def destacar_faltas(val):
