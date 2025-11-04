@@ -305,8 +305,8 @@ elif pagina == "🎯 Custom KPIs":
     with col1:
         kpi_name = st.text_input("KPI Name", value="Revenue Growth")
         kpi_metric = st.selectbox("Select Metric", ["Sum", "Average", "Max", "Min", "Count", "Median"])
-        kpi_field = st.selectbox("Field", ["qtd", "v_liquido", "pm"])
-        kpi_groupby = st.selectbox("Group By", ["cliente", "comercial", "categoria", "mes", "ano"])
+        kpi_field = "qtd"
+        kpi_groupby = st.selectbox("Group By", ["mes", "cliente", "comercial", "categoria"])
     
     with col2:
         kpi_period = st.selectbox("Period", ["Monthly", "Quarterly", "Yearly"])
@@ -338,7 +338,7 @@ elif pagina == "🎯 Custom KPIs":
         x=kpi_groupby,
         y='value',
         title=f"{kpi_name} - {kpi_metric}({kpi_field})",
-        labels={'value': 'Value', kpi_groupby: kpi_groupby.title()},
+        labels={'value': 'Quantity (Sum)', kpi_groupby: kpi_groupby.title()},
         color='value',
         color_continuous_scale='Rainbow'
     )
@@ -362,8 +362,9 @@ elif pagina == "📉 Trends":
     col1, col2 = st.columns(2)
     
     with col1:
-        trend_metric = st.selectbox("Select Metric", ["Quantity", "Value"])
-        trend_groupby = st.selectbox("Group By", ["mes", "ano", "cliente", "comercial"])
+        trend_metric = "Quantity"
+        st.selectbox("Select Metric", ["Quantity"], disabled=True)
+        trend_groupby = st.selectbox("Group By", ["mes"], disabled=True)
     
     with col2:
         trend_window = st.slider("Moving Average (months)", 1, 12, 3)
@@ -372,15 +373,10 @@ elif pagina == "📉 Trends":
     if dados_filtrados.empty:
         st.warning("⚠️ No data available for selected filters. Please adjust your filters.")
     else:
-        # Prepare trend data
-        if trend_metric == "Quantity":
-            trend_data = dados_filtrados.groupby(trend_groupby)['qtd'].sum().reset_index()
-            trend_data.columns = [trend_groupby, 'value']
-        else:
-            trend_data = dados_filtrados.groupby(trend_groupby)['v_liquido'].sum().reset_index()
-            trend_data.columns = [trend_groupby, 'value']
-        
-        trend_data = trend_data.sort_values(trend_groupby)
+        # Prepare trend data - always sum qtd by month
+        trend_data = dados_filtrados.groupby('mes')['qtd'].sum().reset_index()
+        trend_data.columns = ['mes', 'value']
+        trend_data = trend_data.sort_values('mes')
         
         # Check if trend_data has at least 2 rows
         if len(trend_data) < 2:
@@ -393,18 +389,21 @@ elif pagina == "📉 Trends":
             fig_trend = go.Figure()
             
             fig_trend.add_trace(go.Scatter(
-                x=trend_data[trend_groupby],
+                x=trend_data['mes'].astype(str),
                 y=trend_data['value'],
                 mode='lines+markers',
                 name='Actual',
                 line=dict(color='#ff006e', width=3),
                 marker=dict(size=8, color='#ff006e'),
                 fill='tozeroy',
-                fillcolor='rgba(255, 0, 110, 0.1)'
+                fillcolor='rgba(255, 0, 110, 0.1)',
+                text=trend_data['value'].astype(str),
+                textposition='top center',
+                textfont=dict(color='#ff006e')
             ))
             
             fig_trend.add_trace(go.Scatter(
-                x=trend_data[trend_groupby],
+                x=trend_data['mes'].astype(str),
                 y=trend_data['MA'],
                 mode='lines',
                 name=f'MA({trend_window})',
@@ -412,38 +411,36 @@ elif pagina == "📉 Trends":
             ))
             
             fig_trend.update_layout(
-                title=f"Trend: {trend_metric} by {trend_groupby.title()}",
-                xaxis_title=trend_groupby.title(),
-                yaxis_title="Value",
+                title=f"Monthly Trend - Quantity Sum",
+                xaxis_title="Month",
+                yaxis_title="Quantity (Sum)",
                 hovermode='x unified',
                 template=template_chart
             )
             
             st.plotly_chart(fig_trend, use_container_width=True)
             
-            # Trend Statistics - safely calculate percentage change
+            # Trend Statistics
             st.subheader("📊 Trend Statistics")
             col1, col2, col3, col4 = st.columns(4)
             
             current_value = trend_data['value'].iloc[-1]
             previous_value = trend_data['value'].iloc[-2] if len(trend_data) > 1 else trend_data['value'].iloc[0]
             
-            # Safe calculation of percentage change
             if trend_data['value'].iloc[0] != 0:
                 trend_pct_change = ((current_value - trend_data['value'].iloc[0]) / trend_data['value'].iloc[0] * 100)
             else:
                 trend_pct_change = 0
             
-            # Determine trend direction
             trend_direction = "📈 Up" if trend_pct_change > 0 else "📉 Down" if trend_pct_change < 0 else "➡️ Stable"
             
-            col1.metric("Current Value", f"{current_value:,.0f}")
-            col2.metric("Previous Value", f"{previous_value:,.0f}")
+            col1.metric("Current Month", f"{current_value:,.0f}")
+            col2.metric("Previous Month", f"{previous_value:,.0f}")
             col3.metric("% Change", f"{trend_pct_change:+.1f}%")
             col4.metric("Trend", trend_direction)
             
             # Display trend data table
-            st.subheader("📋 Trend Data")
+            st.subheader("📋 Monthly Trend Data")
             st.dataframe(trend_data, use_container_width=True)
 
 # --- PAGE 4: ALERTS ---
@@ -512,11 +509,10 @@ elif pagina == "👥 Customer Analysis":
             col3.metric("Avg per Transaction", f"{cliente_data['qtd'].mean():,.2f}")
             col4.metric("Transactions", len(cliente_data))
             
-            # Customer Trend - Monthly Performance
             st.subheader("📈 Customer Trend - Monthly Performance")
             
-            # Create a date key for proper chronological sorting
-            historico = cliente_data.groupby(['ano', 'mes'])['qtd'].sum().reset_index()
+            # Create a date key for proper chronological sorting with month on x-axis
+            historico = cliente_data.groupby(['ano', 'mes']).agg({'qtd': 'sum'}).reset_index()
             historico['period'] = historico['ano'].astype(str) + '-' + historico['mes'].astype(str).str.zfill(2)
             historico = historico.sort_values(['ano', 'mes'])
             
@@ -525,12 +521,12 @@ elif pagina == "👥 Customer Analysis":
                 x='period',
                 y='qtd',
                 markers=True,
-                title=f"Monthly Performance (Quantity) - {cliente}",
-                labels={'qtd': 'Quantity', 'period': 'Month'},
+                title=f"Monthly Performance (Quantity Sum) - {cliente}",
+                labels={'qtd': 'Quantity (Sum)', 'period': 'Month'},
                 color_discrete_sequence=['#00f5ff'],
                 text='qtd'
             )
-            fig_historico.update_traces(textposition='top center', textfont=dict(color='#00f5ff'))
+            fig_historico.update_traces(textposition='top center', textfont=dict(color='#00f5ff', size=10))
             fig_historico.update_layout(
                 template=template_chart,
                 hovermode='x unified',
@@ -538,18 +534,18 @@ elif pagina == "👥 Customer Analysis":
             )
             st.plotly_chart(fig_historico, use_container_width=True)
             
-            # vs. Market Average - Monthly Comparison
             st.subheader("🔄 vs. Market Average - Monthly Comparison")
             
-            # Get market average for all customers in the filtered dataset (same year/commercial filters)
-            media_mercado = dados_filtrados.groupby(['ano', 'mes'])['qtd'].mean().reset_index()
+            # Get market average for all customers in the filtered dataset
+            media_mercado = dados_filtrados.groupby(['ano', 'mes']).agg({'qtd': 'sum'}).reset_index()
             media_mercado['period'] = media_mercado['ano'].astype(str) + '-' + media_mercado['mes'].astype(str).str.zfill(2)
             media_mercado = media_mercado.sort_values(['ano', 'mes'])
+            media_mercado = media_mercado.rename(columns={'qtd': 'market_qtd'})
             
             # Merge to align periods
             comparison_data = historico[['period', 'qtd']].rename(columns={'qtd': 'Customer'})
             comparison_data = comparison_data.merge(
-                media_mercado[['period', 'qtd']].rename(columns={'qtd': 'Market Average'}),
+                media_mercado[['period', 'market_qtd']].rename(columns={'market_qtd': 'Market Average'}),
                 on='period',
                 how='outer'
             ).fillna(0)
@@ -563,7 +559,9 @@ elif pagina == "👥 Customer Analysis":
                 mode='lines+markers', 
                 name=cliente, 
                 line=dict(color='#ff006e', width=3),
-                marker=dict(size=8)
+                marker=dict(size=8),
+                text=comparison_data['Customer'].astype(str),
+                textposition='top center'
             ))
             
             # Market average line
@@ -573,13 +571,15 @@ elif pagina == "👥 Customer Analysis":
                 mode='lines+markers', 
                 name='Market Avg', 
                 line=dict(color='#00f5ff', width=2, dash='dash'),
-                marker=dict(size=6)
+                marker=dict(size=6),
+                text=comparison_data['Market Average'].astype(str),
+                textposition='bottom center'
             ))
             
             fig_comp.update_layout(
-                title="Monthly Performance: Customer vs Market Average", 
+                title="Monthly Performance: Customer vs Market Average (Quantity Sum)", 
                 xaxis_title="Month", 
-                yaxis_title="Quantity", 
+                yaxis_title="Quantity (Sum)", 
                 hovermode='x unified', 
                 template=template_chart,
                 xaxis_tickangle=-45
@@ -597,10 +597,10 @@ elif pagina == "👥 Customer Analysis":
                     f"{historico['qtd'].min():,.0f}"
                 ],
                 'Market Average': [
-                    f"{media_mercado['qtd'].sum():,.0f}",
-                    f"{media_mercado['qtd'].mean():,.0f}",
-                    f"{media_mercado['qtd'].max():,.0f}",
-                    f"{media_mercado['qtd'].min():,.0f}"
+                    f"{media_mercado['market_qtd'].sum():,.0f}",
+                    f"{media_mercado['market_qtd'].mean():,.0f}",
+                    f"{media_mercado['market_qtd'].max():,.0f}",
+                    f"{media_mercado['market_qtd'].min():,.0f}"
                 ]
             })
             st.dataframe(comp_metrics, use_container_width=True)
