@@ -111,73 +111,80 @@ st.markdown("""
 # --- DATA LOADING ---
 @st.cache_data
 def carregar_dados():
-    url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
-    df = pd.read_excel(url)
+    try:
+        url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Vendas_Globais.xlsx"
+        df = pd.read_excel(url)
+        
+        original_columns = df.columns.tolist()
+        
+        # Define expected columns with their variants (keep accent variants!)
+        col_map = {}
+        
+        expected_cols = {
+            'cliente': ['cliente', 'Cliente', 'CLIENTE'],
+            'comercial': ['comercial', 'Comercial', 'COMERCIAL'],
+            'ano': ['ano', 'Ano', 'ANO'],
+            'mes': ['mes', 'Mês', 'mês', 'MÊS'],
+            'qtd': ['qtd', 'Qtd', 'QTD', 'Qtd.', 'quantidade', 'Quantidade', 'QUANTIDADE'],
+            'v_liquido': ['v_liquido', 'V_Liquido', 'V. Líquido', 'vl_liquido', 'valor_liquido', 'V_LIQUIDO', 'V. LÍQUIDO'],
+            'pm': ['pm', 'PM', 'preco_medio', 'Preco_Medio', 'preço_médio', 'Preço Médio'],
+            'categoria': ['categoria', 'Categoria', 'CATEGORIA', 'segmento', 'Segmento'],
+            'artigo': ['artigo', 'Artigo', 'ARTIGO'],
+            'codigo': ['código', 'Código', 'CÓDIGO', 'Cod.', 'cod', 'codigo', 'Codigo'],
+            'un': ['un', 'UN', 'unidade', 'Unidade', 'UNIDADE']
+        }
+        
+        # Map each original column to standardized name
+        for original_col in original_columns:
+            col_matched = False
+            for standard_name, variants in expected_cols.items():
+                # Direct match first (preserves exact names like 'Qtd.')
+                if original_col in variants:
+                    col_map[original_col] = standard_name
+                    col_matched = True
+                    break
+                # Then try case-insensitive match
+                if not col_matched:
+                    for variant in variants:
+                        if original_col.lower() == variant.lower():
+                            col_map[original_col] = standard_name
+                            col_matched = True
+                            break
+                if col_matched:
+                    break
+        
+        # Rename columns
+        df = df.rename(columns=col_map)
+        
+        critical_cols = ['mes', 'qtd', 'ano', 'cliente', 'comercial']
+        missing_cols = [col for col in critical_cols if col not in df.columns]
+        
+        if missing_cols:
+            st.error(f"❌ Missing critical columns: {missing_cols}")
+            st.info(f"✓ Available columns: {list(df.columns)}")
+            return pd.DataFrame()
+        
+        df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
+        df['ano'] = pd.to_numeric(df['ano'], errors='coerce')
+        df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce')
+        if 'v_liquido' in df.columns:
+            df['v_liquido'] = pd.to_numeric(df['v_liquido'], errors='coerce')
+        if 'pm' in df.columns:
+            df['pm'] = pd.to_numeric(df['pm'], errors='coerce')
+        
+        # Remove rows with NaN values in critical columns
+        df = df.dropna(subset=['mes', 'qtd', 'ano', 'cliente', 'comercial'])
+        
+        return df
     
-    original_columns = df.columns.tolist()
-    
-    # Define expected columns with their variants (keep accent variants!)
-    col_map = {}
-    
-    expected_cols = {
-        'cliente': ['cliente', 'Cliente', 'CLIENTE'],
-        'comercial': ['comercial', 'Comercial', 'COMERCIAL'],
-        'ano': ['ano', 'Ano', 'ANO'],
-        'mes': ['mes', 'Mês', 'mês', 'MÊS'],
-        'qtd': ['qtd', 'Qtd', 'QTD', 'Qtd.', 'quantidade', 'Quantidade', 'QUANTIDADE'],
-        'v_liquido': ['v_liquido', 'V_Liquido', 'V. Líquido', 'vl_liquido', 'valor_liquido', 'V_LIQUIDO', 'V. LÍQUIDO'],
-        'pm': ['pm', 'PM', 'preco_medio', 'Preco_Medio', 'preço_médio', 'Preço Médio'],
-        'categoria': ['categoria', 'Categoria', 'CATEGORIA', 'segmento', 'Segmento'],
-        'artigo': ['artigo', 'Artigo', 'ARTIGO'],
-        'codigo': ['código', 'Código', 'CÓDIGO', 'Cod.', 'cod', 'codigo', 'Codigo'],
-        'un': ['un', 'UN', 'unidade', 'Unidade', 'UNIDADE']
-    }
-    
-    # Map each original column to standardized name
-    for original_col in original_columns:
-        col_matched = False
-        for standard_name, variants in expected_cols.items():
-            # Direct match first (preserves exact names like 'Qtd.')
-            if original_col in variants:
-                col_map[original_col] = standard_name
-                col_matched = True
-                break
-            # Then try case-insensitive match
-            if not col_matched:
-                for variant in variants:
-                    if original_col.lower() == variant.lower():
-                        col_map[original_col] = standard_name
-                        col_matched = True
-                        break
-            if col_matched:
-                break
-    
-    # Rename columns
-    df = df.rename(columns=col_map)
-    
-    critical_cols = ['mes', 'qtd', 'ano', 'cliente', 'comercial']
-    missing_cols = [col for col in critical_cols if col not in df.columns]
-    
-    if missing_cols:
-        st.error(f"❌ Missing critical columns: {missing_cols}")
-        st.info(f"✓ Available columns: {list(df.columns)}")
+    except Exception as e:
+        st.error(f"❌ Error loading data: {str(e)}")
         return pd.DataFrame()
-    
-    df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
-    df['ano'] = pd.to_numeric(df['ano'], errors='coerce')
-    df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce')
-    df['v_liquido'] = pd.to_numeric(df['v_liquido'], errors='coerce')
-    df['pm'] = pd.to_numeric(df['pm'], errors='coerce')
-    
-    # Remove rows with NaN values in critical columns
-    df = df.dropna(subset=['mes', 'qtd', 'ano', 'cliente', 'comercial'])
-    
-    return df
 
 df = carregar_dados()
 
 if df.empty:
-    st.error("❌ Failed to load data. Please check the data source.")
+    st.error("❌ Failed to load data. Please check the GitHub URL and ensure the file is accessible.")
     st.stop()
 
 # --- SIDEBAR NAVIGATION ---
