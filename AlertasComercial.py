@@ -126,11 +126,11 @@ def carregar_dados():
         'cliente': ['cliente'],
         'comercial': ['comercial'],
         'ano': ['ano'],
-        'mes': ['mes'],
-        'qtd': ['qtd', 'quantidade'],
-        'v_liquido': ['v_liquido', 'vl_liquido', 'valor_liquido'],
-        'pm': ['pm', 'preco_medio'],
-        'categoria': ['categoria', 'segmento']
+        'mes': ['mes', 'mês', 'month'],  # added 'mês' with accent and 'month' as variants
+        'qtd': ['qtd', 'quantidade', 'quantity'],
+        'v_liquido': ['v_liquido', 'vl_liquido', 'valor_liquido', 'value'],
+        'pm': ['pm', 'preco_medio', 'preço_médio'],
+        'categoria': ['categoria', 'segmento', 'category']
     }
     
     detectadas = list(df.columns)
@@ -139,15 +139,26 @@ def carregar_dados():
     for chave, variantes in esperadas.items():
         for variante in variantes:
             for col in detectadas:
-                if variante == col or variante.replace("_", "") in col.replace("_", ""):
+                col_normalized = unicodedata.normalize('NFKD', col.lower()).encode('ascii', errors='ignore').decode('utf-8')
+                variante_normalized = unicodedata.normalize('NFKD', variante.lower()).encode('ascii', errors='ignore').decode('utf-8')
+                
+                if variante_normalized == col_normalized or variante_normalized.replace("_", "") in col_normalized.replace("_", ""):
                     col_map[chave] = col
                     break
             if chave in col_map:
                 break
     
+    if 'mes' not in col_map:
+        st.warning(f"⚠️ Coluna 'mes' não encontrada. Colunas disponíveis: {detectadas}")
+    
     df = df.rename(columns=col_map)
+    
+    if 'mes' in df.columns:
+        df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
+    else:
+        st.error("❌ Coluna 'mes' não foi encontrada após o mapeamento!")
+    
     df['ano'] = pd.to_numeric(df['ano'], errors='coerce')
-    df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
     df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce')
     df['v_liquido'] = pd.to_numeric(df['v_liquido'], errors='coerce')
     df['pm'] = pd.to_numeric(df['pm'], errors='coerce')
