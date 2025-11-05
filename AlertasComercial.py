@@ -250,20 +250,20 @@ if df.empty:
     st.stop()
 
 # --- SIDEBAR NAVIGATION ---
-st.sidebar.markdown("# 📊 KPI Dashboard")
+st.sidebar.markdown("# 📊 Painel KPI")
 st.sidebar.markdown("---")
 
-pagina = st.sidebar.radio("Navigate", [
-    "📈 Overview", 
-    "🎯 Custom KPIs", 
-    "📉 Trends", 
-    "⚠️ Alerts",
-    "👥 Customer Analysis",
-    "📊 Comparative View"
+pagina = st.sidebar.radio("Navegar", [
+    "📈 Visão Geral", 
+    "🎯 KPIs Personalizados", 
+    "📉 Tendências", 
+    "⚠️ Alertas",
+    "👥 Análise de Clientes",
+    "📊 Vista Comparativa"
 ])
 
 # --- FILTERS WITH CASCADING LOGIC ---
-st.sidebar.markdown("### 🔍 Filters")
+st.sidebar.markdown("### 🔍 Filtros")
 dados_base = df.copy()
 
 # Initialize session state for filters
@@ -296,35 +296,35 @@ anos_disponiveis, comerciais_disponiveis, clientes_disponiveis = get_filtro_opco
 
 # Year filter
 ano = st.sidebar.selectbox(
-    "Year", 
-    ["All"] + anos_disponiveis, 
+    "Ano", 
+    ["Todos"] + anos_disponiveis, 
     key="year_select"
 )
 
 # Commercial filter (updates based on year)
 _, comerciais_for_year, _ = get_filtro_opcoes(dados_base, ano, "All")
 comercial = st.sidebar.selectbox(
-    "Commercial", 
-    ["All"] + comerciais_for_year, 
+    "Comercial", 
+    ["Todos"] + comerciais_for_year, 
     key="commercial_select"
 )
 
 # Customer filter (updates based on year and commercial)
 _, _, clientes_for_filters = get_filtro_opcoes(dados_base, ano, comercial)
 cliente = st.sidebar.selectbox(
-    "Customer", 
-    ["All"] + clientes_for_filters, 
+    "Cliente", 
+    ["Todos"] + clientes_for_filters, 
     key="customer_select"
 )
 
 # Apply filters to data
 def aplicar_filtros(dados, ano, comercial, cliente):
     resultado = dados.copy()
-    if ano != "All":
+    if ano != "Todos":
         resultado = resultado[resultado['ano'] == int(ano)]
-    if comercial != "All":
+    if comercial != "Todos":
         resultado = resultado[resultado['comercial'].astype(str) == str(comercial)]
-    if cliente != "All":
+    if cliente != "Todos":
         resultado = resultado[resultado['cliente'].astype(str) == str(cliente)]
     return resultado
 
@@ -349,8 +349,8 @@ month_names_pt = {
 }
 
 # --- PAGE 1: OVERVIEW ---
-if pagina == "📈 Overview":
-    st.title("📊 KPI Dashboard Overview")
+if pagina == "📈 Visão Geral":
+    st.title("📊 Painel KPI - Visão Geral")
     
     col1, col2, col3, col4 = st.columns(4)
     
@@ -359,32 +359,32 @@ if pagina == "📈 Overview":
     num_customers = dados_filtrados['cliente'].nunique()
     num_commercials = dados_filtrados['comercial'].nunique()
     
-    col1.metric("📦 Total Quantity", f"{total_qty:,.0f}")
-    col2.metric("💰 Total Value", f"€ {total_value:,.0f}")
-    col3.metric("👥 Unique Customers", f"{num_customers}")
-    col4.metric("🧑‍💼 Active Commercials", f"{num_commercials}")
+    col1.metric("📦 Quantidade Total", f"{total_qty:,.0f}")
+    col2.metric("💰 Valor Total", f"€ {total_value:,.0f}")
+    col3.metric("👥 Clientes Únicos", f"{num_customers}")
+    col4.metric("🧑‍💼 Comerciais Ativos", f"{num_commercials}")
     
     st.markdown("---")
     
     # KPI by Customer
-    st.subheader("🏆 Top 10 Customers by Quantity")
+    st.subheader("🏆 Top 10 Clientes por Quantidade")
     top_clientes = dados_filtrados.groupby('cliente')[['qtd', 'v_liquido']].sum().sort_values('qtd', ascending=False).head(10)
-    top_clientes['Share %'] = (top_clientes['qtd'] / top_clientes['qtd'].sum() * 100).round(2)
+    top_clientes['Quota %'] = (top_clientes['qtd'] / top_clientes['qtd'].sum() * 100).round(2)
     
     fig_top = px.bar(
         top_clientes.reset_index(),
         x='cliente',
         y='qtd',
         color='v_liquido',
-        title='Top 10 Customers by Quantity',
-        labels={'qtd': 'Quantity', 'cliente': 'Customer', 'v_liquido': 'Value (€)'},
+        title='Top 10 Clientes por Quantidade',
+        labels={'qtd': 'Quantidade', 'cliente': 'Cliente', 'v_liquido': 'Valor (€)'},
         color_continuous_scale='Turbo'
     )
     fig_top.update_layout(template=template_chart, showlegend=True, hovermode='x unified')
     st.plotly_chart(fig_top, use_container_width=True)
     
     # KPI by Commercial
-    st.subheader("🧑‍💼 Performance by Commercial")
+    st.subheader("🧑‍💼 Desempenho por Comercial")
     kpi_comercial = dados_filtrados.groupby('comercial')[['qtd', 'v_liquido']].sum().sort_values('qtd', ascending=False)
     
     fig_comercial = px.bar(
@@ -392,35 +392,35 @@ if pagina == "📈 Overview":
         x='comercial',
         y='qtd',
         color='v_liquido',
-        title='Quantity by Commercial',
+        title='Quantidade por Comercial',
         color_continuous_scale='Plasma'
     )
     fig_comercial.update_layout(template=template_chart, showlegend=True)
     st.plotly_chart(fig_comercial, use_container_width=True)
     
     # Data Table
-    st.subheader("📋 Detailed Data")
+    st.subheader("📋 Dados Detalhados")
     st.dataframe(dados_filtrados, use_container_width=True)
-    st.download_button("📥 Export Data", data=gerar_excel(dados_filtrados), file_name="kpi_data.xlsx")
+    st.download_button("📥 Exportar Dados", data=gerar_excel(dados_filtrados), file_name="kpi_data.xlsx")
 
 # --- PAGE 2: CUSTOM KPIs ---
-elif pagina == "🎯 Custom KPIs":
-    st.title("🎯 Custom KPI Creator")
+elif pagina == "🎯 KPIs Personalizados":
+    st.title("🎯 Criador de KPIs Personalizados")
     
-    st.markdown("### Create Your Custom KPIs")
+    st.markdown("### Criar KPIs Personalizados")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        kpi_name = st.text_input("KPI Name", value="Revenue Growth")
-        st.info("📊 KPI displays monthly performance (Sum of Quantity)")
+        kpi_name = st.text_input("Nome do KPI", value="Crescimento de Receita")
+        st.info("📊 KPI apresenta desempenho mensal (Soma de Quantidade)")
     
     with col2:
-        kpi_period = st.selectbox("Period", ["Monthly", "Quarterly", "Yearly"])
-        show_trend = st.checkbox("Show Trend Line", value=True)
+        kpi_period = st.selectbox("Período", ["Mensal", "Trimestral", "Anual"])
+        show_trend = st.checkbox("Mostrar Linha de Tendência", value=True)
     
     if dados_filtrados.empty:
-        st.warning("⚠️ No data available for selected filters. Please adjust your filters.")
+        st.warning("⚠️ Sem dados disponíveis para os filtros selecionados. Ajuste seus filtros.")
     else:
         # Prepare KPI data - always sum qtd by month
         kpi_data = dados_filtrados.groupby('mes')['qtd'].sum().reset_index()
@@ -433,44 +433,44 @@ elif pagina == "🎯 Custom KPIs":
             kpi_data,
             x='month_name',
             y='value',
-            title=f"Monthly Performance - {kpi_name}",
-            labels={'value': 'Quantity (Sum)', 'month_name': 'Month'},
+            title=f"Desempenho Mensal - {kpi_name}",
+            labels={'value': 'Quantidade (Soma)', 'month_name': 'Mês'},
             color='value',
             text='value',
             color_continuous_scale='Rainbow'
         )
         fig_kpi.update_traces(textposition='outside', textfont=dict(color='#00f5ff'))
-        fig_kpi.update_layout(template=template_chart, showlegend=False, xaxis_title="Month", yaxis_title="Quantity (Sum)")
+        fig_kpi.update_layout(template=template_chart, showlegend=False, xaxis_title="Mês", yaxis_title="Quantidade (Soma)")
         st.plotly_chart(fig_kpi, use_container_width=True)
         
         # Summary
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("🔝 Maximum", f"{kpi_data['value'].max():,.0f}")
-        col2.metric("📉 Minimum", f"{kpi_data['value'].min():,.0f}")
-        col3.metric("📊 Average", f"{kpi_data['value'].mean():,.2f}")
-        col4.metric("📈 Median", f"{kpi_data['value'].median():,.2f}")
+        col1.metric("🔝 Máximo", f"{kpi_data['value'].max():,.0f}")
+        col2.metric("📉 Mínimo", f"{kpi_data['value'].min():,.0f}")
+        col3.metric("📊 Média", f"{kpi_data['value'].mean():,.2f}")
+        col4.metric("📈 Mediana", f"{kpi_data['value'].median():,.2f}")
         
         # Data Table
-        st.subheader("📋 Monthly KPI Data")
+        st.subheader("📋 Dados de KPI Mensal")
         st.dataframe(kpi_data[['month_name', 'value']], use_container_width=True)
 
 # --- PAGE 3: TRENDS ---
-elif pagina == "📉 Trends":
-    st.title("📉 Trend Analysis")
+elif pagina == "📉 Tendências":
+    st.title("📉 Análise de Tendências")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        trend_metric = "Quantity"
-        st.selectbox("Select Metric", ["Quantity"], disabled=True)
-        trend_groupby = st.selectbox("Group By", ["mes"], disabled=True)
+        trend_metric = "Quantidade"
+        st.selectbox("Selecionar Métrica", ["Quantidade"], disabled=True)
+        trend_groupby = st.selectbox("Agrupar Por", ["mês"], disabled=True)
     
     with col2:
-        trend_window = st.slider("Moving Average (months)", 1, 12, 3)
+        trend_window = st.slider("Média Móvel (meses)", 1, 12, 3)
     
     # Check if filtered data is empty
     if dados_filtrados.empty:
-        st.warning("⚠️ No data available for selected filters. Please adjust your filters.")
+        st.warning("⚠️ Sem dados disponíveis para os filtros selecionados. Ajuste seus filtros.")
     else:
         # Prepare trend data - always sum qtd by month
         trend_data = dados_filtrados.groupby('mes')['qtd'].sum().reset_index()
@@ -480,7 +480,7 @@ elif pagina == "📉 Trends":
         
         # Check if trend_data has at least 2 rows
         if len(trend_data) < 2:
-            st.warning("⚠️ Insufficient data points for trend analysis. At least 2 data points are required.")
+            st.warning("⚠️ Dados insuficientes para análise de tendências. São necessários pelo menos 2 pontos de dados.")
         else:
             # Add moving average
             trend_data['MA'] = trend_data['value'].rolling(window=trend_window, center=True).mean()
@@ -492,7 +492,7 @@ elif pagina == "📉 Trends":
                 x=trend_data['month_name'],
                 y=trend_data['value'],
                 mode='lines+markers',
-                name='Actual',
+                name='Real',
                 line=dict(color='#ff006e', width=3),
                 marker=dict(size=8, color='#ff006e'),
                 fill='tozeroy',
@@ -506,14 +506,14 @@ elif pagina == "📉 Trends":
                 x=trend_data['month_name'],
                 y=trend_data['MA'],
                 mode='lines',
-                name=f'MA({trend_window})',
+                name=f'MM({trend_window})',
                 line=dict(color='#00f5ff', width=2, dash='dash')
             ))
             
             fig_trend.update_layout(
-                title=f"Monthly Trend - Quantity Sum",
-                xaxis_title="Month",
-                yaxis_title="Quantity (Sum)",
+                title=f"Tendência Mensal - Soma de Quantidade",
+                xaxis_title="Mês",
+                yaxis_title="Quantidade (Soma)",
                 hovermode='x unified',
                 template=template_chart
             )
@@ -521,7 +521,7 @@ elif pagina == "📉 Trends":
             st.plotly_chart(fig_trend, use_container_width=True)
             
             # Trend Statistics
-            st.subheader("📊 Trend Statistics")
+            st.subheader("📊 Estatísticas de Tendência")
             col1, col2, col3, col4 = st.columns(4)
             
             current_value = trend_data['value'].iloc[-1]
@@ -532,23 +532,23 @@ elif pagina == "📉 Trends":
             else:
                 trend_pct_change = 0
             
-            trend_direction = "📈 Up" if trend_pct_change > 0 else "📉 Down" if trend_pct_change < 0 else "➡️ Stable"
+            trend_direction = "📈 Subida" if trend_pct_change > 0 else "📉 Descida" if trend_pct_change < 0 else "➡️ Estável"
             
-            col1.metric("Current Month", f"{current_value:,.0f}")
-            col2.metric("Previous Month", f"{previous_value:,.0f}")
-            col3.metric("% Change", f"{trend_pct_change:+.1f}%")
-            col4.metric("Trend", trend_direction)
+            col1.metric("Mês Atual", f"{current_value:,.0f}")
+            col2.metric("Mês Anterior", f"{previous_value:,.0f}")
+            col3.metric("% Mudança", f"{trend_pct_change:+.1f}%")
+            col4.metric("Tendência", trend_direction)
             
             # Display trend data table with month names
-            st.subheader("📋 Monthly Trend Data")
-            display_trend = trend_data[['month_name', 'value', 'MA']].rename(columns={'month_name': 'Month', 'value': 'Quantity', 'MA': 'Moving Avg'})
+            st.subheader("📋 Dados de Tendência Mensal")
+            display_trend = trend_data[['month_name', 'value', 'MA']].rename(columns={'month_name': 'Mês', 'value': 'Quantidade', 'MA': 'Média Móvel'})
             st.dataframe(display_trend, use_container_width=True)
 
 # --- PAGE 4: ALERTS ---
-elif pagina == "⚠️ Alerts":
-    st.title("⚠️ Alert System")
+elif pagina == "⚠️ Alertas":
+    st.title("⚠️ Sistema de Alertas")
     
-    st.markdown("### Performance Alerts")
+    st.markdown("### Alertas de Desempenho")
     
     # Customer Performance Analysis
     analise_clientes = dados_filtrados.groupby('cliente').agg({
@@ -562,37 +562,37 @@ elif pagina == "⚠️ Alerts":
     media_geral = dados_filtrados['qtd'].mean()
     
     analise_clientes['Status'] = analise_clientes['Avg_Qtd'].apply(
-        lambda x: '🟢 Excellent' if x >= media_geral else '🟡 Warning' if x >= media_geral * 0.7 else '🔴 Critical'
+        lambda x: '🟢 Excelente' if x >= media_geral else '🟡 Atenção' if x >= media_geral * 0.7 else '🔴 Crítico'
     )
     
     col1, col2, col3 = st.columns(3)
     
-    excellent = len(analise_clientes[analise_clientes['Status'] == '🟢 Excellent'])
-    warning = len(analise_clientes[analise_clientes['Status'] == '🟡 Warning'])
-    critical = len(analise_clientes[analise_clientes['Status'] == '🔴 Critical'])
+    excellent = len(analise_clientes[analise_clientes['Status'] == '🟢 Excelente'])
+    warning = len(analise_clientes[analise_clientes['Status'] == '🟡 Atenção'])
+    critical = len(analise_clientes[analise_clientes['Status'] == '🔴 Crítico'])
     
-    col1.metric("🟢 Excellent", excellent)
-    col2.metric("🟡 Warning", warning)
-    col3.metric("🔴 Critical", critical)
+    col1.metric("🟢 Excelente", excellent)
+    col2.metric("🟡 Atenção", warning)
+    col3.metric("🔴 Crítico", critical)
     
     st.markdown("---")
     
-    st.subheader("📋 Customer Status Report")
+    st.subheader("📋 Relatório de Estado do Cliente")
     st.dataframe(analise_clientes, use_container_width=True)
     
     # Critical Customers
-    st.subheader("🔴 Critical Alert Customers")
-    criticos = analise_clientes[analise_clientes['Status'] == '🔴 Critical']
+    st.subheader("🔴 Alertas Críticos de Clientes")
+    criticos = analise_clientes[analise_clientes['Status'] == '🔴 Crítico']
     if not criticos.empty:
-        st.error(f"⚠️ {len(criticos)} customers need immediate attention!")
+        st.error(f"⚠️ {len(criticos)} clientes precisam de atenção imediata!")
         st.dataframe(criticos, use_container_width=True)
     else:
-        st.success("✅ No critical alerts!")
+        st.success("✅ Sem alertas críticos!")
     
     st.markdown("---")
     
     # Customers with Purchase Gaps (Don't Buy Every Month)
-    st.subheader("📅 Customers with Purchase Gaps (Don't Buy Every Month)")
+    st.subheader("📅 Clientes com Lacunas de Compra (Não compram todo mês)")
     
     if not dados_filtrados.empty:
         # Get unique months in dataset
@@ -617,10 +617,10 @@ elif pagina == "⚠️ Alerts":
         
         if not customers_with_gaps.empty:
             display_gaps = customers_with_gaps[['cliente', 'purchase_frequency', 'gap_count', 'total_expected_months', 'months_missing']].copy()
-            display_gaps.columns = ['Customer', 'Months Purchased', 'Months with Gap', 'Expected Months', 'Missing Months']
+            display_gaps.columns = ['Cliente', 'Meses Comprados', 'Meses com Lacuna', 'Meses Esperados', 'Meses em Falta']
             
             # Calculate gap percentage
-            display_gaps['Gap %'] = (display_gaps['Months with Gap'] / display_gaps['Expected Months'] * 100).round(1)
+            display_gaps['% Lacuna'] = (display_gaps['Meses com Lacuna'] / display_gaps['Meses Esperados'] * 100).round(1)
             
             def safe_convert_month_pt(x):
                 if not isinstance(x, set) or len(x) == 0:
@@ -638,38 +638,38 @@ elif pagina == "⚠️ Alerts":
                 except Exception as e:
                     return 'Erro ao ler meses'
             
-            display_gaps['Missing Month Names'] = display_gaps['Missing Months'].apply(safe_convert_month_pt)
+            display_gaps['Nomes dos Meses em Falta'] = display_gaps['Meses em Falta'].apply(safe_convert_month_pt)
             
             # Format final display table with percentage as primary column
-            final_display = display_gaps[['Customer', 'Months Purchased', 'Expected Months', 'Gap %', 'Missing Month Names']].copy()
-            final_display = final_display.sort_values('Gap %', ascending=False)
+            final_display = display_gaps[['Cliente', 'Meses Comprados', 'Meses Esperados', '% Lacuna', 'Nomes dos Meses em Falta']].copy()
+            final_display = final_display.sort_values('% Lacuna', ascending=False)
             
             # Show summary metrics
             col1, col2, col3 = st.columns(3)
-            col1.metric("Customers with Gaps", len(customers_with_gaps))
-            col2.metric("Avg Gap Percentage", f"{(customers_with_gaps['gap_count'].mean() / len(expected_months) * 100):.1f}%")
-            col3.metric("Max Gap Percentage", f"{(customers_with_gaps['gap_count'].max() / len(expected_months) * 100):.1f}%")
+            col1.metric("Clientes com Lacunas", len(customers_with_gaps))
+            col2.metric("% de Lacuna Média", f"{(customers_with_gaps['gap_count'].mean() / len(expected_months) * 100):.1f}%")
+            col3.metric("% de Lacuna Máx.", f"{(customers_with_gaps['gap_count'].max() / len(expected_months) * 100):.1f}%")
             
             # Display alert table
-            st.warning(f"⚠️ {len(customers_with_gaps)} customers have not purchased in every month!")
+            st.warning(f"⚠️ {len(customers_with_gaps)} clientes não compraram em todos os meses!")
             st.dataframe(final_display, use_container_width=True)
             
             # Export gaps report
             st.download_button(
-                "📥 Export Gap Report", 
+                "📥 Exportar Relatório de Lacunas", 
                 data=gerar_excel(final_display), 
                 file_name="customers_with_gaps.xlsx"
             )
         else:
-            st.success("✅ All customers are buying every month!")
+            st.success("✅ Todos os clientes estão a comprar todos os meses!")
     
     st.markdown("---")
 
 # --- PAGE 5: CUSTOMER ANALYSIS ---
-elif pagina == "👥 Customer Analysis":
-    st.title("👥 Customer Analysis")
+elif pagina == "👥 Análise de Clientes":
+    st.title("👥 Análise de Clientes")
     
-    if cliente == "All":
+    if cliente == "Todos":
         st.info("👈 Selecione um cliente específico no painel lateral")
     else:
         cliente_data = dados_filtrados[dados_filtrados['cliente'] == cliente]
@@ -681,12 +681,12 @@ elif pagina == "👥 Customer Analysis":
             st.subheader(f"📊 Perfil do Cliente: {cliente}")
             
             col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Total Quantity", f"{cliente_data['qtd'].sum():,.0f}")
-            col2.metric("Total Value", f"€ {cliente_data['v_liquido'].sum():,.0f}")
-            col3.metric("Avg per Transaction", f"{cliente_data['qtd'].mean():,.2f}")
-            col4.metric("Transactions", len(cliente_data))
+            col1.metric("Quantidade Total", f"{cliente_data['qtd'].sum():,.0f}")
+            col2.metric("Valor Total", f"€ {cliente_data['v_liquido'].sum():,.0f}")
+            col3.metric("Média por Transação", f"{cliente_data['qtd'].mean():,.2f}")
+            col4.metric("Transações", len(cliente_data))
             
-            st.subheader("📈 Customer Trend - Monthly Performance")
+            st.subheader("📈 Tendência do Cliente - Desempenho Mensal")
             
             # Create a date key for proper chronological sorting with month on x-axis
             historico = cliente_data.groupby(['ano', 'mes']).agg({'qtd': 'sum'}).reset_index()
@@ -699,8 +699,8 @@ elif pagina == "👥 Customer Analysis":
                 x='month_name',
                 y='qtd',
                 markers=True,
-                title=f"Monthly Performance (Quantity Sum) - {cliente}",
-                labels={'qtd': 'Quantity (Sum)', 'month_name': 'Month'},
+                title=f"Desempenho Mensal (Soma de Quantidade) - {cliente}",
+                labels={'qtd': 'Quantidade (Soma)', 'month_name': 'Mês'},
                 color_discrete_sequence=['#00f5ff'],
                 text='qtd'
             )
@@ -712,7 +712,7 @@ elif pagina == "👥 Customer Analysis":
             )
             st.plotly_chart(fig_historico, use_container_width=True)
             
-            st.subheader("🔄 vs. Market Average - Monthly Comparison")
+            st.subheader("🔄 vs. Média do Mercado - Comparação Mensal")
             
             # Get market average for all customers in the filtered dataset
             media_mercado = dados_filtrados.groupby(['ano', 'mes']).agg({'qtd': 'sum'}).reset_index()
@@ -755,9 +755,9 @@ elif pagina == "👥 Customer Analysis":
             ))
             
             fig_comp.update_layout(
-                title="Monthly Performance: Customer vs Market Average (Quantity Sum)", 
-                xaxis_title="Month", 
-                yaxis_title="Quantity (Sum)", 
+                title="Desempenho Mensal: Cliente vs Média do Mercado (Soma de Quantidade)", 
+                xaxis_title="Mês", 
+                yaxis_title="Quantidade (Soma)", 
                 hovermode='x unified', 
                 template=template_chart,
                 xaxis_tickangle=-45
@@ -765,9 +765,9 @@ elif pagina == "👥 Customer Analysis":
             st.plotly_chart(fig_comp, use_container_width=True)
             
             # Display comparison metrics
-            st.subheader("📊 Performance Comparison")
+            st.subheader("📊 Comparação de Desempenho")
             comp_metrics = pd.DataFrame({
-                'Metrica': ['Total Quantity', 'Average Monthly', 'Best Month', 'Worst Month'],
+                'Métrica': ['Quantidade Total', 'Média Mensal', 'Melhor Mês', 'Pior Mês'],
                 cliente: [
                     f"{historico['qtd'].sum():,.0f}",
                     f"{historico['qtd'].mean():,.0f}",
@@ -789,12 +789,12 @@ elif pagina == "👥 Customer Analysis":
 
 # --- PAGE 6: COMPARATIVE VIEW ---
 else:
-    st.title("📊 Comparative Analysis")
+    st.title("📊 Análise Comparativa")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        comp_metric1 = st.selectbox("Metrica 1", ["qtd", "v_liquido", "pm"])
+        comp_metric1 = st.selectbox("Métrica 1", ["qtd", "v_liquido", "pm"])
         comp_groupby1 = st.selectbox("Agrupar Por 1", ["cliente", "comercial", "categoria"])
     
     with col2:
@@ -829,11 +829,11 @@ else:
     st.plotly_chart(fig_comp, use_container_width=True)
     
     # Statistics
-    st.subheader("📈 Comparative Statistics")
+    st.subheader("📈 Estatísticas Comparativas")
     comp_stats = pd.DataFrame({
         comp_groupby1: top_items.index,
         comp_metric1: top_items.values,
-        'Share %': (top_items.values / top_items.sum() * 100).round(2)
+        'Quota %': (top_items.values / top_items.sum() * 100).round(2)
     })
     
     st.dataframe(comp_stats, use_container_width=True)
