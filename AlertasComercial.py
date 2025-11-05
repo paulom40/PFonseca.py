@@ -16,14 +16,14 @@ df = load_data()
 
 # Renomear colunas
 df = df.rename(columns={
-    df.columns[1]: "Cliente",
-    df.columns[2]: "Qtd",
-    df.columns[4]: "V_Liquido",
-    df.columns[7]: "Comercial",
-    df.columns[8]: "Categoria",
-    df.columns[9]: "Mes",
-    df.columns[10]: "Ano",
-    df.columns[3]: "Artigo"
+    "Cliente": "Cliente",
+    "Qtd": "Qtd",
+    "Artigo": "Artigo",
+    "V. Líquido": "V_Liquido",
+    "Comercial": "Comercial",
+    "Categoria": "Categoria",
+    "Mês": "Mes",
+    "Ano": "Ano"
 })
 
 # Filtros
@@ -36,18 +36,12 @@ meses = st.sidebar.multiselect("Mês", sorted(df["Mes"].dropna().unique()))
 anos = st.sidebar.multiselect("Ano", sorted(df["Ano"].dropna().unique()))
 
 df_filtrado = df.copy()
-if clientes:
-    df_filtrado = df_filtrado[df_filtrado["Cliente"].isin(clientes)]
-if artigos:
-    df_filtrado = df_filtrado[df_filtrado["Artigo"].isin(artigos)]
-if comerciais:
-    df_filtrado = df_filtrado[df_filtrado["Comercial"].isin(comerciais)]
-if categorias:
-    df_filtrado = df_filtrado[df_filtrado["Categoria"].isin(categorias)]
-if meses:
-    df_filtrado = df_filtrado[df_filtrado["Mes"].isin(meses)]
-if anos:
-    df_filtrado = df_filtrado[df_filtrado["Ano"].isin(anos)]
+if clientes: df_filtrado = df_filtrado[df_filtrado["Cliente"].isin(clientes)]
+if artigos: df_filtrado = df_filtrado[df_filtrado["Artigo"].isin(artigos)]
+if comerciais: df_filtrado = df_filtrado[df_filtrado["Comercial"].isin(comerciais)]
+if categorias: df_filtrado = df_filtrado[df_filtrado["Categoria"].isin(categorias)]
+if meses: df_filtrado = df_filtrado[df_filtrado["Mes"].isin(meses)]
+if anos: df_filtrado = df_filtrado[df_filtrado["Ano"].isin(anos)]
 # KPIs
 total_vendas = df_filtrado["V_Liquido"].sum()
 total_qtd = df_filtrado["Qtd"].sum()
@@ -111,17 +105,14 @@ st.subheader("📤 Exportar relatório completo para Excel")
 
 output = io.BytesIO()
 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-    # Aba 1: Dados filtrados
     df_filtrado.to_excel(writer, index=False, sheet_name='Vendas Filtradas')
 
-    # Aba 2: KPIs
     kpi_df = pd.DataFrame({
         "Indicador": ["Valor Líquido Total", "Quantidade Total", "Ticket Médio"],
         "Valor": [total_vendas, total_qtd, ticket_medio]
     })
     kpi_df.to_excel(writer, index=False, sheet_name='KPIs')
 
-    # Aba 3: Evolução
     evolucao.to_excel(writer, index=False, sheet_name='Evolução')
     workbook = writer.book
     worksheet = writer.sheets['Evolução']
