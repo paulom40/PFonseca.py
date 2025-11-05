@@ -12,7 +12,7 @@ warnings.filterwarnings("ignore")
 # =============================================
 # CONFIG & ESTILO
 # =============================================
-st.set_page_config(page_title="BI Pro", layout="wide", page_icon="Chart")
+st.set_page_config(page_title="BI Pro", layout="wide", page_icon="📊")
 st.markdown("""
 <style>
     .main {background:#f8fafc; padding:2rem}
@@ -68,12 +68,13 @@ def load_data():
         df['ano'] = pd.to_numeric(df['ano'], errors='coerce')
 
         if 'v_liquido' in df.columns:
+            # CORREÇÃO: Remover o parâmetro 'errors' do astype
             df['v_liquido'] = (df['v_liquido'].astype(str)
                                .str.replace(r'[^\d,.]', '', regex=True)
                                .str.replace(r'\.', '', regex=True)
                                .str.replace(',', '.', regex=False)
-                               .str.replace(r'(\.\d{2})\d+', r'\1', regex=True)
-                               .astype(float, errors='coerce').fillna(0))
+                               .str.replace(r'(\.\d{2})\d+', r'\1', regex=True))
+            df['v_liquido'] = pd.to_numeric(df['v_liquido'], errors='coerce').fillna(0)
 
         # === 3. LIMPEZA FINAL ===
         df = df.dropna(subset=['mes', 'qtd', 'ano', 'cliente', 'comercial', 'v_liquido'])
