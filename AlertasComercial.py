@@ -1,4 +1,3 @@
-# dashboard_pro.py
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -27,7 +26,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =============================================
-# CARREGAMENTO CORRIGIDO - CONVERSÃO NUMÉRICA
+# CARREGAMENTO CORRIGIDO
 # =============================================
 month_map = {
     'janeiro': 1, 'fevereiro': 2, 'março': 3, 'abril': 4, 'maio': 5, 'junho': 6,
@@ -39,18 +38,48 @@ month_names = {
     7: 'Julho', 8: 'Agosto', 9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
 }
 
-def debug_data_info(df, step_name):
-    """Função para debug dos dados"""
-    st.write(f"🔍 **Debug {step_name}:**")
-    st.write(f"- Total registros: {len(df)}")
-    if 'qtd' in df.columns:
-        st.write(f"- Soma Qtd: {df['qtd'].sum():.2f}")
-        st.write(f"- Tipo Qtd: {df['qtd'].dtype}")
-        st.write(f"- Amostra Qtd: {df['qtd'].head(5).tolist()}")
-    if 'v_liquido' in df.columns:
-        st.write(f"- Soma V_Liquido: {df['v_liquido'].sum():.2f}")
-        st.write(f"- Tipo V_Liquido: {df['v_liquido'].dtype}")
-        st.write(f"- Amostra V_Liquido: {df['v_liquido'].head(5).tolist()}")
+def convert_to_numeric(value):
+    """Converte um valor para numérico de forma robusta"""
+    if pd.isna(value):
+        return 0
+    
+    if isinstance(value, (int, float)):
+        return float(value)
+    
+    try:
+        # Converter para string e limpar
+        str_value = str(value).strip()
+        
+        # Remover espaços em branco
+        str_value = str_value.replace(' ', '')
+        
+        # Remover símbolos de moeda e outros caracteres especiais
+        str_value = str_value.replace('€', '').replace('$', '').replace('R$', '')
+        
+        # Detectar formato: se tem ponto e vírgula, determinar qual é o separador decimal
+        has_dot = '.' in str_value
+        has_comma = ',' in str_value
+        
+        if has_dot and has_comma:
+            # Ambos presentes: determinar qual é o separador decimal
+            dot_pos = str_value.rfind('.')
+            comma_pos = str_value.rfind(',')
+            
+            if dot_pos > comma_pos:
+                # Ponto é decimal (formato americano)
+                str_value = str_value.replace(',', '')
+            else:
+                # Vírgula é decimal (formato europeu)
+                str_value = str_value.replace('.', '').replace(',', '.')
+        elif has_comma:
+            # Só vírgula: é separador decimal
+            str_value = str_value.replace(',', '.')
+        
+        # Converter para float
+        result = float(str_value)
+        return result
+    except:
+        return 0
 
 @st.cache_data(ttl=3600)
 def load_data():
@@ -59,27 +88,28 @@ def load_data():
         response = requests.get(url, timeout=30)
         response.raise_for_status()
         
-        # Carregar mantendo fórmulas do Excel
+        # Carregar Excel
         df = pd.read_excel(BytesIO(response.content), engine='openpyxl')
-        st.info(f"📥 Dados carregados: {len(df)} registros")
         
-        # Mostrar estrutura inicial
-        with st.expander("🔍 Estrutura inicial dos dados"):
-            st.write("**Colunas:**", list(df.columns))
-            st.write("**Primeiras 5 linhas:**")
-            st.dataframe(df.head(), use_container_width=True)
-            st.write("**Tipos de dados originais:**")
-            st.write(df.dtypes)
+        st.info(f"📥 Dados carregados: {len(df)} registros")
         
         # Padronizar colunas
         df.columns = [col.strip().lower() for col in df.columns]
         column_mapping = {
-            'mês': 'mes', 'qtd.': 'qtd', 'v. líquido': 'v_liquido',
-            'v.líquido': 'v_liquido', 'v_líquido': 'v_liquido'
+            'mês': 'mes', 
+            'qtd.': 'qtd', 
+            'v. líquido': 'v_liquido',
+            'v.líquido': 'v_liquido', 
+            'v_líquido': 'v_liquido',
+            'vliquido': 'v_liquido'
         }
         df.rename(columns=column_mapping, inplace=True)
         
-        # === CONVERSÃO CORRETA DOS DADOS NUMÉRICOS ===
+        # Mostrar estrutura inicial
+        with st.expander("🔍 Estrutura inicial dos dados"):
+            st.write("**Colunas:**", list(df.columns))
+            st.write("**Primeiras linhas:**")
+            st.dataframe(df.head(10), use_container_width=True)
         
         # 1. Converter Mês
         if 'mes' in df.columns:
@@ -92,68 +122,26 @@ def load_data():
         if 'ano' in df.columns:
             df['ano'] = pd.to_numeric(df['ano'], errors='coerce').fillna(2024).astype(int)
         
-        # 3. CONVERSÃO CORRIGIDA - Quantidade
+        # 3. Converter Quantidade com função robusta
         if 'qtd' in df.columns:
-            st.write("🔄 Convertendo coluna Qtd...")
-            
-            # Primeiro: verificar se já são números
-            if not pd.api.types.is_numeric_dtype(df['qtd']):
-                # Converter para string primeiro
-                df['qtd'] = df['qtd'].astype(str)
-                
-                # Debug: mostrar alguns valores antes da conversão
-                st.write("📋 Amostra Qtd antes da conversão:", df['qtd'].head(10).tolist())
-                
-                # Limpar e converter
-                df['qtd'] = (
-                    df['qtd']
-                    .str.replace(r'[^\d,\-\.]', '', regex=True)  # Remove tudo exceto números, vírgula, ponto e sinal negativo
-                    .str.replace(',', '.', regex=False)  # Converte vírgula para ponto
-                    .str.replace(r'\.(?=.*\.)', '', regex=True)  # Remove pontos extras (mantém apenas o último como decimal)
-                )
-            
-            # Converter para numérico
-            df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce')
-            
-            # Substituir valores negativos por zero (ou manter, dependendo da regra de negócio)
-            df['qtd'] = df['qtd'].fillna(0)
-            
-            st.write("✅ Qtd convertida - Amostra:", df['qtd'].head(10).tolist())
-            st.write(f"📊 Soma total Qtd: {df['qtd'].sum():.2f}")
+            st.write("🔄 Convertendo Quantidade...")
+            df['qtd'] = df['qtd'].apply(convert_to_numeric)
+            st.write(f"✅ Soma Qtd: {df['qtd'].sum():,.2f}")
         
-        # 4. CONVERSÃO CORRIGIDA - Valor Líquido
+        # 4. Converter Valor Líquido com função robusta
         if 'v_liquido' in df.columns:
-            st.write("🔄 Convertendo coluna V_Liquido...")
-            
-            if not pd.api.types.is_numeric_dtype(df['v_liquido']):
-                # Converter para string primeiro
-                df['v_liquido'] = df['v_liquido'].astype(str)
-                
-                # Debug: mostrar alguns valores antes da conversão
-                st.write("📋 Amostra V_Liquido antes da conversão:", df['v_liquido'].head(10).tolist())
-                
-                # Limpar e converter
-                df['v_liquido'] = (
-                    df['v_liquido']
-                    .str.replace(r'[^\d,\-\.]', '', regex=True)  # Remove tudo exceto números, vírgula, ponto e sinal negativo
-                    .str.replace(',', '.', regex=False)  # Converte vírgula para ponto
-                    .str.replace(r'\.(?=.*\.)', '', regex=True)  # Remove pontos extras
-                )
-            
-            # Converter para numérico
-            df['v_liquido'] = pd.to_numeric(df['v_liquido'], errors='coerce')
-            df['v_liquido'] = df['v_liquido'].fillna(0)
-            
-            st.write("✅ V_Liquido convertido - Amostra:", df['v_liquido'].head(10).tolist())
-            st.write(f"📊 Soma total V_Liquido: {df['v_liquido'].sum():.2f}")
+            st.write("🔄 Convertendo Valor Líquido...")
+            df['v_liquido'] = df['v_liquido'].apply(convert_to_numeric)
+            st.write(f"✅ Soma V_Liquido: {df['v_liquido'].sum():,.2f}")
         
-        # Limpeza final
+        # Limpeza final - remover apenas registros realmente inválidos
         initial_count = len(df)
         df = df[
             (df['qtd'].notna()) & 
             (df['v_liquido'].notna()) & 
             (df['cliente'].notna()) &
-            (df['qtd'] != 0)  # Remover quantidades zero
+            (df['qtd'] >= 0) &  # Aceitar zero, mas não negativos
+            (df['v_liquido'] >= 0)
         ].copy()
         final_count = len(df)
         
@@ -168,7 +156,7 @@ def load_data():
                 st.write(f"- Média: {df['qtd'].mean():,.2f}")
                 st.write(f"- Mínimo: {df['qtd'].min():,.2f}")
                 st.write(f"- Máximo: {df['qtd'].max():,.2f}")
-                st.write(f"- Registros > 0: {len(df[df['qtd'] > 0])}")
+                st.write(f"- Registros com valor: {len(df[df['qtd'] > 0])}")
                 
             with col2:
                 st.write("**Valor Líquido:**")
@@ -176,7 +164,7 @@ def load_data():
                 st.write(f"- Média: {df['v_liquido'].mean():,.2f}")
                 st.write(f"- Mínimo: {df['v_liquido'].min():,.2f}")
                 st.write(f"- Máximo: {df['v_liquido'].max():,.2f}")
-                st.write(f"- Registros > 0: {len(df[df['v_liquido'] > 0])}")
+                st.write(f"- Registros com valor: {len(df[df['v_liquido'] > 0])}")
         
         st.success("🎉 Dados carregados e convertidos com sucesso!")
         return df
@@ -449,10 +437,6 @@ if page == "Visão Geral":
     if filtros_ativos:
         st.info(f"🔍 **Filtros ativos:** {', '.join(filtros_ativos)}")
     
-    # DEBUG: Mostrar informações dos dados filtrados
-    with st.expander("🔍 Debug - Dados Filtrados"):
-        debug_data_info(data_filtrada, "Dados Filtrados")
-    
     # Métricas principais
     total_qtd = data_filtrada['qtd'].sum()
     total_valor = data_filtrada['v_liquido'].sum()
@@ -464,12 +448,12 @@ if page == "Visão Geral":
     col1, col2, col3, col4 = st.columns(4)
     with col1: 
         st.metric("Quantidade Total", fmt_quantidade(total_qtd), "kg")
-        st.write(f"Raw: {total_qtd:.2f}")
     with col2: 
         st.metric("Valor Total", fmt_valor(total_valor))
-        st.write(f"Raw: {total_valor:.2f}")
-    with col3: st.metric("Total de Clientes", f"{total_clientes:,}")
-    with col4: st.metric("Comerciais Ativos", f"{total_comerciais:,}")
+    with col3: 
+        st.metric("Total de Clientes", f"{total_clientes:,}")
+    with col4: 
+        st.metric("Comerciais Ativos", f"{total_comerciais:,}")
     
     # Gráficos
     if not data_filtrada.empty:
@@ -488,8 +472,6 @@ if page == "Visão Geral":
                 fig = px.bar(vendas_cliente, title="Top Clientes por Valor",
                             labels={'value': 'Valor (€)', 'cliente': 'Cliente'})
                 st.plotly_chart(fig, use_container_width=True)
-
-# ... (resto das páginas mantém a mesma lógica)
 
 # =============================================
 # RESUMO NO SIDEBAR
