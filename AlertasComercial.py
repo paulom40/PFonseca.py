@@ -535,6 +535,15 @@ def formatar_euros_simples(valor):
         return f"€ {valor:,.0f}"
     return f"€ {valor:,.2f}"
 
+# --- FUNÇÃO PARA FORMATAR KG ---
+def formatar_kg(valor):
+    """Formata valores em kg com símbolo kg e separadores de milhares"""
+    if pd.isna(valor) or valor == 0:
+        return "0 kg"
+    if valor >= 1000:
+        return f"{valor:,.0f} kg"
+    return f"{valor:,.2f} kg"
+
 # --- PAGE 1: MODERN OVERVIEW ---
 if pagina == "📊 VISÃO GERAL":
     st.markdown("""
@@ -554,13 +563,13 @@ if pagina == "📊 VISÃO GERAL":
     
     with col1:
         st.metric(
-            label="📦 QUANTIDADE TOTAL", 
-            value=f"{total_qty:,.0f}",
+            label="📦 QUANTIDADE TOTAL (KG)", 
+            value=formatar_kg(total_qty),
             delta=None
         )
     with col2:
         st.metric(
-            label="💰 VALOR TOTAL", 
+            label="💰 VALOR TOTAL (€)", 
             value=formatar_euros_simples(total_value) if total_value > 0 else "€ 0",
             delta=None
         )
@@ -580,7 +589,7 @@ if pagina == "📊 VISÃO GERAL":
     st.markdown("---")
     
     # Top Customers by Quantity
-    st.markdown("### 🏆 TOP 10 CLIENTES (QUANTIDADE)")
+    st.markdown("### 🏆 TOP 10 CLIENTES (QUANTIDADE EM KG)")
     top_clientes_qtd = dados_filtrados.groupby('cliente')[['qtd', 'v_liquido']].sum().sort_values('qtd', ascending=False).head(10)
     
     fig_top_qtd = px.bar(
@@ -589,12 +598,12 @@ if pagina == "📊 VISÃO GERAL":
         y='qtd',
         color='v_liquido',
         title='',
-        labels={'qtd': 'Quantidade', 'cliente': 'Cliente', 'v_liquido': 'Valor em €'},
+        labels={'qtd': 'Quantidade (kg)', 'cliente': 'Cliente', 'v_liquido': 'Valor em €'},
         color_continuous_scale='Viridis',
         text='qtd'
     )
     fig_top_qtd.update_traces(
-        texttemplate='%{text:,.0f}',
+        texttemplate='%{text:,.0f} kg',
         textposition='outside',
         marker_line_color='white',
         marker_line_width=2
@@ -619,7 +628,7 @@ if pagina == "📊 VISÃO GERAL":
         y='v_liquido',
         color='v_liquido',
         title='',
-        labels={'v_liquido': 'Valor (€)', 'cliente': 'Cliente', 'qtd': 'Quantidade'},
+        labels={'v_liquido': 'Valor (€)', 'cliente': 'Cliente', 'qtd': 'Quantidade (kg)'},
         color_continuous_scale='Plasma',
         text='v_liquido'
     )
@@ -712,7 +721,7 @@ elif pagina == "🎯 KPIS PERSONALIZADOS":
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        kpi_tipo = st.selectbox("**📊 TIPO DE KPI**", ["Quantidade", "Valor em €"])
+        kpi_tipo = st.selectbox("**📊 TIPO DE KPI**", ["Quantidade (kg)", "Valor em €"])
         kpi_name = st.text_input("**📝 NOME DO KPI**", value=f"Performance de {kpi_tipo}")
     
     with col2:
@@ -723,18 +732,20 @@ elif pagina == "🎯 KPIS PERSONALIZADOS":
         st.warning("⚠️ Sem dados disponíveis para os filtros selecionados.")
     else:
         # KPI Data based on selection
-        if kpi_tipo == "Quantidade":
+        if "kg" in kpi_tipo:
             kpi_data = dados_filtrados.groupby('mes')['qtd'].sum().reset_index()
             kpi_data.columns = ['mes', 'value']
-            y_axis_title = "Quantidade"
-            text_template = '%{text:,.0f}'
+            y_axis_title = "Quantidade (kg)"
+            text_template = '%{text:,.0f} kg'
             metric_prefix = ""
+            format_func = formatar_kg
         else:  # Valor em €
             kpi_data = dados_filtrados.groupby('mes')['v_liquido'].sum().reset_index()
             kpi_data.columns = ['mes', 'value']
             y_axis_title = "Valor (€)"
             text_template = '€ %{text:,.0f}'
             metric_prefix = "€ "
+            format_func = formatar_euros_simples
         
         kpi_data = kpi_data.sort_values('mes')
         kpi_data['month_name'] = kpi_data['mes'].map(month_names_pt)
@@ -769,10 +780,10 @@ elif pagina == "🎯 KPIS PERSONALIZADOS":
         st.markdown("### 📊 ESTATÍSTICAS DO KPI")
         col1, col2, col3, col4 = st.columns(4)
         
-        col1.metric("🎯 Máximo", f"{metric_prefix}{kpi_data['value'].max():,.0f}")
-        col2.metric("📉 Mínimo", f"{metric_prefix}{kpi_data['value'].min():,.0f}")
-        col3.metric("📊 Média", f"{metric_prefix}{kpi_data['value'].mean():,.0f}")
-        col4.metric("📈 Mediana", f"{metric_prefix}{kpi_data['value'].median():,.0f}")
+        col1.metric("🎯 Máximo", format_func(kpi_data['value'].max()))
+        col2.metric("📉 Mínimo", format_func(kpi_data['value'].min()))
+        col3.metric("📊 Média", format_func(kpi_data['value'].mean()))
+        col4.metric("📈 Mediana", format_func(kpi_data['value'].median()))
 
 # --- PAGE 3: MODERN TRENDS ---
 elif pagina == "📈 TENDÊNCIAS":
@@ -786,7 +797,7 @@ elif pagina == "📈 TENDÊNCIAS":
     col1, col2 = st.columns(2)
     
     with col1:
-        trend_metric = st.selectbox("**📊 MÉTRICA**", ["Quantidade", "Valor em €"])
+        trend_metric = st.selectbox("**📊 MÉTRICA**", ["Quantidade (kg)", "Valor em €"])
         trend_window = st.slider("**📅 PERÍODO MÉDIA MÓVEL**", 1, 6, 2)
     
     with col2:
@@ -796,10 +807,10 @@ elif pagina == "📈 TENDÊNCIAS":
         st.warning("⚠️ Sem dados disponíveis para os filtros selecionados.")
     else:
         # Trend Analysis based on selection
-        if trend_metric == "Quantidade":
+        if "kg" in trend_metric:
             trend_data = dados_filtrados.groupby('mes')['qtd'].sum().reset_index()
             trend_data.columns = ['mes', 'value']
-            y_axis_title = "Quantidade"
+            y_axis_title = "Quantidade (kg)"
             value_format = ",.0f"
         else:  # Valor em €
             trend_data = dados_filtrados.groupby('mes')['v_liquido'].sum().reset_index()
@@ -867,370 +878,12 @@ elif pagina == "📈 TENDÊNCIAS":
             
             trend_direction = "📈 Subida" if trend_pct_change > 0 else "📉 Descida" if trend_pct_change < 0 else "➡️ Estável"
             
-            if trend_metric == "Quantidade":
-                col1.metric("Mês Atual", f"{current_value:,.0f}")
-                col2.metric("Mês Anterior", f"{previous_value:,.0f}")
+            if "kg" in trend_metric:
+                col1.metric("Mês Atual", formatar_kg(current_value))
+                col2.metric("Mês Anterior", formatar_kg(previous_value))
             else:
                 col1.metric("Mês Atual", formatar_euros_simples(current_value))
                 col2.metric("Mês Anterior", formatar_euros_simples(previous_value))
             
             col3.metric("% Mudança", f"{trend_pct_change:+.1f}%")
             col4.metric("Tendência", trend_direction)
-
-# --- PAGE 4: MODERN ALERTS ---
-elif pagina == "⚠️ ALERTAS":
-    st.markdown("""
-        <div style="text-align: center; margin-bottom: 40px;">
-            <h1>⚠️ SISTEMA DE ALERTAS</h1>
-            <p style="font-size: 1.2em; color: #64748b; font-weight: 500;">Monitorize desempenhos críticos</p>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    # Alert Analysis
-    analise_clientes = dados_filtrados.groupby('cliente').agg({
-        'qtd': ['sum', 'mean', 'count'],
-        'v_liquido': 'sum'
-    }).reset_index()
-    
-    analise_clientes.columns = ['Cliente', 'Total_Qtd', 'Avg_Qtd', 'Transactions', 'Total_Value']
-    analise_clientes = analise_clientes.sort_values('Total_Value', ascending=False)
-    
-    media_geral_valor = dados_filtrados['v_liquido'].mean() if 'v_liquido' in dados_filtrados.columns else 0
-    
-    analise_clientes['Status'] = analise_clientes['Total_Value'].apply(
-        lambda x: '🟢 Excelente' if x >= media_geral_valor else '🟡 Atenção' if x >= media_geral_valor * 0.5 else '🔴 Crítico'
-    )
-    
-    # Status Overview
-    st.markdown("### 📊 VISÃO GERAL DE STATUS (VALOR EM €)")
-    col1, col2, col3 = st.columns(3)
-    
-    excellent = len(analise_clientes[analise_clientes['Status'] == '🟢 Excelente'])
-    warning = len(analise_clientes[analise_clientes['Status'] == '🟡 Atenção'])
-    critical = len(analise_clientes[analise_clientes['Status'] == '🔴 Crítico'])
-    
-    col1.metric("🟢 EXCELENTE", excellent, delta_color="off")
-    col2.metric("🟡 ATENÇÃO", warning, delta_color="off")
-    col3.metric("🔴 CRÍTICO", critical, delta_color="off")
-    
-    # --- NOVO: ALERTA DE CLIENTES COM LACUNAS DE COMPRA ---
-    st.markdown("### 📅 ALERTA - LACUNAS DE COMPRA")
-    
-    if not dados_filtrados.empty:
-        # Get unique months in the filtered dataset
-        unique_months = sorted(dados_filtrados['mes'].unique())
-        total_months = len(unique_months)
-        
-        if total_months > 1:  # Only show if we have multiple months
-            # Check for customers with purchase gaps
-            customer_months = dados_filtrados.groupby('cliente')['mes'].apply(lambda x: sorted(x.unique())).reset_index()
-            customer_months.columns = ['cliente', 'months_purchased']
-            
-            def check_purchase_gaps(months_list, all_months):
-                """Check if customer has gaps in purchases"""
-                if len(months_list) == len(all_months):
-                    return False, []  # No gaps
-                missing_months = [m for m in all_months if m not in months_list]
-                return True, missing_months
-            
-            customer_months['has_gaps'] = customer_months['months_purchased'].apply(
-                lambda x: check_purchase_gaps(x, unique_months)[0]
-            )
-            customer_months['missing_months'] = customer_months['months_purchased'].apply(
-                lambda x: check_purchase_gaps(x, unique_months)[1]
-            )
-            customer_months['months_count'] = customer_months['months_purchased'].apply(len)
-            customer_months['total_months'] = total_months
-            
-            # Filter customers with gaps
-            customers_with_gaps = customer_months[customer_months['has_gaps'] == True]
-            
-            if not customers_with_gaps.empty:
-                # Calculate gap percentage
-                customers_with_gaps['gap_percentage'] = (
-                    (customers_with_gaps['total_months'] - customers_with_gaps['months_count']) / 
-                    customers_with_gaps['total_months'] * 100
-                ).round(1)
-                
-                # Merge with value data
-                customers_with_gaps = customers_with_gaps.merge(
-                    analise_clientes[['Cliente', 'Total_Value', 'Transactions']],
-                    left_on='cliente',
-                    right_on='Cliente',
-                    how='left'
-                )
-                
-                st.warning(f"🚨 {len(customers_with_gaps)} clientes não compraram em todos os meses!")
-                
-                # Display customers with gaps
-                for _, cliente_gap in customers_with_gaps.sort_values('gap_percentage', ascending=False).head(10).iterrows():
-                    missing_months_names = [month_names_pt.get(m, f'Mês {m}') for m in cliente_gap['missing_months']]
-                    
-                    with st.container():
-                        st.markdown(f"""
-                            <div style="background: #fffbeb; 
-                                        padding: 15px; border-radius: 10px; margin: 10px 0; 
-                                        border-left: 4px solid #f59e0b;">
-                                <h4 style="margin: 0; color: #d97706;">📅 {cliente_gap['cliente']}</h4>
-                                <p style="margin: 5px 0; color: #92400e;">
-                                    <strong>Comprou em:</strong> {cliente_gap['months_count']} de {cliente_gap['total_months']} meses | 
-                                    <strong>Lacuna:</strong> {cliente_gap['gap_percentage']}% |
-                                    <strong>Valor Total:</strong> {formatar_euros_simples(cliente_gap['Total_Value'])}
-                                </p>
-                                <p style="margin: 5px 0; color: #92400e; font-size: 0.9em;">
-                                    <strong>Meses em falta:</strong> {', '.join(missing_months_names) if missing_months_names else 'Nenhum'}
-                                </p>
-                            </div>
-                        """, unsafe_allow_html=True)
-            else:
-                st.success("✅ Todos os clientes compraram em todos os meses disponíveis!")
-        else:
-            st.info("ℹ️ Dados insuficientes para análise de lacunas (apenas 1 mês disponível)")
-    
-    # Critical Alerts (existing functionality)
-    st.markdown("### 🔴 ALERTAS CRÍTICOS (VALOR BAIXO)")
-    criticos = analise_clientes[analise_clientes['Status'] == '🔴 Crítico']
-    
-    if not criticos.empty:
-        st.error(f"🚨 {len(criticos)} clientes com valor total abaixo do esperado!")
-        
-        # Display critical clients
-        for _, cliente_info in criticos.head(5).iterrows():
-            with st.container():
-                st.markdown(f"""
-                    <div style="background: #fef2f2; 
-                                padding: 15px; border-radius: 10px; margin: 10px 0; 
-                                border-left: 4px solid #ef4444;">
-                        <h4 style="margin: 0; color: #dc2626;">🔴 {cliente_info['Cliente']}</h4>
-                        <p style="margin: 5px 0; color: #991b1b;">
-                            Valor Total: {formatar_euros_simples(cliente_info['Total_Value'])} | 
-                            Transações: {cliente_info['Transactions']}
-                        </p>
-                    </div>
-                """, unsafe_allow_html=True)
-    else:
-        st.success("🎉 Nenhum cliente com desempenho crítico!")
-    
-    # --- NOVO: ALERTA ESPECÍFICO PARA CLIENTE SELECIONADO ---
-    if cliente != "Todos":
-        st.markdown("### 👤 ANÁLISE DO CLIENTE SELECIONADO")
-        
-        cliente_data = dados_filtrados[dados_filtrados['cliente'] == cliente]
-        
-        if not cliente_data.empty:
-            # Get unique months for the selected client
-            cliente_months = sorted(cliente_data['mes'].unique())
-            total_available_months = sorted(dados_filtrados['mes'].unique())
-            
-            if len(total_available_months) > 1:
-                missing_months = [m for m in total_available_months if m not in cliente_months]
-                
-                if missing_months:
-                    missing_months_names = [month_names_pt.get(m, f'Mês {m}') for m in missing_months]
-                    gap_percentage = (len(missing_months) / len(total_available_months) * 100)
-                    
-                    st.warning(f"""
-                    <div style="background: #fffbeb; border-left: 6px solid #f59e0b; padding: 20px; border-radius: 10px; margin: 20px 0;">
-                        <h4 style="color: #d97706; margin: 0 0 10px 0;">⚠️ ALERTA DE LACUNA DE COMPRA</h4>
-                        <p style="color: #92400e; margin: 5px 0;"><strong>Cliente:</strong> {cliente}</p>
-                        <p style="color: #92400e; margin: 5px 0;"><strong>Comprou em:</strong> {len(cliente_months)} de {len(total_available_months)} meses</p>
-                        <p style="color: #92400e; margin: 5px 0;"><strong>Lacuna:</strong> {gap_percentage:.1f}% dos meses</p>
-                        <p style="color: #92400e; margin: 5px 0;"><strong>Meses sem compra:</strong> {', '.join(missing_months_names)}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    # CORREÇÃO: Removido o f-string problemático
-                    st.success("""
-                    <div style="background: #f0fdf4; border-left: 6px solid #22c55e; padding: 20px; border-radius: 10px; margin: 20px 0;">
-                        <h4 style="color: #16a34a; margin: 0 0 10px 0;">✅ COMPRA CONSISTENTE</h4>
-                        <p style="color: #15803d; margin: 5px 0;"><strong>Cliente:</strong> """ + cliente + """</p>
-                        <p style="color: #15803d; margin: 5px 0;">Comprou em todos os """ + str(len(total_available_months)) + """ meses disponíveis</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-            
-            # Additional client insights
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                total_value_cliente = cliente_data['v_liquido'].sum()
-                st.metric(
-                    "💰 Valor Total do Cliente",
-                    formatar_euros_simples(total_value_cliente)
-                )
-            
-            with col2:
-                avg_monthly_value = total_value_cliente / len(cliente_months) if cliente_months else 0
-                st.metric(
-                    "📊 Valor Médio Mensal",
-                    formatar_euros_simples(avg_monthly_value)
-                )
-            
-            with col3:
-                st.metric(
-                    "🔄 Meses com Compra",
-                    f"{len(cliente_months)}/{len(total_available_months)}"
-                )
-        else:
-            st.info("ℹ️ Nenhum dado disponível para o cliente selecionado")
-
-# --- PAGE 5: CUSTOMER ANALYSIS ---
-elif pagina == "👥 ANÁLISE DE CLIENTES":
-    st.markdown("""
-        <div style="text-align: center; margin-bottom: 40px;">
-            <h1>👥 ANÁLISE DE CLIENTES</h1>
-            <p style="font-size: 1.2em; color: #64748b; font-weight: 500;">Análise detalhada por cliente</p>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    if cliente == "Todos":
-        st.info("👈 Selecione um cliente específico no painel lateral para análise detalhada")
-    else:
-        cliente_data = dados_filtrados[dados_filtrados['cliente'] == cliente]
-        
-        if cliente_data.empty:
-            st.warning("❌ Dados não disponíveis para o cliente selecionado")
-        else:
-            # Customer Profile
-            st.markdown(f"### 📊 PERFIL DO CLIENTE: **{cliente}**")
-            
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("📦 Quantidade Total", f"{cliente_data['qtd'].sum():,.0f}")
-            col2.metric("💰 Valor Total", formatar_euros_simples(cliente_data['v_liquido'].sum()))
-            col3.metric("📊 Média por Transação", f"{cliente_data['qtd'].mean():,.0f}")
-            col4.metric("🔄 Transações", len(cliente_data))
-            
-            # Customer Trend
-            st.markdown("### 📈 EVOLUÇÃO DO CLIENTE (VALOR EM €)")
-            historico = cliente_data.groupby(['ano', 'mes']).agg({'v_liquido': 'sum'}).reset_index()
-            historico['month_name'] = historico['mes'].map(month_names_pt)
-            historico = historico.sort_values(['ano', 'mes'])
-            
-            fig_historico = px.line(
-                historico,
-                x='month_name',
-                y='v_liquido',
-                markers=True,
-                title=f"Evolução Mensal do Valor - {cliente}",
-                labels={'v_liquido': 'Valor (€)', 'month_name': 'Mês'},
-                color_discrete_sequence=[primary_color]
-            )
-            fig_historico.update_traces(
-                line=dict(width=3),
-                marker=dict(size=8)
-            )
-            fig_historico.update_layout(
-                plot_bgcolor='white',
-                paper_bgcolor='white',
-                font=dict(color="#1e293b", size=12),
-                hovermode='x unified',
-                xaxis_tickangle=-45
-            )
-            st.plotly_chart(fig_historico, use_container_width=True)
-
-# --- PAGE 6: COMPARATIVE VIEW ---
-else:
-    st.markdown("""
-        <div style="text-align: center; margin-bottom: 40px;">
-            <h1>🔍 VISTA COMPARATIVA</h1>
-            <p style="font-size: 1.2em; color: #64748b; font-weight: 500;">Compare métricas entre diferentes categorias</p>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        comp_metric1 = st.selectbox("**📊 MÉTRICA**", ["qtd", "v_liquido"])
-        comp_groupby1 = st.selectbox("**🗂️ AGRUPAR POR**", ["cliente", "comercial", "categoria"])
-    
-    with col2:
-        comp_top = st.slider("**🔝 TOP N ITENS**", 5, 20, 10)
-        show_pie = st.checkbox("🍕 Mostrar Gráfico de Pizza", value=True)
-    
-    # Get top items
-    top_items = dados_filtrados.groupby(comp_groupby1)[comp_metric1].sum().nlargest(comp_top)
-    
-    # Configurar formatação baseada na métrica
-    if comp_metric1 == "v_liquido":
-        text_template = '€ %{text:,.0f}'
-        y_axis_title = "Valor (€)"
-        hover_template = '€ %{y:,.2f}'
-    else:
-        text_template = '%{text:,.0f}'
-        y_axis_title = "Quantidade"
-        hover_template = '%{y:,.0f}'
-    
-    if show_pie:
-        # Comparative visualization
-        fig_comp = make_subplots(
-            rows=1, cols=2,
-            specs=[[{"type": "bar"}, {"type": "pie"}]],
-            subplot_titles=("Gráfico de Barras", "Distribuição"),
-            column_widths=[0.6, 0.4]
-        )
-        
-        fig_comp.add_trace(
-            go.Bar(
-                x=top_items.index, 
-                y=top_items.values, 
-                marker=dict(color=color_scale_modern),
-                name=comp_metric1,
-                text=top_items.values,
-                texttemplate=text_template,
-                textposition='outside',
-                hovertemplate=hover_template
-            ),
-            row=1, col=1
-        )
-        
-        fig_comp.add_trace(
-            go.Pie(
-                labels=top_items.index, 
-                values=top_items.values, 
-                name=comp_metric1,
-                marker=dict(colors=color_scale_modern),
-                texttemplate=text_template,
-                hovertemplate=hover_template
-            ),
-            row=1, col=2
-        )
-        
-        fig_comp.update_layout(
-            height=500, 
-            showlegend=False, 
-            plot_bgcolor='white',
-            paper_bgcolor='white',
-            font=dict(color="#1e293b", size=12)
-        )
-        st.plotly_chart(fig_comp, use_container_width=True)
-    else:
-        # Single bar chart
-        fig_single = px.bar(
-            top_items.reset_index(),
-            x=comp_groupby1,
-            y=comp_metric1,
-            title=f"Top {comp_top} por {y_axis_title}",
-            labels={comp_metric1: y_axis_title, comp_groupby1: 'Categoria'},
-            color=comp_metric1,
-            color_continuous_scale='Viridis',
-            text=comp_metric1
-        )
-        fig_single.update_traces(
-            texttemplate=text_template,
-            textposition='outside',
-            hovertemplate=hover_template
-        )
-        fig_single.update_layout(
-            plot_bgcolor='white',
-            paper_bgcolor='white',
-            font=dict(color="#1e293b", size=12),
-            xaxis_tickangle=-45
-        )
-        st.plotly_chart(fig_single, use_container_width=True)
-
-# Footer
-st.markdown("---")
-st.markdown("""
-    <div style="text-align: center; color: #64748b; font-size: 0.9em; padding: 20px;">
-        <p>📊 Business Intelligence Dashboard • Desenvolvido com Streamlit</p>
-    </div>
-""", unsafe_allow_html=True)
