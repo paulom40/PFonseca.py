@@ -42,52 +42,67 @@ def load_and_validate():
             "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Vendas_Globais.xlsx", 
             timeout=15).content))
 
-        # === 1. VALIDAR COLUNAS OBRIGATÓRIAS ===
-        required_cols = ['mês', 'qtd', 'ano', 'cliente', 'comercial', 'v. líquido']
+        # === 1. COLUNAS REAIS ===
         raw_cols = [col.strip().lower() for col in df.columns]
-        
-        missing = [col for col in required_cols if col not in raw_cols]
+
+        # === 2. MAPEAR VARIAÇÕES ===
+        col_variants = {
+            'mes': ['mês', 'mes', 'mês', 'month'],
+            'qtd': ['qtd.', 'qtd', 'quantidade', 'qtd.', 'qty'],
+            'ano': ['ano', 'year'],
+            'cliente': ['cliente', 'client'],
+            'comercial': ['comercial', 'vendedor', 'sales'],
+            'v_liquido': ['v. líquido', 'v_liquido', 'valor', 'v. liquido', 'valor líquido']
+        }
+
+        col_map = {}
+        missing = []
+        for std_name, variants in col_variants.items():
+            found = None
+            for var in variants:
+                if var in raw_cols:
+                    found = var
+                    break
+            if found:
+                col_map[found] = std_name
+            else:
+                missing.append(std_name)
+
         if missing:
             st.error(f"Colunas faltando: {', '.join(missing)}")
             return None
 
-        # === 2. PADRONIZAR NOMES ===
-        col_map = {col.strip(): col.strip().lower().replace('v. líquido', 'v_liquido').replace('mês', 'mes').replace('qtd.', 'qtd') 
-                   for col in df.columns}
+        # === 3. RENOMEAR ===
         df.rename(columns=col_map, inplace=True)
 
-        # === 3. VALIDAR E CONVERTER CADA COLUNA ===
-        errors = []
+        # === 4. VALIDAÇÃO E CONVERSÃO ===
+        # Mês
+        df['mes'] = df['mes'].astype(str).str.strip().str.lower().map(month_map, na_action='ignore')
+        df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
+        if df['mes'].isna().all():
+            st.error("Nenhum mês válido.")
+            return None
 
-        # MÊS
-        if 'mes' in df.columns:
-            df['mes_raw'] = df['mes'].astype(str).str.strip().str.lower()
-            df['mes'] = df['mes_raw'].map(month_map)
-            invalid_months = df['mes'].isna() & df['mes_raw'].notna()
-            if invalid_months.any():
-                errors.append(f"Meses inválidos: {df[invalid_months]['mes_raw'].unique()[:5]}")
-            df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
-        else:
-            errors.append("Coluna 'mês' não encontrada")
-
-        # ANO
-        df['ano'] = pd.to_numeric(df['ano'], errors='coerce')
-        if df['ano'].isna().all():
-            errors.append("Todos os anos inválidos")
-        elif (df['ano'] < 2000).any() or (df['ano'] > 2030).any():
-            errors.append("Anos fora do range (2000–2030)")
-
-        # QTD
+        # Qtd
         df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce')
         if df['qtd'].le(0).all():
-            errors.append("Todas as quantidades são zero ou negativas")
+            st.error("Quantidades inválidas (≤ 0).")
+            return None
 
-        # CLIENTE / COMERCIAL
+        # Ano
+        df['ano'] = pd.to_numeric(df['ano'], errors='coerce')
+        if df['ano'].isna().all() or not df['ano'].between(2000, 2030).any():
+            st.error("Anos inválidos.")
+            return None
+
+        # Cliente / Comercial
         for col in ['cliente', 'comercial']:
-            if df[col].astype(str).str.strip().eq('').all():
-                errors.append(f"Coluna '{col}' vazia")
+            df[col] = df[col].astype(str).str.strip()
+            if df[col].eq('').all():
+                st.error(f"Coluna '{col}' vazia.")
+                return None
 
-        # V. LÍQUIDO
+        # Valor Líquido
         if 'v_liquido' in df.columns:
             df['v_liquido'] = (df['v_liquido'].astype(str)
                                .str.replace(r'\.', '', regex=True)
@@ -95,27 +110,19 @@ def load_and_validate():
                                .str.replace(r'(\.\d{2})\d+', r'\1', regex=True)
                                .astype(float, errors='ignore'))
             if df['v_liquido'].le(0).all():
-                errors.append("Todos os valores são zero ou negativos")
-
-        # === 4. MOSTRAR RESULTADO DA VALIDAÇÃO ===
-        if errors:
-            st.markdown("### Validação de Dados")
-            for err in errors:
-                st.markdown(f"<div class='validation-error'>Erro: {err}</div>", unsafe_allow_html=True)
-            st.stop()
-
-        st.markdown("<div class='validation-success'>Todos os dados validados com sucesso!</div>", unsafe_allow_html=True)
+                st.error("Valores ≤ 0.")
+                return None
 
         # === 5. LIMPEZA FINAL ===
         df.dropna(subset=['mes','qtd','ano','cliente','comercial','v_liquido'], inplace=True)
         df = df[(df['mes'].between(1,12)) & (df['qtd'] > 0) & (df['v_liquido'] > 0)]
         df = df.drop_duplicates(subset=['cliente','comercial','ano','mes','qtd','v_liquido'])
-        df.drop(columns=['mes_raw'], errors='ignore', inplace=True)
 
+        st.markdown("<div class='validation-success'>Dados validados com sucesso!</div>", unsafe_allow_html=True)
         return df
 
     except Exception as e:
-        st.error(f"Erro crítico: {e}")
+        st.error(f"Erro: {e}")
         return None
 
 df = load_and_validate()
@@ -127,8 +134,10 @@ if df is None or df.empty:
 # =============================================
 with st.sidebar:
     st.markdown("<h2 style='color:white'>BI Pro</h2>", unsafe_allow_html=True)
-    page = st.radio("Navegação", ["Visão Geral", "KPIs", "Tendências", "Alertas", "Clientes", "Comparação"])
-    
+    page = st.radio("Navegação", [
+        "Visão Geral", "KPIs", "Tendências", "Alertas", "Clientes", "Comparação"
+    ])
+
     def opts(d, a, c, cl):
         t = d.copy()
         if a != "Todos": t = t[t['ano'] == int(a)]
@@ -158,8 +167,16 @@ with st.sidebar:
 # =============================================
 # FUNÇÕES
 # =============================================
-fmt = lambda x, u: f"{x:,.0f} {u}" if pd.notna(x) else f"0 {u}"
+fmt = lambda x, u: f"{x:,.0f} {u}" if pd.notna(x) and x > 0 else f"0 {u}"
 mes_pt = {1:'Jan',2:'Fev',3:'Mar',4:'Abr',5:'Mai',6:'Jun',7:'Jul',8:'Ago',9:'Set',10:'Out',11:'Nov',12:'Dez'}
+
+def export_excel(df_hist, df_pred=None):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df_hist.to_excel(writer, sheet_name='Histórico', index=False)
+        if df_pred is not None:
+            df_pred.to_excel(writer, sheet_name='Previsão', index=False)
+    return output.getvalue()
 
 # =============================================
 # PÁGINAS
@@ -172,7 +189,91 @@ if page == "Visão Geral":
     with c3: st.metric("Clientes", data['cliente'].nunique())
     with c4: st.metric("Comerciais", data['comercial'].nunique())
 
-# (Demais páginas mantidas funcionais)
+elif page == "KPIs":
+    st.markdown("<h1>KPIs Personalizados</h1>", unsafe_allow_html=True)
+    metrica = st.selectbox("Métrica", ["Quantidade", "Valor"])
+    grupo = st.selectbox("Agrupar por", ["Mês", "Ano"])
+    col = 'qtd' if metrica == "Quantidade" else 'v_liquido'
+    gcol = 'mes' if grupo == "Mês" else 'ano'
+    serie = data.groupby(gcol)[col].sum()
+    if serie.empty:
+        st.info("Sem dados.")
+    else:
+        df_plot = serie.reset_index()
+        fig = px.line(df_plot, x=gcol, y=col, markers=True, title=f"{metrica} por {grupo}")
+        if grupo == "Mês":
+            fig.update_xaxes(tickvals=df_plot[gcol], ticktext=[mes_pt.get(m, m) for m in df_plot[gcol]])
+        st.plotly_chart(fig, use_container_width=True)
+
+elif page == "Tendências":
+    st.markdown("<h1>Tendências & Previsão</h1>", unsafe_allow_html=True)
+    metrica = st.selectbox("Métrica", ["Quantidade", "Valor"])
+    meses = st.slider("Prever (meses)", 1, 12, 6)
+    temp = data.copy()
+    temp['data'] = pd.to_datetime(temp['ano'].astype(str) + '-' + temp['mes'].astype(str).str.zfill(2) + '-01')
+    serie = temp.groupby('data')[['qtd','v_liquido']].sum()
+    col = 'qtd' if metrica == "Quantidade" else 'v_liquido'
+    s = serie[col].asfreq('MS').ffill()
+    if len(s) < 12:
+        st.warning("Dados insuficientes.")
+    else:
+        try:
+            import pmdarima as pm
+            model = pm.auto_arima(s, seasonal=True, m=12, stepwise=True, suppress_warnings=True)
+            pred = model.predict(n_periods=meses, return_conf_int=True)
+            forecast, conf = pred[0], pred[1]
+            future = pd.date_range(s.index[-1] + pd.DateOffset(months=1), periods=meses, freq='MS')
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=s.index, y=s, mode='lines+markers', name='Real'))
+            fig.add_trace(go.Scatter(x=future, y=forecast, mode='lines+markers', name='Previsão'))
+            fig.add_trace(go.Scatter(x=list(future)+list(future)[::-1],
+                                   y=list(conf[:,1])+list(conf[:,0])[::-1],
+                                   fill='toself', fillcolor='rgba(16,185,129,0.2)', name='95%'))
+            st.plotly_chart(fig, use_container_width=True)
+            hist = pd.DataFrame({'Data': s.index.strftime('%b/%Y'), 'Real': s.values})
+            prev = pd.DataFrame({'Mês': future.strftime('%b/%Y'), 'Previsão': forecast.round(2)})
+            st.download_button("Exportar Previsão", export_excel(hist, prev), "previsao.xlsx")
+        except: st.error("Previsão indisponível.")
+
+elif page == "Alertas":
+    st.markdown("<h1>Alertas</h1>", unsafe_allow_html=True)
+    temp = data.copy()
+    temp['data'] = pd.to_datetime(temp['ano'].astype(str) + '-' + temp['mes'].astype(str).str.zfill(2) + '-01')
+    mensal = temp.groupby(pd.Grouper(key='data', freq='M'))[['qtd','v_liquido']].sum()
+    alertas = []
+    for i in range(1, len(mensal)):
+        if mensal['qtd'].iloc[i-1] > 0 and mensal['qtd'].iloc[i] / mensal['qtd'].iloc[i-1] < 0.8:
+            alertas.append(f"Queda >20% Qtd: {mensal.index[i].strftime('%b/%Y')}")
+        if 'v_liquido' in mensal.columns and mensal['v_liquido'].iloc[i-1] > 0 and mensal['v_liquido'].iloc[i] / mensal['v_liquido'].iloc[i-1] < 0.85:
+            alertas.append(f"Queda >15% Valor: {mensal.index[i].strftime('%b/%Y')}")
+    for a in alertas: st.error(a)
+    if not alertas: st.success("Sem alertas.")
+
+elif page == "Clientes":
+    st.markdown("<h1>Clientes</h1>", unsafe_allow_html=True)
+    cli = st.selectbox("Cliente", ["Todos"] + sorted(data['cliente'].unique()))
+    dfc = data if cli == "Todos" else data[data['cliente'] == cli]
+    st.metric("Qtd", fmt(dfc['qtd'].sum(), "kg"))
+    st.metric("Valor", fmt(dfc['v_liquido'].sum(), "EUR"))
+    fig = px.scatter(dfc, x='qtd', y='v_liquido', color='comercial', size='qtd')
+    st.plotly_chart(fig, use_container_width=True)
+
+elif page == "Comparação":
+    st.markdown("<h1>Comparação</h1>", unsafe_allow_html=True)
+    anos = sorted(data['ano'].unique())
+    if len(anos) < 2: st.info("Apenas um ano.")
+    else:
+        p1, p2 = st.columns(2)
+        with p1: a1 = st.selectbox("Ano 1", anos)
+        with p2: a2 = st.selectbox("Ano 2", anos, index=1)
+        d1, d2 = data[data['ano']==a1], data[data['ano']==a2]
+        c1, c2 = st.columns(2)
+        with c1:
+            st.metric(f"Qtd {a1}", fmt(d1['qtd'].sum(), "kg"))
+            st.metric(f"Valor {a1}", fmt(d1['v_liquido'].sum(), "EUR"))
+        with c2:
+            st.metric(f"Qtd {a2}", fmt(d2['qtd'].sum(), "kg"))
+            st.metric(f"Valor {a2}", fmt(d2['v_liquido'].sum(), "EUR"))
 
 # Exportar
 if st.sidebar.button("Exportar Dados"):
