@@ -384,7 +384,7 @@ if pagina == "📈 Visão Geral":
         color_continuous_scale='Turbo'
     )
     fig_top.update_layout(template=template_chart, showlegend=True, hovermode='x unified')
-    st.plotly_chart(fig_top, use_container_width=True)
+    st.plotly_chart(fig_top, use_container_width=True) # Changed width='stretch' to use_container_width=True
     
     # KPI by Commercial
     st.subheader("🧑‍💼 Desempenho por Comercial")
@@ -399,11 +399,11 @@ if pagina == "📈 Visão Geral":
         color_continuous_scale='Plasma'
     )
     fig_comercial.update_layout(template=template_chart, showlegend=True)
-    st.plotly_chart(fig_comercial, use_container_width=True)
+    st.plotly_chart(fig_comercial, use_container_width=True) # Changed width='stretch' to use_container_width=True
     
     # Data Table
     st.subheader("📋 Dados Detalhados")
-    st.dataframe(dados_filtrados, use_container_width=True)
+    st.dataframe(dados_filtrados, use_container_width=True) # Changed width='stretch' to use_container_width=True
     st.download_button("📥 Exportar Dados", data=gerar_excel(dados_filtrados), file_name="kpi_data.xlsx")
 
 # --- PAGE 2: CUSTOM KPIs ---
@@ -444,7 +444,7 @@ elif pagina == "🎯 KPIs Personalizados":
         )
         fig_kpi.update_traces(textposition='outside', textfont=dict(color='#00f5ff'))
         fig_kpi.update_layout(template=template_chart, showlegend=False, xaxis_title="Mês", yaxis_title="Quantidade (Soma)")
-        st.plotly_chart(fig_kpi, use_container_width=True)
+        st.plotly_chart(fig_kpi, use_container_width=True) # Changed width='stretch' to use_container_width=True
         
         # Summary
         col1, col2, col3, col4 = st.columns(4)
@@ -455,7 +455,7 @@ elif pagina == "🎯 KPIs Personalizados":
         
         # Data Table
         st.subheader("📋 Dados de KPI Mensal")
-        st.dataframe(kpi_data[['month_name', 'value']], use_container_width=True)
+        st.dataframe(kpi_data[['month_name', 'value']], use_container_width=True) # Changed width='stretch' to use_container_width=True
 
 # --- PAGE 3: TRENDS ---
 elif pagina == "📉 Tendências":
@@ -475,7 +475,7 @@ elif pagina == "📉 Tendências":
     if dados_filtrados.empty:
         st.warning("⚠️ Sem dados disponíveis para os filtros selecionados. Ajuste seus filtros.")
     else:
-        # Prepare trend data - always sum qtd by month
+        # Prepare trend data - always sumqtd by month
         trend_data = dados_filtrados.groupby('mes')['qtd'].sum().reset_index()
         trend_data.columns = ['mes', 'value']
         trend_data = trend_data.sort_values('mes')
@@ -521,7 +521,7 @@ elif pagina == "📉 Tendências":
                 template=template_chart
             )
             
-            st.plotly_chart(fig_trend, use_container_width=True)
+            st.plotly_chart(fig_trend, use_container_width=True) # Changed width='stretch' to use_container_width=True
             
             # Trend Statistics
             st.subheader("📊 Estatísticas de Tendência")
@@ -545,7 +545,7 @@ elif pagina == "📉 Tendências":
             # Display trend data table with month names
             st.subheader("📋 Dados de Tendência Mensal")
             display_trend = trend_data[['month_name', 'value', 'MA']].rename(columns={'month_name': 'Mês', 'value': 'Quantidade', 'MA': 'Média Móvel'})
-            st.dataframe(display_trend, use_container_width=True)
+            st.dataframe(display_trend, use_container_width=True) # Changed width='stretch' to use_container_width=True
             
             st.subheader("📊 Variação Mensal de Quantidade (Mês a Mês)")
             
@@ -557,7 +557,7 @@ elif pagina == "📉 Tendências":
             
             # Format display table
             variation_display = variation_data[['month_name', 'value', 'mes_anterior', 'variacao_qtd', 'variacao_pct']].copy()
-            variation_display.columns = ['Mês', 'Quantidade Atual', 'Quantidade Anterior', 'Variação (Qtd)', 'Variação (%)']
+            variation_display.columns = ['Mês', 'QuantidadeAtual', 'QuantidadeAnterior', 'Variação (Qtd)', 'Variação (%)']
             variation_display = variation_display.iloc[1:]  # Remove first row (no previous data)
             
             def get_variation_alert(pct, qtd_change):
@@ -581,9 +581,9 @@ elif pagina == "📉 Tendências":
             )
             
             # Reorder columns to show alert prominently
-            variation_display = variation_display[['Mês', 'Quantidade Atual', 'Quantidade Anterior', 'Variação (Qtd)', 'Variação (%)', 'Alerta']]
+            variation_display = variation_display[['Mês', 'QuantidadeAtual', 'QuantidadeAnterior', 'Variação (Qtd)', 'Variação (%)', 'Alerta']]
             
-            st.dataframe(variation_display, use_container_width=True)
+            st.dataframe(variation_display, use_container_width=True) # Changed width='stretch' to use_container_width=True
             
             st.markdown("### 🎯 Alertas por Categoria de Variação")
             
@@ -605,17 +605,17 @@ elif pagina == "📉 Tendências":
             if high_growth > 0:
                 st.success(f"🚀 **Crescimento Alto**: {high_growth} mês(es) com crescimento superior a 15%")
                 high_months = variation_display[variation_display['Variação (%)'] > 15][['Mês', 'Variação (%)', 'Variação (Qtd)']]
-                st.dataframe(high_months, use_container_width=True)
+                st.dataframe(high_months, use_container_width=True) # Changed width='stretch' to use_container_width=True
             
             if critical_drop > 0:
                 st.error(f"🔴 **Queda Crítica**: {critical_drop} mês(es) com queda inferior a -15%")
                 critical_months = variation_display[variation_display['Variação (%)'] < -15][['Mês', 'Variação (%)', 'Variação (Qtd)']]
-                st.dataframe(critical_months, use_container_width=True)
+                st.dataframe(critical_months, use_container_width=True) # Changed width='stretch' to use_container_width=True
             
             if decline > 0 and critical_drop == 0:
                 st.warning(f"📉 **Atenção**: {decline} mês(es) com queda moderada (-15% a 0%)")
                 decline_months = variation_display[(variation_display['Variação (%)'] < 0) & (variation_display['Variação (%)'] >= -15)][['Mês', 'Variação (%)', 'Variação (Qtd)']]
-                st.dataframe(decline_months, use_container_width=True)
+                st.dataframe(decline_months, use_container_width=True) # Changed width='stretch' to use_container_width=True
             
             # Visualization of variations
             fig_variation = px.bar(
@@ -634,7 +634,7 @@ elif pagina == "📉 Tendências":
                 xaxis_tickangle=-45,
                 hovermode='x unified'
             )
-            st.plotly_chart(fig_variation, use_container_width=True)
+            st.plotly_chart(fig_variation, use_container_width=True) # Changed width='stretch' to use_container_width=True
 
 # --- PAGE 4: ALERTS ---
 elif pagina == "⚠️ Alertas":
@@ -670,14 +670,14 @@ elif pagina == "⚠️ Alertas":
     st.markdown("---")
     
     st.subheader("📋 Relatório de Estado do Cliente")
-    st.dataframe(analise_clientes, use_container_width=True)
+    st.dataframe(analise_clientes, use_container_width=True) # Changed width='stretch' to use_container_width=True
     
     # Critical Customers
     st.subheader("🔴 Alertas Críticos de Clientes")
     criticos = analise_clientes[analise_clientes['Status'] == '🔴 Crítico']
     if not criticos.empty:
         st.error(f"⚠️ {len(criticos)} clientes precisam de atenção imediata!")
-        st.dataframe(criticos, use_container_width=True)
+        st.dataframe(criticos, use_container_width=True) # Changed width='stretch' to use_container_width=True
     else:
         st.success("✅ Sem alertas críticos!")
     
@@ -744,7 +744,7 @@ elif pagina == "⚠️ Alertas":
             
             # Display alert table
             st.warning(f"⚠️ {len(customers_with_gaps)} clientes não compraram em todos os meses!")
-            st.dataframe(final_display, use_container_width=True)
+            st.dataframe(final_display, use_container_width=True) # Changed width='stretch' to use_container_width=True
             
             # Export gaps report
             st.download_button(
@@ -802,7 +802,7 @@ elif pagina == "👥 Análise de Clientes":
                 hovermode='x unified',
                 xaxis_tickangle=-45
             )
-            st.plotly_chart(fig_historico, use_container_width=True)
+            st.plotly_chart(fig_historico, use_container_width=True) # Changed width='stretch' to use_container_width=True
             
             st.subheader("🔄 vs. Média do Mercado - Comparação Mensal")
             
@@ -854,7 +854,7 @@ elif pagina == "👥 Análise de Clientes":
                 template=template_chart,
                 xaxis_tickangle=-45
             )
-            st.plotly_chart(fig_comp, use_container_width=True)
+            st.plotly_chart(fig_comp, use_container_width=True) # Changed width='stretch' to use_container_width=True
             
             # Display comparison metrics
             st.subheader("📊 Comparação de Desempenho")
@@ -873,11 +873,11 @@ elif pagina == "👥 Análise de Clientes":
                     f"{media_mercado['market_qtd'].min():,.0f}"
                 ]
             })
-            st.dataframe(comp_metrics, use_container_width=True)
+            st.dataframe(comp_metrics, use_container_width=True) # Changed width='stretch' to use_container_width=True
             
             # Data
             st.subheader("📋 Dados Detalhados do Cliente")
-            st.dataframe(cliente_data, use_container_width=True)
+            st.dataframe(cliente_data, use_container_width=True) # Changed width='stretch' to use_container_width=True
 
 # --- PAGE 6: COMPARATIVE VIEW ---
 else:
@@ -918,7 +918,7 @@ else:
     )
     
     fig_comp.update_layout(height=500, showlegend=False, template=template_chart)
-    st.plotly_chart(fig_comp, use_container_width=True)
+    st.plotly_chart(fig_comp, use_container_width=True) # Changed width='stretch' to use_container_width=True
     
     # Statistics
     st.subheader("📈 Estatísticas Comparativas")
@@ -928,5 +928,5 @@ else:
         'Quota %': (top_items.values / top_items.sum() * 100).round(2)
     })
     
-    st.dataframe(comp_stats, use_container_width=True)
+    st.dataframe(comp_stats, use_container_width=True) # Changed width='stretch' to use_container_width=True
     st.download_button("📥 Exportar Análise", data=gerar_excel(comp_stats), file_name="comparative_analysis.xlsx")
