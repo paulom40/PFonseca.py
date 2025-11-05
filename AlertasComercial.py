@@ -26,7 +26,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =============================================
-# CARREGAMENTO CORRIGIDO - DADOS COM VÍRGULA DECIMAL
+# CARREGAMENTO SIMPLIFICADO E CORRIGIDO
 # =============================================
 month_map = {'janeiro':1,'fevereiro':2,'março':3,'abril':4,'maio':5,'junho':6,
              'julho':7,'agosto':8,'setembro':9,'outubro':10,'novembro':11,'dezembro':12}
@@ -34,287 +34,429 @@ month_map = {'janeiro':1,'fevereiro':2,'março':3,'abril':4,'maio':5,'junho':6,
 @st.cache_data(ttl=3600)
 def load_data():
     try:
-        # Carregar o Excel mantendo o formato original
-        df = pd.read_excel(BytesIO(requests.get(
-            "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Vendas_Globais.xlsx", 
-            timeout=15).content))
+        # URL direta do arquivo Excel
+        url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Vendas_Globais.xlsx"
         
-        # === 1. PADRONIZAR COLUNAS ===
-        df.columns = [col.strip() for col in df.columns]
-        col_map = {}
-        raw_lower = [col.lower() for col in df.columns]
-        mapping = {
-            'mes': ['mês', 'mes'],
-            'qtd': ['qtd.', 'qtd', 'quantidade'],
-            'ano': ['ano'],
-            'cliente': ['cliente'],
-            'comercial': ['comercial'],
-            'v_liquido': ['v. líquido', 'v_liquido']
+        # Fazer download do arquivo
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()
+        
+        # Carregar o Excel
+        df = pd.read_excel(BytesIO(response.content))
+        
+        st.info(f"📥 Dados carregados: {len(df)} registros")
+        st.info(f"📊 Colunas encontradas: {list(df.columns)}")
+        
+        # === VERIFICAR ESTRUTURA DOS DADOS ===
+        with st.expander("🔍 Estrutura inicial dos dados"):
+            st.write("**Primeiras 5 linhas:**")
+            st.dataframe(df.head(), use_container_width=True)
+            st.write("**Tipos de dados:**")
+            st.write(df.dtypes)
+            st.write("**Estatísticas básicas:**")
+            st.write(df.describe())
+        
+        # === PADRONIZAR NOMES DAS COLUNAS ===
+        df.columns = [col.strip().lower() for col in df.columns]
+        
+        # Mapear nomes de colunas para padrão
+        column_mapping = {
+            'mês': 'mes',
+            'qtd.': 'qtd', 
+            'v. líquido': 'v_liquido',
+            'v.líquido': 'v_liquido',
+            'v_líquido': 'v_liquido'
         }
-        for std, variants in mapping.items():
-            for var in variants:
-                if var in raw_lower:
-                    idx = raw_lower.index(var)
-                    col_map[df.columns[idx]] = std
-                    break
-        df.rename(columns=col_map, inplace=True)
-
-        # === 2. CONVERSÃO CORRETA PARA DADOS COM VÍRGULA DECIMAL ===
         
-        # Mês - converter para número
-        df['mes'] = df['mes'].astype(str).str.strip().str.lower().map(month_map)
-        df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
-
-        # Ano - converter para número
-        df['ano'] = pd.to_numeric(df['ano'], errors='coerce')
-
-        # Quantidade - tratar como texto com vírgula decimal
+        df.rename(columns=column_mapping, inplace=True)
+        
+        st.info(f"📋 Colunas após padronização: {list(df.columns)}")
+        
+        # === CONVERSÃO DE TIPOS DE DADOS ===
+        
+        # 1. Converter Mês - tratar como texto primeiro
+        if 'mes' in df.columns:
+            df['mes'] = df['mes'].astype(str).str.strip().str.lower()
+            df['mes_num'] = df['mes'].map(month_map)
+            # Manter o mês original também
+            df['mes_nome'] = df['mes']
+        
+        # 2. Converter Ano
+        if 'ano' in df.columns:
+            df['ano'] = pd.to_numeric(df['ano'], errors='coerce').fillna(2024).astype(int)
+        
+        # 3. Converter Quantidade - tratamento robusto
         if 'qtd' in df.columns:
-            # Converter para string e tratar vírgula decimal
+            # Primeiro verificar o tipo atual
+            st.write(f"Tipo da coluna Qtd antes: {df['qtd'].dtype}")
+            st.write(f"Amostra Qtd: {df['qtd'].head(10).tolist()}")
+            
+            # Converter para string e limpar
             df['qtd'] = df['qtd'].astype(str)
             
-            # Remover possíveis pontos de milhares e converter vírgula para ponto decimal
-            df['qtd'] = (df['qtd']
-                        .str.replace(r'\.', '', regex=True)  # Remove pontos de milhares
-                        .str.replace(',', '.', regex=False)  # Converte vírgula para ponto
-                        .str.replace(r'[^\d\.]', '', regex=True)  # Remove caracteres não numéricos
-            )
+            # Remover caracteres não numéricos exceto ponto e vírgula
+            df['qtd'] = df['qtd'].str.replace(r'[^\d,\.\-]', '', regex=True)
+            
+            # Substituir vírgula por ponto para decimal
+            df['qtd'] = df['qtd'].str.replace(',', '.', regex=False)
             
             # Converter para numérico
-            df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce').fillna(0)
+            df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce')
             
-            # Arredondar para 2 casas decimais
-            df['qtd'] = df['qtd'].round(2)
-
-        # Valor Líquido - tratar como texto com vírgula decimal
+            # Preencher NA com 0
+            df['qtd'] = df['qtd'].fillna(0)
+            
+            st.write(f"Tipo da coluna Qtd depois: {df['qtd'].dtype}")
+            st.write(f"Amostra Qtd convertida: {df['qtd'].head(10).tolist()}")
+        
+        # 4. Converter Valor Líquido - mesmo tratamento
         if 'v_liquido' in df.columns:
-            # Converter para string e tratar vírgula decimal
+            st.write(f"Tipo da coluna V_Liquido antes: {df['v_liquido'].dtype}")
+            st.write(f"Amostra V_Liquido: {df['v_liquido'].head(10).tolist()}")
+            
             df['v_liquido'] = df['v_liquido'].astype(str)
+            df['v_liquido'] = df['v_liquido'].str.replace(r'[^\d,\.\-]', '', regex=True)
+            df['v_liquido'] = df['v_liquido'].str.replace(',', '.', regex=False)
+            df['v_liquido'] = pd.to_numeric(df['v_liquido'], errors='coerce')
+            df['v_liquido'] = df['v_liquido'].fillna(0)
             
-            # Remover possíveis pontos de milhares e converter vírgula para ponto decimal
-            df['v_liquido'] = (df['v_liquido']
-                              .str.replace(r'\.', '', regex=True)  # Remove pontos de milhares
-                              .str.replace(',', '.', regex=False)  # Converte vírgula para ponto
-                              .str.replace(r'[^\d\.]', '', regex=True)  # Remove caracteres não numéricos
-            )
-            
-            # Converter para numérico
-            df['v_liquido'] = pd.to_numeric(df['v_liquido'], errors='coerce').fillna(0)
-            
-            # Arredondar para 2 casas decimais
-            df['v_liquido'] = df['v_liquido'].round(2)
-
-        # === 3. VALIDAÇÃO E LIMPEZA ===
-        st.info(f"🔍 Antes da limpeza: {len(df)} registros")
+            st.write(f"Tipo da coluna V_Liquido depois: {df['v_liquido'].dtype}")
+            st.write(f"Amostra V_Liquido convertida: {df['v_liquido'].head(10).tolist()}")
         
-        # Remover registros com valores inválidos
-        df = df.dropna(subset=['mes', 'qtd', 'ano', 'cliente', 'comercial', 'v_liquido'])
-        df = df[(df['mes'].between(1, 12)) & 
-                (df['qtd'] > 0) & 
-                (df['v_liquido'] > 0)]
+        # === LIMPEZA FINAL ===
+        st.info(f"🔍 Antes da limpeza final: {len(df)} registros")
         
-        # Remover duplicatas
-        df = df.drop_duplicates(subset=['cliente','comercial','ano','mes','qtd','v_liquido'])
+        # Remover registros completamente inválidos
+        initial_count = len(df)
+        df = df[
+            (df['qtd'].notna()) & 
+            (df['v_liquido'].notna()) &
+            (df['qtd'] != 0) &
+            (df['cliente'].notna())
+        ].copy()
         
-        st.info(f"✅ Depois da limpeza: {len(df)} registros")
+        final_count = len(df)
+        st.info(f"✅ Depois da limpeza final: {final_count} registros")
+        st.info(f"🗑️ Registros removidos: {initial_count - final_count}")
         
-        # Mostrar estatísticas dos dados carregados
-        with st.expander("📊 Estatísticas dos dados carregados"):
-            col1, col2 = st.columns(2)
+        # Mostrar estatísticas finais
+        with st.expander("📊 Estatísticas finais dos dados"):
+            col1, col2, col3 = st.columns(3)
             with col1:
                 st.write("**Quantidade (Qtd):**")
-                st.write(f"- Mínimo: {df['qtd'].min():,.2f}")
-                st.write(f"- Máximo: {df['qtd'].max():,.2f}")
-                st.write(f"- Média: {df['qtd'].mean():,.2f}")
                 st.write(f"- Total: {df['qtd'].sum():,.2f}")
+                st.write(f"- Média: {df['qtd'].mean():,.2f}")
+                st.write(f"- Registros: {len(df[df['qtd'] > 0])}")
                 
             with col2:
                 st.write("**Valor Líquido:**")
-                st.write(f"- Mínimo: {df['v_liquido'].min():,.2f}")
-                st.write(f"- Máximo: {df['v_liquido'].max():,.2f}")
-                st.write(f"- Média: {df['v_liquido'].mean():,.2f}")
                 st.write(f"- Total: {df['v_liquido'].sum():,.2f}")
-
-        st.success("✅ Dados carregados e convertidos corretamente!")
+                st.write(f"- Média: {df['v_liquido'].mean():,.2f}")
+                st.write(f"- Registros: {len(df[df['v_liquido'] > 0])}")
+                
+            with col3:
+                st.write("**Outras informações:**")
+                st.write(f"- Clientes: {df['cliente'].nunique()}")
+                st.write(f"- Comerciais: {df['comercial'].nunique()}")
+                st.write(f"- Período: {df['ano'].min()}-{df['ano'].max()}")
+        
+        st.success("🎉 Dados carregados e processados com sucesso!")
         return df
 
     except Exception as e:
-        st.error(f"❌ Erro no carregamento: {e}")
+        st.error(f"❌ Erro crítico no carregamento: {str(e)}")
+        import traceback
+        st.error(f"Detalhes do erro: {traceback.format_exc()}")
         return pd.DataFrame()
 
 # Carregar dados
-df = load_data()
+with st.spinner('📥 Carregando dados...'):
+    df = load_data()
+
 if df.empty: 
     st.error("Não foi possível carregar os dados. Verifique a conexão e o formato do arquivo.")
     st.stop()
 
 # =============================================
-# SIDEBAR
+# SIDEBAR SIMPLIFICADO
 # =============================================
 with st.sidebar:
     st.markdown("<h2 style='color:white'>BI Pro</h2>", unsafe_allow_html=True)
+    
+    # Navegação
     page = st.radio("Navegação", [
-        "Visão Geral", "KPIs", "Tendências", "Alertas", "Clientes", "Comparação", "Comparação Clientes"
+        "Visão Geral", "KPIs", "Comparação", "Clientes", "Análise Detalhada"
     ])
     
-    def opts(d, a, c, cl):
-        t = d.copy()
-        if a != "Todos": t = t[t['ano'] == int(a)]
-        if c != "Todos": t = t[t['comercial'].astype(str) == str(c)]
-        if cl != "Todos": t = t[t['cliente'].astype(str) == str(cl)]
-        return (sorted(t['ano'].unique().astype(int)),
-                sorted(t['comercial'].unique()),
-                sorted(t['cliente'].unique()),
-                sorted(t.get('categoria', pd.Series()).dropna().unique()))
+    # Filtros básicos
+    st.markdown("---")
+    st.markdown("**Filtros:**")
     
-    anos = sorted(df['ano'].unique().astype(int))
-    ano = st.selectbox("Ano", ["Todos"] + anos)
-    coms = opts(df, ano, "Todos", "Todos")[1]
-    comercial = st.selectbox("Comercial", ["Todos"] + coms)
-    cls = opts(df, ano, comercial, "Todos")[2]
-    cliente = st.selectbox("Cliente", ["Todos"] + cls)
-    cats = opts(df, ano, comercial, cliente)[3]
-    categoria = st.selectbox("Categoria", ["Todas"] + cats)
+    # Ano
+    anos_disponiveis = sorted(df['ano'].unique())
+    ano_selecionado = st.selectbox("Ano", ["Todos"] + anos_disponiveis)
+    
+    # Comercial
+    comerciais_disponiveis = sorted(df['comercial'].unique())
+    comercial_selecionado = st.selectbox("Comercial", ["Todos"] + comerciais_disponiveis)
+    
+    # Cliente
+    clientes_disponiveis = sorted(df['cliente'].unique())
+    cliente_selecionado = st.selectbox("Cliente", ["Todos"] + clientes_disponiveis)
 
-    data = df.copy()
-    if ano != "Todos": data = data[data['ano'] == int(ano)]
-    if comercial != "Todos": data = data[data['comercial'].astype(str) == str(comercial)]
-    if cliente != "Todos": data = data[data['cliente'].astype(str) == str(cliente)]
-    if categoria != "Todas" and 'categoria' in data.columns:
-        data = data[data['categoria'].astype(str) == str(categoria)]
+# Aplicar filtros
+data = df.copy()
+if ano_selecionado != "Todos":
+    data = data[data['ano'] == ano_selecionado]
+if comercial_selecionado != "Todos":
+    data = data[data['comercial'] == comercial_selecionado]
+if cliente_selecionado != "Todos":
+    data = data[data['cliente'] == cliente_selecionado]
 
 # =============================================
-# FUNÇÕES DE FORMATAÇÃO PARA VÍRGULA DECIMAL
+# FUNÇÕES DE FORMATAÇÃO
 # =============================================
 def formatar_numero_europeu(numero, casas_decimais=2):
-    """
-    Formata número no formato europeu: 1.234.567,89
-    """
+    """Formata número no formato europeu: 1.234.567,89"""
     if pd.isna(numero) or numero == 0:
         return "0" if casas_decimais == 0 else "0,00"
     
     try:
-        # Formatar com separador de milhares e vírgula decimal
         if casas_decimais == 0:
             formatted = f"{numero:,.0f}"
         else:
             formatted = f"{numero:,.{casas_decimais}f}"
         
-        # Converter formato americano para europeu
         return formatted.replace(",", "X").replace(".", ",").replace("X", ".")
     except:
         return "0" if casas_decimais == 0 else "0,00"
 
-def fmt_valor(x, u=""):
+def fmt_valor(x):
     """Formata valores monetários"""
-    return f"{formatar_numero_europeu(x, 2)} {u}".strip()
+    return f"€ {formatar_numero_europeu(x, 2)}"
 
-def fmt_quantidade(x, u=""):
+def fmt_quantidade(x):
     """Formata quantidades"""
-    # Verificar se é número inteiro
     if pd.notna(x) and x == int(x):
-        return f"{formatar_numero_europeu(x, 0)} {u}".strip()
+        return f"{formatar_numero_europeu(x, 0)}"
     else:
-        return f"{formatar_numero_europeu(x, 2)} {u}".strip()
-
-def fmt_percentual(x):
-    """Formata percentuais"""
-    if pd.isna(x) or np.isinf(x):
-        return "0,00%"
-    
-    try:
-        formatted = f"{x:+.2f}%"
-        return formatted.replace(".", ",")
-    except:
-        return "0,00%"
+        return f"{formatar_numero_europeu(x, 2)}"
 
 # =============================================
-# PÁGINAS
+# PÁGINAS PRINCIPAIS
 # =============================================
 if page == "Visão Geral":
-    st.markdown("<h1>Visão Geral</h1>", unsafe_allow_html=True)
+    st.markdown("<h1>📊 Visão Geral</h1>", unsafe_allow_html=True)
     
-    # Calcular totais
-    qtd_total = data['qtd'].sum()
-    valor_total = data['v_liquido'].sum()
+    # Métricas principais
+    total_qtd = data['qtd'].sum()
+    total_valor = data['v_liquido'].sum()
+    total_clientes = data['cliente'].nunique()
+    total_comerciais = data['comercial'].nunique()
     
-    c1, c2, c3, c4 = st.columns(4)
-    with c1: 
-        st.metric("Quantidade", fmt_quantidade(qtd_total, "kg"))
-    with c2: 
-        st.metric("Valor Total", fmt_valor(valor_total, "EUR"))
-    with c3: 
-        st.metric("Clientes", f"{data['cliente'].nunique():,}")
-    with c4: 
-        st.metric("Comerciais", f"{data['comercial'].nunique():,}")
+    col1, col2, col3, col4 = st.columns(4)
     
-    # Amostra dos dados
-    with st.expander("🔍 Amostra dos dados processados"):
-        st.write("**Primeiras 10 linhas:**")
-        display_data = data[['cliente', 'qtd', 'v_liquido', 'ano', 'mes']].head(10).copy()
-        display_data['qtd'] = display_data['qtd'].apply(lambda x: fmt_quantidade(x, ''))
-        display_data['v_liquido'] = display_data['v_liquido'].apply(lambda x: fmt_valor(x, ''))
-        st.dataframe(display_data, use_container_width=True)
+    with col1:
+        st.metric(
+            "Quantidade Total", 
+            fmt_quantidade(total_qtd),
+            "kg"
+        )
+    
+    with col2:
+        st.metric(
+            "Valor Total", 
+            fmt_valor(total_valor)
+        )
+    
+    with col3:
+        st.metric(
+            "Total de Clientes",
+            f"{total_clientes:,}"
+        )
+    
+    with col4:
+        st.metric(
+            "Comerciais Ativos", 
+            f"{total_comerciais:,}"
+        )
+    
+    # Gráficos básicos
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Vendas por comercial
+        vendas_por_comercial = data.groupby('comercial')['v_liquido'].sum().sort_values(ascending=False)
+        
+        if not vendas_por_comercial.empty:
+            fig1 = px.bar(
+                vendas_por_comercial.head(10),
+                title="Top 10 Comerciais por Valor de Vendas",
+                labels={'value': 'Valor (€)', 'comercial': 'Comercial'}
+            )
+            fig1.update_layout(showlegend=False)
+            st.plotly_chart(fig1, use_container_width=True)
+    
+    with col2:
+        # Vendas por cliente
+        vendas_por_cliente = data.groupby('cliente')['v_liquido'].sum().sort_values(ascending=False)
+        
+        if not vendas_por_cliente.empty:
+            fig2 = px.bar(
+                vendas_por_cliente.head(10),
+                title="Top 10 Clientes por Valor de Vendas",
+                labels={'value': 'Valor (€)', 'cliente': 'Cliente'}
+            )
+            fig2.update_layout(showlegend=False)
+            st.plotly_chart(fig2, use_container_width=True)
+    
+    # Tabela de dados
+    with st.expander("📋 Visualizar Dados Filtrados"):
+        st.write(f"Mostrando {len(data)} registros")
+        
+        # Preparar dados para exibição
+        display_data = data[['cliente', 'comercial', 'qtd', 'v_liquido', 'ano', 'mes_nome']].copy()
+        display_data['qtd_formatada'] = display_data['qtd'].apply(fmt_quantidade)
+        display_data['v_liquido_formatado'] = display_data['v_liquido'].apply(fmt_valor)
+        
+        st.dataframe(
+            display_data[['cliente', 'comercial', 'qtd_formatada', 'v_liquido_formatado', 'ano', 'mes_nome']],
+            use_container_width=True
+        )
 
 elif page == "Comparação":
-    st.markdown("<h1>Comparação</h1>", unsafe_allow_html=True)
+    st.markdown("<h1>📈 Comparação</h1>", unsafe_allow_html=True)
+    
     anos_disponiveis = sorted(data['ano'].unique())
     
     if len(anos_disponiveis) >= 2:
-        a1, a2 = st.columns(2)
-        with a1: 
-            y1 = st.selectbox("Ano 1", anos_disponiveis)
-        with a2: 
-            default_idx = 1 if len(anos_disponiveis) > 1 else 0
-            y2 = st.selectbox("Ano 2", anos_disponiveis, index=default_idx)
-        
-        d1 = data[data['ano'] == y1]
-        d2 = data[data['ano'] == y2]
-        
-        # Calcular totais
-        qtd_y1 = d1['qtd'].sum()
-        qtd_y2 = d2['qtd'].sum()
-        valor_y1 = d1['v_liquido'].sum()
-        valor_y2 = d2['v_liquido'].sum()
-        
-        # Métricas principais
-        c1, c2, c3, c4 = st.columns(4)
-        with c1: 
-            st.metric(f"Quantidade {y1}", fmt_quantidade(qtd_y1, "kg"))
-        with c2: 
-            st.metric(f"Quantidade {y2}", fmt_quantidade(qtd_y2, "kg"))
-        with c3: 
-            st.metric(f"Valor {y1}", fmt_valor(valor_y1, "EUR"))
-        with c4: 
-            st.metric(f"Valor {y2}", fmt_valor(valor_y2, "EUR"))
-        
-        # Variação
         col1, col2 = st.columns(2)
+        
         with col1:
-            if qtd_y1 > 0:
-                variacao_qtd = ((qtd_y2 - qtd_y1) / qtd_y1) * 100
-                st.metric("Variação Quantidade", fmt_percentual(variacao_qtd))
-            else:
-                st.metric("Variação Quantidade", "N/A")
+            ano1 = st.selectbox("Selecione o Ano 1", anos_disponiveis)
         
         with col2:
-            if valor_y1 > 0:
-                variacao_valor = ((valor_y2 - valor_y1) / valor_y1) * 100
-                st.metric("Variação Valor", fmt_percentual(variacao_valor))
-            else:
-                st.metric("Variação Valor", "N/A")
+            # Selecionar ano2 diferente do ano1
+            outros_anos = [a for a in anos_disponiveis if a != ano1]
+            ano2 = st.selectbox("Selecione o Ano 2", outros_anos if outros_anos else anos_disponiveis)
+        
+        # Filtrar dados para cada ano
+        dados_ano1 = data[data['ano'] == ano1]
+        dados_ano2 = data[data['ano'] == ano2]
+        
+        # Calcular métricas
+        qtd_ano1 = dados_ano1['qtd'].sum()
+        qtd_ano2 = dados_ano2['qtd'].sum()
+        valor_ano1 = dados_ano1['v_liquido'].sum()
+        valor_ano2 = dados_ano2['v_liquido'].sum()
+        
+        # Exibir métricas
+        st.subheader("Comparação de Métricas")
+        
+        metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+        
+        with metric_col1:
+            st.metric(f"Quantidade {ano1}", fmt_quantidade(qtd_ano1))
+        
+        with metric_col2:
+            st.metric(f"Quantidade {ano2}", fmt_quantidade(qtd_ano2))
+        
+        with metric_col3:
+            st.metric(f"Valor {ano1}", fmt_valor(valor_ano1))
+        
+        with metric_col4:
+            st.metric(f"Valor {ano2}", fmt_valor(valor_ano2))
+        
+        # Calcular variações
+        if qtd_ano1 > 0:
+            variacao_qtd = ((qtd_ano2 - qtd_ano1) / qtd_ano1) * 100
+        else:
+            variacao_qtd = 0
+            
+        if valor_ano1 > 0:
+            variacao_valor = ((valor_ano2 - valor_ano1) / valor_ano1) * 100
+        else:
+            variacao_valor = 0
+        
+        # Exibir variações
+        st.subheader("Variações")
+        
+        var_col1, var_col2 = st.columns(2)
+        
+        with var_col1:
+            st.metric(
+                "Variação na Quantidade",
+                f"{variacao_qtd:+.1f}%"
+            )
+        
+        with var_col2:
+            st.metric(
+                "Variação no Valor",
+                f"{variacao_valor:+.1f}%"
+            )
+        
+    else:
+        st.warning("⚠️ São necessários pelo menos 2 anos de dados para comparação")
 
-# ... (outras páginas mantêm a mesma lógica)
+elif page == "Clientes":
+    st.markdown("<h1>👥 Análise de Clientes</h1>", unsafe_allow_html=True)
+    
+    # Top clientes
+    clientes_analysis = data.groupby('cliente').agg({
+        'v_liquido': 'sum',
+        'qtd': 'sum',
+        'comercial': 'nunique'
+    }).sort_values('v_liquido', ascending=False)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("Top 10 Clientes por Valor")
+        top_clientes_valor = clientes_analysis.head(10)
+        
+        fig = px.bar(
+            top_clientes_valor,
+            x=top_clientes_valor.index,
+            y='v_liquido',
+            title="Top 10 Clientes por Valor de Vendas"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        st.subheader("Top 10 Clientes por Quantidade")
+        top_clientes_qtd = clientes_analysis.sort_values('qtd', ascending=False).head(10)
+        
+        fig = px.bar(
+            top_clientes_qtd,
+            x=top_clientes_qtd.index,
+            y='qtd',
+            title="Top 10 Clientes por Quantidade"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # Tabela detalhada
+    with st.expander("📊 Tabela Detalhada de Clientes"):
+        clientes_detalhados = clientes_analysis.copy()
+        clientes_detalhados['v_liquido_formatado'] = clientes_detalhados['v_liquido'].apply(fmt_valor)
+        clientes_detalhados['qtd_formatada'] = clientes_detalhados['qtd'].apply(fmt_quantidade)
+        
+        st.dataframe(
+            clientes_detalhados[['v_liquido_formatado', 'qtd_formatada', 'comercial']],
+            use_container_width=True
+        )
 
 # Informações do dataset no sidebar
 with st.sidebar:
     st.markdown("---")
-    st.markdown("**Dataset Info:**")
+    st.markdown("**Resumo do Dataset:**")
     
-    qtd_resumo = df['qtd'].sum()
-    valor_resumo = df['v_liquido'].sum()
+    qtd_total = df['qtd'].sum()
+    valor_total = df['v_liquido'].sum()
     
-    st.markdown(f"- Período: {int(df['ano'].min())}-{int(df['ano'].max())}")
-    st.markdown(f"- Total: {fmt_valor(valor_resumo, 'EUR')}")
-    st.markdown(f"- Clientes: {df['cliente'].nunique():,}")
-    st.markdown(f"- Registros: {len(df):,}")
+    st.markdown(f"• Período: {df['ano'].min()}-{df['ano'].max()}")
+    st.markdown(f"• Valor Total: {fmt_valor(valor_total)}")
+    st.markdown(f"• Clientes: {df['cliente'].nunique():,}")
+    st.markdown(f"• Registros: {len(df):,}")
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("🔄 *Atualizado automaticamente*")
