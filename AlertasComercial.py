@@ -26,34 +26,28 @@ warning_color = "#ef4444"  # Red
 success_color = "#22c55e"  # Green
 info_color = "#3b82f6"     # Blue
 
-# Gradient backgrounds
-background_gradient = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
-sidebar_gradient = "linear-gradient(180deg, #4f46e5 0%, #7c3aed 100%)"
-card_gradient = "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)"
-
-# --- MODERN STYLING ---
+# --- CLEAN WHITE STYLING ---
 st.markdown(f"""
     <style>
-    /* Modern Glass Morphism Design */
+    /* Clean White Design */
     .main {{
-        background: {background_gradient};
+        background: #ffffff;
         color: #1e293b;
     }}
     
     .stApp {{
-        background: {background_gradient};
+        background: #ffffff;
     }}
     
-    /* Modern Headers with Gradient Text */
+    /* Modern Headers */
     h1 {{
-        background: linear-gradient(135deg, {primary_color}, {accent_color});
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
+        color: {primary_color};
         font-weight: 800;
-        font-size: 3em;
+        font-size: 2.8em;
         margin-bottom: 20px;
         font-family: 'Inter', sans-serif;
+        border-bottom: 3px solid {primary_color};
+        padding-bottom: 10px;
     }}
     
     h2 {{
@@ -63,8 +57,6 @@ st.markdown(f"""
         margin-top: 30px;
         margin-bottom: 20px;
         font-family: 'Inter', sans-serif;
-        border-left: 4px solid {primary_color};
-        padding-left: 15px;
     }}
     
     h3 {{
@@ -74,26 +66,25 @@ st.markdown(f"""
         font-family: 'Inter', sans-serif;
     }}
     
-    /* Glass Morphism Cards */
+    /* Modern Cards */
     [data-testid="metric-container"] {{
-        background: rgba(255, 255, 255, 0.9);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 20px;
+        background: white;
+        border: 2px solid #e2e8f0;
+        border-radius: 15px;
         padding: 25px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
         transition: all 0.3s ease;
     }}
     
     [data-testid="metric-container"]:hover {{
         transform: translateY(-5px);
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+        border-color: {primary_color};
     }}
     
     /* Modern Sidebar */
     [data-testid="stSidebar"] {{
-        background: {sidebar_gradient};
+        background: linear-gradient(180deg, {primary_color} 0%, #4f46e5 100%);
         border-right: none;
     }}
     
@@ -104,8 +95,7 @@ st.markdown(f"""
     /* Enhanced Form Elements */
     .stRadio, .stSelectbox, .stMultiSelect {{
         background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
-        border-radius: 15px;
+        border-radius: 12px;
         padding: 15px;
         margin: 10px 0;
     }}
@@ -122,84 +112,17 @@ st.markdown(f"""
         background: linear-gradient(135deg, {primary_color}, {secondary_color});
         color: white;
         border: none;
-        border-radius: 15px;
+        border-radius: 12px;
         font-weight: 600;
-        padding: 15px 30px;
+        padding: 12px 25px;
         box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
         transition: all 0.3s ease;
         font-family: 'Inter', sans-serif;
-        font-size: 1em;
     }}
     
     .stDownloadButton button:hover {{
-        box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+        box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
         transform: translateY(-2px);
-        background: linear-gradient(135deg, {secondary_color}, {primary_color});
-    }}
-    
-    /* Modern Text Input */
-    .stTextInput input {{
-        background: rgba(255, 255, 255, 0.9);
-        backdrop-filter: blur(10px);
-        color: #1e293b;
-        border: 2px solid rgba(99, 102, 241, 0.2);
-        border-radius: 12px;
-        font-family: 'Inter', sans-serif;
-        padding: 12px;
-    }}
-    
-    /* Enhanced Dataframes */
-    .dataframe {{
-        border-radius: 15px;
-        overflow: hidden;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-        background: white;
-    }}
-    
-    /* Modern Info/Warning/Error Boxes */
-    .stInfo {{
-        background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.2));
-        border: 1px solid rgba(59, 130, 246, 0.3);
-        border-radius: 15px;
-        padding: 20px;
-        font-weight: 500;
-        backdrop-filter: blur(10px);
-    }}
-    
-    .stSuccess {{
-        background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.2));
-        border: 1px solid rgba(34, 197, 94, 0.3);
-        border-radius: 15px;
-        padding: 20px;
-        font-weight: 500;
-        backdrop-filter: blur(10px);
-    }}
-    
-    .stWarning {{
-        background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.2));
-        border: 1px solid rgba(245, 158, 11, 0.3);
-        border-radius: 15px;
-        padding: 20px;
-        font-weight: 500;
-        backdrop-filter: blur(10px);
-    }}
-    
-    .stError {{
-        background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.2));
-        border: 1px solid rgba(239, 68, 68, 0.3);
-        border-radius: 15px;
-        padding: 20px;
-        font-weight: 500;
-        backdrop-filter: blur(10px);
-    }}
-    
-    /* Elegant Dividers */
-    hr {{
-        border: 0;
-        height: 2px;
-        background: linear-gradient(90deg, transparent, {primary_color}, transparent);
-        margin: 40px 0;
-        opacity: 0.3;
     }}
     
     /* Metric Value Styling */
@@ -217,23 +140,26 @@ st.markdown(f"""
         font-family: 'Inter', sans-serif;
     }}
     
+    /* Elegant Dividers */
+    hr {{
+        border: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, #e2e8f0, transparent);
+        margin: 30px 0;
+    }}
+    
     /* Custom Scrollbar */
     ::-webkit-scrollbar {{
-        width: 8px;
+        width: 6px;
     }}
     
     ::-webkit-scrollbar-track {{
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 10px;
+        background: #f1f5f9;
     }}
     
     ::-webkit-scrollbar-thumb {{
-        background: linear-gradient(135deg, {primary_color}, {secondary_color});
-        border-radius: 10px;
-    }}
-    
-    ::-webkit-scrollbar-thumb:hover {{
-        background: linear-gradient(135deg, {secondary_color}, {primary_color});
+        background: {primary_color};
+        border-radius: 3px;
     }}
     
     /* Streamlit element overrides */
@@ -242,25 +168,26 @@ st.markdown(f"""
     }}
     
     .st-at {{
-        background-color: rgba(255, 255, 255, 0.9);
-    }}
-    
-    /* Loading spinner color */
-    .stSpinner > div {{
-        border-color: {primary_color} transparent transparent transparent !important;
+        background-color: white;
     }}
     
     /* Expander styling */
     .streamlit-expanderHeader {{
-        background: rgba(255, 255, 255, 0.9) !important;
-        backdrop-filter: blur(10px);
+        background: white !important;
+        border: 2px solid #e2e8f0 !important;
         border-radius: 10px !important;
         font-weight: 600;
+    }}
+    
+    /* Dataframe styling */
+    .dataframe {{
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
     }}
     </style>
 """, unsafe_allow_html=True)
 
-# --- DATA LOADING FUNCTION (unchanged) ---
+# --- DATA LOADING FUNCTION ---
 month_names_to_number = {
     'janeiro': 1, 'fevereiro': 2, 'março': 3, 'abril': 4,
     'maio': 5, 'junho': 6, 'julho': 7, 'agosto': 8,
@@ -339,13 +266,13 @@ if df.empty:
 # --- MODERN SIDEBAR ---
 st.sidebar.markdown(f"""
     <div style="text-align: center; padding: 30px 0;">
-        <div style="font-size: 2.5em; margin-bottom: 10px;">🚀</div>
+        <div style="font-size: 2.5em; margin-bottom: 10px;">📊</div>
         <h1 style="color: white; margin: 0; font-size: 1.8em; font-weight: 700;">Business Intelligence</h1>
         <p style="color: rgba(255, 255, 255, 0.8); margin: 5px 0 0 0; font-size: 0.9em;">Dashboard Analítico</p>
     </div>
 """, unsafe_allow_html=True)
 
-st.sidebar.markdown("<div style='height: 2px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent); margin: 20px 0;'></div>", unsafe_allow_html=True)
+st.sidebar.markdown("<div style='height: 2px; background: rgba(255,255,255,0.3); margin: 20px 0;'></div>", unsafe_allow_html=True)
 
 # Navigation
 pagina = st.sidebar.radio("**🌐 NAVEGAÇÃO**", [
@@ -357,7 +284,7 @@ pagina = st.sidebar.radio("**🌐 NAVEGAÇÃO**", [
     "🔍 VISTA COMPARATIVA"
 ], key="navigation")
 
-st.sidebar.markdown("<div style='height: 2px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent); margin: 20px 0;'></div>", unsafe_allow_html=True)
+st.sidebar.markdown("<div style='height: 2px; background: rgba(255,255,255,0.3); margin: 20px 0;'></div>", unsafe_allow_html=True)
 
 # Filters
 st.sidebar.markdown("### 🔍 FILTROS")
@@ -483,15 +410,11 @@ if pagina == "📊 VISÃO GERAL":
         texttemplate='%{text:,.0f}',
         textposition='outside',
         marker_line_color='white',
-        marker_line_width=2,
-        marker=dict(
-            line=dict(width=2, color='white'),
-            opacity=0.9
-        )
+        marker_line_width=2
     )
     fig_top.update_layout(
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='white',
+        paper_bgcolor='white',
         font=dict(color="#1e293b", size=12),
         xaxis_tickangle=-45,
         showlegend=False,
@@ -514,8 +437,8 @@ if pagina == "📊 VISÃO GERAL":
             color_discrete_sequence=px.colors.qualitative.Bold
         )
         fig_comercial.update_layout(
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='white',
+            paper_bgcolor='white',
             font=dict(color="#1e293b", size=12),
             showlegend=True,
             legend=dict(
@@ -543,8 +466,8 @@ if pagina == "📊 VISÃO GERAL":
                 color_continuous_scale='Plasma'
             )
             fig_categoria.update_layout(
-                plot_bgcolor='rgba(0,0,0,0)',
-                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='white',
+                paper_bgcolor='white',
                 font=dict(color="#1e293b", size=12),
                 showlegend=False,
                 height=400
@@ -563,8 +486,7 @@ elif pagina == "🎯 KPIS PERSONALIZADOS":
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        kpi_name = st.text_input("**📝 NOME DO KPI**", value="Performance de Vendas", 
-                                help="Dê um nome descritivo ao seu KPI personalizado")
+        kpi_name = st.text_input("**📝 NOME DO KPI**", value="Performance de Vendas")
     
     with col2:
         kpi_period = st.selectbox("**📅 PERÍODO**", ["Mensal", "Trimestral", "Anual"])
@@ -580,7 +502,7 @@ elif pagina == "🎯 KPIS PERSONALIZADOS":
         kpi_data['month_name'] = kpi_data['mes'].map(month_names_pt)
         
         # Modern KPI Chart
-        fig_kpi = px.area(
+        fig_kpi = px.line(
             kpi_data,
             x='month_name',
             y='value',
@@ -590,17 +512,16 @@ elif pagina == "🎯 KPIS PERSONALIZADOS":
         )
         
         fig_kpi.update_traces(
-            fill='tozeroy',
-            line=dict(width=3),
+            line=dict(width=4),
             marker=dict(size=8, line=dict(width=2, color='white'))
         )
         
         fig_kpi.update_layout(
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='white',
+            paper_bgcolor='white',
             font=dict(color="#1e293b", size=12),
-            xaxis=dict(showgrid=True, gridcolor='rgba(0,0,0,0.1)'),
-            yaxis=dict(showgrid=True, gridcolor='rgba(0,0,0,0.1)'),
+            xaxis=dict(showgrid=True, gridcolor='#e2e8f0'),
+            yaxis=dict(showgrid=True, gridcolor='#e2e8f0'),
             height=500
         )
         
@@ -615,9 +536,6 @@ elif pagina == "🎯 KPIS PERSONALIZADOS":
         col3.metric("📊 Média", f"{kpi_data['value'].mean():,.0f}")
         col4.metric("📈 Mediana", f"{kpi_data['value'].median():,.0f}")
 
-# --- CONTINUAÇÃO DAS OUTRAS PÁGINAS COM O MESMO ESTILO MODERNO ---
-# [As outras páginas seguem o mesmo padrão de design...]
-
 # --- PAGE 3: MODERN TRENDS ---
 elif pagina == "📈 TENDÊNCIAS":
     st.markdown("""
@@ -630,8 +548,7 @@ elif pagina == "📈 TENDÊNCIAS":
     col1, col2 = st.columns(2)
     
     with col1:
-        trend_window = st.slider("**📊 PERÍODO MÉDIA MÓVEL**", 1, 6, 2, 
-                               help="Número de meses para calcular a média móvel")
+        trend_window = st.slider("**📊 PERÍODO MÉDIA MÓVEL**", 1, 6, 2)
     
     with col2:
         show_forecast = st.checkbox("🔮 Mostrar Previsão", value=False)
@@ -648,7 +565,7 @@ elif pagina == "📈 TENDÊNCIAS":
         if len(trend_data) > 1:
             trend_data['MA'] = trend_data['value'].rolling(window=trend_window, center=True).mean()
             
-            # Modern Trend Chart
+            # Modern Trend Chart - CORRIGIDO
             fig_trend = go.Figure()
             
             fig_trend.add_trace(go.Scatter(
@@ -657,9 +574,7 @@ elif pagina == "📈 TENDÊNCIAS":
                 mode='lines+markers',
                 name='Valor Real',
                 line=dict(color=primary_color, width=4),
-                marker=dict(size=10, color=primary_color, line=dict(width=2, color='white')),
-                fill='tozeroy',
-                fillcolor=f'{primary_color}20'
+                marker=dict(size=10, color=primary_color, line=dict(width=2, color='white'))
             ))
             
             fig_trend.add_trace(go.Scatter(
@@ -674,8 +589,8 @@ elif pagina == "📈 TENDÊNCIAS":
                 title="📈 Evolução Temporal - Quantidade de Vendas",
                 xaxis_title="Mês",
                 yaxis_title="Quantidade",
-                plot_bgcolor='rgba(0,0,0,0)',
-                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='white',
+                paper_bgcolor='white',
                 font=dict(color="#1e293b", size=12),
                 hovermode='x unified',
                 height=500,
@@ -737,9 +652,9 @@ elif pagina == "⚠️ ALERTAS":
         for _, cliente in criticos.head(5).iterrows():
             with st.container():
                 st.markdown(f"""
-                    <div style="background: linear-gradient(135deg, #fee2e2, #fecaca); 
-                                padding: 15px; border-radius: 15px; margin: 10px 0; 
-                                border-left: 5px solid #ef4444;">
+                    <div style="background: #fef2f2; 
+                                padding: 15px; border-radius: 10px; margin: 10px 0; 
+                                border-left: 4px solid #ef4444;">
                         <h4 style="margin: 0; color: #dc2626;">🔴 {cliente['Cliente']}</h4>
                         <p style="margin: 5px 0; color: #991b1b;">
                             Média: {cliente['Avg_Qtd']:,.0f} | Transações: {cliente['Transactions']}
@@ -749,12 +664,150 @@ elif pagina == "⚠️ ALERTAS":
     else:
         st.success("🎉 Todos os clientes estão com desempenho satisfatório!")
 
-# --- ADD MORE PAGES AS NEEDED ---
+# --- PAGE 5: CUSTOMER ANALYSIS ---
+elif pagina == "👥 ANÁLISE DE CLIENTES":
+    st.markdown("""
+        <div style="text-align: center; margin-bottom: 40px;">
+            <h1>👥 ANÁLISE DE CLIENTES</h1>
+            <p style="font-size: 1.2em; color: #64748b; font-weight: 500;">Análise detalhada por cliente</p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    if cliente == "Todos":
+        st.info("👈 Selecione um cliente específico no painel lateral para análise detalhada")
+    else:
+        cliente_data = dados_filtrados[dados_filtrados['cliente'] == cliente]
+        
+        if cliente_data.empty:
+            st.warning("❌ Dados não disponíveis para o cliente selecionado")
+        else:
+            # Customer Profile
+            st.markdown(f"### 📊 PERFIL DO CLIENTE: **{cliente}**")
+            
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("📦 Quantidade Total", f"{cliente_data['qtd'].sum():,.0f}")
+            col2.metric("💰 Valor Total", f"€ {cliente_data['v_liquido'].sum():,.0f}")
+            col3.metric("📊 Média por Transação", f"{cliente_data['qtd'].mean():,.0f}")
+            col4.metric("🔄 Transações", len(cliente_data))
+            
+            # Customer Trend
+            st.markdown("### 📈 EVOLUÇÃO DO CLIENTE")
+            historico = cliente_data.groupby(['ano', 'mes']).agg({'qtd': 'sum'}).reset_index()
+            historico['month_name'] = historico['mes'].map(month_names_pt)
+            historico = historico.sort_values(['ano', 'mes'])
+            
+            fig_historico = px.line(
+                historico,
+                x='month_name',
+                y='qtd',
+                markers=True,
+                title=f"Desempenho Mensal - {cliente}",
+                labels={'qtd': 'Quantidade', 'month_name': 'Mês'},
+                color_discrete_sequence=[primary_color]
+            )
+            fig_historico.update_traces(
+                line=dict(width=3),
+                marker=dict(size=8)
+            )
+            fig_historico.update_layout(
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                font=dict(color="#1e293b", size=12),
+                hovermode='x unified',
+                xaxis_tickangle=-45
+            )
+            st.plotly_chart(fig_historico, use_container_width=True)
+
+# --- PAGE 6: COMPARATIVE VIEW ---
+else:
+    st.markdown("""
+        <div style="text-align: center; margin-bottom: 40px;">
+            <h1>🔍 VISTA COMPARATIVA</h1>
+            <p style="font-size: 1.2em; color: #64748b; font-weight: 500;">Compare métricas entre diferentes categorias</p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        comp_metric1 = st.selectbox("**📊 MÉTRICA**", ["qtd", "v_liquido", "pm"])
+        comp_groupby1 = st.selectbox("**🗂️ AGRUPAR POR**", ["cliente", "comercial", "categoria"])
+    
+    with col2:
+        comp_top = st.slider("**🔝 TOP N ITENS**", 5, 20, 10)
+        show_pie = st.checkbox("🍕 Mostrar Gráfico de Pizza", value=True)
+    
+    # Get top items
+    top_items = dados_filtrados.groupby(comp_groupby1)[comp_metric1].sum().nlargest(comp_top)
+    
+    if show_pie:
+        # Comparative visualization
+        fig_comp = make_subplots(
+            rows=1, cols=2,
+            specs=[[{"type": "bar"}, {"type": "pie"}]],
+            subplot_titles=("Gráfico de Barras", "Distribuição"),
+            column_widths=[0.6, 0.4]
+        )
+        
+        fig_comp.add_trace(
+            go.Bar(
+                x=top_items.index, 
+                y=top_items.values, 
+                marker=dict(color=color_scale_modern),
+                name=comp_metric1,
+                text=top_items.values,
+                texttemplate='%{text:,.0f}',
+                textposition='outside'
+            ),
+            row=1, col=1
+        )
+        
+        fig_comp.add_trace(
+            go.Pie(
+                labels=top_items.index, 
+                values=top_items.values, 
+                name=comp_metric1,
+                marker=dict(colors=color_scale_modern)
+            ),
+            row=1, col=2
+        )
+        
+        fig_comp.update_layout(
+            height=500, 
+            showlegend=False, 
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            font=dict(color="#1e293b", size=12)
+        )
+        st.plotly_chart(fig_comp, use_container_width=True)
+    else:
+        # Single bar chart
+        fig_single = px.bar(
+            top_items.reset_index(),
+            x=comp_groupby1,
+            y=comp_metric1,
+            title=f"Top {comp_top} por {comp_metric1}",
+            labels={comp_metric1: 'Valor', comp_groupby1: 'Categoria'},
+            color=comp_metric1,
+            color_continuous_scale='Viridis',
+            text=comp_metric1
+        )
+        fig_single.update_traces(
+            texttemplate='%{text:,.0f}',
+            textposition='outside'
+        )
+        fig_single.update_layout(
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            font=dict(color="#1e293b", size=12),
+            xaxis_tickangle=-45
+        )
+        st.plotly_chart(fig_single, use_container_width=True)
 
 # Footer
 st.markdown("---")
 st.markdown("""
     <div style="text-align: center; color: #64748b; font-size: 0.9em; padding: 20px;">
-        <p>🚀 Business Intelligence Dashboard • Desenvolvido com Streamlit</p>
+        <p>📊 Business Intelligence Dashboard • Desenvolvido com Streamlit</p>
     </div>
 """, unsafe_allow_html=True)
