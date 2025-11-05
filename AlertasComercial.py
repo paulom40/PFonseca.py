@@ -323,7 +323,17 @@ def carregar_dados():
         # Convert numeric columns
         df['ano'] = pd.to_numeric(df['ano'], errors='coerce')
         df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce')
+        
+        # Converter V. Líquido (euros) - trata separadores decimais europeus e americanos
         if 'v_liquido' in df.columns:
+            # Primeiro converter para string, depois tratar separadores
+            df['v_liquido'] = df['v_liquido'].astype(str)
+            # Remover espaços
+            df['v_liquido'] = df['v_liquido'].str.strip()
+            # Trata formato europeu (1.234,56) - remove pontos, substitui vírgula por ponto
+            df['v_liquido'] = df['v_liquido'].str.replace('.', '', regex=False)
+            df['v_liquido'] = df['v_liquido'].str.replace(',', '.', regex=False)
+            # Converter para numérico
             df['v_liquido'] = pd.to_numeric(df['v_liquido'], errors='coerce')
         
         # Clean data
