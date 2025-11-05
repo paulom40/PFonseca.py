@@ -1039,11 +1039,12 @@ elif pagina == "⚠️ ALERTAS":
                     </div>
                     """, unsafe_allow_html=True)
                 else:
-                    st.success(f"""
+                    # CORREÇÃO: Removido o f-string problemático
+                    st.success("""
                     <div style="background: #f0fdf4; border-left: 6px solid #22c55e; padding: 20px; border-radius: 10px; margin: 20px 0;">
                         <h4 style="color: #16a34a; margin: 0 0 10px 0;">✅ COMPRA CONSISTENTE</h4>
-                        <p style="color: #15803d; margin: 5px 0;"><strong>Cliente:</strong> {cliente}</p>
-                        <p style="color: #15803d; margin: 5px 0;">Comprou em todos os {len(total_available_months)} meses disponíveis</p>
+                        <p style="color: #15803d; margin: 5px 0;"><strong>Cliente:</strong> """ + cliente + """</p>
+                        <p style="color: #15803d; margin: 5px 0;">Comprou em todos os """ + str(len(total_available_months)) + """ meses disponíveis</p>
                     </div>
                     """, unsafe_allow_html=True)
             
