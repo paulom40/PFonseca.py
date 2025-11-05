@@ -427,12 +427,15 @@ st.sidebar.markdown("<p style='color: rgba(255,255,255,0.7); font-size: 0.9em;'>
 # Filter functions
 def get_filtro_opcoes(dados, ano, comercial, cliente):
     temp = dados.copy()
+    
     if ano != "Todos":
         temp = temp[temp['ano'] == int(ano)]
+    
     if comercial != "Todos":
-        temp = temp[temp['comercial'].astype(str) == str(comercial)]
+        temp = temp[temp['comercial'].astype(str).str.strip() == str(comercial).strip()]
+    
     if cliente != "Todos":
-        temp = temp[temp['cliente'].astype(str) == str(cliente)]
+        temp = temp[temp['cliente'].astype(str).str.strip() == str(cliente).strip()]
     
     anos = sorted([int(x) for x in temp['ano'].dropna().unique()])
     comerciais = sorted(list(temp['comercial'].dropna().unique()))
@@ -443,14 +446,20 @@ def get_filtro_opcoes(dados, ano, comercial, cliente):
 
 def aplicar_filtros(dados, ano, comercial, cliente, categoria):
     resultado = dados.copy()
+    
+    # Aplicar filtros na ordem correta
     if ano != "Todos":
         resultado = resultado[resultado['ano'] == int(ano)]
+    
     if comercial != "Todos":
-        resultado = resultado[resultado['comercial'].astype(str) == str(comercial)]
+        resultado = resultado[resultado['comercial'].astype(str).str.strip() == str(comercial).strip()]
+    
     if cliente != "Todos":
-        resultado = resultado[resultado['cliente'].astype(str) == str(cliente)]
+        resultado = resultado[resultado['cliente'].astype(str).str.strip() == str(cliente).strip()]
+    
     if categoria != "Todas" and 'categoria' in resultado.columns:
-        resultado = resultado[resultado['categoria'].astype(str) == str(categoria)]
+        resultado = resultado[resultado['categoria'].astype(str).str.strip() == str(categoria).strip()]
+    
     return resultado
 
 # Get initial options
