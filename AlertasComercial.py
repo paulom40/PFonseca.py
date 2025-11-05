@@ -279,11 +279,14 @@ def get_filtro_opcoes(dados, ano, comercial):
     temp = dados.copy()
     
     # Filter by year
-    if ano != "All":
-        temp = temp[temp['ano'] == int(ano)]
+    if ano != "All" and ano != "Todos":
+        try:
+            temp = temp[temp['ano'] == int(ano)]
+        except (ValueError, TypeError):
+            pass  # If conversion fails, keep all data
     
     # Filter by commercial
-    if comercial != "All":
+    if comercial != "All" and comercial != "Todos":
         temp = temp[temp['comercial'].astype(str) == str(comercial)]
     
     anos = sorted([int(x) for x in temp['ano'].dropna().unique()])
