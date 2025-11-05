@@ -32,13 +32,13 @@ sidebar_dark = "#1a2b3c"
 st.markdown(f"""
     <style>
     /* Professional Dark Theme with Refined Colors */
-    .main { 
+    .main {{ 
         background: linear-gradient(135deg, {background_dark} 0%, #1a2b3c 100%); 
         color: {neutral_light}; 
-    }
-    .stApp { 
+    }}
+    .stApp {{ 
         background: linear-gradient(135deg, {background_dark} 0%, #1a2b3c 100%); 
-    }
+    }}
     
     /* Professional Headers */
     h1 {{ 
@@ -175,11 +175,6 @@ st.markdown(f"""
         height: 1px;
         background: linear-gradient(90deg, transparent, {primary_color}40, transparent);
         margin: 30px 0;
-    }}
-    
-    /* Sidebar Navigation Enhancement */
-    [data-testid="stSidebarNav"] {{
-        background: linear-gradient(180deg, {primary_color} 0%, #2980b9 100%);
     }}
     
     /* Metric Value Styling */
@@ -478,7 +473,7 @@ def gerar_excel(dados):
 # --- PROFESSIONAL CHART SETTINGS ---
 color_scale_primary = [primary_color, secondary_color, accent_color, "#9467bd", "#8c564b"]
 color_scale_sequential = 'Blues'
-template_chart = 'plotly_white'  # Changed to white for better readability
+template_chart = 'plotly_white'
 
 month_names_pt = {
     1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr',
@@ -675,14 +670,6 @@ elif pagina == "🎯 KPIs Personalizados":
         col2.metric("📉 Mínimo", f"{kpi_data['value'].min():,.0f}")
         col3.metric("📊 Média", f"{kpi_data['value'].mean():,.0f}")
         col4.metric("📈 Mediana", f"{kpi_data['value'].median():,.0f}")
-        
-        # Data Table
-        st.markdown("### 📋 Dados de KPI Mensal")
-        display_data = kpi_data[['month_name', 'value']].rename(columns={'month_name': 'Mês', 'value': 'Quantidade'})
-        st.dataframe(display_data, use_container_width=True)
-
-# --- CONTINUAÇÃO DAS OUTRAS PÁGINAS COM O MESMO PADRÃO DE CORES ---
-# [O restante do código mantém a mesma estrutura, apenas atualizando as cores e layouts...]
 
 # --- PAGE 3: TRENDS ---
 elif pagina == "📉 Tendências":
@@ -768,8 +755,6 @@ elif pagina == "📉 Tendências":
             col2.metric("Mês Anterior", f"{previous_value:,.0f}")
             col3.metric("% Mudança", f"{trend_pct_change:+.1f}%")
             col4.metric("Tendência", trend_direction)
-
-# --- [As outras páginas seguem o mesmo padrão de atualização...] ---
 
 # --- PAGE 4: ALERTS ---
 elif pagina == "⚠️ Alertas":
@@ -982,13 +967,7 @@ else:
         'Quota %': (top_items.values / top_items.sum() * 100).round(2)
     })
     
-    # Style the dataframe
-    styled_stats = comp_stats.style.format({
-        comp_metric1: '{:,.0f}',
-        'Quota %': '{:.1f}%'
-    }).background_gradient(subset=[comp_metric1], cmap='Blues')
-    
-    st.dataframe(styled_stats, use_container_width=True)
+    st.dataframe(comp_stats, use_container_width=True)
     
     # Enhanced download button
     st.download_button(
