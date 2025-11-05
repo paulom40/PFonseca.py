@@ -22,6 +22,7 @@ st.markdown("""
     .stSelectbox span, .stSelectbox input {color:#1e293b !important}
     [data-testid="metric-container"] {background:white; border-radius:16px; padding:1.5rem; box-shadow:0 6px 25px rgba(0,0,0,0.1)}
     .plotly-graph-div {border-radius:18px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,0.12)}
+    .filter-section {background:white; padding:1rem; border-radius:12px; margin-bottom:1rem; border:1px solid #e2e8f0}
 </style>
 """, unsafe_allow_html=True)
 
@@ -45,16 +46,6 @@ def load_data():
         df = pd.read_excel(BytesIO(response.content))
         
         st.info(f"📥 Dados carregados: {len(df)} registros")
-        st.info(f"📊 Colunas encontradas: {list(df.columns)}")
-        
-        # === VERIFICAR ESTRUTURA DOS DADOS ===
-        with st.expander("🔍 Estrutura inicial dos dados"):
-            st.write("**Primeiras 5 linhas:**")
-            st.dataframe(df.head(), use_container_width=True)
-            st.write("**Tipos de dados:**")
-            st.write(df.dtypes)
-            st.write("**Estatísticas básicas:**")
-            st.write(df.describe())
         
         # === PADRONIZAR NOMES DAS COLUNAS ===
         df.columns = [col.strip().lower() for col in df.columns]
@@ -70,8 +61,6 @@ def load_data():
         
         df.rename(columns=column_mapping, inplace=True)
         
-        st.info(f"📋 Colunas após padronização: {list(df.columns)}")
-        
         # === CONVERSÃO DE TIPOS DE DADOS ===
         
         # 1. Converter Mês - tratar como texto primeiro
@@ -85,88 +74,34 @@ def load_data():
         if 'ano' in df.columns:
             df['ano'] = pd.to_numeric(df['ano'], errors='coerce').fillna(2024).astype(int)
         
-        # 3. Converter Quantidade - tratamento robusto
+        # 3. Converter Quantidade
         if 'qtd' in df.columns:
-            # Primeiro verificar o tipo atual
-            st.write(f"Tipo da coluna Qtd antes: {df['qtd'].dtype}")
-            st.write(f"Amostra Qtd: {df['qtd'].head(10).tolist()}")
-            
-            # Converter para string e limpar
             df['qtd'] = df['qtd'].astype(str)
-            
-            # Remover caracteres não numéricos exceto ponto e vírgula
             df['qtd'] = df['qtd'].str.replace(r'[^\d,\.\-]', '', regex=True)
-            
-            # Substituir vírgula por ponto para decimal
             df['qtd'] = df['qtd'].str.replace(',', '.', regex=False)
-            
-            # Converter para numérico
             df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce')
-            
-            # Preencher NA com 0
             df['qtd'] = df['qtd'].fillna(0)
-            
-            st.write(f"Tipo da coluna Qtd depois: {df['qtd'].dtype}")
-            st.write(f"Amostra Qtd convertida: {df['qtd'].head(10).tolist()}")
         
-        # 4. Converter Valor Líquido - mesmo tratamento
+        # 4. Converter Valor Líquido
         if 'v_liquido' in df.columns:
-            st.write(f"Tipo da coluna V_Liquido antes: {df['v_liquido'].dtype}")
-            st.write(f"Amostra V_Liquido: {df['v_liquido'].head(10).tolist()}")
-            
             df['v_liquido'] = df['v_liquido'].astype(str)
             df['v_liquido'] = df['v_liquido'].str.replace(r'[^\d,\.\-]', '', regex=True)
             df['v_liquido'] = df['v_liquido'].str.replace(',', '.', regex=False)
             df['v_liquido'] = pd.to_numeric(df['v_liquido'], errors='coerce')
             df['v_liquido'] = df['v_liquido'].fillna(0)
-            
-            st.write(f"Tipo da coluna V_Liquido depois: {df['v_liquido'].dtype}")
-            st.write(f"Amostra V_Liquido convertida: {df['v_liquido'].head(10).tolist()}")
         
         # === LIMPEZA FINAL ===
-        st.info(f"🔍 Antes da limpeza final: {len(df)} registros")
-        
-        # Remover registros completamente inválidos
-        initial_count = len(df)
         df = df[
             (df['qtd'].notna()) & 
             (df['v_liquido'].notna()) &
-            (df['qtd'] != 0) &
             (df['cliente'].notna())
         ].copy()
-        
-        final_count = len(df)
-        st.info(f"✅ Depois da limpeza final: {final_count} registros")
-        st.info(f"🗑️ Registros removidos: {initial_count - final_count}")
-        
-        # Mostrar estatísticas finais
-        with st.expander("📊 Estatísticas finais dos dados"):
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.write("**Quantidade (Qtd):**")
-                st.write(f"- Total: {df['qtd'].sum():,.2f}")
-                st.write(f"- Média: {df['qtd'].mean():,.2f}")
-                st.write(f"- Registros: {len(df[df['qtd'] > 0])}")
-                
-            with col2:
-                st.write("**Valor Líquido:**")
-                st.write(f"- Total: {df['v_liquido'].sum():,.2f}")
-                st.write(f"- Média: {df['v_liquido'].mean():,.2f}")
-                st.write(f"- Registros: {len(df[df['v_liquido'] > 0])}")
-                
-            with col3:
-                st.write("**Outras informações:**")
-                st.write(f"- Clientes: {df['cliente'].nunique()}")
-                st.write(f"- Comerciais: {df['comercial'].nunique()}")
-                st.write(f"- Período: {df['ano'].min()}-{df['ano'].max()}")
         
         st.success("🎉 Dados carregados e processados com sucesso!")
         return df
 
     except Exception as e:
         st.error(f"❌ Erro crítico no carregamento: {str(e)}")
-        import traceback
-        st.error(f"Detalhes do erro: {traceback.format_exc()}")
         return pd.DataFrame()
 
 # Carregar dados
@@ -178,40 +113,170 @@ if df.empty:
     st.stop()
 
 # =============================================
-# SIDEBAR SIMPLIFICADO
+# FUNÇÕES AUXILIARES PARA FILTROS DINÂMICOS
+# =============================================
+def get_filtered_options(base_data, selected_filters):
+    """Retorna opções disponíveis com base nos filtros selecionados"""
+    temp_data = base_data.copy()
+    
+    # Aplicar filtros existentes
+    if selected_filters['ano'] != "Todos":
+        temp_data = temp_data[temp_data['ano'] == selected_filters['ano']]
+    
+    if selected_filters['comercial'] != "Todos":
+        temp_data = temp_data[temp_data['comercial'] == selected_filters['comercial']]
+    
+    if selected_filters['cliente'] != "Todos":
+        temp_data = temp_data[temp_data['cliente'] == selected_filters['cliente']]
+    
+    if selected_filters['categoria'] != "Todas" and 'categoria' in temp_data.columns:
+        temp_data = temp_data[temp_data['categoria'] == selected_filters['categoria']]
+    
+    # Retornar opções disponíveis
+    options = {
+        'anos': ["Todos"] + sorted(temp_data['ano'].unique().tolist()),
+        'comerciais': ["Todos"] + sorted(temp_data['comercial'].unique().tolist()),
+        'clientes': ["Todos"] + sorted(temp_data['cliente'].unique().tolist()),
+        'categorias': ["Todas"] + sorted(temp_data.get('categoria', pd.Series()).dropna().unique().tolist())
+    }
+    
+    return options
+
+def update_filters():
+    """Atualiza os filtros com base nas seleções atuais"""
+    if 'filters' not in st.session_state:
+        st.session_state.filters = {
+            'ano': "Todos",
+            'comercial': "Todos", 
+            'cliente': "Todos",
+            'categoria': "Todas"
+        }
+    
+    # Obter opções disponíveis com base nos filtros atuais
+    available_options = get_filtered_options(df, st.session_state.filters)
+    
+    return available_options
+
+# =============================================
+# SIDEBAR COM FILTROS DINÂMICOS
 # =============================================
 with st.sidebar:
     st.markdown("<h2 style='color:white'>BI Pro</h2>", unsafe_allow_html=True)
+    
+    # Inicializar filtros na session_state
+    if 'filters' not in st.session_state:
+        st.session_state.filters = {
+            'ano': "Todos",
+            'comercial': "Todos", 
+            'cliente': "Todos",
+            'categoria': "Todas"
+        }
     
     # Navegação
     page = st.radio("Navegação", [
         "Visão Geral", "KPIs", "Comparação", "Clientes", "Análise Detalhada"
     ])
     
-    # Filtros básicos
+    # Seção de Filtros
     st.markdown("---")
-    st.markdown("**Filtros:**")
+    st.markdown("### 🔧 Filtros Dinâmicos")
     
-    # Ano
-    anos_disponiveis = sorted(df['ano'].unique())
-    ano_selecionado = st.selectbox("Ano", ["Todos"] + anos_disponiveis)
+    # Obter opções disponíveis
+    available_options = update_filters()
     
-    # Comercial
-    comerciais_disponiveis = sorted(df['comercial'].unique())
-    comercial_selecionado = st.selectbox("Comercial", ["Todos"] + comerciais_disponiveis)
+    # Filtro de Ano
+    st.markdown('<div class="filter-section">', unsafe_allow_html=True)
+    ano_selecionado = st.selectbox(
+        "📅 Ano",
+        options=available_options['anos'],
+        key='ano_filter'
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
     
-    # Cliente
-    clientes_disponiveis = sorted(df['cliente'].unique())
-    cliente_selecionado = st.selectbox("Cliente", ["Todos"] + clientes_disponiveis)
+    # Atualizar filtro de ano
+    st.session_state.filters['ano'] = ano_selecionado
+    
+    # Recalcular opções após seleção do ano
+    available_options = get_filtered_options(df, st.session_state.filters)
+    
+    # Filtro de Comercial
+    st.markdown('<div class="filter-section">', unsafe_allow_html=True)
+    comercial_selecionado = st.selectbox(
+        "👨‍💼 Comercial", 
+        options=available_options['comerciais'],
+        key='comercial_filter'
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Atualizar filtro de comercial
+    st.session_state.filters['comercial'] = comercial_selecionado
+    
+    # Recalcular opções após seleção do comercial
+    available_options = get_filtered_options(df, st.session_state.filters)
+    
+    # Filtro de Cliente
+    st.markdown('<div class="filter-section">', unsafe_allow_html=True)
+    cliente_selecionado = st.selectbox(
+        "🏢 Cliente",
+        options=available_options['clientes'],
+        key='cliente_filter'
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Atualizar filtro de cliente
+    st.session_state.filters['cliente'] = cliente_selecionado
+    
+    # Recalcular opções após seleção do cliente
+    available_options = get_filtered_options(df, st.session_state.filters)
+    
+    # Filtro de Categoria (se existir na base de dados)
+    if 'categoria' in df.columns:
+        st.markdown('<div class="filter-section">', unsafe_allow_html=True)
+        categoria_selecionada = st.selectbox(
+            "📦 Categoria",
+            options=available_options['categorias'],
+            key='categoria_filter'
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Atualizar filtro de categoria
+        st.session_state.filters['categoria'] = categoria_selecionada
+    
+    # Botão para limpar filtros
+    st.markdown('<div class="filter-section">', unsafe_allow_html=True)
+    if st.button("🔄 Limpar Todos os Filtros", use_container_width=True):
+        st.session_state.filters = {
+            'ano': "Todos",
+            'comercial': "Todos", 
+            'cliente': "Todos",
+            'categoria': "Todas"
+        }
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# =============================================
+# APLICAR FILTROS AOS DADOS
+# =============================================
+def apply_filters(data, filters):
+    """Aplica os filtros selecionados aos dados"""
+    filtered_data = data.copy()
+    
+    if filters['ano'] != "Todos":
+        filtered_data = filtered_data[filtered_data['ano'] == filters['ano']]
+    
+    if filters['comercial'] != "Todos":
+        filtered_data = filtered_data[filtered_data['comercial'] == filters['comercial']]
+    
+    if filters['cliente'] != "Todos":
+        filtered_data = filtered_data[filtered_data['cliente'] == filters['cliente']]
+    
+    if filters['categoria'] != "Todas" and 'categoria' in filtered_data.columns:
+        filtered_data = filtered_data[filtered_data['categoria'] == filters['categoria']]
+    
+    return filtered_data
 
 # Aplicar filtros
-data = df.copy()
-if ano_selecionado != "Todos":
-    data = data[data['ano'] == ano_selecionado]
-if comercial_selecionado != "Todos":
-    data = data[data['comercial'] == comercial_selecionado]
-if cliente_selecionado != "Todos":
-    data = data[data['cliente'] == cliente_selecionado]
+data_filtrada = apply_filters(df, st.session_state.filters)
 
 # =============================================
 # FUNÇÕES DE FORMATAÇÃO
@@ -242,17 +307,37 @@ def fmt_quantidade(x):
     else:
         return f"{formatar_numero_europeu(x, 2)}"
 
+def fmt_percentual(x):
+    """Formata percentuais"""
+    if pd.isna(x) or np.isinf(x):
+        return "0,00%"
+    return f"{x:.2f}%".replace(".", ",")
+
 # =============================================
 # PÁGINAS PRINCIPAIS
 # =============================================
 if page == "Visão Geral":
     st.markdown("<h1>📊 Visão Geral</h1>", unsafe_allow_html=True)
     
+    # Mostrar filtros ativos
+    filtros_ativos = []
+    if st.session_state.filters['ano'] != "Todos":
+        filtros_ativos.append(f"Ano: {st.session_state.filters['ano']}")
+    if st.session_state.filters['comercial'] != "Todos":
+        filtros_ativos.append(f"Comercial: {st.session_state.filters['comercial']}")
+    if st.session_state.filters['cliente'] != "Todos":
+        filtros_ativos.append(f"Cliente: {st.session_state.filters['cliente']}")
+    if st.session_state.filters['categoria'] != "Todas":
+        filtros_ativos.append(f"Categoria: {st.session_state.filters['categoria']}")
+    
+    if filtros_ativos:
+        st.info(f"🔍 **Filtros ativos:** {', '.join(filtros_ativos)} | **Registros:** {len(data_filtrada):,}")
+    
     # Métricas principais
-    total_qtd = data['qtd'].sum()
-    total_valor = data['v_liquido'].sum()
-    total_clientes = data['cliente'].nunique()
-    total_comerciais = data['comercial'].nunique()
+    total_qtd = data_filtrada['qtd'].sum()
+    total_valor = data_filtrada['v_liquido'].sum()
+    total_clientes = data_filtrada['cliente'].nunique()
+    total_comerciais = data_filtrada['comercial'].nunique()
     
     col1, col2, col3, col4 = st.columns(4)
     
@@ -281,68 +366,149 @@ if page == "Visão Geral":
             f"{total_comerciais:,}"
         )
     
-    # Gráficos básicos
+    # Gráficos
     col1, col2 = st.columns(2)
     
     with col1:
-        # Vendas por comercial
-        vendas_por_comercial = data.groupby('comercial')['v_liquido'].sum().sort_values(ascending=False)
-        
-        if not vendas_por_comercial.empty:
-            fig1 = px.bar(
-                vendas_por_comercial.head(10),
-                title="Top 10 Comerciais por Valor de Vendas",
-                labels={'value': 'Valor (€)', 'comercial': 'Comercial'}
-            )
-            fig1.update_layout(showlegend=False)
-            st.plotly_chart(fig1, use_container_width=True)
+        if not data_filtrada.empty:
+            # Vendas por comercial
+            vendas_comercial = data_filtrada.groupby('comercial')['v_liquido'].sum().sort_values(ascending=False).head(10)
+            if not vendas_comercial.empty:
+                fig = px.bar(
+                    vendas_comercial,
+                    title="Top Comerciais por Valor",
+                    labels={'value': 'Valor (€)', 'comercial': 'Comercial'}
+                )
+                st.plotly_chart(fig, use_container_width=True)
     
     with col2:
-        # Vendas por cliente
-        vendas_por_cliente = data.groupby('cliente')['v_liquido'].sum().sort_values(ascending=False)
-        
-        if not vendas_por_cliente.empty:
-            fig2 = px.bar(
-                vendas_por_cliente.head(10),
-                title="Top 10 Clientes por Valor de Vendas",
-                labels={'value': 'Valor (€)', 'cliente': 'Cliente'}
-            )
-            fig2.update_layout(showlegend=False)
-            st.plotly_chart(fig2, use_container_width=True)
+        if not data_filtrada.empty:
+            # Vendas por cliente
+            vendas_cliente = data_filtrada.groupby('cliente')['v_liquido'].sum().sort_values(ascending=False).head(10)
+            if not vendas_cliente.empty:
+                fig = px.bar(
+                    vendas_cliente,
+                    title="Top Clientes por Valor",
+                    labels={'value': 'Valor (€)', 'cliente': 'Cliente'}
+                )
+                st.plotly_chart(fig, use_container_width=True)
     
-    # Tabela de dados
-    with st.expander("📋 Visualizar Dados Filtrados"):
-        st.write(f"Mostrando {len(data)} registros")
+    # Evolução mensal
+    if not data_filtrada.empty and 'mes_num' in data_filtrada.columns:
+        st.subheader("📈 Evolução Mensal")
+        evolucao_mensal = data_filtrada.groupby(['ano', 'mes_num'])['v_liquido'].sum().reset_index()
+        if not evolucao_mensal.empty:
+            fig = px.line(
+                evolucao_mensal,
+                x='mes_num',
+                y='v_liquido',
+                color='ano',
+                title="Evolução das Vendas por Mês",
+                labels={'mes_num': 'Mês', 'v_liquido': 'Valor (€)', 'ano': 'Ano'}
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+elif page == "KPIs":
+    st.markdown("<h1>📈 KPIs e Métricas</h1>", unsafe_allow_html=True)
+    
+    # Mostrar filtros ativos
+    filtros_ativos = []
+    if st.session_state.filters['ano'] != "Todos":
+        filtros_ativos.append(f"Ano: {st.session_state.filters['ano']}")
+    if st.session_state.filters['comercial'] != "Todos":
+        filtros_ativos.append(f"Comercial: {st.session_state.filters['comercial']}")
+    
+    if filtros_ativos:
+        st.info(f"🔍 **Filtros ativos:** {', '.join(filtros_ativos)}")
+    
+    if not data_filtrada.empty:
+        # KPIs principais
+        total_vendas = data_filtrada['v_liquido'].sum()
+        media_venda = data_filtrada['v_liquido'].mean()
+        ticket_medio = total_vendas / len(data_filtrada) if len(data_filtrada) > 0 else 0
         
-        # Preparar dados para exibição
-        display_data = data[['cliente', 'comercial', 'qtd', 'v_liquido', 'ano', 'mes_nome']].copy()
-        display_data['qtd_formatada'] = display_data['qtd'].apply(fmt_quantidade)
-        display_data['v_liquido_formatado'] = display_data['v_liquido'].apply(fmt_valor)
+        col1, col2, col3 = st.columns(3)
         
-        st.dataframe(
-            display_data[['cliente', 'comercial', 'qtd_formatada', 'v_liquido_formatado', 'ano', 'mes_nome']],
-            use_container_width=True
-        )
+        with col1:
+            st.metric("Total de Vendas", fmt_valor(total_vendas))
+        
+        with col2:
+            st.metric("Média por Venda", fmt_valor(media_venda))
+        
+        with col3:
+            st.metric("Ticket Médio", fmt_valor(ticket_medio))
+        
+        # KPIs adicionais
+        col4, col5, col6 = st.columns(3)
+        
+        with col4:
+            st.metric("Total de Transações", f"{len(data_filtrada):,}")
+        
+        with col5:
+            clientes_ativos = data_filtrada['cliente'].nunique()
+            st.metric("Clientes Ativos", f"{clientes_ativos:,}")
+        
+        with col6:
+            comercial_ativos = data_filtrada['comercial'].nunique()
+            st.metric("Comerciais Ativos", f"{comercial_ativos:,}")
+        
+        # Análise de performance
+        st.subheader("📊 Análise de Performance")
+        
+        col7, col8 = st.columns(2)
+        
+        with col7:
+            # Vendas por comercial
+            performance_comercial = data_filtrada.groupby('comercial').agg({
+                'v_liquido': ['sum', 'count', 'mean']
+            }).round(2)
+            performance_comercial.columns = ['Total Vendas', 'Nº Transações', 'Média por Venda']
+            performance_comercial = performance_comercial.sort_values('Total Vendas', ascending=False)
+            
+            st.write("**Performance por Comercial:**")
+            st.dataframe(performance_comercial, use_container_width=True)
+        
+        with col8:
+            # Vendas por cliente
+            performance_cliente = data_filtrada.groupby('cliente').agg({
+                'v_liquido': ['sum', 'count', 'mean']
+            }).round(2)
+            performance_cliente.columns = ['Total Vendas', 'Nº Transações', 'Média por Venda']
+            performance_cliente = performance_cliente.sort_values('Total Vendas', ascending=False).head(10)
+            
+            st.write("**Top 10 Clientes:**")
+            st.dataframe(performance_cliente, use_container_width=True)
 
 elif page == "Comparação":
-    st.markdown("<h1>📈 Comparação</h1>", unsafe_allow_html=True)
+    st.markdown("<h1>📊 Comparação</h1>", unsafe_allow_html=True)
     
-    anos_disponiveis = sorted(data['ano'].unique())
+    # Mostrar filtros ativos (exceto ano)
+    filtros_ativos = []
+    if st.session_state.filters['comercial'] != "Todos":
+        filtros_ativos.append(f"Comercial: {st.session_state.filters['comercial']}")
+    if st.session_state.filters['cliente'] != "Todos":
+        filtros_ativos.append(f"Cliente: {st.session_state.filters['cliente']}")
+    
+    if filtros_ativos:
+        st.info(f"🔍 **Filtros ativos:** {', '.join(filtros_ativos)}")
+    
+    anos_disponiveis = sorted(data_filtrada['ano'].unique())
     
     if len(anos_disponiveis) >= 2:
         col1, col2 = st.columns(2)
         
         with col1:
-            ano1 = st.selectbox("Selecione o Ano 1", anos_disponiveis)
+            ano1 = st.selectbox("Selecione o Ano 1", anos_disponiveis, key="ano1")
         
         with col2:
-            # Selecionar ano2 diferente do ano1
             outros_anos = [a for a in anos_disponiveis if a != ano1]
-            ano2 = st.selectbox("Selecione o Ano 2", outros_anos if outros_anos else anos_disponiveis)
+            ano2 = st.selectbox("Selecione o Ano 2", outros_anos if outros_anos else anos_disponiveis, key="ano2")
         
-        # Filtrar dados para cada ano
-        dados_ano1 = data[data['ano'] == ano1]
-        dados_ano2 = data[data['ano'] == ano2]
+        # Aplicar mesmos filtros para ambos os anos
+        filtros_comparacao = st.session_state.filters.copy()
+        
+        dados_ano1 = apply_filters(df, {**filtros_comparacao, 'ano': ano1})
+        dados_ano2 = apply_filters(df, {**filtros_comparacao, 'ano': ano2})
         
         # Calcular métricas
         qtd_ano1 = dados_ano1['qtd'].sum()
@@ -350,113 +516,234 @@ elif page == "Comparação":
         valor_ano1 = dados_ano1['v_liquido'].sum()
         valor_ano2 = dados_ano2['v_liquido'].sum()
         
-        # Exibir métricas
-        st.subheader("Comparação de Métricas")
+        # Exibir comparação
+        st.subheader("📈 Comparação Entre Anos")
         
-        metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+        col1, col2, col3, col4 = st.columns(4)
         
-        with metric_col1:
+        with col1:
             st.metric(f"Quantidade {ano1}", fmt_quantidade(qtd_ano1))
         
-        with metric_col2:
+        with col2:
             st.metric(f"Quantidade {ano2}", fmt_quantidade(qtd_ano2))
         
-        with metric_col3:
+        with col3:
             st.metric(f"Valor {ano1}", fmt_valor(valor_ano1))
         
-        with metric_col4:
+        with col4:
             st.metric(f"Valor {ano2}", fmt_valor(valor_ano2))
         
-        # Calcular variações
-        if qtd_ano1 > 0:
-            variacao_qtd = ((qtd_ano2 - qtd_ano1) / qtd_ano1) * 100
-        else:
-            variacao_qtd = 0
+        # Variações
+        st.subheader("🔄 Variações")
+        
+        col5, col6 = st.columns(2)
+        
+        with col5:
+            if qtd_ano1 > 0:
+                variacao_qtd = ((qtd_ano2 - qtd_ano1) / qtd_ano1) * 100
+                st.metric("Variação na Quantidade", fmt_percentual(variacao_qtd))
+        
+        with col6:
+            if valor_ano1 > 0:
+                variacao_valor = ((valor_ano2 - valor_ano1) / valor_ano1) * 100
+                st.metric("Variação no Valor", fmt_percentual(variacao_valor))
+        
+        # Gráfico comparativo
+        if not dados_ano1.empty and not dados_ano2.empty:
+            comparativo_data = pd.DataFrame({
+                'Ano': [ano1, ano2],
+                'Quantidade': [qtd_ano1, qtd_ano2],
+                'Valor': [valor_ano1, valor_ano2]
+            })
             
-        if valor_ano1 > 0:
-            variacao_valor = ((valor_ano2 - valor_ano1) / valor_ano1) * 100
-        else:
-            variacao_valor = 0
-        
-        # Exibir variações
-        st.subheader("Variações")
-        
-        var_col1, var_col2 = st.columns(2)
-        
-        with var_col1:
-            st.metric(
-                "Variação na Quantidade",
-                f"{variacao_qtd:+.1f}%"
-            )
-        
-        with var_col2:
-            st.metric(
-                "Variação no Valor",
-                f"{variacao_valor:+.1f}%"
-            )
-        
+            col7, col8 = st.columns(2)
+            
+            with col7:
+                fig = px.bar(
+                    comparativo_data,
+                    x='Ano',
+                    y='Quantidade',
+                    title=f"Comparação de Quantidade: {ano1} vs {ano2}",
+                    color='Ano'
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col8:
+                fig = px.bar(
+                    comparativo_data,
+                    x='Ano',
+                    y='Valor',
+                    title=f"Comparação de Valor: {ano1} vs {ano2}",
+                    color='Ano'
+                )
+                st.plotly_chart(fig, use_container_width=True)
+    
     else:
         st.warning("⚠️ São necessários pelo menos 2 anos de dados para comparação")
 
 elif page == "Clientes":
     st.markdown("<h1>👥 Análise de Clientes</h1>", unsafe_allow_html=True)
     
-    # Top clientes
-    clientes_analysis = data.groupby('cliente').agg({
-        'v_liquido': 'sum',
-        'qtd': 'sum',
-        'comercial': 'nunique'
-    }).sort_values('v_liquido', ascending=False)
+    # Mostrar filtros ativos
+    filtros_ativos = []
+    if st.session_state.filters['ano'] != "Todos":
+        filtros_ativos.append(f"Ano: {st.session_state.filters['ano']}")
+    if st.session_state.filters['comercial'] != "Todos":
+        filtros_ativos.append(f"Comercial: {st.session_state.filters['comercial']}")
     
-    col1, col2 = st.columns(2)
+    if filtros_ativos:
+        st.info(f"🔍 **Filtros ativos:** {', '.join(filtros_ativos)}")
     
-    with col1:
-        st.subheader("Top 10 Clientes por Valor")
-        top_clientes_valor = clientes_analysis.head(10)
+    if not data_filtrada.empty:
+        # Análise de clientes
+        analise_clientes = data_filtrada.groupby('cliente').agg({
+            'v_liquido': ['sum', 'count', 'mean'],
+            'qtd': 'sum',
+            'comercial': 'nunique'
+        }).round(2)
         
-        fig = px.bar(
-            top_clientes_valor,
-            x=top_clientes_valor.index,
-            y='v_liquido',
-            title="Top 10 Clientes por Valor de Vendas"
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        st.subheader("Top 10 Clientes por Quantidade")
-        top_clientes_qtd = clientes_analysis.sort_values('qtd', ascending=False).head(10)
+        analise_clientes.columns = ['Total Vendas', 'Nº Transações', 'Ticket Médio', 'Quantidade Total', 'Comerciais']
+        analise_clientes = analise_clientes.sort_values('Total Vendas', ascending=False)
         
-        fig = px.bar(
-            top_clientes_qtd,
-            x=top_clientes_qtd.index,
-            y='qtd',
-            title="Top 10 Clientes por Quantidade"
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # Tabela detalhada
-    with st.expander("📊 Tabela Detalhada de Clientes"):
-        clientes_detalhados = clientes_analysis.copy()
-        clientes_detalhados['v_liquido_formatado'] = clientes_detalhados['v_liquido'].apply(fmt_valor)
-        clientes_detalhados['qtd_formatada'] = clientes_detalhados['qtd'].apply(fmt_quantidade)
+        # Métricas de clientes
+        total_clientes = len(analise_clientes)
+        clientes_ativos = len(analise_clientes[analise_clientes['Nº Transações'] > 1])
         
-        st.dataframe(
-            clientes_detalhados[['v_liquido_formatado', 'qtd_formatada', 'comercial']],
-            use_container_width=True
-        )
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Total de Clientes", f"{total_clientes:,}")
+        
+        with col2:
+            st.metric("Clientes com Múltiplas Transações", f"{clientes_ativos:,}")
+        
+        with col3:
+            if total_clientes > 0:
+                percentual_ativos = (clientes_ativos / total_clientes) * 100
+                st.metric("Taxa de Retenção", fmt_percentual(percentual_ativos))
+        
+        # Gráficos
+        col4, col5 = st.columns(2)
+        
+        with col4:
+            top_clientes_valor = analise_clientes.head(10)
+            fig = px.bar(
+                top_clientes_valor,
+                y=top_clientes_valor.index,
+                x='Total Vendas',
+                title="Top 10 Clientes por Valor",
+                orientation='h'
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with col5:
+            top_clientes_qtd = analise_clientes.nlargest(10, 'Quantidade Total')
+            fig = px.bar(
+                top_clientes_qtd,
+                y=top_clientes_qtd.index,
+                x='Quantidade Total',
+                title="Top 10 Clientes por Quantidade",
+                orientation='h'
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Tabela detalhada
+        st.subheader("📋 Detalhes dos Clientes")
+        
+        # Formatar a tabela para exibição
+        analise_display = analise_clientes.copy()
+        analise_display['Total Vendas'] = analise_display['Total Vendas'].apply(fmt_valor)
+        analise_display['Ticket Médio'] = analise_display['Ticket Médio'].apply(fmt_valor)
+        analise_display['Quantidade Total'] = analise_display['Quantidade Total'].apply(fmt_quantidade)
+        
+        st.dataframe(analise_display, use_container_width=True)
 
-# Informações do dataset no sidebar
+elif page == "Análise Detalhada":
+    st.markdown("<h1>🔍 Análise Detalhada</h1>", unsafe_allow_html=True)
+    
+    # Mostrar todos os filtros ativos
+    filtros_ativos = []
+    for key, value in st.session_state.filters.items():
+        if value != "Todos" and value != "Todas":
+            filtros_ativos.append(f"{key.capitalize()}: {value}")
+    
+    if filtros_ativos:
+        st.info(f"🔍 **Filtros ativos:** {', '.join(filtros_ativos)} | **Registros:** {len(data_filtrada):,}")
+    
+    if not data_filtrada.empty:
+        # Estatísticas detalhadas
+        st.subheader("📈 Estatísticas Detalhadas")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**Estatísticas de Valor:**")
+            st.write(f"- Média: {fmt_valor(data_filtrada['v_liquido'].mean())}")
+            st.write(f"- Mediana: {fmt_valor(data_filtrada['v_liquido'].median())}")
+            st.write(f"- Desvio Padrão: {fmt_valor(data_filtrada['v_liquido'].std())}")
+            st.write(f"- Mínimo: {fmt_valor(data_filtrada['v_liquido'].min())}")
+            st.write(f"- Máximo: {fmt_valor(data_filtrada['v_liquido'].max())}")
+        
+        with col2:
+            st.write("**Estatísticas de Quantidade:**")
+            st.write(f"- Média: {fmt_quantidade(data_filtrada['qtd'].mean())}")
+            st.write(f"- Mediana: {fmt_quantidade(data_filtrada['qtd'].median())}")
+            st.write(f"- Desvio Padrão: {fmt_quantidade(data_filtrada['qtd'].std())}")
+            st.write(f"- Mínimo: {fmt_quantidade(data_filtrada['qtd'].min())}")
+            st.write(f"- Máximo: {fmt_quantidade(data_filtrada['qtd'].max())}")
+        
+        # Distribuição
+        st.subheader("📊 Distribuições")
+        
+        col3, col4 = st.columns(2)
+        
+        with col3:
+            fig = px.histogram(
+                data_filtrada,
+                x='v_liquido',
+                title="Distribuição de Valores",
+                nbins=20
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with col4:
+            fig = px.histogram(
+                data_filtrada,
+                x='qtd',
+                title="Distribuição de Quantidades",
+                nbins=20
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Dados brutos
+        st.subheader("📋 Dados Detalhados")
+        
+        with st.expander("Visualizar todos os dados filtrados"):
+            display_data = data_filtrada.copy()
+            display_data['v_liquido_formatado'] = display_data['v_liquido'].apply(fmt_valor)
+            display_data['qtd_formatada'] = display_data['qtd'].apply(fmt_quantidade)
+            
+            colunas_display = ['cliente', 'comercial', 'qtd_formatada', 'v_liquido_formatado', 'ano', 'mes_nome']
+            if 'categoria' in display_data.columns:
+                colunas_display.append('categoria')
+            
+            st.dataframe(display_data[colunas_display], use_container_width=True)
+
+# =============================================
+# RESUMO NO SIDEBAR
+# =============================================
 with st.sidebar:
     st.markdown("---")
-    st.markdown("**Resumo do Dataset:**")
+    st.markdown("### 📈 Resumo")
     
-    qtd_total = df['qtd'].sum()
-    valor_total = df['v_liquido'].sum()
+    qtd_total = data_filtrada['qtd'].sum()
+    valor_total = data_filtrada['v_liquido'].sum()
     
-    st.markdown(f"• Período: {df['ano'].min()}-{df['ano'].max()}")
-    st.markdown(f"• Valor Total: {fmt_valor(valor_total)}")
-    st.markdown(f"• Clientes: {df['cliente'].nunique():,}")
-    st.markdown(f"• Registros: {len(df):,}")
+    st.markdown(f"**Período:** {data_filtrada['ano'].min()}-{data_filtrada['ano'].max()}")
+    st.markdown(f"**Valor Total:** {fmt_valor(valor_total)}")
+    st.markdown(f"**Quantidade Total:** {fmt_quantidade(qtd_total)}")
+    st.markdown(f"**Clientes:** {data_filtrada['cliente'].nunique():,}")
+    st.markdown(f"**Registros:** {len(data_filtrada):,}")
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("🔄 *Atualizado automaticamente*")
+st.sidebar.markdown("🔄 *Filtros atualizados dinamicamente*")
