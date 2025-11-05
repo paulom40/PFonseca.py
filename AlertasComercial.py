@@ -111,7 +111,7 @@ st.markdown("""
 
 # --- DATA LOADING ---
 month_names_to_number = {
-    'janeiro': 1, 'february': 2, 'março': 3, 'abril': 4,
+    'janeiro': 1, 'fevereiro': 2, 'março': 3, 'abril': 4,
     'maio': 5, 'junho': 6, 'julho': 7, 'agosto': 8,
     'setembro': 9, 'outubro': 10, 'novembro': 11, 'dezembro': 12,
     # English versions as backup
@@ -273,9 +273,11 @@ if 'comercial_filter' not in st.session_state:
     st.session_state.comercial_filter = "All"
 if 'cliente_filter' not in st.session_state:
     st.session_state.cliente_filter = "All"
+if 'categoria_filter' not in st.session_state:
+    st.session_state.categoria_filter = "All"
 
 # Get available options based on current filters
-def get_filtro_opcoes(dados, ano, comercial):
+def get_filtro_opcoes(dados, ano, comercial, cliente):
     temp = dados.copy()
     
     # Filter by year
@@ -289,13 +291,22 @@ def get_filtro_opcoes(dados, ano, comercial):
     if comercial != "All" and comercial != "Todos":
         temp = temp[temp['comercial'].astype(str) == str(comercial)]
     
+    # Filter by customer
+    if cliente != "All" and cliente != "Todos":
+        temp = temp[temp['cliente'].astype(str) == str(cliente)]
+    
     anos = sorted([int(x) for x in temp['ano'].dropna().unique()])
     comerciais = sorted(list(temp['comercial'].dropna().unique()))
     clientes = sorted(list(temp['cliente'].dropna().unique()))
     
-    return anos, comerciais, clientes
+    # Get categories if the column exists
+    categorias = []
+    if 'categoria' in temp.columns:
+        categorias = sorted(list(temp['categoria'].dropna().unique()))
+    
+    return anos, comerciais, clientes, categorias
 
-anos_disponiveis, comerciais_disponiveis, clientes_disponiveis = get_filtro_opcoes(dados_base, "All", "All")
+anos_disponiveis, comerciais_disponiveis, clientes_disponiveis, categorias_disponiveis = get_filtro_opcoes(dados_base, "All", "All", "All")
 
 # Year filter
 ano = st.sidebar.selectbox(
@@ -305,7 +316,7 @@ ano = st.sidebar.selectbox(
 )
 
 # Commercial filter (updates based on year)
-_, comerciais_for_year, _ = get_filtro_opcoes(dados_base, ano, "All")
+_, comerciais_for_year, _, _ = get_filtro_opcoes(dados_base, ano, "All", "All")
 comercial = st.sidebar.selectbox(
     "Comercial", 
     ["Todos"] + comerciais_for_year, 
@@ -313,15 +324,23 @@ comercial = st.sidebar.selectbox(
 )
 
 # Customer filter (updates based on year and commercial)
-_, _, clientes_for_filters = get_filtro_opcoes(dados_base, ano, comercial)
+_, _, clientes_for_filters, _ = get_filtro_opcoes(dados_base, ano, comercial, "All")
 cliente = st.sidebar.selectbox(
     "Cliente", 
     ["Todos"] + clientes_for_filters, 
     key="customer_select"
 )
 
+# NEW: Category filter (updates based on all previous filters)
+_, _, _, categorias_for_filters = get_filtro_opcoes(dados_base, ano, comercial, cliente)
+categoria = st.sidebar.selectbox(
+    "Categoria", 
+    ["Todas"] + categorias_for_filters, 
+    key="category_select"
+)
+
 # Apply filters to data
-def aplicar_filtros(dados, ano, comercial, cliente):
+def aplicar_filtros(dados, ano, comercial, cliente, categoria):
     resultado = dados.copy()
     if ano != "Todos":
         resultado = resultado[resultado['ano'] == int(ano)]
@@ -329,9 +348,11 @@ def aplicar_filtros(dados, ano, comercial, cliente):
         resultado = resultado[resultado['comercial'].astype(str) == str(comercial)]
     if cliente != "Todos":
         resultado = resultado[resultado['cliente'].astype(str) == str(cliente)]
+    if categoria != "Todas" and 'categoria' in resultado.columns:
+        resultado = resultado[resultado['categoria'].astype(str) == str(categoria)]
     return resultado
 
-dados_filtrados = aplicar_filtros(dados_base, ano, comercial, cliente)
+dados_filtrados = aplicar_filtros(dados_base, ano, comercial, cliente, categoria)
 
 # --- FUNCTION: EXPORT EXCEL ---
 def gerar_excel(dados):
@@ -384,7 +405,7 @@ if pagina == "📈 Visão Geral":
         color_continuous_scale='Turbo'
     )
     fig_top.update_layout(template=template_chart, showlegend=True, hovermode='x unified')
-    st.plotly_chart(fig_top, use_container_width=True) # Changed width='stretch' to use_container_width=True
+    st.plotly_chart(fig_top, use_container_width=True)
     
     # KPI by Commercial
     st.subheader("🧑‍💼 Desempenho por Comercial")
@@ -399,11 +420,27 @@ if pagina == "📈 Visão Geral":
         color_continuous_scale='Plasma'
     )
     fig_comercial.update_layout(template=template_chart, showlegend=True)
-    st.plotly_chart(fig_comercial, use_container_width=True) # Changed width='stretch' to use_container_width=True
+    st.plotly_chart(fig_comercial, use_container_width=True)
+    
+    # NEW: KPI by Category (if category column exists)
+    if 'categoria' in dados_filtrados.columns and not dados_filtrados['categoria'].isna().all():
+        st.subheader("📊 Desempenho por Categoria")
+        kpi_categoria = dados_filtrados.groupby('categoria')[['qtd', 'v_liquido']].sum().sort_values('qtd', ascending=False)
+        
+        fig_categoria = px.bar(
+            kpi_categoria.reset_index(),
+            x='categoria',
+            y='qtd',
+            color='v_liquido',
+            title='Quantidade por Categoria',
+            color_continuous_scale='Viridis'
+        )
+        fig_categoria.update_layout(template=template_chart, showlegend=True)
+        st.plotly_chart(fig_categoria, use_container_width=True)
     
     # Data Table
     st.subheader("📋 Dados Detalhados")
-    st.dataframe(dados_filtrados, use_container_width=True) # Changed width='stretch' to use_container_width=True
+    st.dataframe(dados_filtrados, use_container_width=True)
     st.download_button("📥 Exportar Dados", data=gerar_excel(dados_filtrados), file_name="kpi_data.xlsx")
 
 # --- PAGE 2: CUSTOM KPIs ---
@@ -444,7 +481,7 @@ elif pagina == "🎯 KPIs Personalizados":
         )
         fig_kpi.update_traces(textposition='outside', textfont=dict(color='#00f5ff'))
         fig_kpi.update_layout(template=template_chart, showlegend=False, xaxis_title="Mês", yaxis_title="Quantidade (Soma)")
-        st.plotly_chart(fig_kpi, use_container_width=True) # Changed width='stretch' to use_container_width=True
+        st.plotly_chart(fig_kpi, use_container_width=True)
         
         # Summary
         col1, col2, col3, col4 = st.columns(4)
@@ -455,7 +492,7 @@ elif pagina == "🎯 KPIs Personalizados":
         
         # Data Table
         st.subheader("📋 Dados de KPI Mensal")
-        st.dataframe(kpi_data[['month_name', 'value']], use_container_width=True) # Changed width='stretch' to use_container_width=True
+        st.dataframe(kpi_data[['month_name', 'value']], use_container_width=True)
 
 # --- PAGE 3: TRENDS ---
 elif pagina == "📉 Tendências":
@@ -521,7 +558,7 @@ elif pagina == "📉 Tendências":
                 template=template_chart
             )
             
-            st.plotly_chart(fig_trend, use_container_width=True) # Changed width='stretch' to use_container_width=True
+            st.plotly_chart(fig_trend, use_container_width=True)
             
             # Trend Statistics
             st.subheader("📊 Estatísticas de Tendência")
@@ -545,7 +582,7 @@ elif pagina == "📉 Tendências":
             # Display trend data table with month names
             st.subheader("📋 Dados de Tendência Mensal")
             display_trend = trend_data[['month_name', 'value', 'MA']].rename(columns={'month_name': 'Mês', 'value': 'Quantidade', 'MA': 'Média Móvel'})
-            st.dataframe(display_trend, use_container_width=True) # Changed width='stretch' to use_container_width=True
+            st.dataframe(display_trend, use_container_width=True)
             
             st.subheader("📊 Variação Mensal de Quantidade (Mês a Mês)")
             
@@ -583,7 +620,7 @@ elif pagina == "📉 Tendências":
             # Reorder columns to show alert prominently
             variation_display = variation_display[['Mês', 'QuantidadeAtual', 'QuantidadeAnterior', 'Variação (Qtd)', 'Variação (%)', 'Alerta']]
             
-            st.dataframe(variation_display, use_container_width=True) # Changed width='stretch' to use_container_width=True
+            st.dataframe(variation_display, use_container_width=True)
             
             st.markdown("### 🎯 Alertas por Categoria de Variação")
             
@@ -605,17 +642,17 @@ elif pagina == "📉 Tendências":
             if high_growth > 0:
                 st.success(f"🚀 **Crescimento Alto**: {high_growth} mês(es) com crescimento superior a 15%")
                 high_months = variation_display[variation_display['Variação (%)'] > 15][['Mês', 'Variação (%)', 'Variação (Qtd)']]
-                st.dataframe(high_months, use_container_width=True) # Changed width='stretch' to use_container_width=True
+                st.dataframe(high_months, use_container_width=True)
             
             if critical_drop > 0:
                 st.error(f"🔴 **Queda Crítica**: {critical_drop} mês(es) com queda inferior a -15%")
                 critical_months = variation_display[variation_display['Variação (%)'] < -15][['Mês', 'Variação (%)', 'Variação (Qtd)']]
-                st.dataframe(critical_months, use_container_width=True) # Changed width='stretch' to use_container_width=True
+                st.dataframe(critical_months, use_container_width=True)
             
             if decline > 0 and critical_drop == 0:
                 st.warning(f"📉 **Atenção**: {decline} mês(es) com queda moderada (-15% a 0%)")
                 decline_months = variation_display[(variation_display['Variação (%)'] < 0) & (variation_display['Variação (%)'] >= -15)][['Mês', 'Variação (%)', 'Variação (Qtd)']]
-                st.dataframe(decline_months, use_container_width=True) # Changed width='stretch' to use_container_width=True
+                st.dataframe(decline_months, use_container_width=True)
             
             # Visualization of variations
             fig_variation = px.bar(
@@ -634,7 +671,7 @@ elif pagina == "📉 Tendências":
                 xaxis_tickangle=-45,
                 hovermode='x unified'
             )
-            st.plotly_chart(fig_variation, use_container_width=True) # Changed width='stretch' to use_container_width=True
+            st.plotly_chart(fig_variation, use_container_width=True)
 
 # --- PAGE 4: ALERTS ---
 elif pagina == "⚠️ Alertas":
@@ -670,14 +707,14 @@ elif pagina == "⚠️ Alertas":
     st.markdown("---")
     
     st.subheader("📋 Relatório de Estado do Cliente")
-    st.dataframe(analise_clientes, use_container_width=True) # Changed width='stretch' to use_container_width=True
+    st.dataframe(analise_clientes, use_container_width=True)
     
     # Critical Customers
     st.subheader("🔴 Alertas Críticos de Clientes")
     criticos = analise_clientes[analise_clientes['Status'] == '🔴 Crítico']
     if not criticos.empty:
         st.error(f"⚠️ {len(criticos)} clientes precisam de atenção imediata!")
-        st.dataframe(criticos, use_container_width=True) # Changed width='stretch' to use_container_width=True
+        st.dataframe(criticos, use_container_width=True)
     else:
         st.success("✅ Sem alertas críticos!")
     
@@ -744,7 +781,7 @@ elif pagina == "⚠️ Alertas":
             
             # Display alert table
             st.warning(f"⚠️ {len(customers_with_gaps)} clientes não compraram em todos os meses!")
-            st.dataframe(final_display, use_container_width=True) # Changed width='stretch' to use_container_width=True
+            st.dataframe(final_display, use_container_width=True)
             
             # Export gaps report
             st.download_button(
@@ -778,6 +815,21 @@ elif pagina == "👥 Análise de Clientes":
             col3.metric("Média por Transação", f"{cliente_data['qtd'].mean():,.2f}")
             col4.metric("Transações", len(cliente_data))
             
+            # NEW: Category breakdown for the customer (if category column exists)
+            if 'categoria' in cliente_data.columns and not cliente_data['categoria'].isna().all():
+                st.subheader("📊 Distribuição por Categoria")
+                categoria_cliente = cliente_data.groupby('categoria')[['qtd', 'v_liquido']].sum().sort_values('qtd', ascending=False)
+                
+                fig_cat_cliente = px.pie(
+                    categoria_cliente.reset_index(),
+                    values='qtd',
+                    names='categoria',
+                    title=f"Distribuição de Quantidade por Categoria - {cliente}",
+                    color_discrete_sequence=px.colors.qualitative.Set3
+                )
+                fig_cat_cliente.update_layout(template=template_chart)
+                st.plotly_chart(fig_cat_cliente, use_container_width=True)
+            
             st.subheader("📈 Tendência do Cliente - Desempenho Mensal")
             
             # Create a date key for proper chronological sorting with month on x-axis
@@ -802,7 +854,7 @@ elif pagina == "👥 Análise de Clientes":
                 hovermode='x unified',
                 xaxis_tickangle=-45
             )
-            st.plotly_chart(fig_historico, use_container_width=True) # Changed width='stretch' to use_container_width=True
+            st.plotly_chart(fig_historico, use_container_width=True)
             
             st.subheader("🔄 vs. Média do Mercado - Comparação Mensal")
             
@@ -854,7 +906,7 @@ elif pagina == "👥 Análise de Clientes":
                 template=template_chart,
                 xaxis_tickangle=-45
             )
-            st.plotly_chart(fig_comp, use_container_width=True) # Changed width='stretch' to use_container_width=True
+            st.plotly_chart(fig_comp, use_container_width=True)
             
             # Display comparison metrics
             st.subheader("📊 Comparação de Desempenho")
@@ -873,11 +925,11 @@ elif pagina == "👥 Análise de Clientes":
                     f"{media_mercado['market_qtd'].min():,.0f}"
                 ]
             })
-            st.dataframe(comp_metrics, use_container_width=True) # Changed width='stretch' to use_container_width=True
+            st.dataframe(comp_metrics, use_container_width=True)
             
             # Data
             st.subheader("📋 Dados Detalhados do Cliente")
-            st.dataframe(cliente_data, use_container_width=True) # Changed width='stretch' to use_container_width=True
+            st.dataframe(cliente_data, use_container_width=True)
 
 # --- PAGE 6: COMPARATIVE VIEW ---
 else:
@@ -918,7 +970,7 @@ else:
     )
     
     fig_comp.update_layout(height=500, showlegend=False, template=template_chart)
-    st.plotly_chart(fig_comp, use_container_width=True) # Changed width='stretch' to use_container_width=True
+    st.plotly_chart(fig_comp, use_container_width=True)
     
     # Statistics
     st.subheader("📈 Estatísticas Comparativas")
@@ -928,5 +980,5 @@ else:
         'Quota %': (top_items.values / top_items.sum() * 100).round(2)
     })
     
-    st.dataframe(comp_stats, use_container_width=True) # Changed width='stretch' to use_container_width=True
+    st.dataframe(comp_stats, use_container_width=True)
     st.download_button("📥 Exportar Análise", data=gerar_excel(comp_stats), file_name="comparative_analysis.xlsx")
