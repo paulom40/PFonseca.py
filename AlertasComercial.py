@@ -360,7 +360,7 @@ if pagina == "📈 Overview":
     num_commercials = dados_filtrados['comercial'].nunique()
     
     col1.metric("📦 Total Quantity", f"{total_qty:,.0f}")
-    col2.metric("💰 Total Value", f"R$ {total_value:,.0f}")
+    col2.metric("💰 Total Value", f"€ {total_value:,.0f}")
     col3.metric("👥 Unique Customers", f"{num_customers}")
     col4.metric("🧑‍💼 Active Commercials", f"{num_commercials}")
     
@@ -377,7 +377,7 @@ if pagina == "📈 Overview":
         y='qtd',
         color='v_liquido',
         title='Top 10 Customers by Quantity',
-        labels={'qtd': 'Quantity', 'cliente': 'Customer', 'v_liquido': 'Value (R$)'},
+        labels={'qtd': 'Quantity', 'cliente': 'Customer', 'v_liquido': 'Value (€)'},
         color_continuous_scale='Turbo'
     )
     fig_top.update_layout(template=template_chart, showlegend=True, hovermode='x unified')
@@ -682,7 +682,7 @@ elif pagina == "👥 Customer Analysis":
             
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("Total Quantity", f"{cliente_data['qtd'].sum():,.0f}")
-            col2.metric("Total Value", f"R$ {cliente_data['v_liquido'].sum():,.0f}")
+            col2.metric("Total Value", f"€ {cliente_data['v_liquido'].sum():,.0f}")
             col3.metric("Avg per Transaction", f"{cliente_data['qtd'].mean():,.2f}")
             col4.metric("Transactions", len(cliente_data))
             
