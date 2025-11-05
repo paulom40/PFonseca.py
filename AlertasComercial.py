@@ -572,6 +572,22 @@ if pagina == "📊 VISÃO GERAL":
         </div>
     """, unsafe_allow_html=True)
     
+    # Debug - verificar estrutura dos dados
+    with st.expander("🔍 DEBUG - Verificar Estrutura dos Dados"):
+        st.write("Primeiras 5 linhas dos dados filtrados:")
+        debug_cols = ['cliente', 'qtd', 'v_liquido', 'mes', 'ano']
+        st.dataframe(dados_filtrados[debug_cols].head())
+        
+        st.write("Tipos de dados:")
+        st.write(dados_filtrados[debug_cols].dtypes)
+        
+        st.write("Estatísticas:")
+        col_d1, col_d2 = st.columns(2)
+        with col_d1:
+            st.metric("Soma QTD (kg)", f"{dados_filtrados['qtd'].sum():,.2f}")
+        with col_d2:
+            st.metric("Soma V.Líquido (€)", f"{dados_filtrados['v_liquido'].sum():,.2f}")
+    
     # Key Metrics
     col1, col2, col3, col4 = st.columns(4)
     
@@ -588,22 +604,7 @@ if pagina == "📊 VISÃO GERAL":
         )
     with col2:
         st.metric(
-            label="💰 VALOR TOTAL (€)", 
-            value=formatar_euros_simples(total_value) if total_value > 0 else "€ 0",
-            delta=None
-        )
-    with col3:
-        st.metric(
-            label="👥 CLIENTES ÚNICOS", 
-            value=f"{num_customers}",
-            delta=None
-        )
-    with col4:
-        st.metric(
-            label="👨‍💼 COMERCIAIS", 
-            value=f"{num_commercials}",
-            delta=None
-        )
+            label="💰
     
     st.markdown("---")
     
