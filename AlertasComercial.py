@@ -74,15 +74,6 @@ def load_data():
                                .str.replace(',', '.', regex=False))
             df['v_liquido'] = pd.to_numeric(df['v_liquido'], errors='coerce').fillna(0)
             
-            # VALIDAÇÃO: Remover valores absurdamente altos
-            Q1 = df['v_liquido'].quantile(0.25)
-            Q3 = df['v_liquido'].quantile(0.75)
-            IQR = Q3 - Q1
-            limite_superior = Q3 + 3 * IQR
-            
-            # Filtrar outliers extremos
-            df = df[df['v_liquido'] <= limite_superior]
-            
             # FORMATAR PARA 2 CASAS DECIMAIS
             df['v_liquido'] = df['v_liquido'].round(2)
 
@@ -90,8 +81,7 @@ def load_data():
         df = df.dropna(subset=['mes', 'qtd', 'ano', 'cliente', 'comercial', 'v_liquido'])
         df = df[(df['mes'].between(1, 12)) & 
                 (df['qtd'] > 0) & 
-                (df['v_liquido'] > 0) &
-                (df['v_liquido'] < 1e9)]  # Limitar valores muito altos
+                (df['v_liquido'] > 0)]
         df = df.drop_duplicates(subset=['cliente','comercial','ano','mes','qtd','v_liquido'])
 
         st.success("Dados carregados com sucesso!")
@@ -140,81 +130,41 @@ with st.sidebar:
         data = data[data['categoria'].astype(str) == str(categoria)]
 
 # =============================================
-# FUNÇÕES DE FORMATAÇÃO CORRIGIDAS
+# FUNÇÕES DE FORMATAÇÃO CORRIGIDAS - SIMPLES E DIRETAS
 # =============================================
-def fmt_valor(x, u=""):
-    """Formata valores com 2 casas decimais de forma segura"""
+def fmt_valor_simples(x, u=""):
+    """Formata valores com 2 casas decimais no formato europeu"""
     if pd.isna(x) or x == 0:
-        return f"0.00 {u}".strip()
+        return f"0,00 {u}".strip()
     
     try:
-        # Se for um número muito grande, formatar de forma inteligente
-        if abs(x) >= 1e12:  # Trilhões
-            return f"{x/1e12:.2f} Trilhões {u}"
-        elif abs(x) >= 1e9:  # Bilhões
-            return f"{x/1e9:.2f} Bilhões {u}"
-        elif abs(x) >= 1e6:  # Milhões
-            return f"{x/1e6:.2f} Milhões {u}"
-        elif abs(x) >= 1e3:  # Milhares
-            return f"{x/1e3:.2f} Mil {u}"
-        else:
-            return f"{x:,.2f} {u}".strip()
+        # Formato europeu: ponto para milhares, vírgula para decimais
+        return f"{x:,.2f} {u}".replace(",", "X").replace(".", ",").replace("X", ".").strip()
     except:
-        return f"0.00 {u}".strip()
+        return f"0,00 {u}".strip()
 
-def fmt_quantidade(x, u=""):
-    """Formata quantidades de forma segura"""
+def fmt_quantidade_simples(x, u=""):
+    """Formata quantidades no formato europeu"""
     if pd.isna(x) or x == 0:
         return f"0 {u}".strip()
     
     try:
-        # Se for um número muito grande, formatar de forma inteligente
-        if abs(x) >= 1e12:  # Trilhões
-            return f"{x/1e12:.2f} Trilhões {u}"
-        elif abs(x) >= 1e9:  # Bilhões
-            return f"{x/1e9:.2f} Bilhões {u}"
-        elif abs(x) >= 1e6:  # Milhões
-            return f"{x/1e6:.2f} Milhões {u}"
-        elif abs(x) >= 1e3:  # Milhares
-            return f"{x/1e3:.2f} Mil {u}"
+        if x == int(x):  # Se for número inteiro
+            return f"{x:,} {u}".replace(",", ".").strip()
         else:
-            if x == int(x):  # Se for número inteiro
-                return f"{x:,.0f} {u}".strip()
-            else:
-                return f"{x:,.2f} {u}".strip()
+            return f"{x:,.2f} {u}".replace(",", "X").replace(".", ",").replace("X", ".").strip()
     except:
         return f"0 {u}".strip()
 
-def fmt_percentual(x):
+def fmt_percentual_simples(x):
     """Formata percentuais de forma segura"""
     if pd.isna(x) or np.isinf(x):
-        return "0.00%"
+        return "0,00%"
     
     try:
-        # Limitar percentuais absurdos
-        if abs(x) > 1000000:  # Acima de 1,000,000%
-            return "> 1.000.000%"
-        elif abs(x) > 10000:  # Acima de 10,000%
-            return f"{x:+.0f}%"
-        elif abs(x) > 1000:   # Acima de 1,000%
-            return f"{x:+.1f}%"
-        else:
-            return f"{x:+.2f}%"
+        return f"{x:+.2f}%".replace(".", ",")
     except:
-        return "0.00%"
-
-def validar_dados_numericos(serie):
-    """Valida se os dados numéricos são razoáveis"""
-    if serie.empty:
-        return serie
-    
-    # Remover outliers extremos usando IQR
-    Q1 = serie.quantile(0.25)
-    Q3 = serie.quantile(0.75)
-    IQR = Q3 - Q1
-    limite_superior = Q3 + 3 * IQR
-    
-    return serie[serie <= limite_superior]
+        return "0,00%"
 
 # =============================================
 # PÁGINAS
@@ -222,21 +172,26 @@ def validar_dados_numericos(serie):
 if page == "Visão Geral":
     st.markdown("<h1>Visão Geral</h1>", unsafe_allow_html=True)
     
-    # Validar dados antes de calcular
-    qtd_validada = validar_dados_numericos(data['qtd'])
-    valor_validado = validar_dados_numericos(data['v_liquido'])
+    # Calcular totais
+    qtd_total = data['qtd'].sum()
+    valor_total = data['v_liquido'].sum()
     
     c1, c2, c3, c4 = st.columns(4)
     with c1: 
-        qtd_total = qtd_validada.sum()
-        st.metric("Quantidade", fmt_quantidade(qtd_total, "kg"))
+        st.metric("Quantidade", fmt_quantidade_simples(qtd_total, "kg"))
     with c2: 
-        valor_total = valor_validado.sum()
-        st.metric("Valor Total", fmt_valor(valor_total, "EUR"))
+        st.metric("Valor Total", fmt_valor_simples(valor_total, "EUR"))
     with c3: 
         st.metric("Clientes", f"{data['cliente'].nunique():,}")
     with c4: 
         st.metric("Comerciais", f"{data['comercial'].nunique():,}")
+    
+    # Debug: mostrar valores reais
+    with st.expander("🔍 Ver valores detalhados"):
+        st.write(f"Quantidade total real: {qtd_total:,.2f} kg")
+        st.write(f"Valor total real: {valor_total:,.2f} EUR")
+        st.write(f"Primeiras linhas dos dados:")
+        st.dataframe(data[['cliente', 'qtd', 'v_liquido']].head())
 
 elif page == "KPIs":
     st.markdown("<h1>KPIs</h1>", unsafe_allow_html=True)
@@ -245,12 +200,7 @@ elif page == "KPIs":
     col = 'qtd' if metrica == "Quantidade" else 'v_liquido'
     gcol = {'Mês':'mes', 'Comercial':'comercial', 'Cliente':'cliente'}[grupo]
     
-    # Validar dados
-    dados_validados = data.copy()
-    dados_validados[col] = validar_dados_numericos(data[col])
-    dados_validados = dados_validados.dropna(subset=[col])
-    
-    agg = dados_validados.groupby(gcol)[col].sum().reset_index().sort_values(col, ascending=False).head(10)
+    agg = data.groupby(gcol)[col].sum().reset_index().sort_values(col, ascending=False).head(10)
     
     if grupo == "Mês": 
         agg['mes'] = agg['mes'].map({1:'Jan',2:'Fev',3:'Mar',4:'Abr',5:'Mai',6:'Jun',
@@ -280,65 +230,66 @@ elif page == "Comparação":
         d1 = data[data['ano'] == y1]
         d2 = data[data['ano'] == y2]
         
-        # Validar dados antes de calcular
-        qtd_y1 = validar_dados_numericos(d1['qtd']).sum()
-        qtd_y2 = validar_dados_numericos(d2['qtd']).sum()
-        valor_y1 = validar_dados_numericos(d1['v_liquido']).sum()
-        valor_y2 = validar_dados_numericos(d2['v_liquido']).sum()
+        # Calcular totais
+        qtd_y1 = d1['qtd'].sum()
+        qtd_y2 = d2['qtd'].sum()
+        valor_y1 = d1['v_liquido'].sum()
+        valor_y2 = d2['v_liquido'].sum()
         
         # Métricas principais
         c1, c2, c3, c4 = st.columns(4)
         with c1: 
-            st.metric(f"Quantidade {y1}", fmt_quantidade(qtd_y1, "kg"))
+            st.metric(f"Quantidade {y1}", fmt_quantidade_simples(qtd_y1, "kg"))
         with c2: 
-            st.metric(f"Quantidade {y2}", fmt_quantidade(qtd_y2, "kg"))
+            st.metric(f"Quantidade {y2}", fmt_quantidade_simples(qtd_y2, "kg"))
         with c3: 
-            st.metric(f"Valor {y1}", fmt_valor(valor_y1, "EUR"))
+            st.metric(f"Valor {y1}", fmt_valor_simples(valor_y1, "EUR"))
         with c4: 
-            st.metric(f"Valor {y2}", fmt_valor(valor_y2, "EUR"))
+            st.metric(f"Valor {y2}", fmt_valor_simples(valor_y2, "EUR"))
         
-        # Variação com validação
+        # Variação
         col1, col2 = st.columns(2)
         with col1:
-            if qtd_y1 > 0 and qtd_y2 > 0:
+            if qtd_y1 > 0:
                 variacao_qtd = ((qtd_y2 - qtd_y1) / qtd_y1) * 100
-                # Validar se a variação é razoável
-                if abs(variacao_qtd) < 10000:  # Limitar a 10,000%
-                    st.metric("Variação Quantidade", fmt_percentual(variacao_qtd))
-                else:
-                    st.metric("Variação Quantidade", "Variação extrema")
+                st.metric("Variação Quantidade", fmt_percentual_simples(variacao_qtd))
             else:
-                st.metric("Variação Quantidade", "Dados insuficientes")
+                st.metric("Variação Quantidade", "N/A")
         
         with col2:
-            if valor_y1 > 0 and valor_y2 > 0:
+            if valor_y1 > 0:
                 variacao_valor = ((valor_y2 - valor_y1) / valor_y1) * 100
-                # Validar se a variação é razoável
-                if abs(variacao_valor) < 10000:  # Limitar a 10,000%
-                    st.metric("Variação Valor", fmt_percentual(variacao_valor))
-                else:
-                    st.metric("Variação Valor", "Variação extrema")
+                st.metric("Variação Valor", fmt_percentual_simples(variacao_valor))
             else:
-                st.metric("Variação Valor", "Dados insuficientes")
+                st.metric("Variação Valor", "N/A")
         
-        # Alertas de dados suspeitos
-        if qtd_y1 > 1e9 or qtd_y2 > 1e9 or valor_y1 > 1e9 or valor_y2 > 1e9:
-            st.warning("⚠️ Valores muito altos detectados. Verifique a qualidade dos dados.")
+        # Debug section
+        with st.expander("🔍 Ver detalhes dos cálculos"):
+            st.write(f"**Ano {y1}:**")
+            st.write(f"- Quantidade: {qtd_y1:,.2f} kg")
+            st.write(f"- Valor: {valor_y1:,.2f} EUR")
+            st.write(f"- Registros: {len(d1)}")
+            
+            st.write(f"**Ano {y2}:**")
+            st.write(f"- Quantidade: {qtd_y2:,.2f} kg")
+            st.write(f"- Valor: {valor_y2:,.2f} EUR")
+            st.write(f"- Registros: {len(d2)}")
+            
+            if qtd_y1 > 0:
+                st.write(f"Variação Qtd: {((qtd_y2 - qtd_y1) / qtd_y1) * 100:.2f}%")
+            if valor_y1 > 0:
+                st.write(f"Variação Valor: {((valor_y2 - valor_y1) / valor_y1) * 100:.2f}%")
             
     else:
         st.warning("São necessários pelo menos 2 anos de dados para comparação.")
 
-# ... (mantenha o resto das páginas igual ao código anterior)
+# ... (mantenha as outras páginas similares)
 
 elif page == "Comparação Clientes":
     st.markdown("<h1>Comparação Clientes</h1>", unsafe_allow_html=True)
     
-    # Validar dados antes de criar a pivot
-    temp = data.copy()
-    temp['qtd'] = validar_dados_numericos(temp['qtd'])
-    temp = temp.dropna(subset=['qtd'])
-    
     # Tabela pivot com quantidades mensais
+    temp = data.copy()
     temp['data'] = pd.to_datetime(temp['ano'].astype(str) + '-' + temp['mes'].astype(str).str.zfill(2) + '-01')
     pivot = temp.groupby(['cliente','data'])['qtd'].sum().unstack(fill_value=0)
     pivot.columns = pivot.columns.strftime('%b/%y')
@@ -347,39 +298,32 @@ elif page == "Comparação Clientes":
     st.markdown("### Quantidade Mensal por Cliente (kg)")
     
     # Formatar a tabela para exibição
-    def formatar_numero(x):
-        if x >= 1e6:
-            return f"{x/1e6:.1f}M"
-        elif x >= 1e3:
-            return f"{x/1e3:.1f}K"
-        else:
-            return f"{x:,.0f}"
+    def formatar_numero_simples(x):
+        return f"{x:,.0f}".replace(",", ".")
     
-    pivot_formatado = pivot.applymap(formatar_numero)
+    pivot_formatado = pivot.applymap(formatar_numero_simples)
     st.dataframe(pivot_formatado, use_container_width=True)
-    
-    # Informações sobre formatação
-    st.info("💡 Valores formatados: K = Mil, M = Milhão")
 
-# ... (mantenha o resto do código igual)
+# Exportar dados
+if st.sidebar.button("Exportar Dados"):
+    data_export = data.copy()
+    csv = data_export.to_csv(index=False, sep=';', decimal=',')
+    st.download_button(
+        label="📥 Baixar CSV",
+        data=csv,
+        file_name="vendas_formatadas.csv",
+        mime="text/csv"
+    )
 
 # Informações do dataset no sidebar
 with st.sidebar:
     st.markdown("---")
     st.markdown("**Dataset Info:**")
     
-    # Validar dados para o resumo
-    qtd_resumo = validar_dados_numericos(data['qtd']).sum()
-    valor_resumo = validar_dados_numericos(data['v_liquido']).sum()
+    qtd_resumo = data['qtd'].sum()
+    valor_resumo = data['v_liquido'].sum()
     
     st.markdown(f"- Período: {int(data['ano'].min())}-{int(data['ano'].max())}")
-    st.markdown(f"- Total: {fmt_valor(valor_resumo, 'EUR')}")
+    st.markdown(f"- Total: {fmt_valor_simples(valor_resumo, 'EUR')}")
     st.markdown(f"- Clientes: {data['cliente'].nunique():,}")
-    
-    # Alertas de qualidade de dados
-    if len(data) > 0:
-        qtd_max = data['qtd'].max()
-        valor_max = data['v_liquido'].max()
-        
-        if qtd_max > 1e9 or valor_max > 1e9:
-            st.warning("⚠️ Valores extremos detectados")
+    st.markdown(f"- Registros: {len(data):,}")
