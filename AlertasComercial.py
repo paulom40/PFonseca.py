@@ -13,22 +13,22 @@ import requests
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="Customer KPI Dashboard", layout="wide", initial_sidebar_state="expanded")
 
-# --- CUSTOM STYLING WITH VIBRANT COLORS AND GRADIENTS ---
+# --- CUSTOM STYLING WITH ENTERPRISE COLOR SCHEME ---
 st.markdown("""
     <style>
-    /* Enhanced with vibrant colors, gradients, and better visual hierarchy */
-    .main { background: linear-gradient(135deg, #0f0f1e 0%, #1a0f2e 100%); color: #e0e0e0; }
-    .stApp { background: linear-gradient(135deg, #0f0f1e 0%, #1a0f2e 100%); }
+    /* Professional Enterprise Color Scheme: Navy Blue, Dark Blue, White, Gold Accents */
+    .main { background: linear-gradient(135deg, #0a1428 0%, #0d1b2a 100%); color: #e8eef5; }
+    .stApp { background: linear-gradient(135deg, #0a1428 0%, #0d1b2a 100%); }
     
     h1 { 
-        color: #00d4ff; 
+        color: #d4a574; 
         font-weight: 800; 
         font-size: 2.5em;
-        text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        text-shadow: 0 0 15px rgba(212, 165, 116, 0.2);
         margin-bottom: 20px;
     }
     h2 { 
-        background: linear-gradient(135deg, #ff006e 0%, #8338ec 50%, #3a86ff 100%);
+        background: linear-gradient(135deg, #d4a574 0%, #a0826d 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
@@ -36,59 +36,59 @@ st.markdown("""
         margin-top: 30px;
     }
     h3 { 
-        color: #00f5ff; 
+        color: #7ba3c0; 
         font-weight: 700;
     }
     
-    /* Metric cards with vibrant gradients */
+    /* Metric cards with professional styling */
     [data-testid="metric-container"] {
-        background: linear-gradient(135deg, #1a0f2e 0%, #2d0f4e 100%);
-        border: 2px solid rgba(0, 212, 255, 0.3);
+        background: linear-gradient(135deg, #0d2238 0%, #1a2a3e 100%);
+        border: 2px solid rgba(212, 165, 116, 0.2);
         border-radius: 12px;
         padding: 20px;
-        box-shadow: 0 8px 32px rgba(0, 212, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        box-shadow: 0 8px 32px rgba(212, 165, 116, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     }
     
     /* Sidebar styling */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0a0a15 0%, #1a0f2e 100%);
-        border-right: 2px solid rgba(0, 212, 255, 0.2);
+        background: linear-gradient(180deg, #050a14 0%, #0a1428 100%);
+        border-right: 2px solid rgba(212, 165, 116, 0.15);
     }
     
     .stRadio label, .stSelectbox label, .stMultiSelect label { 
         font-weight: 700; 
-        color: #00f5ff;
+        color: #7ba3c0;
         font-size: 1.05em;
     }
     
     /* Selectbox styling */
     [data-testid="stSelectbox"] {
-        background: linear-gradient(135deg, #1a0f2e 0%, #2d0f4e 100%);
+        background: linear-gradient(135deg, #0d2238 0%, #1a2a3e 100%);
         border-radius: 8px;
     }
     
-    /* Download button with vibrant gradient */
+    /* Download button with professional gradient */
     .stDownloadButton button { 
-        background: linear-gradient(135deg, #ff006e 0%, #8338ec 50%, #3a86ff 100%);
-        color: white; 
+        background: linear-gradient(135deg, #d4a574 0%, #a0826d 100%);
+        color: #0a1428; 
         border: none; 
         border-radius: 8px; 
         font-weight: 700;
         padding: 12px 24px;
-        box-shadow: 0 4px 15px rgba(255, 0, 110, 0.4);
+        box-shadow: 0 4px 15px rgba(212, 165, 116, 0.3);
         transition: all 0.3s ease;
     }
     
     .stDownloadButton button:hover {
-        box-shadow: 0 8px 25px rgba(255, 0, 110, 0.6);
+        box-shadow: 0 8px 25px rgba(212, 165, 116, 0.5);
         transform: translateY(-2px);
     }
     
     /* Text input styling */
     .stTextInput input {
-        background: linear-gradient(135deg, #1a0f2e 0%, #2d0f4e 100%);
-        color: #00f5ff;
-        border: 2px solid rgba(0, 212, 255, 0.3);
+        background: linear-gradient(135deg, #0d2238 0%, #1a2a3e 100%);
+        color: #7ba3c0;
+        border: 2px solid rgba(212, 165, 116, 0.2);
         border-radius: 8px;
     }
     
@@ -103,7 +103,7 @@ st.markdown("""
     hr {
         border: 0;
         height: 2px;
-        background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.3), transparent);
+        background: linear-gradient(90deg, transparent, rgba(212, 165, 116, 0.2), transparent);
         margin: 20px 0;
     }
     </style>
