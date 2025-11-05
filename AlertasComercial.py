@@ -546,7 +546,7 @@ elif pagina == "📉 Tendências":
             st.subheader("📋 Dados de Tendência Mensal")
             display_trend = trend_data[['month_name', 'value', 'MA']].rename(columns={'month_name': 'Mês', 'value': 'Quantidade', 'MA': 'Média Móvel'})
             st.dataframe(display_trend, use_container_width=True)
-
+            
             st.subheader("📊 Variação Mensal de Quantidade (Mês a Mês)")
             
             # Calculate month-to-month variation
@@ -560,37 +560,62 @@ elif pagina == "📉 Tendências":
             variation_display.columns = ['Mês', 'Quantidade Atual', 'Quantidade Anterior', 'Variação (Qtd)', 'Variação (%)']
             variation_display = variation_display.iloc[1:]  # Remove first row (no previous data)
             
-            # Add color indicator based on variation
-            def get_variation_indicator(pct):
+            def get_variation_alert(pct, qtd_change):
+                """Create visual alerts based on variation percentage and quantity"""
                 if pd.isna(pct):
-                    return '➡️'
+                    return '⏸️ N/A', '#808080'  # Gray for no data
+                elif pct > 15:
+                    return '🚀 Crescimento Alto', '#06ffa5'  # Green - strong growth
                 elif pct > 0:
-                    return '📈'
+                    return '📈 Crescimento', '#00f5ff'  # Cyan - moderate growth
+                elif pct < -15:
+                    return '🔴 Queda Crítica', '#ff006e'  # Pink - critical drop
                 elif pct < 0:
-                    return '📉'
+                    return '📉 Queda', '#ff9500'  # Orange - moderate decline
                 else:
-                    return '➡️'
+                    return '➡️ Estável', '#ffbe0b'  # Yellow - no change
             
-            variation_display['Tendência'] = variation_display['Variação (%)'].apply(get_variation_indicator)
+            variation_display['Alerta'] = variation_display.apply(
+                lambda row: get_variation_alert(row['Variação (%)'], row['Variação (Qtd)'])[0],
+                axis=1
+            )
             
-            # Reorder columns
-            variation_display = variation_display[['Mês', 'Quantidade Atual', 'Quantidade Anterior', 'Variação (Qtd)', 'Variação (%)', 'Tendência']]
+            # Reorder columns to show alert prominently
+            variation_display = variation_display[['Mês', 'Quantidade Atual', 'Quantidade Anterior', 'Variação (Qtd)', 'Variação (%)', 'Alerta']]
             
             st.dataframe(variation_display, use_container_width=True)
             
-            # Summary of variations
-            st.subheader("📈 Resumo de Variações")
+            st.markdown("### 🎯 Alertas por Categoria de Variação")
+            
             col1, col2, col3, col4 = st.columns(4)
             
-            avg_variation = variation_data['variacao_qtd'].mean()
-            max_variation = variation_data['variacao_qtd'].max()
-            min_variation = variation_data['variacao_qtd'].min()
-            positive_months = len(variation_data[variation_data['variacao_qtd'] > 0])
+            high_growth = len(variation_display[variation_display['Variação (%)'] > 15])
+            growth = len(variation_display[(variation_display['Variação (%)'] > 0) & (variation_display['Variação (%)'] <= 15)])
+            decline = len(variation_display[(variation_display['Variação (%)'] < 0) & (variation_display['Variação (%)'] >= -15)])
+            critical_drop = len(variation_display[variation_display['Variação (%)'] < -15])
             
-            col1.metric("Variação Média (Qtd)", f"{avg_variation:+,.0f}")
-            col2.metric("Máxima Variação (Qtd)", f"{max_variation:+,.0f}")
-            col3.metric("Mínima Variação (Qtd)", f"{min_variation:+,.0f}")
-            col4.metric("Meses com Crescimento", f"{positive_months}")
+            col1.metric("🚀 Crescimento Alto (>15%)", high_growth)
+            col2.metric("📈 Crescimento (0-15%)", growth)
+            col3.metric("📉 Queda (0 a -15%)", decline)
+            col4.metric("🔴 Queda Crítica (<-15%)", critical_drop)
+            
+            st.markdown("---")
+            st.subheader("⚠️ Detalhes dos Alertas")
+            
+            if high_growth > 0:
+                st.success(f"🚀 **Crescimento Alto**: {high_growth} mês(es) com crescimento superior a 15%")
+                high_months = variation_display[variation_display['Variação (%)'] > 15][['Mês', 'Variação (%)', 'Variação (Qtd)']]
+                st.dataframe(high_months, use_container_width=True)
+            
+            if critical_drop > 0:
+                st.error(f"🔴 **Queda Crítica**: {critical_drop} mês(es) com queda inferior a -15%")
+                critical_months = variation_display[variation_display['Variação (%)'] < -15][['Mês', 'Variação (%)', 'Variação (Qtd)']]
+                st.dataframe(critical_months, use_container_width=True)
+            
+            if decline > 0 and critical_drop == 0:
+                st.warning(f"📉 **Atenção**: {decline} mês(es) com queda moderada (-15% a 0%)")
+                decline_months = variation_display[(variation_display['Variação (%)'] < 0) & (variation_display['Variação (%)'] >= -15)][['Mês', 'Variação (%)', 'Variação (Qtd)']]
+                st.dataframe(decline_months, use_container_width=True)
             
             # Visualization of variations
             fig_variation = px.bar(
@@ -598,7 +623,7 @@ elif pagina == "📉 Tendências":
                 x='Mês',
                 y='Variação (Qtd)',
                 title='Variação Mensal de Quantidade',
-                color='Variação (Qtd)',
+                color='Variação (%)',
                 color_continuous_scale=['#ff006e', '#ffffff', '#06ffa5'],
                 text='Variação (%)',
                 labels={'Variação (Qtd)': 'Variação de Quantidade'}
