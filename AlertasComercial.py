@@ -219,7 +219,7 @@ def carregar_dados():
             'Ano': 'ano', 'ano': 'ano', 'ANO': 'ano',
             'Cliente': 'cliente', 'cliente': 'cliente', 'CLIENTE': 'cliente',
             'Comercial': 'comercial', 'comercial': 'comercial', 'COMERCIAL': 'comercial',
-            'V. Líquido': 'v_liquido', 'V_Liquido': 'v_liquido', 'V Liquido': 'v_liquido',
+            'V. Líquido': 'v_liquido', 'V_Liquido': 'v_liquido', 'V Liquido': 'v_liquido', 'V. LÍQUIDO': 'v_liquido',
             'PM': 'pm', 'pm': 'pm', 'Preço Médio': 'pm',
             'Categoria': 'categoria', 'categoria': 'categoria', 'CATEGORIA': 'categoria'
         }
@@ -348,6 +348,21 @@ month_names_pt = {
     7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'
 }
 
+# --- FUNÇÃO PARA FORMATAR VALORES EM EUROS ---
+def formatar_euros(valor):
+    """Formata valores em euros com símbolo € e separadores de milhares"""
+    if pd.isna(valor) or valor == 0:
+        return "€ 0"
+    return f"€ {valor:,.2f}"
+
+def formatar_euros_simples(valor):
+    """Formata valores em euros sem casas decimais para valores grandes"""
+    if pd.isna(valor) or valor == 0:
+        return "€ 0"
+    if valor >= 1000:
+        return f"€ {valor:,.0f}"
+    return f"€ {valor:,.2f}"
+
 # --- PAGE 1: MODERN OVERVIEW ---
 if pagina == "📊 VISÃO GERAL":
     st.markdown("""
@@ -374,7 +389,7 @@ if pagina == "📊 VISÃO GERAL":
     with col2:
         st.metric(
             label="💰 VALOR TOTAL", 
-            value=f"€ {total_value:,.0f}" if total_value > 0 else "N/A",
+            value=formatar_euros_simples(total_value) if total_value > 0 else "€ 0",
             delta=None
         )
     with col3:
@@ -392,27 +407,27 @@ if pagina == "📊 VISÃO GERAL":
     
     st.markdown("---")
     
-    # Top Customers
-    st.markdown("### 🏆 TOP 10 CLIENTES")
-    top_clientes = dados_filtrados.groupby('cliente')[['qtd', 'v_liquido']].sum().sort_values('qtd', ascending=False).head(10)
+    # Top Customers by Quantity
+    st.markdown("### 🏆 TOP 10 CLIENTES (QUANTIDADE)")
+    top_clientes_qtd = dados_filtrados.groupby('cliente')[['qtd', 'v_liquido']].sum().sort_values('qtd', ascending=False).head(10)
     
-    fig_top = px.bar(
-        top_clientes.reset_index(),
+    fig_top_qtd = px.bar(
+        top_clientes_qtd.reset_index(),
         x='cliente',
         y='qtd',
         color='v_liquido',
         title='',
-        labels={'qtd': 'Quantidade', 'cliente': 'Cliente', 'v_liquido': 'Valor (€)'},
+        labels={'qtd': 'Quantidade', 'cliente': 'Cliente', 'v_liquido': 'Valor em €'},
         color_continuous_scale='Viridis',
         text='qtd'
     )
-    fig_top.update_traces(
+    fig_top_qtd.update_traces(
         texttemplate='%{text:,.0f}',
         textposition='outside',
         marker_line_color='white',
         marker_line_width=2
     )
-    fig_top.update_layout(
+    fig_top_qtd.update_layout(
         plot_bgcolor='white',
         paper_bgcolor='white',
         font=dict(color="#1e293b", size=12),
@@ -420,57 +435,96 @@ if pagina == "📊 VISÃO GERAL":
         showlegend=False,
         height=500
     )
-    st.plotly_chart(fig_top, use_container_width=True)
+    st.plotly_chart(fig_top_qtd, use_container_width=True)
+    
+    # Top Customers by Value
+    st.markdown("### 💰 TOP 10 CLIENTES (VALOR EM €)")
+    top_clientes_valor = dados_filtrados.groupby('cliente')[['v_liquido', 'qtd']].sum().sort_values('v_liquido', ascending=False).head(10)
+    
+    fig_top_valor = px.bar(
+        top_clientes_valor.reset_index(),
+        x='cliente',
+        y='v_liquido',
+        color='v_liquido',
+        title='',
+        labels={'v_liquido': 'Valor (€)', 'cliente': 'Cliente', 'qtd': 'Quantidade'},
+        color_continuous_scale='Plasma',
+        text='v_liquido'
+    )
+    fig_top_valor.update_traces(
+        texttemplate='€ %{text:,.0f}',
+        textposition='outside',
+        marker_line_color='white',
+        marker_line_width=2
+    )
+    fig_top_valor.update_layout(
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        font=dict(color="#1e293b", size=12),
+        xaxis_tickangle=-45,
+        showlegend=False,
+        height=500
+    )
+    st.plotly_chart(fig_top_valor, use_container_width=True)
     
     # Commercial and Category Performance
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("### 👨‍💼 PERFORMANCE COMERCIAL")
-        kpi_comercial = dados_filtrados.groupby('comercial')[['qtd', 'v_liquido']].sum().sort_values('qtd', ascending=False).head(8)
+        st.markdown("### 👨‍💼 PERFORMANCE COMERCIAL (VALOR EM €)")
+        kpi_comercial = dados_filtrados.groupby('comercial')[['v_liquido', 'qtd']].sum().sort_values('v_liquido', ascending=False).head(8)
         
-        fig_comercial = px.pie(
+        fig_comercial = px.bar(
             kpi_comercial.reset_index(),
-            values='qtd',
-            names='comercial',
+            x='comercial',
+            y='v_liquido',
+            color='v_liquido',
             title='',
-            color_discrete_sequence=px.colors.qualitative.Bold
+            labels={'v_liquido': 'Valor (€)', 'comercial': 'Comercial'},
+            color_continuous_scale='Blues',
+            text='v_liquido'
+        )
+        fig_comercial.update_traces(
+            texttemplate='€ %{text:,.0f}',
+            textposition='outside'
         )
         fig_comercial.update_layout(
             plot_bgcolor='white',
             paper_bgcolor='white',
             font=dict(color="#1e293b", size=12),
-            showlegend=True,
-            legend=dict(
-                orientation="v",
-                yanchor="auto",
-                y=1,
-                xanchor="left",
-                x=1.1
-            )
+            showlegend=False,
+            height=400
         )
         st.plotly_chart(fig_comercial, use_container_width=True)
     
     with col2:
         if 'categoria' in dados_filtrados.columns and not dados_filtrados['categoria'].isna().all():
-            st.markdown("### 📊 PERFORMANCE POR CATEGORIA")
-            kpi_categoria = dados_filtrados.groupby('categoria')[['qtd', 'v_liquido']].sum().sort_values('qtd', ascending=False).head(6)
+            st.markdown("### 📊 PERFORMANCE POR CATEGORIA (VALOR EM €)")
+            kpi_categoria = dados_filtrados.groupby('categoria')[['v_liquido', 'qtd']].sum().sort_values('v_liquido', ascending=False).head(6)
             
-            fig_categoria = px.bar(
+            fig_categoria = px.pie(
                 kpi_categoria.reset_index(),
-                x='categoria',
-                y='qtd',
-                color='qtd',
+                values='v_liquido',
+                names='categoria',
                 title='',
-                labels={'qtd': 'Quantidade', 'categoria': 'Categoria'},
-                color_continuous_scale='Plasma'
+                color_discrete_sequence=px.colors.qualitative.Bold
+            )
+            fig_categoria.update_traces(
+                texttemplate='%{label}<br>€ %{value:,.0f}',
+                textposition='auto'
             )
             fig_categoria.update_layout(
                 plot_bgcolor='white',
                 paper_bgcolor='white',
                 font=dict(color="#1e293b", size=12),
-                showlegend=False,
-                height=400
+                showlegend=True,
+                legend=dict(
+                    orientation="v",
+                    yanchor="auto",
+                    y=1,
+                    xanchor="left",
+                    x=1.1
+                )
             )
             st.plotly_chart(fig_categoria, use_container_width=True)
 
@@ -486,7 +540,8 @@ elif pagina == "🎯 KPIS PERSONALIZADOS":
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        kpi_name = st.text_input("**📝 NOME DO KPI**", value="Performance de Vendas")
+        kpi_tipo = st.selectbox("**📊 TIPO DE KPI**", ["Quantidade", "Valor em €"])
+        kpi_name = st.text_input("**📝 NOME DO KPI**", value=f"Performance de {kpi_tipo}")
     
     with col2:
         kpi_period = st.selectbox("**📅 PERÍODO**", ["Mensal", "Trimestral", "Anual"])
@@ -495,9 +550,20 @@ elif pagina == "🎯 KPIS PERSONALIZADOS":
     if dados_filtrados.empty:
         st.warning("⚠️ Sem dados disponíveis para os filtros selecionados.")
     else:
-        # KPI Data
-        kpi_data = dados_filtrados.groupby('mes')['qtd'].sum().reset_index()
-        kpi_data.columns = ['mes', 'value']
+        # KPI Data based on selection
+        if kpi_tipo == "Quantidade":
+            kpi_data = dados_filtrados.groupby('mes')['qtd'].sum().reset_index()
+            kpi_data.columns = ['mes', 'value']
+            y_axis_title = "Quantidade"
+            text_template = '%{text:,.0f}'
+            metric_prefix = ""
+        else:  # Valor em €
+            kpi_data = dados_filtrados.groupby('mes')['v_liquido'].sum().reset_index()
+            kpi_data.columns = ['mes', 'value']
+            y_axis_title = "Valor (€)"
+            text_template = '€ %{text:,.0f}'
+            metric_prefix = "€ "
+        
         kpi_data = kpi_data.sort_values('mes')
         kpi_data['month_name'] = kpi_data['mes'].map(month_names_pt)
         
@@ -507,7 +573,7 @@ elif pagina == "🎯 KPIS PERSONALIZADOS":
             x='month_name',
             y='value',
             title=f"📊 {kpi_name} - Evolução Mensal",
-            labels={'value': 'Quantidade', 'month_name': 'Mês'},
+            labels={'value': y_axis_title, 'month_name': 'Mês'},
             color_discrete_sequence=[primary_color]
         )
         
@@ -531,10 +597,10 @@ elif pagina == "🎯 KPIS PERSONALIZADOS":
         st.markdown("### 📊 ESTATÍSTICAS DO KPI")
         col1, col2, col3, col4 = st.columns(4)
         
-        col1.metric("🎯 Máximo", f"{kpi_data['value'].max():,.0f}")
-        col2.metric("📉 Mínimo", f"{kpi_data['value'].min():,.0f}")
-        col3.metric("📊 Média", f"{kpi_data['value'].mean():,.0f}")
-        col4.metric("📈 Mediana", f"{kpi_data['value'].median():,.0f}")
+        col1.metric("🎯 Máximo", f"{metric_prefix}{kpi_data['value'].max():,.0f}")
+        col2.metric("📉 Mínimo", f"{metric_prefix}{kpi_data['value'].min():,.0f}")
+        col3.metric("📊 Média", f"{metric_prefix}{kpi_data['value'].mean():,.0f}")
+        col4.metric("📈 Mediana", f"{metric_prefix}{kpi_data['value'].median():,.0f}")
 
 # --- PAGE 3: MODERN TRENDS ---
 elif pagina == "📈 TENDÊNCIAS":
@@ -548,7 +614,8 @@ elif pagina == "📈 TENDÊNCIAS":
     col1, col2 = st.columns(2)
     
     with col1:
-        trend_window = st.slider("**📊 PERÍODO MÉDIA MÓVEL**", 1, 6, 2)
+        trend_metric = st.selectbox("**📊 MÉTRICA**", ["Quantidade", "Valor em €"])
+        trend_window = st.slider("**📅 PERÍODO MÉDIA MÓVEL**", 1, 6, 2)
     
     with col2:
         show_forecast = st.checkbox("🔮 Mostrar Previsão", value=False)
@@ -556,16 +623,25 @@ elif pagina == "📈 TENDÊNCIAS":
     if dados_filtrados.empty:
         st.warning("⚠️ Sem dados disponíveis para os filtros selecionados.")
     else:
-        # Trend Analysis
-        trend_data = dados_filtrados.groupby('mes')['qtd'].sum().reset_index()
-        trend_data.columns = ['mes', 'value']
+        # Trend Analysis based on selection
+        if trend_metric == "Quantidade":
+            trend_data = dados_filtrados.groupby('mes')['qtd'].sum().reset_index()
+            trend_data.columns = ['mes', 'value']
+            y_axis_title = "Quantidade"
+            value_format = ",.0f"
+        else:  # Valor em €
+            trend_data = dados_filtrados.groupby('mes')['v_liquido'].sum().reset_index()
+            trend_data.columns = ['mes', 'value']
+            y_axis_title = "Valor (€)"
+            value_format = "€ ,.0f"
+        
         trend_data = trend_data.sort_values('mes')
         trend_data['month_name'] = trend_data['mes'].map(month_names_pt)
         
         if len(trend_data) > 1:
             trend_data['MA'] = trend_data['value'].rolling(window=trend_window, center=True).mean()
             
-            # Modern Trend Chart - CORRIGIDO
+            # Modern Trend Chart
             fig_trend = go.Figure()
             
             fig_trend.add_trace(go.Scatter(
@@ -586,9 +662,9 @@ elif pagina == "📈 TENDÊNCIAS":
             ))
             
             fig_trend.update_layout(
-                title="📈 Evolução Temporal - Quantidade de Vendas",
+                title=f"📈 Evolução Temporal - {trend_metric}",
                 xaxis_title="Mês",
-                yaxis_title="Quantidade",
+                yaxis_title=y_axis_title,
                 plot_bgcolor='white',
                 paper_bgcolor='white',
                 font=dict(color="#1e293b", size=12),
@@ -604,6 +680,30 @@ elif pagina == "📈 TENDÊNCIAS":
             )
             
             st.plotly_chart(fig_trend, use_container_width=True)
+            
+            # Trend Statistics
+            st.markdown("### 📊 ESTATÍSTICAS DE TENDÊNCIA")
+            col1, col2, col3, col4 = st.columns(4)
+            
+            current_value = trend_data['value'].iloc[-1]
+            previous_value = trend_data['value'].iloc[-2] if len(trend_data) > 1 else trend_data['value'].iloc[0]
+            
+            if trend_data['value'].iloc[0] != 0:
+                trend_pct_change = ((current_value - trend_data['value'].iloc[0]) / trend_data['value'].iloc[0] * 100)
+            else:
+                trend_pct_change = 0
+            
+            trend_direction = "📈 Subida" if trend_pct_change > 0 else "📉 Descida" if trend_pct_change < 0 else "➡️ Estável"
+            
+            if trend_metric == "Quantidade":
+                col1.metric("Mês Atual", f"{current_value:,.0f}")
+                col2.metric("Mês Anterior", f"{previous_value:,.0f}")
+            else:
+                col1.metric("Mês Atual", formatar_euros_simples(current_value))
+                col2.metric("Mês Anterior", formatar_euros_simples(previous_value))
+            
+            col3.metric("% Mudança", f"{trend_pct_change:+.1f}%")
+            col4.metric("Tendência", trend_direction)
 
 # --- PAGE 4: MODERN ALERTS ---
 elif pagina == "⚠️ ALERTAS":
@@ -621,16 +721,16 @@ elif pagina == "⚠️ ALERTAS":
     }).reset_index()
     
     analise_clientes.columns = ['Cliente', 'Total_Qtd', 'Avg_Qtd', 'Transactions', 'Total_Value']
-    analise_clientes = analise_clientes.sort_values('Total_Qtd', ascending=False)
+    analise_clientes = analise_clientes.sort_values('Total_Value', ascending=False)  # Ordenar por valor
     
-    media_geral = dados_filtrados['qtd'].mean()
+    media_geral_valor = dados_filtrados['v_liquido'].mean() if 'v_liquido' in dados_filtrados.columns else 0
     
-    analise_clientes['Status'] = analise_clientes['Avg_Qtd'].apply(
-        lambda x: '🟢 Excelente' if x >= media_geral else '🟡 Atenção' if x >= media_geral * 0.7 else '🔴 Crítico'
+    analise_clientes['Status'] = analise_clientes['Total_Value'].apply(
+        lambda x: '🟢 Excelente' if x >= media_geral_valor else '🟡 Atenção' if x >= media_geral_valor * 0.5 else '🔴 Crítico'
     )
     
     # Status Overview
-    st.markdown("### 📊 VISÃO GERAL DE STATUS")
+    st.markdown("### 📊 VISÃO GERAL DE STATUS (VALOR EM €)")
     col1, col2, col3 = st.columns(3)
     
     excellent = len(analise_clientes[analise_clientes['Status'] == '🟢 Excelente'])
@@ -642,22 +742,23 @@ elif pagina == "⚠️ ALERTAS":
     col3.metric("🔴 CRÍTICO", critical, delta_color="off")
     
     # Critical Alerts
-    st.markdown("### 🔴 ALERTAS CRÍTICOS")
+    st.markdown("### 🔴 ALERTAS CRÍTICOS (VALOR BAIXO)")
     criticos = analise_clientes[analise_clientes['Status'] == '🔴 Crítico']
     
     if not criticos.empty:
-        st.error(f"🚨 {len(criticos)} clientes necessitam de atenção imediata!")
+        st.error(f"🚨 {len(criticos)} clientes com valor total abaixo do esperado!")
         
         # Display critical clients
-        for _, cliente in criticos.head(5).iterrows():
+        for _, cliente_info in criticos.head(5).iterrows():
             with st.container():
                 st.markdown(f"""
                     <div style="background: #fef2f2; 
                                 padding: 15px; border-radius: 10px; margin: 10px 0; 
                                 border-left: 4px solid #ef4444;">
-                        <h4 style="margin: 0; color: #dc2626;">🔴 {cliente['Cliente']}</h4>
+                        <h4 style="margin: 0; color: #dc2626;">🔴 {cliente_info['Cliente']}</h4>
                         <p style="margin: 5px 0; color: #991b1b;">
-                            Média: {cliente['Avg_Qtd']:,.0f} | Transações: {cliente['Transactions']}
+                            Valor Total: {formatar_euros_simples(cliente_info['Total_Value'])} | 
+                            Transações: {cliente_info['Transactions']}
                         </p>
                     </div>
                 """, unsafe_allow_html=True)
@@ -686,23 +787,23 @@ elif pagina == "👥 ANÁLISE DE CLIENTES":
             
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("📦 Quantidade Total", f"{cliente_data['qtd'].sum():,.0f}")
-            col2.metric("💰 Valor Total", f"€ {cliente_data['v_liquido'].sum():,.0f}")
+            col2.metric("💰 Valor Total", formatar_euros_simples(cliente_data['v_liquido'].sum()))
             col3.metric("📊 Média por Transação", f"{cliente_data['qtd'].mean():,.0f}")
             col4.metric("🔄 Transações", len(cliente_data))
             
             # Customer Trend
-            st.markdown("### 📈 EVOLUÇÃO DO CLIENTE")
-            historico = cliente_data.groupby(['ano', 'mes']).agg({'qtd': 'sum'}).reset_index()
+            st.markdown("### 📈 EVOLUÇÃO DO CLIENTE (VALOR EM €)")
+            historico = cliente_data.groupby(['ano', 'mes']).agg({'v_liquido': 'sum'}).reset_index()
             historico['month_name'] = historico['mes'].map(month_names_pt)
             historico = historico.sort_values(['ano', 'mes'])
             
             fig_historico = px.line(
                 historico,
                 x='month_name',
-                y='qtd',
+                y='v_liquido',
                 markers=True,
-                title=f"Desempenho Mensal - {cliente}",
-                labels={'qtd': 'Quantidade', 'month_name': 'Mês'},
+                title=f"Evolução Mensal do Valor - {cliente}",
+                labels={'v_liquido': 'Valor (€)', 'month_name': 'Mês'},
                 color_discrete_sequence=[primary_color]
             )
             fig_historico.update_traces(
@@ -730,7 +831,7 @@ else:
     col1, col2 = st.columns(2)
     
     with col1:
-        comp_metric1 = st.selectbox("**📊 MÉTRICA**", ["qtd", "v_liquido", "pm"])
+        comp_metric1 = st.selectbox("**📊 MÉTRICA**", ["qtd", "v_liquido"])
         comp_groupby1 = st.selectbox("**🗂️ AGRUPAR POR**", ["cliente", "comercial", "categoria"])
     
     with col2:
@@ -739,6 +840,16 @@ else:
     
     # Get top items
     top_items = dados_filtrados.groupby(comp_groupby1)[comp_metric1].sum().nlargest(comp_top)
+    
+    # Configurar formatação baseada na métrica
+    if comp_metric1 == "v_liquido":
+        text_template = '€ %{text:,.0f}'
+        y_axis_title = "Valor (€)"
+        hover_template = '€ %{y:,.2f}'
+    else:
+        text_template = '%{text:,.0f}'
+        y_axis_title = "Quantidade"
+        hover_template = '%{y:,.0f}'
     
     if show_pie:
         # Comparative visualization
@@ -756,8 +867,9 @@ else:
                 marker=dict(color=color_scale_modern),
                 name=comp_metric1,
                 text=top_items.values,
-                texttemplate='%{text:,.0f}',
-                textposition='outside'
+                texttemplate=text_template,
+                textposition='outside',
+                hovertemplate=hover_template
             ),
             row=1, col=1
         )
@@ -767,7 +879,9 @@ else:
                 labels=top_items.index, 
                 values=top_items.values, 
                 name=comp_metric1,
-                marker=dict(colors=color_scale_modern)
+                marker=dict(colors=color_scale_modern),
+                texttemplate=text_template,
+                hovertemplate=hover_template
             ),
             row=1, col=2
         )
@@ -786,15 +900,16 @@ else:
             top_items.reset_index(),
             x=comp_groupby1,
             y=comp_metric1,
-            title=f"Top {comp_top} por {comp_metric1}",
-            labels={comp_metric1: 'Valor', comp_groupby1: 'Categoria'},
+            title=f"Top {comp_top} por {y_axis_title}",
+            labels={comp_metric1: y_axis_title, comp_groupby1: 'Categoria'},
             color=comp_metric1,
             color_continuous_scale='Viridis',
             text=comp_metric1
         )
         fig_single.update_traces(
-            texttemplate='%{text:,.0f}',
-            textposition='outside'
+            texttemplate=text_template,
+            textposition='outside',
+            hovertemplate=hover_template
         )
         fig_single.update_layout(
             plot_bgcolor='white',
