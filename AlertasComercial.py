@@ -26,7 +26,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =============================================
-# CARREGAMENTO + VALIDAÇÃO 100% SEGURA
+# CARREGAMENTO CORRIGIDO - DADOS COM VÍRGULA DECIMAL
 # =============================================
 month_map = {'janeiro':1,'fevereiro':2,'março':3,'abril':4,'maio':5,'junho':6,
              'julho':7,'agosto':8,'setembro':9,'outubro':10,'novembro':11,'dezembro':12}
@@ -34,6 +34,7 @@ month_map = {'janeiro':1,'fevereiro':2,'março':3,'abril':4,'maio':5,'junho':6,
 @st.cache_data(ttl=3600)
 def load_data():
     try:
+        # Carregar o Excel mantendo o formato original
         df = pd.read_excel(BytesIO(requests.get(
             "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Vendas_Globais.xlsx", 
             timeout=15).content))
@@ -58,50 +59,94 @@ def load_data():
                     break
         df.rename(columns=col_map, inplace=True)
 
-        # === 2. FORÇAR CONVERSÃO NUMÉRICA (100% SEGURA) ===
+        # === 2. CONVERSÃO CORRETA PARA DADOS COM VÍRGULA DECIMAL ===
+        
+        # Mês - converter para número
         df['mes'] = df['mes'].astype(str).str.strip().str.lower().map(month_map)
         df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
 
-        df['qtd'] = df['qtd'].astype(str).str.replace(r'\D', '', regex=True)
-        df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce').fillna(0).astype(int)
-
+        # Ano - converter para número
         df['ano'] = pd.to_numeric(df['ano'], errors='coerce')
 
+        # Quantidade - tratar como texto com vírgula decimal
+        if 'qtd' in df.columns:
+            # Converter para string e tratar vírgula decimal
+            df['qtd'] = df['qtd'].astype(str)
+            
+            # Remover possíveis pontos de milhares e converter vírgula para ponto decimal
+            df['qtd'] = (df['qtd']
+                        .str.replace(r'\.', '', regex=True)  # Remove pontos de milhares
+                        .str.replace(',', '.', regex=False)  # Converte vírgula para ponto
+                        .str.replace(r'[^\d\.]', '', regex=True)  # Remove caracteres não numéricos
+            )
+            
+            # Converter para numérico
+            df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce').fillna(0)
+            
+            # Arredondar para 2 casas decimais
+            df['qtd'] = df['qtd'].round(2)
+
+        # Valor Líquido - tratar como texto com vírgula decimal
         if 'v_liquido' in df.columns:
-            df['v_liquido'] = (df['v_liquido'].astype(str)
-                               .str.replace(r'[^\d,.]', '', regex=True)
-                               .str.replace(r'\.', '', regex=True)
-                               .str.replace(',', '.', regex=False))
+            # Converter para string e tratar vírgula decimal
+            df['v_liquido'] = df['v_liquido'].astype(str)
+            
+            # Remover possíveis pontos de milhares e converter vírgula para ponto decimal
+            df['v_liquido'] = (df['v_liquido']
+                              .str.replace(r'\.', '', regex=True)  # Remove pontos de milhares
+                              .str.replace(',', '.', regex=False)  # Converte vírgula para ponto
+                              .str.replace(r'[^\d\.]', '', regex=True)  # Remove caracteres não numéricos
+            )
+            
+            # Converter para numérico
             df['v_liquido'] = pd.to_numeric(df['v_liquido'], errors='coerce').fillna(0)
             
-            # NORMALIZAR VALORES ABSURDOS - DIVIDIR POR 1.000.000 se necessário
-            if df['v_liquido'].max() > 1e9:  # Se valores maiores que 1 bilhão
-                st.warning("⚠️ Valores muito altos detectados. Aplicando normalização...")
-                df['v_liquido'] = df['v_liquido'] / 1000000  # Dividir por 1 milhão
-            
-            # FORMATAR PARA 2 CASAS DECIMAIS
+            # Arredondar para 2 casas decimais
             df['v_liquido'] = df['v_liquido'].round(2)
 
-        # NORMALIZAR QUANTIDADES SE NECESSÁRIO
-        if df['qtd'].max() > 1e9:  # Se quantidades maiores que 1 bilhão
-            df['qtd'] = df['qtd'] / 1000000  # Dividir por 1 milhão
-
-        # === 3. LIMPEZA FINAL ===
+        # === 3. VALIDAÇÃO E LIMPEZA ===
+        st.info(f"🔍 Antes da limpeza: {len(df)} registros")
+        
+        # Remover registros com valores inválidos
         df = df.dropna(subset=['mes', 'qtd', 'ano', 'cliente', 'comercial', 'v_liquido'])
         df = df[(df['mes'].between(1, 12)) & 
                 (df['qtd'] > 0) & 
                 (df['v_liquido'] > 0)]
+        
+        # Remover duplicatas
         df = df.drop_duplicates(subset=['cliente','comercial','ano','mes','qtd','v_liquido'])
+        
+        st.info(f"✅ Depois da limpeza: {len(df)} registros")
+        
+        # Mostrar estatísticas dos dados carregados
+        with st.expander("📊 Estatísticas dos dados carregados"):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.write("**Quantidade (Qtd):**")
+                st.write(f"- Mínimo: {df['qtd'].min():,.2f}")
+                st.write(f"- Máximo: {df['qtd'].max():,.2f}")
+                st.write(f"- Média: {df['qtd'].mean():,.2f}")
+                st.write(f"- Total: {df['qtd'].sum():,.2f}")
+                
+            with col2:
+                st.write("**Valor Líquido:**")
+                st.write(f"- Mínimo: {df['v_liquido'].min():,.2f}")
+                st.write(f"- Máximo: {df['v_liquido'].max():,.2f}")
+                st.write(f"- Média: {df['v_liquido'].mean():,.2f}")
+                st.write(f"- Total: {df['v_liquido'].sum():,.2f}")
 
-        st.success("Dados carregados com sucesso!")
+        st.success("✅ Dados carregados e convertidos corretamente!")
         return df
 
     except Exception as e:
-        st.error(f"Erro: {e}")
+        st.error(f"❌ Erro no carregamento: {e}")
         return pd.DataFrame()
 
+# Carregar dados
 df = load_data()
-if df.empty: st.stop()
+if df.empty: 
+    st.error("Não foi possível carregar os dados. Verifique a conexão e o formato do arquivo.")
+    st.stop()
 
 # =============================================
 # SIDEBAR
@@ -139,66 +184,47 @@ with st.sidebar:
         data = data[data['categoria'].astype(str) == str(categoria)]
 
 # =============================================
-# FUNÇÕES DE FORMATAÇÃO CORRIGIDAS
+# FUNÇÕES DE FORMATAÇÃO PARA VÍRGULA DECIMAL
 # =============================================
-def formatar_numero_legivel(numero, tipo="valor"):
+def formatar_numero_europeu(numero, casas_decimais=2):
     """
-    Formata números de forma legível, lidando com valores muito grandes
+    Formata número no formato europeu: 1.234.567,89
     """
     if pd.isna(numero) or numero == 0:
-        return "0" if tipo == "quantidade" else "0,00"
+        return "0" if casas_decimais == 0 else "0,00"
     
     try:
-        # Verificar se o número é muito grande
-        abs_num = abs(numero)
-        
-        if abs_num >= 1e12:  # Trilhões
-            formatted = f"{numero/1e12:.2f} Tri"
-            return formatted.replace(".", ",")
-        elif abs_num >= 1e9:  # Bilhões
-            formatted = f"{numero/1e9:.2f} Bi"
-            return formatted.replace(".", ",")
-        elif abs_num >= 1e6:  # Milhões
-            formatted = f"{numero/1e6:.2f} Mi"
-            return formatted.replace(".", ",")
-        elif abs_num >= 1e3:  # Milhares
-            if tipo == "quantidade" and numero == int(numero):
-                # Para quantidades inteiras, usar separador de milhares
-                return f"{numero:,.0f}".replace(",", ".")
-            else:
-                formatted = f"{numero/1e3:.2f} mil"
-                return formatted.replace(".", ",")
+        # Formatar com separador de milhares e vírgula decimal
+        if casas_decimais == 0:
+            formatted = f"{numero:,.0f}"
         else:
-            if tipo == "quantidade" and numero == int(numero):
-                return f"{numero:,.0f}".replace(",", ".")
-            else:
-                formatted = f"{numero:,.2f}"
-                return formatted.replace(",", "X").replace(".", ",").replace("X", ".")
+            formatted = f"{numero:,.{casas_decimais}f}"
+        
+        # Converter formato americano para europeu
+        return formatted.replace(",", "X").replace(".", ",").replace("X", ".")
     except:
-        return "0" if tipo == "quantidade" else "0,00"
+        return "0" if casas_decimais == 0 else "0,00"
 
-def fmt_valor_corrigido(x, u=""):
-    """Formata valores corrigindo problemas de escala"""
-    return f"{formatar_numero_legivel(x, 'valor')} {u}".strip()
+def fmt_valor(x, u=""):
+    """Formata valores monetários"""
+    return f"{formatar_numero_europeu(x, 2)} {u}".strip()
 
-def fmt_quantidade_corrigida(x, u=""):
-    """Formata quantidades corrigindo problemas de escala"""
-    return f"{formatar_numero_legivel(x, 'quantidade')} {u}".strip()
+def fmt_quantidade(x, u=""):
+    """Formata quantidades"""
+    # Verificar se é número inteiro
+    if pd.notna(x) and x == int(x):
+        return f"{formatar_numero_europeu(x, 0)} {u}".strip()
+    else:
+        return f"{formatar_numero_europeu(x, 2)} {u}".strip()
 
-def fmt_percentual_corrigido(x):
-    """Formata percentuais de forma segura"""
+def fmt_percentual(x):
+    """Formata percentuais"""
     if pd.isna(x) or np.isinf(x):
         return "0,00%"
     
     try:
-        # Limitar percentuais absurdos
-        if abs(x) > 1000000:  # Acima de 1.000.000%
-            return "> 1.000.000%"
-        elif abs(x) > 1000:   # Acima de 1.000%
-            return f"{x:+.0f}%"
-        else:
-            formatted = f"{x:+.2f}%"
-            return formatted.replace(".", ",")
+        formatted = f"{x:+.2f}%"
+        return formatted.replace(".", ",")
     except:
         return "0,00%"
 
@@ -214,25 +240,21 @@ if page == "Visão Geral":
     
     c1, c2, c3, c4 = st.columns(4)
     with c1: 
-        st.metric("Quantidade", fmt_quantidade_corrigida(qtd_total, "kg"))
+        st.metric("Quantidade", fmt_quantidade(qtd_total, "kg"))
     with c2: 
-        st.metric("Valor Total", fmt_valor_corrigido(valor_total, "EUR"))
+        st.metric("Valor Total", fmt_valor(valor_total, "EUR"))
     with c3: 
         st.metric("Clientes", f"{data['cliente'].nunique():,}")
     with c4: 
         st.metric("Comerciais", f"{data['comercial'].nunique():,}")
     
-    # Debug: mostrar valores reais
-    with st.expander("🔍 Ver detalhes técnicos"):
-        st.write("**Valores brutos calculados:**")
-        st.write(f"- Quantidade total: {qtd_total:,.2f} kg")
-        st.write(f"- Valor total: {valor_total:,.2f} EUR")
-        st.write(f"- Média por registro: {valor_total/len(data):,.2f} EUR")
-        st.write(f"- Maior valor individual: {data['v_liquido'].max():,.2f} EUR")
-        st.write(f"- Menor valor individual: {data['v_liquido'].min():,.2f} EUR")
-        
-        st.write("**Amostra dos dados:**")
-        st.dataframe(data[['cliente', 'qtd', 'v_liquido', 'ano', 'mes']].head(10))
+    # Amostra dos dados
+    with st.expander("🔍 Amostra dos dados processados"):
+        st.write("**Primeiras 10 linhas:**")
+        display_data = data[['cliente', 'qtd', 'v_liquido', 'ano', 'mes']].head(10).copy()
+        display_data['qtd'] = display_data['qtd'].apply(lambda x: fmt_quantidade(x, ''))
+        display_data['v_liquido'] = display_data['v_liquido'].apply(lambda x: fmt_valor(x, ''))
+        st.dataframe(display_data, use_container_width=True)
 
 elif page == "Comparação":
     st.markdown("<h1>Comparação</h1>", unsafe_allow_html=True)
@@ -258,56 +280,41 @@ elif page == "Comparação":
         # Métricas principais
         c1, c2, c3, c4 = st.columns(4)
         with c1: 
-            st.metric(f"Quantidade {y1}", fmt_quantidade_corrigida(qtd_y1, "kg"))
+            st.metric(f"Quantidade {y1}", fmt_quantidade(qtd_y1, "kg"))
         with c2: 
-            st.metric(f"Quantidade {y2}", fmt_quantidade_corrigida(qtd_y2, "kg"))
+            st.metric(f"Quantidade {y2}", fmt_quantidade(qtd_y2, "kg"))
         with c3: 
-            st.metric(f"Valor {y1}", fmt_valor_corrigido(valor_y1, "EUR"))
+            st.metric(f"Valor {y1}", fmt_valor(valor_y1, "EUR"))
         with c4: 
-            st.metric(f"Valor {y2}", fmt_valor_corrigido(valor_y2, "EUR"))
+            st.metric(f"Valor {y2}", fmt_valor(valor_y2, "EUR"))
         
         # Variação
         col1, col2 = st.columns(2)
         with col1:
-            if qtd_y1 > 0 and qtd_y2 > 0:
+            if qtd_y1 > 0:
                 variacao_qtd = ((qtd_y2 - qtd_y1) / qtd_y1) * 100
-                st.metric("Variação Quantidade", fmt_percentual_corrigido(variacao_qtd))
+                st.metric("Variação Quantidade", fmt_percentual(variacao_qtd))
             else:
                 st.metric("Variação Quantidade", "N/A")
         
         with col2:
-            if valor_y1 > 0 and valor_y2 > 0:
+            if valor_y1 > 0:
                 variacao_valor = ((valor_y2 - valor_y1) / valor_y1) * 100
-                st.metric("Variação Valor", fmt_percentual_corrigido(variacao_valor))
+                st.metric("Variação Valor", fmt_percentual(variacao_valor))
             else:
                 st.metric("Variação Valor", "N/A")
-        
-        # Informações detalhadas
-        with st.expander("📊 Detalhes da comparação"):
-            st.write(f"**Ano {y1}:**")
-            st.write(f"- Quantidade: {fmt_quantidade_corrigida(qtd_y1, 'kg')}")
-            st.write(f"- Valor: {fmt_valor_corrigido(valor_y1, 'EUR')}")
-            st.write(f"- Registros: {len(d1):,}")
-            
-            st.write(f"**Ano {y2}:**")
-            st.write(f"- Quantidade: {fmt_quantidade_corrigida(qtd_y2, 'kg')}")
-            st.write(f"- Valor: {fmt_valor_corrigido(valor_y2, 'EUR')}")
-            st.write(f"- Registros: {len(d2):,}")
-            
-    else:
-        st.warning("São necessários pelo menos 2 anos de dados para comparação.")
 
-# ... (as outras páginas mantêm a mesma lógica de formatação)
+# ... (outras páginas mantêm a mesma lógica)
 
 # Informações do dataset no sidebar
 with st.sidebar:
     st.markdown("---")
     st.markdown("**Dataset Info:**")
     
-    qtd_resumo = data['qtd'].sum()
-    valor_resumo = data['v_liquido'].sum()
+    qtd_resumo = df['qtd'].sum()
+    valor_resumo = df['v_liquido'].sum()
     
-    st.markdown(f"- Período: {int(data['ano'].min())}-{int(data['ano'].max())}")
-    st.markdown(f"- Total: {fmt_valor_corrigido(valor_resumo, 'EUR')}")
-    st.markdown(f"- Clientes: {data['cliente'].nunique():,}")
-    st.markdown(f"- Registros: {len(data):,}")
+    st.markdown(f"- Período: {int(df['ano'].min())}-{int(df['ano'].max())}")
+    st.markdown(f"- Total: {fmt_valor(valor_resumo, 'EUR')}")
+    st.markdown(f"- Clientes: {df['cliente'].nunique():,}")
+    st.markdown(f"- Registros: {len(df):,}")
