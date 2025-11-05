@@ -1,521 +1,245 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
-from io import BytesIO
-import requests
-import warnings
-warnings.filterwarnings("ignore")
+import altair as alt
+import io
 
-# =============================================
-# CONFIG & ESTILO
-# =============================================
-st.set_page_config(page_title="BI Pro", layout="wide", page_icon="📊")
-st.markdown("""
-<style>
-    .main {background:#f8fafc; padding:2rem}
-    h1 {color:#1e293b; font-size:2.6rem; font-weight:800; text-align:center}
-    [data-testid="stSidebar"] {background:linear-gradient(#4f46e5,#7c3aed); border-radius:0 20px 20px 0; padding:2rem}
-    .stSelectbox > div > div {background:white !important; border:2px solid #e2e8f0 !important; border-radius:12px !important}
-    .stSelectbox span, .stSelectbox input {color:#1e293b !important}
-    [data-testid="metric-container"] {background:white; border-radius:16px; padding:1.5rem; box-shadow:0 6px 25px rgba(0,0,0,0.1)}
-    .plotly-graph-div {border-radius:18px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,0.12)}
-    .filter-section {background:white; padding:1rem; border-radius:12px; margin-bottom:1rem; border:1px solid #e2e8f0}
-</style>
-""", unsafe_allow_html=True)
+st.set_page_config(page_title="Dashboard de Vendas", layout="wide")
 
-# =============================================
-# CARREGAMENTO CORRIGIDO
-# =============================================
-month_map = {
-    'janeiro': 1, 'fevereiro': 2, 'março': 3, 'abril': 4, 'maio': 5, 'junho': 6,
-    'julho': 7, 'agosto': 8, 'setembro': 9, 'outubro': 10, 'novembro': 11, 'dezembro': 12
-}
-
-month_names = {
-    1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril', 5: 'Maio', 6: 'Junho',
-    7: 'Julho', 8: 'Agosto', 9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
-}
-
-def convert_to_numeric(value):
-    """Converte um valor para numérico de forma robusta"""
-    if pd.isna(value):
-        return 0
-    
-    if isinstance(value, (int, float)):
-        return float(value)
-    
-    try:
-        # Converter para string e limpar
-        str_value = str(value).strip()
-        
-        # Remover espaços em branco
-        str_value = str_value.replace(' ', '')
-        
-        # Remover símbolos de moeda e outros caracteres especiais
-        str_value = str_value.replace('€', '').replace('$', '').replace('R$', '')
-        
-        # Detectar formato: se tem ponto e vírgula, determinar qual é o separador decimal
-        has_dot = '.' in str_value
-        has_comma = ',' in str_value
-        
-        if has_dot and has_comma:
-            # Ambos presentes: determinar qual é o separador decimal
-            dot_pos = str_value.rfind('.')
-            comma_pos = str_value.rfind(',')
-            
-            if dot_pos > comma_pos:
-                # Ponto é decimal (formato americano)
-                str_value = str_value.replace(',', '')
-            else:
-                # Vírgula é decimal (formato europeu)
-                str_value = str_value.replace('.', '').replace(',', '.')
-        elif has_comma:
-            # Só vírgula: é separador decimal
-            str_value = str_value.replace(',', '.')
-        
-        # Converter para float
-        result = float(str_value)
-        return result
-    except:
-        return 0
-
-@st.cache_data(ttl=3600)
+@st.cache_data
 def load_data():
-    try:
-        url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Vendas_Globais.xlsx"
-        response = requests.get(url, timeout=30)
-        response.raise_for_status()
-        
-        # Carregar Excel
-        df = pd.read_excel(BytesIO(response.content), engine='openpyxl')
-        
-        st.info(f"📥 Dados carregados: {len(df)} registros")
-        
-        # Padronizar colunas
-        df.columns = [col.strip().lower() for col in df.columns]
-        column_mapping = {
-            'mês': 'mes', 
-            'qtd.': 'qtd', 
-            'v. líquido': 'v_liquido',
-            'v.líquido': 'v_liquido', 
-            'v_líquido': 'v_liquido',
-            'vliquido': 'v_liquido'
-        }
-        df.rename(columns=column_mapping, inplace=True)
-        
-        # Mostrar estrutura inicial
-        with st.expander("🔍 Estrutura inicial dos dados"):
-            st.write("**Colunas:**", list(df.columns))
-            st.write("**Primeiras linhas:**")
-            st.dataframe(df.head(10), use_container_width=True)
-        
-        # 1. Converter Mês
-        if 'mes' in df.columns:
-            df['mes'] = df['mes'].astype(str).str.strip().str.lower()
-            df['mes_num'] = df['mes'].map(month_map)
-            df['mes_nome'] = df['mes']
-            df['mes_nome_pt'] = df['mes_num'].map(month_names)
-        
-        # 2. Converter Ano
-        if 'ano' in df.columns:
-            df['ano'] = pd.to_numeric(df['ano'], errors='coerce').fillna(2024).astype(int)
-        
-        # 3. Converter Quantidade com função robusta
-        if 'qtd' in df.columns:
-            st.write("🔄 Convertendo Quantidade...")
-            df['qtd'] = df['qtd'].apply(convert_to_numeric)
-            st.write(f"✅ Soma Qtd: {df['qtd'].sum():,.2f}")
-        
-        # 4. Converter Valor Líquido com função robusta
-        if 'v_liquido' in df.columns:
-            st.write("🔄 Convertendo Valor Líquido...")
-            df['v_liquido'] = df['v_liquido'].apply(convert_to_numeric)
-            st.write(f"✅ Soma V_Liquido: {df['v_liquido'].sum():,.2f}")
-        
-        # Substituir NaN por 0 ao invés de remover linhas
-        df['qtd'] = df['qtd'].fillna(0)
-        df['v_liquido'] = df['v_liquido'].fillna(0)
-        
-        st.info(f"✅ Total de registros mantidos: {len(df):,}")
-        
-        # Mostrar estatísticas finais
-        with st.expander("📊 Estatísticas finais dos dados"):
-            col1, col2 = st.columns(2)
-            with col1:
-                st.write("**Quantidade (Qtd):**")
-                st.write(f"- Total: {df['qtd'].sum():,.2f}")
-                st.write(f"- Média: {df['qtd'].mean():,.2f}")
-                st.write(f"- Mínimo: {df['qtd'].min():,.2f}")
-                st.write(f"- Máximo: {df['qtd'].max():,.2f}")
-                st.write(f"- Registros com valor: {len(df[df['qtd'] > 0])}")
-                
-            with col2:
-                st.write("**Valor Líquido:**")
-                st.write(f"- Total: {df['v_liquido'].sum():,.2f}")
-                st.write(f"- Média: {df['v_liquido'].mean():,.2f}")
-                st.write(f"- Mínimo: {df['v_liquido'].min():,.2f}")
-                st.write(f"- Máximo: {df['v_liquido'].max():,.2f}")
-                st.write(f"- Registros com valor: {len(df[df['v_liquido'] > 0])}")
-        
-        st.success("🎉 Dados carregados e convertidos com sucesso!")
-        return df
+    url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
+    df = pd.read_excel(url)
+    df.columns = df.columns.str.strip()
+    return df
 
-    except Exception as e:
-        st.error(f"❌ Erro no carregamento: {str(e)}")
-        import traceback
-        st.error(f"Detalhes do erro: {traceback.format_exc()}")
-        return pd.DataFrame()
+df = load_data()
 
-# Carregar dados
-with st.spinner('📥 Carregando e convertendo dados...'):
-    df = load_data()
+# Renomear colunas
+df = df.rename(columns={
+    df.columns[1]: "Cliente",
+    df.columns[2]: "Qtd",
+    df.columns[4]: "V_Liquido",
+    df.columns[7]: "Comercial",
+    df.columns[8]: "Categoria",
+    df.columns[9]: "Mes",
+    df.columns[10]: "Ano",
+    df.columns[3]: "Artigo"
+})
 
-if df.empty: 
-    st.error("Não foi possível carregar os dados.")
-    st.stop()
+# Filtros
+st.sidebar.header("Filtros")
+clientes = st.sidebar.multiselect("Cliente", df["Cliente"].unique())
+artigos = st.sidebar.multiselect("Artigo", df["Artigo"].unique())
+comerciais = st.sidebar.multiselect("Comercial", df["Comercial"].unique())
+categorias = st.sidebar.multiselect("Categoria", df["Categoria"].unique())
+meses = st.sidebar.multiselect("Mês", sorted(df["Mes"].dropna().unique()))
+anos = st.sidebar.multiselect("Ano", sorted(df["Ano"].dropna().unique()))
 
-# =============================================
-# INICIALIZAR SESSION STATE
-# =============================================
-def initialize_session_state():
-    default_filters = {
-        'ano': "Todos",
-        'mes': "Todos",
-        'comercial': "Todos", 
-        'cliente': "Todos",
-        'categoria': "Todas"
-    }
-    
-    if 'filters' not in st.session_state:
-        st.session_state.filters = default_filters.copy()
-    else:
-        for key in default_filters:
-            if key not in st.session_state.filters:
-                st.session_state.filters[key] = default_filters[key]
+df_filtrado = df.copy()
+if clientes:
+    df_filtrado = df_filtrado[df_filtrado["Cliente"].isin(clientes)]
+if artigos:
+    df_filtrado = df_filtrado[df_filtrado["Artigo"].isin(artigos)]
+if comerciais:
+    df_filtrado = df_filtrado[df_filtrado["Comercial"].isin(comerciais)]
+if categorias:
+    df_filtrado = df_filtrado[df_filtrado["Categoria"].isin(categorias)]
+if meses:
+    df_filtrado = df_filtrado[df_filtrado["Mes"].isin(meses)]
+if anos:
+    df_filtrado = df_filtrado[df_filtrado["Ano"].isin(anos)]
+# KPIs
+total_vendas = df_filtrado["V_Liquido"].sum()
+total_qtd = df_filtrado["Qtd"].sum()
+ticket_medio = total_vendas / total_qtd if total_qtd else 0
 
-initialize_session_state()
+col1, col2, col3 = st.columns(3)
+col1.metric("💰 Valor Líquido Total", f"€ {total_vendas:,.2f}")
+col2.metric("📦 Quantidade Total", f"{total_qtd:,.0f}")
+col3.metric("🎯 Ticket Médio", f"€ {ticket_medio:,.2f}")
 
-# =============================================
-# FUNÇÕES PARA FILTROS DINÂMICOS
-# =============================================
-def get_available_options(base_data, current_filters):
-    """Retorna opções disponíveis baseadas nos filtros atuais"""
-    temp_data = base_data.copy()
-    
-    if 'ano' in current_filters and current_filters['ano'] != "Todos":
-        temp_data = temp_data[temp_data['ano'] == current_filters['ano']]
-    
-    if 'mes' in current_filters and current_filters['mes'] != "Todos":
-        temp_data = temp_data[temp_data['mes_num'] == current_filters['mes']]
-    
-    if 'comercial' in current_filters and current_filters['comercial'] != "Todos":
-        temp_data = temp_data[temp_data['comercial'] == current_filters['comercial']]
-    
-    if 'cliente' in current_filters and current_filters['cliente'] != "Todos":
-        temp_data = temp_data[temp_data['cliente'] == current_filters['cliente']]
-    
-    if ('categoria' in current_filters and current_filters['categoria'] != "Todas" 
-        and 'categoria' in temp_data.columns):
-        temp_data = temp_data[temp_data['categoria'] == current_filters['categoria']]
-    
-    # Preparar opções de mês
-    meses_disponiveis = sorted(temp_data['mes_num'].dropna().unique())
-    meses_opcoes = ["Todos"] + [f"{month_names[m]} ({m})" for m in meses_disponiveis if m in month_names]
-    
-    return {
-        'anos': ["Todos"] + sorted(temp_data['ano'].unique().tolist()),
-        'meses': meses_opcoes,
-        'comerciais': ["Todos"] + sorted(temp_data['comercial'].unique().tolist()),
-        'clientes': ["Todos"] + sorted(temp_data['cliente'].unique().tolist()),
-        'categorias': ["Todas"] + sorted(temp_data.get('categoria', pd.Series()).dropna().unique().tolist())
-    }
+# Gráfico de evolução por mês e ano
+st.subheader("📈 Evolução de Vendas por Mês e Ano")
+evolucao = df_filtrado.groupby(["Ano", "Mes"]).agg({"V_Liquido": "sum"}).reset_index()
+chart = alt.Chart(evolucao).mark_line(point=True).encode(
+    x=alt.X("Mes:O", title="Mês"),
+    y=alt.Y("V_Liquido:Q", title="Valor Líquido (€)"),
+    color="Ano:N"
+).properties(width=700)
+st.altair_chart(chart)
 
-def apply_filters(data, filters):
-    """Aplica filtros aos dados"""
-    filtered_data = data.copy()
-    
-    if 'ano' in filters and filters['ano'] != "Todos":
-        filtered_data = filtered_data[filtered_data['ano'] == filters['ano']]
-    
-    if 'mes' in filters and filters['mes'] != "Todos":
-        filtered_data = filtered_data[filtered_data['mes_num'] == filters['mes']]
-    
-    if 'comercial' in filters and filters['comercial'] != "Todos":
-        filtered_data = filtered_data[filtered_data['comercial'] == filters['comercial']]
-    
-    if 'cliente' in filters and filters['cliente'] != "Todos":
-        filtered_data = filtered_data[filtered_data['cliente'] == filters['cliente']]
-    
-    if ('categoria' in filters and filters['categoria'] != "Todas" 
-        and 'categoria' in filtered_data.columns):
-        filtered_data = filtered_data[filtered_data['categoria'] == filters['categoria']]
-    
-    return filtered_data
+# Alertas de clientes que não compram todos os meses
+st.subheader("🚨 Clientes com meses sem compra")
+todos_meses = sorted(df_filtrado["Mes"].dropna().unique())
+presenca = df_filtrado.groupby(["Cliente", "Mes"]).size().unstack(fill_value=0)
+alertas = []
+for cliente in presenca.index:
+    meses_compras = presenca.loc[cliente]
+    meses_faltantes = [mes for mes in todos_meses if meses_compras.get(mes, 0) == 0]
+    if meses_faltantes:
+        alertas.append({
+            "Cliente": cliente,
+            "Meses sem compra": ", ".join(map(str, meses_faltantes)),
+            "Total de meses ausentes": len(meses_faltantes)
+        })
+alertas_df = pd.DataFrame(alertas)
+st.dataframe(alertas_df)
+# Variação percentual de compras por cliente
+st.subheader("📉 Variação Percentual de Compras por Cliente")
 
-# =============================================
-# SIDEBAR COM FILTROS
-# =============================================
-with st.sidebar:
-    st.markdown("<h2 style='color:white'>BI Pro</h2>", unsafe_allow_html=True)
-    
-    page = st.radio("Navegação", [
-        "Visão Geral", "KPIs", "Comparação", "Clientes", "Análise Detalhada"
-    ])
-    
-    st.markdown("---")
-    st.markdown("### 🔧 Filtros")
-    
-    available_options = get_available_options(df, st.session_state.filters)
-    
-    # Filtro de Ano
-    st.markdown('<div class="filter-section">', unsafe_allow_html=True)
-    try:
-        ano_index = available_options['anos'].index(st.session_state.filters['ano'])
-    except ValueError:
-        ano_index = 0
-        st.session_state.filters['ano'] = available_options['anos'][0]
-    
-    novo_ano = st.selectbox(
-        "📅 Ano",
-        options=available_options['anos'],
-        index=ano_index,
-        key='ano_selectbox'
-    )
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    if novo_ano != st.session_state.filters['ano']:
-        st.session_state.filters['ano'] = novo_ano
-        st.session_state.filters['mes'] = "Todos"
-        st.session_state.filters['comercial'] = "Todos"
-        st.session_state.filters['cliente'] = "Todos"
-        if 'categoria' in df.columns:
-            st.session_state.filters['categoria'] = "Todas"
-        st.rerun()
-    
-    available_options = get_available_options(df, st.session_state.filters)
-    
-    # Filtro de Mês
-    st.markdown('<div class="filter-section">', unsafe_allow_html=True)
-    mes_atual_display = "Todos"
-    if st.session_state.filters['mes'] != "Todos":
-        try:
-            mes_num = st.session_state.filters['mes']
-            mes_atual_display = f"{month_names[mes_num]} ({mes_num})"
-        except:
-            mes_atual_display = "Todos"
-    
-    try:
-        mes_index = available_options['meses'].index(mes_atual_display)
-    except ValueError:
-        mes_index = 0
-        st.session_state.filters['mes'] = "Todos"
-    
-    novo_mes_display = st.selectbox(
-        "📆 Mês",
-        options=available_options['meses'],
-        index=mes_index,
-        key='mes_selectbox'
-    )
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    novo_mes = "Todos"
-    if novo_mes_display != "Todos":
-        try:
-            novo_mes = int(novo_mes_display.split('(')[-1].replace(')', '').strip())
-        except:
-            novo_mes = "Todos"
-    
-    if novo_mes != st.session_state.filters['mes']:
-        st.session_state.filters['mes'] = novo_mes
-        st.session_state.filters['comercial'] = "Todos"
-        st.session_state.filters['cliente'] = "Todos"
-        if 'categoria' in df.columns:
-            st.session_state.filters['categoria'] = "Todas"
-        st.rerun()
-    
-    available_options = get_available_options(df, st.session_state.filters)
-    
-    # Filtro de Comercial
-    st.markdown('<div class="filter-section">', unsafe_allow_html=True)
-    try:
-        comercial_index = available_options['comerciais'].index(st.session_state.filters['comercial'])
-    except ValueError:
-        comercial_index = 0
-        st.session_state.filters['comercial'] = available_options['comerciais'][0]
-    
-    novo_comercial = st.selectbox(
-        "👨‍💼 Comercial", 
-        options=available_options['comerciais'],
-        index=comercial_index,
-        key='comercial_selectbox'
-    )
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    if novo_comercial != st.session_state.filters['comercial']:
-        st.session_state.filters['comercial'] = novo_comercial
-        st.session_state.filters['cliente'] = "Todos"
-        if 'categoria' in df.columns:
-            st.session_state.filters['categoria'] = "Todas"
-        st.rerun()
-    
-    available_options = get_available_options(df, st.session_state.filters)
-    
-    # Filtro de Cliente
-    st.markdown('<div class="filter-section">', unsafe_allow_html=True)
-    try:
-        cliente_index = available_options['clientes'].index(st.session_state.filters['cliente'])
-    except ValueError:
-        cliente_index = 0
-        st.session_state.filters['cliente'] = available_options['clientes'][0]
-    
-    novo_cliente = st.selectbox(
-        "🏢 Cliente",
-        options=available_options['clientes'],
-        index=cliente_index,
-        key='cliente_selectbox'
-    )
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    if novo_cliente != st.session_state.filters['cliente']:
-        st.session_state.filters['cliente'] = novo_cliente
-        if 'categoria' in df.columns:
-            st.session_state.filters['categoria'] = "Todas"
-        st.rerun()
-    
-    available_options = get_available_options(df, st.session_state.filters)
-    
-    # Filtro de Categoria
-    if 'categoria' in df.columns:
-        st.markdown('<div class="filter-section">', unsafe_allow_html=True)
-        nova_categoria = st.selectbox(
-            "📦 Categoria",
-            options=available_options['categorias'],
-            index=available_options['categorias'].index(st.session_state.filters['categoria']) 
-            if st.session_state.filters['categoria'] in available_options['categorias'] else 0,
-            key='categoria_selectbox'
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        if nova_categoria != st.session_state.filters['categoria']:
-            st.session_state.filters['categoria'] = nova_categoria
-            st.rerun()
-    
-    # Botão limpar filtros
-    st.markdown('<div class="filter-section">', unsafe_allow_html=True)
-    if st.button("🔄 Limpar Todos os Filtros", use_container_width=True, key='clear_filters'):
-        st.session_state.filters = {
-            'ano': "Todos", 'mes': "Todos", 'comercial': "Todos", 
-            'cliente': "Todos", 'categoria': "Todas"
-        }
-        st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
+cliente_mes = df_filtrado.groupby(["Cliente", "Ano", "Mes"]).agg({"V_Liquido": "sum"}).reset_index()
+cliente_mes = cliente_mes.sort_values(["Cliente", "Ano", "Mes"])
+cliente_mes["Variação (%)"] = cliente_mes.groupby("Cliente")["V_Liquido"].pct_change() * 100
 
-# =============================================
-# APLICAR FILTROS AOS DADOS
-# =============================================
-data_filtrada = apply_filters(df, st.session_state.filters)
+variacoes = []
+for _, row in cliente_mes.iterrows():
+    if pd.isna(row["Variação (%)"]) or row["Variação (%)"] < 0:
+        variacoes.append({
+            "Cliente": row["Cliente"],
+            "Ano": row["Ano"],
+            "Mês": row["Mes"],
+            "Vendas (€)": row["V_Liquido"],
+            "Variação (%)": f"{row['Variação (%)']:.2f}" if pd.notna(row["Variação (%)"]) else "Sem histórico",
+            "Alerta": "Queda ou ausência"
+        })
 
-# =============================================
-# FUNÇÕES DE FORMATAÇÃO
-# =============================================
-def formatar_numero_europeu(numero, casas_decimais=2):
-    if pd.isna(numero) or numero == 0:
-        return "0" if casas_decimais == 0 else "0,00"
-    try:
-        if casas_decimais == 0:
-            formatted = f"{numero:,.0f}"
-        else:
-            formatted = f"{numero:,.{casas_decimais}f}"
-        return formatted.replace(",", "X").replace(".", ",").replace("X", ".")
-    except:
-        return "0" if casas_decimais == 0 else "0,00"
+variacoes_df = pd.DataFrame(variacoes)
+st.dataframe(variacoes_df)
 
-def fmt_valor(x): return f"€ {formatar_numero_europeu(x, 2)}"
-def fmt_quantidade(x): 
-    return f"{formatar_numero_europeu(x, 0)}" if pd.notna(x) and x == int(x) else f"{formatar_numero_europeu(x, 2)}"
-def fmt_percentual(x): return f"{x:.2f}%".replace(".", ",") if not pd.isna(x) and not np.isinf(x) else "0,00%"
+# Início da exportação para Excel
+st.subheader("📤 Exportar relatório completo para Excel")
 
-# =============================================
-# PÁGINAS PRINCIPAIS
-# =============================================
-if page == "Visão Geral":
-    st.markdown("<h1>📊 Visão Geral</h1>", unsafe_allow_html=True)
-    
-    # Mostrar filtros ativos
-    filtros_ativos = []
-    for key, value in st.session_state.filters.items():
-        if value != "Todos" and value != "Todas":
-            if key == 'mes':
-                try:
-                    filtros_ativos.append(f"{key}: {month_names[value]}")
-                except:
-                    filtros_ativos.append(f"{key}: {value}")
-            else:
-                filtros_ativos.append(f"{key}: {value}")
-    
-    if filtros_ativos:
-        st.info(f"🔍 **Filtros ativos:** {', '.join(filtros_ativos)}")
-    
-    # Métricas principais
-    total_qtd = data_filtrada['qtd'].sum()
-    total_valor = data_filtrada['v_liquido'].sum()
-    total_clientes = data_filtrada['cliente'].nunique()
-    total_comerciais = data_filtrada['comercial'].nunique()
-    
-    st.write(f"📊 **Registros após filtros:** {len(data_filtrada):,}")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    with col1: 
-        st.metric("Quantidade Total", fmt_quantidade(total_qtd), "kg")
-    with col2: 
-        st.metric("Valor Total", fmt_valor(total_valor))
-    with col3: 
-        st.metric("Total de Clientes", f"{total_clientes:,}")
-    with col4: 
-        st.metric("Comerciais Ativos", f"{total_comerciais:,}")
-    
-    # Gráficos
-    if not data_filtrada.empty:
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            vendas_comercial = data_filtrada.groupby('comercial')['v_liquido'].sum().nlargest(10)
-            if not vendas_comercial.empty:
-                fig = px.bar(vendas_comercial, title="Top Comerciais por Valor",
-                            labels={'value': 'Valor (€)', 'comercial': 'Comercial'})
-                st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            vendas_cliente = data_filtrada.groupby('cliente')['v_liquido'].sum().nlargest(10)
-            if not vendas_cliente.empty:
-                fig = px.bar(vendas_cliente, title="Top Clientes por Valor",
-                            labels={'value': 'Valor (€)', 'cliente': 'Cliente'})
-                st.plotly_chart(fig, use_container_width=True)
+output = io.BytesIO()
+with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+    # Aba 1: Dados filtrados
+    df_filtrado.to_excel(writer, index=False, sheet_name='Vendas Filtradas')
 
-# =============================================
-# RESUMO NO SIDEBAR
-# =============================================
-with st.sidebar:
-    st.markdown("---")
-    st.markdown("### 📈 Resumo")
-    
-    qtd_total = data_filtrada['qtd'].sum()
-    valor_total = data_filtrada['v_liquido'].sum()
-    
-    periodo_texto = f"{data_filtrada['ano'].min()}-{data_filtrada['ano'].max()}"
-    if 'mes' in st.session_state.filters and st.session_state.filters['mes'] != "Todos":
-        try:
-            periodo_texto = f"{month_names[st.session_state.filters['mes']]} {data_filtrada['ano'].min()}"
-        except:
-            pass
-    
-    st.markdown(f"**Período:** {periodo_texto}")
-    st.markdown(f"**Valor:** {fmt_valor(valor_total)}")
-    st.markdown(f"**Quantidade:** {fmt_quantidade(qtd_total)}")
-    st.markdown(f"**Clientes:** {data_filtrada['cliente'].nunique():,}")
-    st.markdown(f"**Registros:** {len(data_filtrada):,}")
+    # Aba 2: KPIs
+    kpi_df = pd.DataFrame({
+        "Indicador": ["Valor Líquido Total", "Quantidade Total", "Ticket Médio"],
+        "Valor": [total_vendas, total_qtd, ticket_medio]
+    })
+    kpi_df.to_excel(writer, index=False, sheet_name='KPIs')
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("🔄 *Filtros dinâmicos ativos*")
+    # Aba 3: Evolução
+    evolucao.to_excel(writer, index=False, sheet_name='Evolução')
+    workbook = writer.book
+    worksheet = writer.sheets['Evolução']
+    chart = workbook.add_chart({'type': 'line'})
+    chart.add_series({
+        'name': 'Valor Líquido',
+        'categories': ['Evolução', 1, 1, len(evolucao), 1],
+        'values': ['Evolução', 1, 2, len(evolucao), 2],
+    })
+    chart.set_title({'name': 'Evolução de Vendas por Mês'})
+    worksheet.insert_chart('E5', chart)
+    # Aba 4: Por Categoria
+    cat_df = df_filtrado.groupby("Categoria").agg({"Qtd": "sum", "V_Liquido": "sum"}).reset_index()
+    cat_df.to_excel(writer, index=False, sheet_name='Por Categoria')
+    cat_chart = workbook.add_chart({'type': 'column'})
+    cat_chart.add_series({
+        'name': 'Valor Líquido',
+        'categories': ['Por Categoria', 1, 0, len(cat_df), 0],
+        'values': ['Por Categoria', 1, 2, len(cat_df), 2],
+    })
+    cat_chart.set_title({'name': 'Vendas por Categoria'})
+    writer.sheets['Por Categoria'].insert_chart('E5', cat_chart)
+
+    # Aba 5: Por Comercial
+    com_df = df_filtrado.groupby("Comercial").agg({"Qtd": "sum", "V_Liquido": "sum"}).reset_index()
+    com_df.to_excel(writer, index=False, sheet_name='Por Comercial')
+    com_chart = workbook.add_chart({'type': 'bar'})
+    com_chart.add_series({
+        'name': 'Valor Líquido',
+        'categories': ['Por Comercial', 1, 0, len(com_df), 0],
+        'values': ['Por Comercial', 1, 2, len(com_df), 2],
+    })
+    com_chart.set_title({'name': 'Vendas por Comercial'})
+    writer.sheets['Por Comercial'].insert_chart('E5', com_chart)
+
+    # Aba 6: Top 10 Clientes
+    cli_df = df_filtrado.groupby("Cliente").agg({"Qtd": "sum", "V_Liquido": "sum"}).reset_index()
+    top10_cli = cli_df.sort_values("V_Liquido", ascending=False).head(10)
+    top10_cli.to_excel(writer, index=False, sheet_name='Top 10 Clientes')
+    cli_chart = workbook.add_chart({'type': 'column'})
+    cli_chart.add_series({
+        'name': 'Top 10 Valor Líquido',
+        'categories': ['Top 10 Clientes', 1, 0, len(top10_cli), 0],
+        'values': ['Top 10 Clientes', 1, 2, len(top10_cli), 2],
+    })
+    cli_chart.set_title({'name': 'Top 10 Clientes por Vendas'})
+    writer.sheets['Top 10 Clientes'].insert_chart('E5', cli_chart)
+
+    # Aba 7: Top 10 Artigos
+    art_df = df_filtrado.groupby("Artigo").agg({"Qtd": "sum", "V_Liquido": "sum"}).reset_index()
+    top10_art = art_df.sort_values("V_Liquido", ascending=False).head(10)
+    top10_art.to_excel(writer, index=False, sheet_name='Top 10 Artigos')
+    art_chart = workbook.add_chart({'type': 'column'})
+    art_chart.add_series({
+        'name': 'Top 10 Valor Líquido',
+        'categories': ['Top 10 Artigos', 1, 0, len(top10_art), 0],
+        'values': ['Top 10 Artigos', 1, 2, len(top10_art), 2],
+    })
+    art_chart.set_title({'name': 'Top 10 Artigos por Vendas'})
+    writer.sheets['Top 10 Artigos'].insert_chart('E5', art_chart)
+
+    # Aba 8: Resumo por Mês/Ano
+    mesano_df = df_filtrado.groupby(["Ano", "Mes"]).agg({"Qtd": "sum", "V_Liquido": "sum"}).reset_index()
+    mesano_df.to_excel(writer, index=False, sheet_name='Resumo Mensal')
+    mesano_chart = workbook.add_chart({'type': 'bar'})
+    mesano_chart.add_series({
+        'name': 'Valor Líquido',
+        'categories': ['Resumo Mensal', 1, 1, len(mesano_df), 1],
+        'values': ['Resumo Mensal', 1, 2, len(mesano_df), 2],
+    })
+    mesano_chart.set_title({'name': 'Resumo por Mês e Ano'})
+    writer.sheets['Resumo Mensal'].insert_chart('E5', mesano_chart)
+    # Aba 9: Crescimento Percentual por Ano
+    crescimento_df = df_filtrado.groupby("Ano").agg({"V_Liquido": "sum"}).reset_index()
+    crescimento_df["Crescimento (%)"] = crescimento_df["V_Liquido"].pct_change() * 100
+    crescimento_df.to_excel(writer, index=False, sheet_name='Crescimento Anual')
+    crescimento_chart = workbook.add_chart({'type': 'line'})
+    crescimento_chart.add_series({
+        'name': 'Crescimento (%)',
+        'categories': ['Crescimento Anual', 1, 0, len(crescimento_df), 0],
+        'values': ['Crescimento Anual', 1, 2, len(crescimento_df), 2],
+    })
+    crescimento_chart.set_title({'name': 'Crescimento Percentual por Ano'})
+    writer.sheets['Crescimento Anual'].insert_chart('E5', crescimento_chart)
+
+    # Aba 10: Alertas de Variação Mensal
+    variacoes_df.to_excel(writer, index=False, sheet_name='Alertas Variação Mensal')
+
+    # Aba 11: Quedas Consecutivas
+    cliente_mes["Queda"] = cliente_mes["Variação (%)"].apply(lambda x: x < 0 if pd.notna(x) else False)
+    cliente_mes["Queda Seq"] = cliente_mes.groupby("Cliente")["Queda"].cumsum()
+    cliente_mes["Queda Flag"] = cliente_mes.groupby("Cliente")["Queda"].rolling(3).sum().reset_index(level=0, drop=True) >= 3
+    quedas_df = cliente_mes[cliente_mes["Queda Flag"]].copy()
+    quedas_df = quedas_df[["Cliente", "Ano", "Mes", "V_Liquido", "Variação (%)"]]
+    quedas_df.to_excel(writer, index=False, sheet_name='Quedas Consecutivas')
+
+    # Aba 12: Dispersão Ticket Médio por Cliente
+    ticket_df = df_filtrado.groupby("Cliente").agg({"V_Liquido": "sum", "Qtd": "sum"}).reset_index()
+    ticket_df["Ticket Médio"] = ticket_df["V_Liquido"] / ticket_df["Qtd"]
+    ticket_df.to_excel(writer, index=False, sheet_name='Ticket Médio Cliente')
+    scatter_chart = workbook.add_chart({'type': 'scatter'})
+    scatter_chart.add_series({
+        'name': 'Ticket Médio',
+        'categories': ['Ticket Médio Cliente', 1, 1, len(ticket_df), 1],
+        'values': ['Ticket Médio Cliente', 1, 3, len(ticket_df), 3],
+    })
+    scatter_chart.set_title({'name': 'Dispersão Ticket Médio por Cliente'})
+    scatter_chart.set_x_axis({'name': 'Quantidade'})
+    scatter_chart.set_y_axis({'name': 'Ticket Médio (€)'})
+    writer.sheets['Ticket Médio Cliente'].insert_chart('E5', scatter_chart)
+
+    writer.save()
+    processed_data = output.getvalue()
+
+# Botão final de download
+st.download_button(
+    label="📥 Baixar Excel completo com análises",
+    data=processed_data,
+    file_name="relatorio_vendas_completo.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
