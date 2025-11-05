@@ -113,6 +113,49 @@ st.markdown(f"""
         background-color: white !important;
     }}
     
+    /* CORREÇÃO DO PAINEL DE NAVEGAÇÃO - Radio buttons */
+    .stRadio [role="radiogroup"] {{
+        background: rgba(255, 255, 255, 0.1) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        border-radius: 10px !important;
+        padding: 10px !important;
+    }}
+    
+    .stRadio [role="radiogroup"] label {{
+        color: white !important;
+        background: transparent !important;
+        padding: 10px 15px !important;
+        margin: 5px 0 !important;
+        border-radius: 8px !important;
+        transition: all 0.3s ease !important;
+        border: 1px solid transparent !important;
+    }}
+    
+    .stRadio [role="radiogroup"] label:hover {{
+        background: rgba(255, 255, 255, 0.2) !important;
+        border-color: rgba(255, 255, 255, 0.3) !important;
+    }}
+    
+    .stRadio [role="radiogroup"] label:has(input:checked) {{
+        background: rgba(255, 255, 255, 0.3) !important;
+        border-color: rgba(255, 255, 255, 0.5) !important;
+        font-weight: 600 !important;
+    }}
+    
+    .stRadio [data-testid="stMarkdownContainer"] {{
+        color: white !important;
+    }}
+    
+    .stRadio [data-testid="stMarkdownContainer"] p {{
+        color: white !important;
+        font-weight: 500 !important;
+    }}
+    
+    /* Radio button custom styling */
+    .stRadio [class*="st-"] {{
+        color: white !important;
+    }}
+    
     /* Dropdown menu styling */
     [role="listbox"] {{
         background-color: white !important;
@@ -221,29 +264,6 @@ st.markdown(f"""
         border-radius: 10px;
         border: 1px solid #e2e8f0;
     }}
-    
-    /* Radio button styling */
-    .stRadio [role="radiogroup"] {{
-        background: white !important;
-        padding: 10px;
-        border-radius: 8px;
-    }}
-    
-    .stRadio [role="radiogroup"] label {{
-        color: #1e293b !important;
-        padding: 8px 12px;
-        margin: 2px;
-        border-radius: 6px;
-        transition: all 0.2s ease;
-    }}
-    
-    .stRadio [role="radiogroup"] label:hover {{
-        background: #f1f5f9 !important;
-    }}
-    
-    .stRadio [role="radiogroup"] [data-testid="stMarkdownContainer"] {{
-        color: #1e293b !important;
-    }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -334,15 +354,69 @@ st.sidebar.markdown(f"""
 
 st.sidebar.markdown("<div style='height: 2px; background: rgba(255,255,255,0.3); margin: 20px 0;'></div>", unsafe_allow_html=True)
 
-# Navigation
-pagina = st.sidebar.radio("**🌐 NAVEGAÇÃO**", [
-    "📊 VISÃO GERAL", 
-    "🎯 KPIS PERSONALIZADOS", 
-    "📈 TENDÊNCIAS", 
-    "⚠️ ALERTAS",
-    "👥 ANÁLISE DE CLIENTES",
-    "🔍 VISTA COMPARATIVA"
-], key="navigation")
+# Navigation - AGORA COM ESTILO CORRETO
+st.sidebar.markdown("""
+    <style>
+    /* Estilo personalizado para a navegação */
+    .navigation-radio {{
+        background: rgba(255, 255, 255, 0.1) !important;
+        border-radius: 10px !important;
+        padding: 10px !important;
+    }}
+    
+    .navigation-radio [role="radiogroup"] {{
+        background: transparent !important;
+        border: none !important;
+    }}
+    
+    .navigation-radio label {{
+        color: white !important;
+        background: rgba(255, 255, 255, 0.1) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        border-radius: 8px !important;
+        margin: 8px 0 !important;
+        padding: 12px 15px !important;
+        transition: all 0.3s ease !important;
+    }}
+    
+    .navigation-radio label:hover {{
+        background: rgba(255, 255, 255, 0.2) !important;
+        border-color: rgba(255, 255, 255, 0.4) !important;
+        transform: translateX(5px);
+    }}
+    
+    .navigation-radio label:has(input:checked) {{
+        background: rgba(255, 255, 255, 0.3) !important;
+        border-color: rgba(255, 255, 255, 0.6) !important;
+        font-weight: 700 !important;
+        box-shadow: 0 2px 10px rgba(255, 255, 255, 0.2);
+    }}
+    
+    .navigation-radio [data-testid="stMarkdownContainer"] p {{
+        color: white !important;
+        font-weight: 500 !important;
+        margin: 0 !important;
+        font-size: 1em !important;
+    }}
+    </style>
+""", unsafe_allow_html=True)
+
+# Navigation com classe personalizada
+with st.sidebar:
+    st.markdown('<div class="navigation-radio">', unsafe_allow_html=True)
+    pagina = st.radio(
+        "**🌐 NAVEGAÇÃO**", 
+        [
+            "📊 VISÃO GERAL", 
+            "🎯 KPIS PERSONALIZADOS", 
+            "📈 TENDÊNCIAS", 
+            "⚠️ ALERTAS",
+            "👥 ANÁLISE DE CLIENTES",
+            "🔍 VISTA COMPARATIVA"
+        ], 
+        key="navigation"
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
 
 st.sidebar.markdown("<div style='height: 2px; background: rgba(255,255,255,0.3); margin: 20px 0;'></div>", unsafe_allow_html=True)
 
@@ -534,106 +608,8 @@ if pagina == "📊 VISÃO GERAL":
         height=500
     )
     st.plotly_chart(fig_top_qtd, use_container_width=True)
-    
-    # Top Customers by Value
-    st.markdown("### 💰 TOP 10 CLIENTES (VALOR EM €)")
-    top_clientes_valor = dados_filtrados.groupby('cliente')[['v_liquido', 'qtd']].sum().sort_values('v_liquido', ascending=False).head(10)
-    
-    fig_top_valor = px.bar(
-        top_clientes_valor.reset_index(),
-        x='cliente',
-        y='v_liquido',
-        color='v_liquido',
-        title='',
-        labels={'v_liquido': 'Valor (€)', 'cliente': 'Cliente', 'qtd': 'Quantidade'},
-        color_continuous_scale='Plasma',
-        text='v_liquido'
-    )
-    fig_top_valor.update_traces(
-        texttemplate='€ %{text:,.0f}',
-        textposition='outside',
-        marker_line_color='white',
-        marker_line_width=2
-    )
-    fig_top_valor.update_layout(
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        font=dict(color="#1e293b", size=12),
-        xaxis_tickangle=-45,
-        showlegend=False,
-        height=500
-    )
-    st.plotly_chart(fig_top_valor, use_container_width=True)
 
 # [CONTINUAÇÃO DAS OUTRAS PÁGINAS...]
-# (O restante do código das outras páginas permanece igual)
-
-# --- PAGE 2: MODERN CUSTOM KPIs ---
-elif pagina == "🎯 KPIS PERSONALIZADOS":
-    st.markdown("""
-        <div style="text-align: center; margin-bottom: 40px;">
-            <h1>🎯 KPIS PERSONALIZADOS</h1>
-            <p style="font-size: 1.2em; color: #64748b; font-weight: 500;">Crie e analise métricas personalizadas</p>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        kpi_tipo = st.selectbox("**📊 TIPO DE KPI**", ["Quantidade", "Valor em €"])
-        kpi_name = st.text_input("**📝 NOME DO KPI**", value=f"Performance de {kpi_tipo}")
-    
-    with col2:
-        kpi_period = st.selectbox("**📅 PERÍODO**", ["Mensal", "Trimestral", "Anual"])
-        show_trend = st.checkbox("📈 Mostrar Tendência", value=True)
-    
-    if dados_filtrados.empty:
-        st.warning("⚠️ Sem dados disponíveis para os filtros selecionados.")
-    else:
-        # KPI Data based on selection
-        if kpi_tipo == "Quantidade":
-            kpi_data = dados_filtrados.groupby('mes')['qtd'].sum().reset_index()
-            kpi_data.columns = ['mes', 'value']
-            y_axis_title = "Quantidade"
-            text_template = '%{text:,.0f}'
-            metric_prefix = ""
-        else:  # Valor em €
-            kpi_data = dados_filtrados.groupby('mes')['v_liquido'].sum().reset_index()
-            kpi_data.columns = ['mes', 'value']
-            y_axis_title = "Valor (€)"
-            text_template = '€ %{text:,.0f}'
-            metric_prefix = "€ "
-        
-        kpi_data = kpi_data.sort_values('mes')
-        kpi_data['month_name'] = kpi_data['mes'].map(month_names_pt)
-        
-        # Modern KPI Chart
-        fig_kpi = px.line(
-            kpi_data,
-            x='month_name',
-            y='value',
-            title=f"📊 {kpi_name} - Evolução Mensal",
-            labels={'value': y_axis_title, 'month_name': 'Mês'},
-            color_discrete_sequence=[primary_color]
-        )
-        
-        fig_kpi.update_traces(
-            line=dict(width=4),
-            marker=dict(size=8, line=dict(width=2, color='white'))
-        )
-        
-        fig_kpi.update_layout(
-            plot_bgcolor='white',
-            paper_bgcolor='white',
-            font=dict(color="#1e293b", size=12),
-            xaxis=dict(showgrid=True, gridcolor='#e2e8f0'),
-            yaxis=dict(showgrid=True, gridcolor='#e2e8f0'),
-            height=500
-        )
-        
-        st.plotly_chart(fig_kpi, use_container_width=True)
-
-# [AS OUTRAS PÁGINAS CONTINUAM IGUAIS...]
 
 # Footer
 st.markdown("---")
