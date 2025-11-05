@@ -20,7 +20,7 @@ st.set_page_config(
 )
 
 # =============================================
-# ESTILO PROFISSIONAL (FILTROS VISÍVEIS!)
+# ESTILO PROFISSIONAL
 # =============================================
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -96,7 +96,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =============================================
-# CARREGAR DADOS (VALOR CORRIGIDO!)
+# CARREGAR DADOS
 # =============================================
 month_names = {
     'janeiro':1,'fevereiro':2,'março':3,'abril':4,'maio':5,'junho':6,
@@ -110,8 +110,6 @@ def carregar_dados():
     try:
         url = "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Vendas_Globais.xlsx"
         df = pd.read_excel(BytesIO(requests.get(url, timeout=15).content))
-        
-        # Padronizar colunas
         df.columns = df.columns.str.strip().str.lower()
         col_map = {
             'mês':'mes','qtd.':'qtd','qtd':'qtd','quantidade':'qtd',
@@ -119,36 +117,31 @@ def carregar_dados():
             'v. líquido':'v_liquido','v_liquido':'v_liquido','categoria':'categoria'
         }
         df.rename(columns=col_map, inplace=True)
-        
-        # CORREÇÃO DO VALOR EUROPEU
+
         if 'v_liquido' in df.columns:
             df['v_liquido'] = df['v_liquido'].astype(str).str.strip()
             df['v_liquido'] = df['v_liquido'].str.replace(r'\.', '', regex=True)
             df['v_liquido'] = df['v_liquido'].str.replace(',', '.', regex=False)
             df['v_liquido'] = pd.to_numeric(df['v_liquido'], errors='coerce')
-        
-        # Mês
+
         if 'mes' in df.columns:
-            if df['mes'].dtype == 'object':
-                df['mes'] = df['mes'].apply(lambda x: month_names.get(str(x).strip().lower(), np.nan))
+            df['mes'] = df['mes'].apply(lambda x: month_names.get(str(x).strip().lower(), np.nan))
             df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
-        
-        # Numéricos
+
         for col in ['ano', 'qtd']:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
-        
-        # Limpar
+
         required = ['mes','qtd','ano','cliente','comercial']
         if not all(c in df.columns for c in required):
-            st.error("Colunas faltando no arquivo.")
+            st.error("Colunas faltando.")
             return pd.DataFrame()
-        
+
         df.dropna(subset=required, inplace=True)
         df = df[(df['mes'] >= 1) & (df['mes'] <= 12)]
         return df
     except Exception as e:
-        st.error(f"Erro ao carregar: {e}")
+        st.error(f"Erro: {e}")
         return pd.DataFrame()
 
 df = carregar_dados()
@@ -209,7 +202,7 @@ def exportar_dados(d):
     return output.getvalue()
 
 # =============================================
-# PÁGINAS
+# PÁGINAS FUNCIONAIS
 # =============================================
 if pagina == "VISÃO GERAL":
     st.markdown("<h1>Visão Geral</h1>", unsafe_allow_html=True)
@@ -251,10 +244,9 @@ elif pagina == "KPIS PERSONALIZADOS":
         st.plotly_chart(fig, use_container_width=True)
 
 elif pagina == "TENDÊNCIAS":
-    st.markdown("<h1>Tendências & Previsão Avançada</h1>", unsafe_allow_html=True)
+    st.markdown("<h1>Tendências & Previsão</h1>", unsafe_allow_html=True)
     metrica = st.selectbox("Métrica", ["Quantidade (kg)", "Valor (€)"])
     horizonte = st.slider("Prever (meses)", 1, 12, 6)
-    janela = st.slider("Média Móvel", 1, 6, 3)
 
     temp = dados.copy()
     temp['data'] = pd.to_datetime(temp['ano'].astype(str) + '-' + temp['mes'].astype(str).str.zfill(2) + '-01')
@@ -268,46 +260,94 @@ elif pagina == "TENDÊNCIAS":
         fmt_func = fmt_euro
 
     if len(serie) < 12:
-        st.warning("Dados insuficientes para previsão.")
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=serie.index, y=serie, mode='lines+markers', name='Real'))
-        st.plotly_chart(fig, use_container_width=True)
+        st.warning("Dados insuficientes.")
     else:
         try:
             import pmdarima as pm
             serie_full = serie.asfreq('MS').ffill().fillna(0)
-            model = pm.auto_arima(serie_full, seasonal=True, m=12, stepwise=True, suppress_warnings=True, error_action='ignore')
+            model = pm.auto_arima(serie_full, seasonal=True, m=12, stepwise=True, suppress_warnings=True)
             forecast_result = model.predict(n_periods=horizonte, return_conf_int=True)
             forecast, conf_int = forecast_result[0], forecast_result[1]
             last_date = serie_full.index[-1]
             future_dates = pd.date_range(last_date + pd.DateOffset(months=1), periods=horizonte, freq='MS')
 
             fig = go.Figure()
-            fig.add_trace(go.Scatter(x=serie_full.index, y=serie_full, mode='lines+markers', name='Real', line=dict(color="#4f46e5")))
-            ma = serie_full.rolling(window=janela, center=True).mean()
-            fig.add_trace(go.Scatter(x=ma.index, y=ma, mode='lines', name=f'Média {janela}m', line=dict(color="#7c3aed", dash='dash')))
-            fig.add_trace(go.Scatter(x=future_dates, y=forecast, mode='lines+markers', name='Previsão', line=dict(color="#10b981")))
+            fig.add_trace(go.Scatter(x=serie_full.index, y=serie_full, mode='lines+markers', name='Real'))
+            fig.add_trace(go.Scatter(x=future_dates, y=forecast, mode='lines+markers', name='Previsão'))
             fig.add_trace(go.Scatter(x=list(future_dates)+list(future_dates)[::-1],
                                    y=list(conf_int[:,1])+list(conf_int[:,0])[::-1],
-                                   fill='toself', fillcolor='rgba(16,185,129,0.2)', line=dict(color='rgba(0,0,0,0)'), name='95% Confiança'))
-            fig.update_layout(title="Previsão SARIMA", height=600)
+                                   fill='toself', fillcolor='rgba(16,185,129,0.2)', line=dict(color='rgba(0,0,0,0)'), name='95%'))
             st.plotly_chart(fig, use_container_width=True)
 
-            # Exportar
             def exportar_previsao():
                 output = BytesIO()
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
                     pd.DataFrame({'Data': serie_full.index.strftime('%b/%Y'), 'Real': serie_full.values}).to_excel(writer, sheet_name='Histórico', index=False)
-                    pd.DataFrame({'Mês': future_dates.strftime('%b/%Y'), 'Previsão': forecast, 'Mín': conf_int[:,0], 'Máx': conf_int[:,1]}).to_excel(writer, sheet_name='Previsão', index=False)
+                    pd.DataFrame({'Mês': future_dates.strftime('%b/%Y'), 'Previsão': forecast}).to_excel(writer, sheet_name='Previsão', index=False)
                 return output.getvalue()
-
-            st.download_button("EXPORTAR PREVISÃO", exportar_previsao(), "previsao.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            st.download_button("EXPORTAR PREVISÃO", exportar_previsao(), "previsao.xlsx")
 
         except Exception as e:
             st.error(f"Previsão falhou: {e}")
 
-# (Demais páginas: ALERTAS, CLIENTES, COMPARAÇÃO - mantidas simples e sem erros)
+elif pagina == "ALERTAS":
+    st.markdown("<h1>Alertas Automáticos</h1>", unsafe_allow_html=True)
+    temp = dados.copy()
+    temp['data'] = pd.to_datetime(temp['ano'].astype(str) + '-' + temp['mes'].astype(str).str.zfill(2) + '-01')
+    mensal = temp.groupby(pd.Grouper(key='data', freq='M'))[['qtd', 'v_liquido']].sum().reset_index()
+    mensal = mensal.sort_values('data')
 
-# Exportar dados gerais
-if st.sidebar.button("EXPORTAR DADOS GERAIS"):
-    st.download_button("BAIXAR", exportar_dados(dados), "vendas.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    alertas = []
+    for i in range(1, len(mensal)):
+        prev_qtd = mensal['qtd'].iloc[i-1]
+        curr_qtd = mensal['qtd'].iloc[i]
+        if prev_qtd > 0 and (curr_qtd / prev_qtd) < 0.8:
+            alertas.append(f"Queda >20% em Qtd: {mensal['data'].iloc[i].strftime('%b/%Y')}")
+        if 'v_liquido' in mensal.columns:
+            prev_val = mensal['v_liquido'].iloc[i-1]
+            curr_val = mensal['v_liquido'].iloc[i]
+            if prev_val > 0 and (curr_val / prev_val) < 0.85:
+                alertas.append(f"Queda >15% em Valor: {mensal['data'].iloc[i].strftime('%b/%Y')}")
+
+    if alertas:
+        for a in alertas: st.error(a)
+    else:
+        st.success("Nenhum alerta crítico.")
+
+elif pagina == "CLIENTES":
+    st.markdown("<h1>Análise de Clientes</h1>", unsafe_allow_html=True)
+    cli = st.selectbox("Cliente", ["Todos"] + sorted(dados['cliente'].unique()))
+    df_cli = dados if cli == "Todos" else dados[dados['cliente'] == cli]
+
+    col1, col2 = st.columns(2)
+    with col1: st.metric("Qtd Total", fmt_kg(df_cli['qtd'].sum()))
+    with col2: st.metric("Valor Total", fmt_euro(df_cli['v_liquido'].sum() if 'v_liquido' in df_cli.columns else 0))
+
+    fig = px.scatter(df_cli, x='qtd', y='v_liquido' if 'v_liquido' in df_cli.columns else None,
+                     color='comercial', size='qtd', hover_data=['mes','ano'], title="Dispersão")
+    st.plotly_chart(fig, use_container_width=True)
+
+elif pagina == "COMPARAÇÃO":
+    st.markdown("<h1>Comparação de Períodos</h1>", unsafe_allow_html=True)
+    anos_disp = sorted(dados['ano'].unique())
+    if len(anos_disp) < 2:
+        st.warning("Dados de apenas um ano.")
+    else:
+        col1, col2 = st.columns(2)
+        with col1: p1 = st.selectbox("Período 1", anos_disp, index=0)
+        with col2: p2 = st.selectbox("Período 2", anos_disp, index=1)
+
+        d1 = dados[dados['ano'] == p1]
+        d2 = dados[dados['ano'] == p2]
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric(f"Qtd {p1}", fmt_kg(d1['qtd'].sum()))
+            st.metric(f"Valor {p1}", fmt_euro(d1['v_liquido'].sum() if 'v_liquido' in d1.columns else 0))
+        with col2:
+            st.metric(f"Qtd {p2}", fmt_kg(d2['qtd'].sum()))
+            st.metric(f"Valor {p2}", fmt_euro(d2['v_liquido'].sum() if 'v_liquido' in d2.columns else 0))
+
+# Exportar
+if st.sidebar.button("EXPORTAR DADOS"):
+    st.download_button("BAIXAR", exportar_dados(dados), "vendas.xlsx")
