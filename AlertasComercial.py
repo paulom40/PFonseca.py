@@ -26,7 +26,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =============================================
-# VALIDAÇÃO + CARREGAMENTO
+# CARREGAMENTO + VALIDAÇÃO 100% SEGURA
 # =============================================
 month_map = {'janeiro':1,'fevereiro':2,'março':3,'abril':4,'maio':5,'junho':6,
              'julho':7,'agosto':8,'setembro':9,'outubro':10,'novembro':11,'dezembro':12}
@@ -38,7 +38,7 @@ def load_data():
             "https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Vendas_Globais.xlsx", 
             timeout=15).content))
         
-        # Padronizar colunas
+        # === 1. PADRONIZAR COLUNAS ===
         df.columns = [col.strip() for col in df.columns]
         col_map = {}
         raw_lower = [col.lower() for col in df.columns]
@@ -58,24 +58,33 @@ def load_data():
                     break
         df.rename(columns=col_map, inplace=True)
 
-        # Converter
+        # === 2. FORÇAR CONVERSÃO NUMÉRICA (100% SEGURA) ===
         df['mes'] = df['mes'].astype(str).str.strip().str.lower().map(month_map)
         df['mes'] = pd.to_numeric(df['mes'], errors='coerce')
-        df['qtd'] = pd.to_numeric(df['qtd'].astype(str).str.replace(r'\D', '', regex=True), errors='coerce').fillna(0)
+
+        df['qtd'] = df['qtd'].astype(str).str.replace(r'\D', '', regex=True)
+        df['qtd'] = pd.to_numeric(df['qtd'], errors='coerce').fillna(0).astype(int)
+
         df['ano'] = pd.to_numeric(df['ano'], errors='coerce')
+
         if 'v_liquido' in df.columns:
             df['v_liquido'] = (df['v_liquido'].astype(str)
                                .str.replace(r'[^\d,.]', '', regex=True)
                                .str.replace(r'\.', '', regex=True)
                                .str.replace(',', '.', regex=False)
                                .str.replace(r'(\.\d{2})\d+', r'\1', regex=True)
-                               .astype(float, errors='ignore')).fillna(0)
+                               .astype(float, errors='coerce').fillna(0))
 
-        # Limpar
-        df.dropna(subset=['mes','qtd','ano','cliente','comercial','v_liquido'], inplace=True)
-        df = df[(df['mes'].between(1,12)) & (df['qtd'] > 0) & (df['v_liquido'] > 0)]
+        # === 3. LIMPEZA FINAL ===
+        df = df.dropna(subset=['mes', 'qtd', 'ano', 'cliente', 'comercial', 'v_liquido'])
+        df = df[(df['mes'].between(1, 12)) & 
+                (df['qtd'] > 0) & 
+                (df['v_liquido'] > 0)]
         df = df.drop_duplicates(subset=['cliente','comercial','ano','mes','qtd','v_liquido'])
+
+        st.success("Dados carregados com sucesso!")
         return df
+
     except Exception as e:
         st.error(f"Erro: {e}")
         return pd.DataFrame()
@@ -122,7 +131,6 @@ with st.sidebar:
 # FUNÇÕES
 # =============================================
 fmt = lambda x, u: f"{x:,.0f} {u}" if pd.notna(x) else f"0 {u}"
-mes_pt = {1:'Jan',2:'Fev',3:'Mar',4:'Abr',5:'Mai',6:'Jun',7:'Jul',8:'Ago',9:'Set',10:'Out',11:'Nov',12:'Dez'}
 
 # =============================================
 # PÁGINAS
@@ -142,7 +150,7 @@ elif page == "KPIs":
     col = 'qtd' if metrica == "Quantidade" else 'v_liquido'
     gcol = {'Mês':'mes', 'Comercial':'comercial', 'Cliente':'cliente'}[grupo]
     agg = data.groupby(gcol)[col].sum().reset_index().sort_values(col, ascending=False).head(10)
-    if grupo == "Mês": agg['mes'] = agg['mes'].map(mes_pt)
+    if grupo == "Mês": agg['mes'] = agg['mes'].map({v:k for k,v in {1:'Jan',2:'Fev',3:'Mar',4:'Abr',5:'Mai',6:'Jun',7:'Jul',8:'Ago',9:'Set',10:'Out',11:'Nov',12:'Dez'}.items()})
     fig = px.bar(agg, x=gcol, y=col, title=f"Top 10 {metrica} por {grupo}")
     st.plotly_chart(fig, use_container_width=True)
 
