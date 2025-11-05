@@ -1,5 +1,3 @@
-# app.py
-
 import streamlit as st
 import pandas as pd
 import altair as alt
@@ -23,8 +21,6 @@ def load_data():
         "MÊS": "Mes",
         "ANO": "Ano"
     })
-    df["V_Liquido"] = pd.to_numeric(df["V_Liquido"], errors="coerce")
-    df["Qtd"] = pd.to_numeric(df["Qtd"], errors="coerce")
     return df
 
 df = load_data()
@@ -45,6 +41,17 @@ if comerciais: df_filtrado = df_filtrado[df_filtrado["Comercial"].isin(comerciai
 if categorias: df_filtrado = df_filtrado[df_filtrado["Categoria"].isin(categorias)]
 if meses: df_filtrado = df_filtrado[df_filtrado["Mes"].isin(meses)]
 if anos: df_filtrado = df_filtrado[df_filtrado["Ano"].isin(anos)]
+
+# Conversão robusta
+df_filtrado["V_Liquido"] = (
+    df_filtrado["V_Liquido"]
+    .astype(str)
+    .str.replace(",", ".")
+    .str.replace("€", "")
+    .str.strip()
+)
+df_filtrado["V_Liquido"] = pd.to_numeric(df_filtrado["V_Liquido"], errors="coerce")
+df_filtrado["Qtd"] = pd.to_numeric(df_filtrado["Qtd"], errors="coerce")
 
 # Validação
 if df_filtrado.empty:
@@ -106,7 +113,6 @@ for _, row in cliente_mes.iterrows():
         })
 variacoes_df = pd.DataFrame(variacoes)
 st.dataframe(variacoes_df)
-
 # Exportação para Excel
 st.subheader("📤 Exportar relatório completo para Excel")
 output = io.BytesIO()
@@ -128,7 +134,7 @@ with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
     chart.set_title({'name': 'Evolução de Vendas por Mês'})
     worksheet.insert_chart('E5', chart)
 
-    # Segmentações e análises
+    # Segmentações
     for nome, grupo, tipo in [
         ("Por Categoria", "Categoria", "column"),
         ("Por Comercial", "Comercial", "bar"),
@@ -164,17 +170,17 @@ with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
     cliente_mes["Queda Flag"] = cliente_mes.groupby("Cliente")["Queda"].rolling(3).sum().reset_index(level=0, drop=True) >= 3
     quedas_df = cliente_mes[cliente_mes["Queda Flag"]].copy()
     quedas_df = quedas_df[["Cliente", "Ano", "Mes", "V_Liquido", "Variação (%)"]]
-        quedas_df.to_excel(writer, index=False, sheet_name='Quedas Consecutivas')
+    quedas_df.to_excel(writer, index=False, sheet_name='Quedas Consecutivas')
 
-    # Dispersão do Ticket Médio por Cliente
+    # Dispersão do Ticket Médio
     ticket_df = df_filtrado.groupby("Cliente").agg({"V_Liquido": "sum", "Qtd": "sum"}).reset_index()
     ticket_df["Ticket Médio"] = ticket_df["V_Liquido"] / ticket_df["Qtd"]
     ticket_df.to_excel(writer, index=False, sheet_name='Ticket Médio Cliente')
     scatter_chart = workbook.add_chart({'type': 'scatter'})
     scatter_chart.add_series({
         'name': 'Ticket Médio',
-        'categories': ['Ticket Médio Cliente', 1, 1, len(ticket_df), 1],  # Qtd
-        'values': ['Ticket Médio Cliente', 1, 3, len(ticket_df), 3],      # Ticket Médio
+        'categories': ['Ticket Médio Cliente', 1, 1, len(ticket_df), 1],
+        'values': ['Ticket Médio Cliente', 1, 3, len(ticket_df), 3],
     })
     scatter_chart.set_title({'name': 'Dispersão Ticket Médio por Cliente'})
     scatter_chart.set_x_axis({'name': 'Quantidade'})
