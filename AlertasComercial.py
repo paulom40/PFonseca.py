@@ -363,7 +363,7 @@ if pagina == "📈 Visão Geral":
     num_commercials = dados_filtrados['comercial'].nunique()
     
     col1.metric("📦 Quantidade Total", f"{total_qty:,.0f}")
-    col2.metric("💰 Valor Total", f"€ {total_value:,.0f}")
+    col2.metric("💰 Valor Total (€)", f"€ {total_value:,.2f}")
     col3.metric("👥 Clientes Únicos", f"{num_customers}")
     col4.metric("🧑‍💼 Comerciais Ativos", f"{num_commercials}")
     
@@ -556,10 +556,10 @@ elif pagina == "⚠️ Alertas":
     # Customer Performance Analysis
     analise_clientes = dados_filtrados.groupby('cliente').agg({
         'qtd': ['sum', 'mean', 'count'],
-        'v_liquido': 'sum'
+        'v_liquido': 'sum'  # Using V. Líquido for value analysis
     }).reset_index()
     
-    analise_clientes.columns = ['Cliente', 'Total_Qtd', 'Avg_Qtd', 'Transactions', 'Total_Value']
+    analise_clientes.columns = ['Cliente', 'Total_Qtd', 'Avg_Qtd', 'Transactions', 'Total_Value_EUR']  # Renamed to include EUR
     analise_clientes = analise_clientes.sort_values('Total_Qtd', ascending=False)
     
     media_geral = dados_filtrados['qtd'].mean()
@@ -685,7 +685,7 @@ elif pagina == "👥 Análise de Clientes":
             
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("Quantidade Total", f"{cliente_data['qtd'].sum():,.0f}")
-            col2.metric("Valor Total", f"€ {cliente_data['v_liquido'].sum():,.0f}")
+            col2.metric("Valor Total (€)", f"€ {cliente_data['v_liquido'].sum():,.2f}")  # Using V. Líquido with EUR
             col3.metric("Média por Transação", f"{cliente_data['qtd'].mean():,.2f}")
             col4.metric("Transações", len(cliente_data))
             
