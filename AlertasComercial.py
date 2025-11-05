@@ -9,17 +9,25 @@ st.set_page_config(page_title="Dashboard de Vendas", layout="wide")
 def load_data():
     url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
     df = pd.read_excel(url)
+
+    # Padroniza nomes de colunas
     df.columns = df.columns.str.strip().str.upper()
-    df = df.rename(columns={
-        "CLIENTE": "Cliente",
-        "QTD": "Qtd",
-        "ARTIGO": "Artigo",
-        "V. LÍQUIDO": "V_Liquido",
-        "COMERCIAL": "Comercial",
-        "CATEGORIA": "Categoria",
-        "MÊS": "Mes",
-        "ANO": "Ano"
-    })
+    st.write("📋 Colunas detectadas no Excel:")
+    st.write(df.columns.tolist())
+
+    # Renomeia com base em aproximação
+    renomear = {}
+    for col in df.columns:
+        if "CLIENTE" in col: renomear[col] = "Cliente"
+        elif "QTD" in col: renomear[col] = "Qtd"
+        elif "ARTIGO" in col: renomear[col] = "Artigo"
+        elif "LÍQUIDO" in col: renomear[col] = "V_Liquido"
+        elif "COMERCIAL" in col: renomear[col] = "Comercial"
+        elif "CATEGORIA" in col: renomear[col] = "Categoria"
+        elif "MÊS" in col or "MES" in col: renomear[col] = "Mes"
+        elif "ANO" in col: renomear[col] = "Ano"
+
+    df = df.rename(columns=renomear)
     return df
 
 df = load_data()
