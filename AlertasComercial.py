@@ -29,8 +29,15 @@ st.markdown("""
 # =============================================
 # CARREGAMENTO SIMPLIFICADO
 # =============================================
-month_map = {'janeiro':1,'fevereiro':2,'março':3,'abril':4,'maio':5,'junho':6,
-             'julho':7,'agosto':8,'setembro':9,'outubro':10,'novembro':11,'dezembro':12}
+month_map = {
+    'janeiro': 1, 'fevereiro': 2, 'março': 3, 'abril': 4, 'maio': 5, 'junho': 6,
+    'julho': 7, 'agosto': 8, 'setembro': 9, 'outubro': 10, 'novembro': 11, 'dezembro': 12
+}
+
+month_names = {
+    1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril', 5: 'Maio', 6: 'Junho',
+    7: 'Julho', 8: 'Agosto', 9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
+}
 
 @st.cache_data(ttl=3600)
 def load_data():
@@ -55,6 +62,8 @@ def load_data():
             df['mes'] = df['mes'].astype(str).str.strip().str.lower()
             df['mes_num'] = df['mes'].map(month_map)
             df['mes_nome'] = df['mes']
+            # Adicionar coluna com nome do mês em português
+            df['mes_nome_pt'] = df['mes_num'].map(month_names)
         
         if 'ano' in df.columns:
             df['ano'] = pd.to_numeric(df['ano'], errors='coerce').fillna(2024).astype(int)
@@ -92,6 +101,7 @@ def initialize_session_state():
     if 'filters' not in st.session_state:
         st.session_state.filters = {
             'ano': "Todos",
+            'mes': "Todos",
             'comercial': "Todos", 
             'cliente': "Todos",
             'categoria': "Todas"
@@ -112,6 +122,9 @@ def get_available_options(base_data, current_filters):
     if current_filters['ano'] != "Todos":
         temp_data = temp_data[temp_data['ano'] == current_filters['ano']]
     
+    if current_filters['mes'] != "Todos":
+        temp_data = temp_data[temp_data['mes_num'] == current_filters['mes']]
+    
     if current_filters['comercial'] != "Todos":
         temp_data = temp_data[temp_data['comercial'] == current_filters['comercial']]
     
@@ -121,8 +134,13 @@ def get_available_options(base_data, current_filters):
     if current_filters['categoria'] != "Todas" and 'categoria' in temp_data.columns:
         temp_data = temp_data[temp_data['categoria'] == current_filters['categoria']]
     
+    # Preparar opções de mês (números com nomes)
+    meses_disponiveis = sorted(temp_data['mes_num'].dropna().unique())
+    meses_opcoes = ["Todos"] + [f"{month_names[m]} ({m})" for m in meses_disponiveis]
+    
     return {
         'anos': ["Todos"] + sorted(temp_data['ano'].unique().tolist()),
+        'meses': meses_opcoes,
         'comerciais': ["Todos"] + sorted(temp_data['comercial'].unique().tolist()),
         'clientes': ["Todos"] + sorted(temp_data['cliente'].unique().tolist()),
         'categorias': ["Todas"] + sorted(temp_data.get('categoria', pd.Series()).dropna().unique().tolist())
@@ -134,6 +152,9 @@ def apply_filters(data, filters):
     
     if filters['ano'] != "Todos":
         filtered_data = filtered_data[filtered_data['ano'] == filters['ano']]
+    
+    if filters['mes'] != "Todos":
+        filtered_data = filtered_data[filtered_data['mes_num'] == filters['mes']]
     
     if filters['comercial'] != "Todos":
         filtered_data = filtered_data[filtered_data['comercial'] == filters['comercial']]
@@ -177,11 +198,49 @@ with st.sidebar:
     # Atualizar filtro de ano se mudou
     if novo_ano != st.session_state.filters['ano']:
         st.session_state.filters['ano'] = novo_ano
+        st.session_state.filters['mes'] = "Todos"  # Reset mês ao mudar ano
         st.session_state.filters['comercial'] = "Todos"
         st.session_state.filters['cliente'] = "Todos"
         st.rerun()
     
     # Recalcular opções após possível mudança no ano
+    available_options = get_available_options(df, st.session_state.filters)
+    
+    # Filtro de Mês
+    st.markdown('<div class="filter-section">', unsafe_allow_html=True)
+    
+    # Converter valor atual do mês para formato de exibição
+    mes_atual_display = "Todos"
+    if st.session_state.filters['mes'] != "Todos":
+        mes_num = st.session_state.filters['mes']
+        mes_atual_display = f"{month_names[mes_num]} ({mes_num})"
+    
+    novo_mes_display = st.selectbox(
+        "📆 Mês",
+        options=available_options['meses'],
+        index=available_options['meses'].index(mes_atual_display) 
+        if mes_atual_display in available_options['meses'] else 0,
+        key='mes_selectbox'
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Converter seleção de mês de volta para número
+    novo_mes = "Todos"
+    if novo_mes_display != "Todos":
+        # Extrair número do mês do formato "Janeiro (1)"
+        try:
+            novo_mes = int(novo_mes_display.split('(')[-1].replace(')', '').strip())
+        except:
+            novo_mes = "Todos"
+    
+    # Atualizar filtro de mês se mudou
+    if novo_mes != st.session_state.filters['mes']:
+        st.session_state.filters['mes'] = novo_mes
+        st.session_state.filters['comercial'] = "Todos"
+        st.session_state.filters['cliente'] = "Todos"
+        st.rerun()
+    
+    # Recalcular opções após possível mudança no mês
     available_options = get_available_options(df, st.session_state.filters)
     
     # Filtro de Comercial
@@ -244,6 +303,7 @@ with st.sidebar:
     if st.button("🔄 Limpar Todos os Filtros", use_container_width=True, key='clear_filters'):
         st.session_state.filters = {
             'ano': "Todos",
+            'mes': "Todos",
             'comercial': "Todos", 
             'cliente': "Todos",
             'categoria': "Todas"
@@ -287,7 +347,11 @@ if page == "Visão Geral":
     filtros_ativos = []
     for key, value in st.session_state.filters.items():
         if value != "Todos" and value != "Todas":
-            filtros_ativos.append(f"{key}: {value}")
+            if key == 'mes':
+                # Formatar mês para exibição amigável
+                filtros_ativos.append(f"{key}: {month_names[value]}")
+            else:
+                filtros_ativos.append(f"{key}: {value}")
     
     if filtros_ativos:
         st.info(f"🔍 **Filtros ativos:** {', '.join(filtros_ativos)}")
@@ -319,9 +383,38 @@ if page == "Visão Geral":
             if not vendas_cliente.empty:
                 fig = px.bar(vendas_cliente, title="Top Clientes por Valor")
                 st.plotly_chart(fig, use_container_width=True)
+    
+    # Evolução mensal (se não estiver filtrando por mês específico)
+    if st.session_state.filters['mes'] == "Todos" and not data_filtrada.empty:
+        st.subheader("📈 Evolução Mensal")
+        evolucao_mensal = data_filtrada.groupby(['ano', 'mes_num'])['v_liquido'].sum().reset_index()
+        evolucao_mensal['mes_ano'] = evolucao_mensal['mes_num'].map(month_names) + ' ' + evolucao_mensal['ano'].astype(str)
+        
+        if not evolucao_mensal.empty:
+            fig = px.line(
+                evolucao_mensal,
+                x='mes_ano',
+                y='v_liquido',
+                title="Evolução das Vendas por Mês",
+                labels={'mes_ano': 'Mês/Ano', 'v_liquido': 'Valor (€)'}
+            )
+            fig.update_xaxes(tickangle=45)
+            st.plotly_chart(fig, use_container_width=True)
 
 elif page == "KPIs":
     st.markdown("<h1>📈 KPIs e Métricas</h1>", unsafe_allow_html=True)
+    
+    # Mostrar filtros ativos
+    filtros_ativos = []
+    for key, value in st.session_state.filters.items():
+        if value != "Todos" and value != "Todas":
+            if key == 'mes':
+                filtros_ativos.append(f"{key}: {month_names[value]}")
+            else:
+                filtros_ativos.append(f"{key}: {value}")
+    
+    if filtros_ativos:
+        st.info(f"🔍 **Filtros ativos:** {', '.join(filtros_ativos)}")
     
     if not data_filtrada.empty:
         total_vendas = data_filtrada['v_liquido'].sum()
@@ -332,9 +425,27 @@ elif page == "KPIs":
         with col1: st.metric("Total de Vendas", fmt_valor(total_vendas))
         with col2: st.metric("Média por Venda", fmt_valor(media_venda))
         with col3: st.metric("Ticket Médio", fmt_valor(ticket_medio))
+        
+        # KPIs adicionais
+        col4, col5, col6 = st.columns(3)
+        with col4: st.metric("Total de Transações", f"{len(data_filtrada):,}")
+        with col5: st.metric("Clientes Ativos", f"{data_filtrada['cliente'].nunique():,}")
+        with col6: st.metric("Comerciais Ativos", f"{data_filtrada['comercial'].nunique():,}")
 
 elif page == "Comparação":
     st.markdown("<h1>📊 Comparação</h1>", unsafe_allow_html=True)
+    
+    # Mostrar filtros ativos (exceto ano e mês para comparação)
+    filtros_ativos = []
+    for key, value in st.session_state.filters.items():
+        if value != "Todos" and value != "Todas" and key not in ['ano', 'mes']:
+            if key == 'mes':
+                filtros_ativos.append(f"{key}: {month_names[value]}")
+            else:
+                filtros_ativos.append(f"{key}: {value}")
+    
+    if filtros_ativos:
+        st.info(f"🔍 **Filtros ativos:** {', '.join(filtros_ativos)}")
     
     anos_disponiveis = sorted(data_filtrada['ano'].unique())
     
@@ -346,8 +457,9 @@ elif page == "Comparação":
             ano2 = st.selectbox("Ano 2", outros_anos if outros_anos else anos_disponiveis, key="ano2")
         
         # Dados para comparação
-        dados_ano1 = apply_filters(df, {**st.session_state.filters, 'ano': ano1})
-        dados_ano2 = apply_filters(df, {**st.session_state.filters, 'ano': ano2})
+        filtros_comparacao = st.session_state.filters.copy()
+        dados_ano1 = apply_filters(df, {**filtros_comparacao, 'ano': ano1})
+        dados_ano2 = apply_filters(df, {**filtros_comparacao, 'ano': ano2})
         
         # Métricas
         qtd_ano1, qtd_ano2 = dados_ano1['qtd'].sum(), dados_ano2['qtd'].sum()
@@ -358,9 +470,33 @@ elif page == "Comparação":
         with col2: st.metric(f"Qtd {ano2}", fmt_quantidade(qtd_ano2))
         with col3: st.metric(f"Valor {ano1}", fmt_valor(valor_ano1))
         with col4: st.metric(f"Valor {ano2}", fmt_valor(valor_ano2))
+        
+        # Variações
+        st.subheader("🔄 Variações")
+        col5, col6 = st.columns(2)
+        with col5:
+            if qtd_ano1 > 0:
+                variacao_qtd = ((qtd_ano2 - qtd_ano1) / qtd_ano1) * 100
+                st.metric("Variação na Quantidade", fmt_percentual(variacao_qtd))
+        with col6:
+            if valor_ano1 > 0:
+                variacao_valor = ((valor_ano2 - valor_ano1) / valor_ano1) * 100
+                st.metric("Variação no Valor", fmt_percentual(variacao_valor))
 
 elif page == "Clientes":
     st.markdown("<h1>👥 Análise de Clientes</h1>", unsafe_allow_html=True)
+    
+    # Mostrar filtros ativos
+    filtros_ativos = []
+    for key, value in st.session_state.filters.items():
+        if value != "Todos" and value != "Todas":
+            if key == 'mes':
+                filtros_ativos.append(f"{key}: {month_names[value]}")
+            else:
+                filtros_ativos.append(f"{key}: {value}")
+    
+    if filtros_ativos:
+        st.info(f"🔍 **Filtros ativos:** {', '.join(filtros_ativos)}")
     
     if not data_filtrada.empty:
         analise_clientes = data_filtrada.groupby('cliente').agg({
@@ -370,6 +506,18 @@ elif page == "Clientes":
         analise_clientes.columns = ['Total Vendas', 'Nº Transações', 'Ticket Médio', 'Quantidade Total']
         analise_clientes = analise_clientes.sort_values('Total Vendas', ascending=False)
         
+        # Métricas de clientes
+        total_clientes = len(analise_clientes)
+        clientes_ativos = len(analise_clientes[analise_clientes['Nº Transações'] > 1])
+        
+        col1, col2, col3 = st.columns(3)
+        with col1: st.metric("Total de Clientes", f"{total_clientes:,}")
+        with col2: st.metric("Clientes com Múltiplas Transações", f"{clientes_ativos:,}")
+        with col3: 
+            if total_clientes > 0:
+                percentual_ativos = (clientes_ativos / total_clientes) * 100
+                st.metric("Taxa de Retenção", fmt_percentual(percentual_ativos))
+        
         col1, col2 = st.columns(2)
         with col1:
             top_clientes = analise_clientes.head(10)
@@ -377,19 +525,45 @@ elif page == "Clientes":
                         title="Top 10 Clientes por Valor", orientation='h')
             st.plotly_chart(fig, use_container_width=True)
 
+        with col2:
+            top_clientes_qtd = analise_clientes.nlargest(10, 'Quantidade Total')
+            fig = px.bar(top_clientes_qtd, y=top_clientes_qtd.index, x='Quantidade Total', 
+                        title="Top 10 Clientes por Quantidade", orientation='h')
+            st.plotly_chart(fig, use_container_width=True)
+
 elif page == "Análise Detalhada":
     st.markdown("<h1>🔍 Análise Detalhada</h1>", unsafe_allow_html=True)
     
+    # Mostrar todos os filtros ativos
+    filtros_ativos = []
+    for key, value in st.session_state.filters.items():
+        if value != "Todos" and value != "Todas":
+            if key == 'mes':
+                filtros_ativos.append(f"{key}: {month_names[value]}")
+            else:
+                filtros_ativos.append(f"{key}: {value}")
+    
+    if filtros_ativos:
+        st.info(f"🔍 **Filtros ativos:** {', '.join(filtros_ativos)} | **Registros:** {len(data_filtrada):,}")
+    
     if not data_filtrada.empty:
-        st.subheader("📈 Estatísticas")
+        st.subheader("📈 Estatísticas Detalhadas")
+        
         col1, col2 = st.columns(2)
         with col1:
-            st.write("**Valor:**")
+            st.write("**Estatísticas de Valor:**")
             st.write(f"- Média: {fmt_valor(data_filtrada['v_liquido'].mean())}")
+            st.write(f"- Mediana: {fmt_valor(data_filtrada['v_liquido'].median())}")
+            st.write(f"- Desvio Padrão: {fmt_valor(data_filtrada['v_liquido'].std())}")
+            st.write(f"- Mínimo: {fmt_valor(data_filtrada['v_liquido'].min())}")
             st.write(f"- Máximo: {fmt_valor(data_filtrada['v_liquido'].max())}")
+        
         with col2:
-            st.write("**Quantidade:**")
+            st.write("**Estatísticas de Quantidade:**")
             st.write(f"- Média: {fmt_quantidade(data_filtrada['qtd'].mean())}")
+            st.write(f"- Mediana: {fmt_quantidade(data_filtrada['qtd'].median())}")
+            st.write(f"- Desvio Padrão: {fmt_quantidade(data_filtrada['qtd'].std())}")
+            st.write(f"- Mínimo: {fmt_quantidade(data_filtrada['qtd'].min())}")
             st.write(f"- Máximo: {fmt_quantidade(data_filtrada['qtd'].max())}")
 
 # =============================================
@@ -402,7 +576,12 @@ with st.sidebar:
     qtd_total = data_filtrada['qtd'].sum()
     valor_total = data_filtrada['v_liquido'].sum()
     
-    st.markdown(f"**Período:** {data_filtrada['ano'].min()}-{data_filtrada['ano'].max()}")
+    # Formatar período considerando filtros
+    periodo_texto = f"{data_filtrada['ano'].min()}-{data_filtrada['ano'].max()}"
+    if st.session_state.filters['mes'] != "Todos":
+        periodo_texto = f"{month_names[st.session_state.filters['mes']]} {data_filtrada['ano'].min()}"
+    
+    st.markdown(f"**Período:** {periodo_texto}")
     st.markdown(f"**Valor:** {fmt_valor(valor_total)}")
     st.markdown(f"**Quantidade:** {fmt_quantidade(qtd_total)}")
     st.markdown(f"**Clientes:** {data_filtrada['cliente'].nunique():,}")
