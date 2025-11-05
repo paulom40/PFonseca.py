@@ -547,6 +547,70 @@ elif pagina == "📉 Tendências":
             display_trend = trend_data[['month_name', 'value', 'MA']].rename(columns={'month_name': 'Mês', 'value': 'Quantidade', 'MA': 'Média Móvel'})
             st.dataframe(display_trend, use_container_width=True)
 
+            st.subheader("📊 Variação Mensal de Quantidade (Mês a Mês)")
+            
+            # Calculate month-to-month variation
+            variation_data = trend_data[['mes', 'month_name', 'value']].copy()
+            variation_data['mes_anterior'] = variation_data['value'].shift(1)
+            variation_data['variacao_qtd'] = variation_data['value'] - variation_data['mes_anterior']
+            variation_data['variacao_pct'] = ((variation_data['value'] - variation_data['mes_anterior']) / variation_data['mes_anterior'] * 100).round(2)
+            
+            # Format display table
+            variation_display = variation_data[['month_name', 'value', 'mes_anterior', 'variacao_qtd', 'variacao_pct']].copy()
+            variation_display.columns = ['Mês', 'Quantidade Atual', 'Quantidade Anterior', 'Variação (Qtd)', 'Variação (%)']
+            variation_display = variation_display.iloc[1:]  # Remove first row (no previous data)
+            
+            # Add color indicator based on variation
+            def get_variation_indicator(pct):
+                if pd.isna(pct):
+                    return '➡️'
+                elif pct > 0:
+                    return '📈'
+                elif pct < 0:
+                    return '📉'
+                else:
+                    return '➡️'
+            
+            variation_display['Tendência'] = variation_display['Variação (%)'].apply(get_variation_indicator)
+            
+            # Reorder columns
+            variation_display = variation_display[['Mês', 'Quantidade Atual', 'Quantidade Anterior', 'Variação (Qtd)', 'Variação (%)', 'Tendência']]
+            
+            st.dataframe(variation_display, use_container_width=True)
+            
+            # Summary of variations
+            st.subheader("📈 Resumo de Variações")
+            col1, col2, col3, col4 = st.columns(4)
+            
+            avg_variation = variation_data['variacao_qtd'].mean()
+            max_variation = variation_data['variacao_qtd'].max()
+            min_variation = variation_data['variacao_qtd'].min()
+            positive_months = len(variation_data[variation_data['variacao_qtd'] > 0])
+            
+            col1.metric("Variação Média (Qtd)", f"{avg_variation:+,.0f}")
+            col2.metric("Máxima Variação (Qtd)", f"{max_variation:+,.0f}")
+            col3.metric("Mínima Variação (Qtd)", f"{min_variation:+,.0f}")
+            col4.metric("Meses com Crescimento", f"{positive_months}")
+            
+            # Visualization of variations
+            fig_variation = px.bar(
+                variation_display,
+                x='Mês',
+                y='Variação (Qtd)',
+                title='Variação Mensal de Quantidade',
+                color='Variação (Qtd)',
+                color_continuous_scale=['#ff006e', '#ffffff', '#06ffa5'],
+                text='Variação (%)',
+                labels={'Variação (Qtd)': 'Variação de Quantidade'}
+            )
+            fig_variation.update_traces(textposition='outside', texttemplate='%{text:.1f}%')
+            fig_variation.update_layout(
+                template=template_chart,
+                xaxis_tickangle=-45,
+                hovermode='x unified'
+            )
+            st.plotly_chart(fig_variation, use_container_width=True)
+
 # --- PAGE 4: ALERTS ---
 elif pagina == "⚠️ Alertas":
     st.title("⚠️ Sistema de Alertas")
