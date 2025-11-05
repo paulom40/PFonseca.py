@@ -9,8 +9,7 @@ st.set_page_config(page_title="Dashboard de Vendas", layout="wide")
 def load_data():
     url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
     df = pd.read_excel(url)
-    df.columns = df.columns.str.strip()
-    df.columns = [col.upper() for col in df.columns]
+    df.columns = df.columns.str.strip().str.upper()
     df = df.rename(columns={
         "CLIENTE": "Cliente",
         "QTD": "Qtd",
@@ -42,7 +41,14 @@ if categorias: df_filtrado = df_filtrado[df_filtrado["Categoria"].isin(categoria
 if meses: df_filtrado = df_filtrado[df_filtrado["Mes"].isin(meses)]
 if anos: df_filtrado = df_filtrado[df_filtrado["Ano"].isin(anos)]
 
-# Conversão robusta
+# Validação de colunas
+colunas_esperadas = ["Qtd", "V_Liquido"]
+colunas_faltantes = [col for col in colunas_esperadas if col not in df_filtrado.columns]
+if colunas_faltantes:
+    st.error(f"❌ As seguintes colunas estão ausentes: {', '.join(colunas_faltantes)}")
+    st.stop()
+
+# Conversão segura
 df_filtrado["V_Liquido"] = (
     df_filtrado["V_Liquido"]
     .astype(str)
@@ -53,7 +59,7 @@ df_filtrado["V_Liquido"] = (
 df_filtrado["V_Liquido"] = pd.to_numeric(df_filtrado["V_Liquido"], errors="coerce")
 df_filtrado["Qtd"] = pd.to_numeric(df_filtrado["Qtd"], errors="coerce")
 
-# Validação
+# Validação de dados
 if df_filtrado.empty:
     st.warning("⚠️ Nenhum dado encontrado com os filtros selecionados.")
     st.stop()
