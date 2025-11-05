@@ -134,18 +134,11 @@ def load_data():
             df['v_liquido'] = df['v_liquido'].apply(convert_to_numeric)
             st.write(f"✅ Soma V_Liquido: {df['v_liquido'].sum():,.2f}")
         
-        # Limpeza final - remover apenas registros realmente inválidos
-        initial_count = len(df)
-        df = df[
-            (df['qtd'].notna()) & 
-            (df['v_liquido'].notna()) & 
-            (df['cliente'].notna()) &
-            (df['qtd'] >= 0) &  # Aceitar zero, mas não negativos
-            (df['v_liquido'] >= 0)
-        ].copy()
-        final_count = len(df)
+        # Substituir NaN por 0 ao invés de remover linhas
+        df['qtd'] = df['qtd'].fillna(0)
+        df['v_liquido'] = df['v_liquido'].fillna(0)
         
-        st.info(f"🧹 Limpeza: {initial_count} → {final_count} registros ({initial_count - final_count} removidos)")
+        st.info(f"✅ Total de registros mantidos: {len(df):,}")
         
         # Mostrar estatísticas finais
         with st.expander("📊 Estatísticas finais dos dados"):
@@ -278,11 +271,16 @@ with st.sidebar:
     
     # Filtro de Ano
     st.markdown('<div class="filter-section">', unsafe_allow_html=True)
+    try:
+        ano_index = available_options['anos'].index(st.session_state.filters['ano'])
+    except ValueError:
+        ano_index = 0
+        st.session_state.filters['ano'] = available_options['anos'][0]
+    
     novo_ano = st.selectbox(
         "📅 Ano",
         options=available_options['anos'],
-        index=available_options['anos'].index(st.session_state.filters['ano']) 
-        if st.session_state.filters['ano'] in available_options['anos'] else 0,
+        index=ano_index,
         key='ano_selectbox'
     )
     st.markdown('</div>', unsafe_allow_html=True)
@@ -292,6 +290,8 @@ with st.sidebar:
         st.session_state.filters['mes'] = "Todos"
         st.session_state.filters['comercial'] = "Todos"
         st.session_state.filters['cliente'] = "Todos"
+        if 'categoria' in df.columns:
+            st.session_state.filters['categoria'] = "Todas"
         st.rerun()
     
     available_options = get_available_options(df, st.session_state.filters)
@@ -306,11 +306,16 @@ with st.sidebar:
         except:
             mes_atual_display = "Todos"
     
+    try:
+        mes_index = available_options['meses'].index(mes_atual_display)
+    except ValueError:
+        mes_index = 0
+        st.session_state.filters['mes'] = "Todos"
+    
     novo_mes_display = st.selectbox(
         "📆 Mês",
         options=available_options['meses'],
-        index=available_options['meses'].index(mes_atual_display) 
-        if mes_atual_display in available_options['meses'] else 0,
+        index=mes_index,
         key='mes_selectbox'
     )
     st.markdown('</div>', unsafe_allow_html=True)
@@ -326,17 +331,24 @@ with st.sidebar:
         st.session_state.filters['mes'] = novo_mes
         st.session_state.filters['comercial'] = "Todos"
         st.session_state.filters['cliente'] = "Todos"
+        if 'categoria' in df.columns:
+            st.session_state.filters['categoria'] = "Todas"
         st.rerun()
     
     available_options = get_available_options(df, st.session_state.filters)
     
     # Filtro de Comercial
     st.markdown('<div class="filter-section">', unsafe_allow_html=True)
+    try:
+        comercial_index = available_options['comerciais'].index(st.session_state.filters['comercial'])
+    except ValueError:
+        comercial_index = 0
+        st.session_state.filters['comercial'] = available_options['comerciais'][0]
+    
     novo_comercial = st.selectbox(
         "👨‍💼 Comercial", 
         options=available_options['comerciais'],
-        index=available_options['comerciais'].index(st.session_state.filters['comercial']) 
-        if st.session_state.filters['comercial'] in available_options['comerciais'] else 0,
+        index=comercial_index,
         key='comercial_selectbox'
     )
     st.markdown('</div>', unsafe_allow_html=True)
@@ -344,23 +356,32 @@ with st.sidebar:
     if novo_comercial != st.session_state.filters['comercial']:
         st.session_state.filters['comercial'] = novo_comercial
         st.session_state.filters['cliente'] = "Todos"
+        if 'categoria' in df.columns:
+            st.session_state.filters['categoria'] = "Todas"
         st.rerun()
     
     available_options = get_available_options(df, st.session_state.filters)
     
     # Filtro de Cliente
     st.markdown('<div class="filter-section">', unsafe_allow_html=True)
+    try:
+        cliente_index = available_options['clientes'].index(st.session_state.filters['cliente'])
+    except ValueError:
+        cliente_index = 0
+        st.session_state.filters['cliente'] = available_options['clientes'][0]
+    
     novo_cliente = st.selectbox(
         "🏢 Cliente",
         options=available_options['clientes'],
-        index=available_options['clientes'].index(st.session_state.filters['cliente']) 
-        if st.session_state.filters['cliente'] in available_options['clientes'] else 0,
+        index=cliente_index,
         key='cliente_selectbox'
     )
     st.markdown('</div>', unsafe_allow_html=True)
     
     if novo_cliente != st.session_state.filters['cliente']:
         st.session_state.filters['cliente'] = novo_cliente
+        if 'categoria' in df.columns:
+            st.session_state.filters['categoria'] = "Todas"
         st.rerun()
     
     available_options = get_available_options(df, st.session_state.filters)
