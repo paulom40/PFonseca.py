@@ -25,6 +25,11 @@ def load_data():
         elif "ANO" in col: renomear[col] = "Ano"
     df = df.rename(columns=renomear)
     
+    # Remover colunas problemáticas que podem causar erro de serialização
+    colunas_para_manter = ['Cliente', 'Qtd', 'Artigo', 'V_Liquido', 'Comercial', 'Categoria', 'Mes', 'Ano']
+    colunas_existentes = [col for col in colunas_para_manter if col in df.columns]
+    df = df[colunas_existentes]
+    
     # Converter colunas numéricas para o tipo correto
     if 'V_Liquido' in df.columns:
         df['V_Liquido'] = pd.to_numeric(df['V_Liquido'], errors='coerce')
@@ -274,7 +279,7 @@ else:
                         }).style.format({
                             'Total Vendas (€)': '€ {:,.2f}',
                             'Quantidade': '{:,.2f}'
-                        }))
+                        }), width='stretch')
                     
                     # Top produtos do cliente
                     st.subheader(f"🛍️ Top Produtos - {cliente_selecionado}")
@@ -287,7 +292,7 @@ else:
                         st.dataframe(top_produtos.style.format({
                             'V_Liquido': '€ {:,.2f}',
                             'Qtd': '{:,.2f}'
-                        }))
+                        }), width='stretch')
         
         # 📊 KPIS DINÂMICOS POR COMERCIAL
         st.markdown("---")
@@ -357,7 +362,7 @@ else:
                         }).style.format({
                             'Total Vendas (€)': '€ {:,.2f}',
                             'Quantidade': '{:,.2f}'
-                        }))
+                        }), width='stretch')
                     
                     # Top clientes do comercial
                     st.subheader(f"🏆 Top Clientes - {comercial_selecionado}")
@@ -371,7 +376,7 @@ else:
                         st.dataframe(top_clientes.style.format({
                             'V_Liquido': '€ {:,.2f}',
                             'Qtd': '{:,.2f}'
-                        }))
+                        }), width='stretch')
         
         # 📋 VISÃO GERAL COMPARATIVA
         st.markdown("---")
@@ -395,7 +400,7 @@ else:
                 st.dataframe(ranking_clientes.style.format({
                     'V_Liquido': '€ {:,.2f}',
                     'Qtd': '{:,.2f}'
-                }))
+                }), width='stretch')
         
         with tab2:
             # CORREÇÃO: Ranking baseado no dataframe filtrado usando V_Liquido
@@ -413,10 +418,16 @@ else:
                 st.dataframe(ranking_comerciais.style.format({
                     'V_Liquido': '€ {:,.2f}',
                     'Qtd': '{:,.2f}'
-                }))
+                }), width='stretch')
         
         st.subheader("📋 Dados Filtrados")
-        st.dataframe(df_filtrado, use_container_width=True)
+        # CORREÇÃO: Converter colunas problemáticas para string antes de exibir
+        df_display = df_filtrado.copy()
+        for col in df_display.columns:
+            if df_display[col].dtype == 'object':
+                df_display[col] = df_display[col].astype(str)
+        
+        st.dataframe(df_display, width='stretch')
     
     with tab_alertas:
         st.header("🚨 Alertas de Performance Mensal - Clientes")
@@ -532,7 +543,7 @@ else:
                     f'Qtd {mes_atual}': '{:,.2f}',
                     'Variação': '{:,.2f}',
                     'Variação %': '{:.1f}%'
-                }), use_container_width=True)
+                }), width='stretch')
                 
             else:
                 st.warning("⚠️ São necessários pelo menos 2 meses de dados para análise comparativa")
