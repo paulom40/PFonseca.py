@@ -3,7 +3,8 @@ import pandas as pd
 import json
 from pathlib import Path
 
-# 🔄 Carregamento dos dados
+st.set_page_config(page_title="Dashboard de Vendas", layout="wide")
+
 @st.cache_data
 def load_data():
     url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
@@ -25,12 +26,11 @@ def load_data():
     return df
 
 df = load_data()
-
-# 📁 Caminho para presets
+st.write("📋 Colunas disponíveis:", df.columns.tolist())
+# Caminho para presets
 preset_path = Path("diagnosticos/presets_filtros.json")
 preset_path.parent.mkdir(exist_ok=True)
 
-# 📦 Funções de presets
 def carregar_presets():
     if preset_path.exists():
         with open(preset_path, "r", encoding="utf-8") as f:
@@ -43,17 +43,18 @@ def salvar_preset(nome, filtros):
     with open(preset_path, "w", encoding="utf-8") as f:
         json.dump(presets, f, indent=2)
 
-# 🎛️ Filtros interativos
+# Filtros interativos
 st.sidebar.header("🎛️ Filtros Dinâmicos")
-
-def filtro_multiselect(label, coluna, valores=None):
-    opcoes = sorted(df[coluna].dropna().unique())
-    return st.sidebar.multiselect(label, opcoes, default=valores if valores else [])
-
-# Carrega presets se selecionado
 presets = carregar_presets()
 preset_selecionado = st.sidebar.selectbox("📂 Carregar Preset", [""] + list(presets.keys()))
 filtros = presets.get(preset_selecionado, {}) if preset_selecionado else {}
+
+def filtro_multiselect(label, coluna, valores=None):
+    if coluna not in df.columns:
+        st.warning(f"⚠️ Coluna '{coluna}' não encontrada.")
+        return []
+    opcoes = sorted(df[coluna].dropna().unique())
+    return st.sidebar.multiselect(label, opcoes, default=valores if valores else [])
 
 clientes = filtro_multiselect("Cliente", "Cliente", filtros.get("Cliente"))
 artigos = filtro_multiselect("Artigo", "Artigo", filtros.get("Artigo"))
@@ -62,7 +63,6 @@ categorias = filtro_multiselect("Categoria", "Categoria", filtros.get("Categoria
 meses = filtro_multiselect("Mês", "Mes", filtros.get("Mes"))
 anos = filtro_multiselect("Ano", "Ano", filtros.get("Ano"))
 
-# Aplica filtros
 df_filtrado = df.copy()
 if clientes: df_filtrado = df_filtrado[df_filtrado["Cliente"].isin(clientes)]
 if artigos: df_filtrado = df_filtrado[df_filtrado["Artigo"].isin(artigos)]
@@ -71,7 +71,7 @@ if categorias: df_filtrado = df_filtrado[df_filtrado["Categoria"].isin(categoria
 if meses: df_filtrado = df_filtrado[df_filtrado["Mes"].isin(meses)]
 if anos: df_filtrado = df_filtrado[df_filtrado["Ano"].isin(anos)]
 
-# 💾 Salvar novo preset
+# Salvar novo preset
 st.sidebar.markdown("💾 **Salvar Preset Atual**")
 nome_preset = st.sidebar.text_input("Nome do preset")
 if st.sidebar.button("Salvar preset") and nome_preset:
@@ -86,9 +86,9 @@ if st.sidebar.button("Salvar preset") and nome_preset:
     salvar_preset(nome_preset, filtros_atuais)
     st.sidebar.success(f"Preset '{nome_preset}' salvo com sucesso!")
 
-# 🧮 Diagnóstico lateral
+# Diagnóstico lateral
 st.sidebar.markdown("🧪 Diagnóstico de Filtros")
-st.sidebar.write({
+st.sidebar.write(filtros_atuais if nome_preset else {
     "Clientes": clientes,
     "Artigos": artigos,
     "Comerciais": comerciais,
@@ -97,7 +97,7 @@ st.sidebar.write({
     "Anos": anos
 })
 
-# ✅ Validação
+# Validação
 if df_filtrado.empty:
     st.warning("⚠️ Nenhum dado encontrado com os filtros selecionados.")
     st.stop()
