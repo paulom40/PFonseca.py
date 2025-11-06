@@ -149,9 +149,9 @@ else:
         with col1:
             try:
                 total_vendas = df_filtrado['V_Liquido'].sum()
-                st.metric("Total de Vendas", f"€ {total_vendas:,.2f}")
+                st.metric("Total de Vendas (V_Liquido)", f"€ {total_vendas:,.2f}")
             except (TypeError, ValueError):
-                st.metric("Total de Vendas", "Erro no cálculo")
+                st.metric("Total de Vendas (V_Liquido)", "Erro no cálculo")
         
         with col2:
             try:
@@ -206,7 +206,7 @@ else:
                     with col1:
                         try:
                             vendas_cliente = dados_cliente['V_Liquido'].sum()
-                            st.metric(f"Total Vendas - {cliente_selecionado}", f"€ {vendas_cliente:,.2f}")
+                            st.metric(f"Total Vendas (V_Liquido) - {cliente_selecionado}", f"€ {vendas_cliente:,.2f}")
                         except:
                             st.metric(f"Total Vendas - {cliente_selecionado}", "Erro")
                     
@@ -263,7 +263,7 @@ else:
                     with col1:
                         try:
                             vendas_comercial = dados_comercial['V_Liquido'].sum()
-                            st.metric(f"Total Vendas - {comercial_selecionado}", f"€ {vendas_comercial:,.2f}")
+                            st.metric(f"Total Vendas (V_Liquido) - {comercial_selecionado}", f"€ {vendas_comercial:,.2f}")
                         except:
                             st.metric(f"Total Vendas - {comercial_selecionado}", "Erro")
                     
@@ -309,7 +309,7 @@ else:
         tab1, tab2 = st.tabs(["🏢 Ranking de Clientes", "👨‍💼 Ranking de Comerciais"])
         
         with tab1:
-            # CORREÇÃO: Ranking baseado no dataframe filtrado
+            # CORREÇÃO: Ranking baseado no dataframe filtrado usando V_Liquido
             ranking_clientes = df_filtrado.groupby('Cliente').agg({
                 'V_Liquido': 'sum',
                 'Qtd': 'sum',
@@ -327,7 +327,7 @@ else:
                 }))
         
         with tab2:
-            # CORREÇÃO: Ranking baseado no dataframe filtrado
+            # CORREÇÃO: Ranking baseado no dataframe filtrado usando V_Liquido
             ranking_comerciais = df_filtrado.groupby('Comercial').agg({
                 'V_Liquido': 'sum',
                 'Qtd': 'sum',
