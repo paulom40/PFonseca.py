@@ -5,12 +5,12 @@ from pathlib import Path
 
 st.set_page_config(page_title="Dashboard de Vendas", layout="wide")
 
+# 🔄 Carregamento e renomeação
 @st.cache_data
 def load_data():
     url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
     df = pd.read_excel(url)
 
-    # Padroniza nomes
     df.columns = df.columns.str.strip().str.upper()
     renomear = {}
     for col in df.columns:
@@ -26,8 +26,8 @@ def load_data():
     return df
 
 df = load_data()
-st.write("📋 Colunas disponíveis:", df.columns.tolist())
-# Caminho para presets
+
+# 📁 Presets
 preset_path = Path("diagnosticos/presets_filtros.json")
 preset_path.parent.mkdir(exist_ok=True)
 
@@ -43,7 +43,7 @@ def salvar_preset(nome, filtros):
     with open(preset_path, "w", encoding="utf-8") as f:
         json.dump(presets, f, indent=2)
 
-# Filtros interativos
+# 🎛️ Filtros interativos
 st.sidebar.header("🎛️ Filtros Dinâmicos")
 presets = carregar_presets()
 preset_selecionado = st.sidebar.selectbox("📂 Carregar Preset", [""] + list(presets.keys()))
@@ -63,6 +63,7 @@ categorias = filtro_multiselect("Categoria", "Categoria", filtros.get("Categoria
 meses = filtro_multiselect("Mês", "Mes", filtros.get("Mes"))
 anos = filtro_multiselect("Ano", "Ano", filtros.get("Ano"))
 
+# 🔍 Aplica filtros
 df_filtrado = df.copy()
 if clientes: df_filtrado = df_filtrado[df_filtrado["Cliente"].isin(clientes)]
 if artigos: df_filtrado = df_filtrado[df_filtrado["Artigo"].isin(artigos)]
@@ -71,7 +72,7 @@ if categorias: df_filtrado = df_filtrado[df_filtrado["Categoria"].isin(categoria
 if meses: df_filtrado = df_filtrado[df_filtrado["Mes"].isin(meses)]
 if anos: df_filtrado = df_filtrado[df_filtrado["Ano"].isin(anos)]
 
-# Salvar novo preset
+# 💾 Salvar novo preset
 st.sidebar.markdown("💾 **Salvar Preset Atual**")
 nome_preset = st.sidebar.text_input("Nome do preset")
 if st.sidebar.button("Salvar preset") and nome_preset:
@@ -86,8 +87,8 @@ if st.sidebar.button("Salvar preset") and nome_preset:
     salvar_preset(nome_preset, filtros_atuais)
     st.sidebar.success(f"Preset '{nome_preset}' salvo com sucesso!")
 
-# Diagnóstico lateral
-st.sidebar.markdown("🧪 Diagnóstico de Filtros")
+# 🧪 Diagnóstico lateral
+st.sidebar.markdown("📊 Diagnóstico de Filtros")
 st.sidebar.write(filtros_atuais if nome_preset else {
     "Clientes": clientes,
     "Artigos": artigos,
@@ -97,7 +98,7 @@ st.sidebar.write(filtros_atuais if nome_preset else {
     "Anos": anos
 })
 
-# Validação
+# ✅ Validação
 if df_filtrado.empty:
     st.warning("⚠️ Nenhum dado encontrado com os filtros selecionados.")
     st.stop()
