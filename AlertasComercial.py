@@ -1,46 +1,106 @@
 import streamlit as st
-import glob
 import pandas as pd
+import json
 from pathlib import Path
 
-st.subheader("📚 Histórico de Diagnósticos Exportados")
+# 🔄 Carregamento dos dados
+@st.cache_data
+def load_data():
+    url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
+    df = pd.read_excel(url)
 
-# Lista arquivos na pasta
-arquivos = sorted(glob.glob("diagnosticos/diagnostico_vendas_*.xlsx"), reverse=True)
-datas_disponiveis = [Path(a).stem.split("_")[-2:] for a in arquivos]
-datas_formatadas = [f"{d[0]} {d[1].replace('-',':')}" for d in datas_disponiveis]
+    # Padroniza nomes
+    df.columns = df.columns.str.strip().str.upper()
+    renomear = {}
+    for col in df.columns:
+        if "CLIENTE" in col: renomear[col] = "Cliente"
+        elif "QTD" in col: renomear[col] = "Qtd"
+        elif "ARTIGO" in col: renomear[col] = "Artigo"
+        elif "LÍQUIDO" in col: renomear[col] = "V_Liquido"
+        elif "COMERCIAL" in col: renomear[col] = "Comercial"
+        elif "CATEGORIA" in col: renomear[col] = "Categoria"
+        elif "MÊS" in col or "MES" in col: renomear[col] = "Mes"
+        elif "ANO" in col: renomear[col] = "Ano"
+    df = df.rename(columns=renomear)
+    return df
 
-# Filtros
-data_selecionada = st.selectbox("📅 Selecionar data", datas_formatadas if datas_formatadas else ["Nenhuma"])
-cliente_filtro = st.text_input("🔍 Filtrar por cliente (opcional)")
+df = load_data()
 
-# Log de execução
-logs = Path("diagnosticos/log_execucao.txt")
-if logs.exists():
-    with open(logs, "r", encoding="utf-8") as f:
-        st.text_area("📜 Log de Execução", f.read(), height=200)
-# Exibe arquivo correspondente
-if arquivos and data_selecionada != "Nenhuma":
-    idx = datas_formatadas.index(data_selecionada)
-    arquivo = arquivos[idx]
-    nome = Path(arquivo).name
+# 📁 Caminho para presets
+preset_path = Path("diagnosticos/presets_filtros.json")
+preset_path.parent.mkdir(exist_ok=True)
 
-    # Se filtro de cliente estiver ativo, tenta abrir e filtrar
-    if cliente_filtro:
-        try:
-            df_check = pd.read_excel(arquivo, sheet_name="Ticket Médio Cliente")
-            df_filtrado = df_check[df_check["Cliente"].str.contains(cliente_filtro, case=False, na=False)]
-            st.write(f"🔎 Registros encontrados para '{cliente_filtro}':", len(df_filtrado))
-            st.dataframe(df_filtrado)
-        except Exception as e:
-            st.warning(f"⚠️ Não foi possível aplicar filtro: {e}")
+# 📦 Funções de presets
+def carregar_presets():
+    if preset_path.exists():
+        with open(preset_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
 
-    with open(arquivo, "rb") as f:
-        st.download_button(
-            label=f"📥 Baixar {nome}",
-            data=f.read(),
-            file_name=nome,
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+def salvar_preset(nome, filtros):
+    presets = carregar_presets()
+    presets[nome] = filtros
+    with open(preset_path, "w", encoding="utf-8") as f:
+        json.dump(presets, f, indent=2)
+
+# 🎛️ Filtros interativos
+st.sidebar.header("🎛️ Filtros Dinâmicos")
+
+def filtro_multiselect(label, coluna, valores=None):
+    opcoes = sorted(df[coluna].dropna().unique())
+    return st.sidebar.multiselect(label, opcoes, default=valores if valores else [])
+
+# Carrega presets se selecionado
+presets = carregar_presets()
+preset_selecionado = st.sidebar.selectbox("📂 Carregar Preset", [""] + list(presets.keys()))
+filtros = presets.get(preset_selecionado, {}) if preset_selecionado else {}
+
+clientes = filtro_multiselect("Cliente", "Cliente", filtros.get("Cliente"))
+artigos = filtro_multiselect("Artigo", "Artigo", filtros.get("Artigo"))
+comerciais = filtro_multiselect("Comercial", "Comercial", filtros.get("Comercial"))
+categorias = filtro_multiselect("Categoria", "Categoria", filtros.get("Categoria"))
+meses = filtro_multiselect("Mês", "Mes", filtros.get("Mes"))
+anos = filtro_multiselect("Ano", "Ano", filtros.get("Ano"))
+
+# Aplica filtros
+df_filtrado = df.copy()
+if clientes: df_filtrado = df_filtrado[df_filtrado["Cliente"].isin(clientes)]
+if artigos: df_filtrado = df_filtrado[df_filtrado["Artigo"].isin(artigos)]
+if comerciais: df_filtrado = df_filtrado[df_filtrado["Comercial"].isin(comerciais)]
+if categorias: df_filtrado = df_filtrado[df_filtrado["Categoria"].isin(categorias)]
+if meses: df_filtrado = df_filtrado[df_filtrado["Mes"].isin(meses)]
+if anos: df_filtrado = df_filtrado[df_filtrado["Ano"].isin(anos)]
+
+# 💾 Salvar novo preset
+st.sidebar.markdown("💾 **Salvar Preset Atual**")
+nome_preset = st.sidebar.text_input("Nome do preset")
+if st.sidebar.button("Salvar preset") and nome_preset:
+    filtros_atuais = {
+        "Cliente": clientes,
+        "Artigo": artigos,
+        "Comercial": comerciais,
+        "Categoria": categorias,
+        "Mes": meses,
+        "Ano": anos
+    }
+    salvar_preset(nome_preset, filtros_atuais)
+    st.sidebar.success(f"Preset '{nome_preset}' salvo com sucesso!")
+
+# 🧮 Diagnóstico lateral
+st.sidebar.markdown("🧪 Diagnóstico de Filtros")
+st.sidebar.write({
+    "Clientes": clientes,
+    "Artigos": artigos,
+    "Comerciais": comerciais,
+    "Categorias": categorias,
+    "Meses": meses,
+    "Anos": anos
+})
+
+# ✅ Validação
+if df_filtrado.empty:
+    st.warning("⚠️ Nenhum dado encontrado com os filtros selecionados.")
+    st.stop()
 else:
-    st.info("Nenhum diagnóstico exportado ainda.")
+    st.success(f"✅ {len(df_filtrado)} registros encontrados após filtro.")
+    st.dataframe(df_filtrado)
