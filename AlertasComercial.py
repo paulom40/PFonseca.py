@@ -59,7 +59,8 @@ def filtro_multiselect(label, coluna, valores=None):
     # Verifica se valores é None ou vazio antes de usar
     valores_default = valores if valores else []
     
-    opcoes = sorted(df[coluna].dropna().unique())
+    # Converte todos os valores para string antes de ordenar para evitar erro de tipos mistos
+    opcoes = sorted(df[coluna].dropna().astype(str).unique())
     return st.sidebar.multiselect(label, opcoes, default=valores_default)
 
 # Aplica os filtros com verificação de segurança
@@ -74,23 +75,31 @@ anos = filtro_multiselect("Ano", "Ano", filtros.get("Ano"))
 df_filtrado = df.copy()
 filtros_aplicados = []
 
+# Para aplicar os filtros, precisamos garantir que os tipos correspondam
 if clientes: 
-    df_filtrado = df_filtrado[df_filtrado["Cliente"].isin(clientes)]
+    # Converte clientes selecionados para o tipo original dos dados
+    clientes_orig = df["Cliente"].astype(str).isin(clientes)
+    df_filtrado = df_filtrado[clientes_orig]
     filtros_aplicados.append(f"Clientes: {len(clientes)}")
 if artigos: 
-    df_filtrado = df_filtrado[df_filtrado["Artigo"].isin(artigos)]
+    artigos_orig = df["Artigo"].astype(str).isin(artigos)
+    df_filtrado = df_filtrado[artigos_orig]
     filtros_aplicados.append(f"Artigos: {len(artigos)}")
 if comerciais: 
-    df_filtrado = df_filtrado[df_filtrado["Comercial"].isin(comerciais)]
+    comerciais_orig = df["Comercial"].astype(str).isin(comerciais)
+    df_filtrado = df_filtrado[comerciais_orig]
     filtros_aplicados.append(f"Comerciais: {len(comerciais)}")
 if categorias: 
-    df_filtrado = df_filtrado[df_filtrado["Categoria"].isin(categorias)]
+    categorias_orig = df["Categoria"].astype(str).isin(categorias)
+    df_filtrado = df_filtrado[categorias_orig]
     filtros_aplicados.append(f"Categorias: {len(categorias)}")
 if meses: 
-    df_filtrado = df_filtrado[df_filtrado["Mes"].isin(meses)]
+    meses_orig = df["Mes"].astype(str).isin(meses)
+    df_filtrado = df_filtrado[meses_orig]
     filtros_aplicados.append(f"Meses: {len(meses)}")
 if anos: 
-    df_filtrado = df_filtrado[df_filtrado["Ano"].isin(anos)]
+    anos_orig = df["Ano"].astype(str).isin(anos)
+    df_filtrado = df_filtrado[anos_orig]
     filtros_aplicados.append(f"Anos: {len(anos)}")
 
 # 💾 Salvar novo preset
