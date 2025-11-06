@@ -23,6 +23,13 @@ def load_data():
         elif "MÊS" in col or "MES" in col: renomear[col] = "Mes"
         elif "ANO" in col: renomear[col] = "Ano"
     df = df.rename(columns=renomear)
+    
+    # Converter colunas numéricas para o tipo correto
+    if 'V_Liquido' in df.columns:
+        df['V_Liquido'] = pd.to_numeric(df['V_Liquido'], errors='coerce')
+    if 'Qtd' in df.columns:
+        df['Qtd'] = pd.to_numeric(df['Qtd'], errors='coerce')
+    
     return df
 
 df = load_data()
@@ -138,16 +145,47 @@ if df_filtrado.empty:
 else:
     st.success(f"✅ {len(df_filtrado)} registros encontrados após filtro.")
     
-    # Métricas principais
+    # Métricas principais com tratamento de erro
     col1, col2, col3, col4 = st.columns(4)
+    
     with col1:
-        st.metric("Total de Vendas", f"R$ {df_filtrado['V_Liquido'].sum():,.2f}")
+        try:
+            total_vendas = df_filtrado['V_Liquido'].sum()
+            st.metric("Total de Vendas", f"R$ {total_vendas:,.2f}")
+        except (TypeError, ValueError):
+            st.metric("Total de Vendas", "Erro no cálculo")
+    
     with col2:
-        st.metric("Quantidade Total", f"{df_filtrado['Qtd'].sum():,}")
+        try:
+            total_qtd = df_filtrado['Qtd'].sum()
+            st.metric("Quantidade Total", f"{total_qtd:,}")
+        except (TypeError, ValueError):
+            st.metric("Quantidade Total", "Erro no cálculo")
+    
     with col3:
-        st.metric("Clientes Únicos", df_filtrado['Cliente'].nunique())
+        try:
+            clientes_unicos = df_filtrado['Cliente'].nunique()
+            st.metric("Clientes Únicos", clientes_unicos)
+        except (TypeError, ValueError):
+            st.metric("Clientes Únicos", "Erro no cálculo")
+    
     with col4:
-        st.metric("Artigos Únicos", df_filtrado['Artigo'].nunique())
+        try:
+            artigos_unicos = df_filtrado['Artigo'].nunique()
+            st.metric("Artigos Únicos", artigos_unicos)
+        except (TypeError, ValueError):
+            st.metric("Artigos Únicos", "Erro no cálculo")
+    
+    # Informações sobre dados inválidos
+    if 'V_Liquido' in df_filtrado.columns:
+        valores_invalidos = df_filtrado['V_Liquido'].isna().sum()
+        if valores_invalidos > 0:
+            st.info(f"💡 {valores_invalidos} registros com valores inválidos na coluna 'V_Liquido' foram ignorados.")
+    
+    if 'Qtd' in df_filtrado.columns:
+        valores_invalidos_qtd = df_filtrado['Qtd'].isna().sum()
+        if valores_invalidos_qtd > 0:
+            st.info(f"💡 {valores_invalidos_qtd} registros com valores inválidos na coluna 'Qtd' foram ignorados.")
     
     st.subheader("📋 Dados Filtrados")
     st.dataframe(df_filtrado, use_container_width=True)
