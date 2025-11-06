@@ -387,14 +387,19 @@ else:
             meses_ordenados = sorted(df_filtrado['Mes_Ano'].unique(), key=ordenar_mes_ano)
             
             if len(meses_ordenados) >= 2:
-                # Selecionar períodos para comparação
+                # Selecionar períodos para comparação - CORREÇÃO DO ERRO AQUI
                 col1, col2 = st.columns(2)
                 with col1:
-                    mes_anterior = st.selectbox("Mês Anterior", meses_ordenados[:-1], 
-                                              index=len(meses_ordenados)-2)
+                    # Para mês anterior, usamos todos menos o último
+                    opcoes_mes_anterior = meses_ordenados[:-1]
+                    mes_anterior = st.selectbox("Mês Anterior", opcoes_mes_anterior, 
+                                              index=len(opcoes_mes_anterior)-1 if opcoes_mes_anterior else 0)
+                
                 with col2:
-                    mes_atual = st.selectbox("Mês Atual", meses_ordenados[1:], 
-                                           index=len(meses_ordenados)-1)
+                    # Para mês atual, usamos todos a partir do segundo
+                    opcoes_mes_atual = meses_ordenados[1:]
+                    mes_atual = st.selectbox("Mês Atual", opcoes_mes_atual,
+                                           index=len(opcoes_mes_atual)-1 if opcoes_mes_atual else 0)
                 
                 # Calcular totais por cliente por mês
                 dados_mes_anterior = df_filtrado[df_filtrado['Mes_Ano'] == mes_anterior].groupby('Cliente')['Qtd'].sum().reset_index()
