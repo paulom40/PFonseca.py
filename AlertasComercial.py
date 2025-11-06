@@ -362,9 +362,29 @@ else:
             # Criar coluna de mês-ano para ordenação
             df_filtrado['Mes_Ano'] = df_filtrado['Mes'].astype(str) + '-' + df_filtrado['Ano'].astype(str)
             
+            # Mapeamento de meses para números (para ordenação correta)
+            meses_map = {
+                'janeiro': 1, 'fevereiro': 2, 'março': 3, 'abril': 4, 'maio': 5, 'junho': 6,
+                'julho': 7, 'agosto': 8, 'setembro': 9, 'outubro': 10, 'novembro': 11, 'dezembro': 12,
+                'jan': 1, 'fev': 2, 'mar': 3, 'abr': 4, 'mai': 5, 'jun': 6,
+                'jul': 7, 'ago': 8, 'set': 9, 'out': 10, 'nov': 11, 'dez': 12
+            }
+            
+            def ordenar_mes_ano(mes_ano):
+                try:
+                    mes_str, ano = mes_ano.split('-')
+                    # Tenta converter diretamente para número
+                    try:
+                        mes_num = int(mes_str)
+                    except ValueError:
+                        # Se não for número, usa o mapeamento
+                        mes_num = meses_map.get(mes_str.lower(), 13)  # 13 para meses desconhecidos
+                    return (int(ano), mes_num)
+                except:
+                    return (9999, 13)  # Para valores inválidos
+            
             # Ordenar meses por ano e mês
-            meses_ordenados = sorted(df_filtrado['Mes_Ano'].unique(), 
-                                   key=lambda x: (int(x.split('-')[1]), int(x.split('-')[0])))
+            meses_ordenados = sorted(df_filtrado['Mes_Ano'].unique(), key=ordenar_mes_ano)
             
             if len(meses_ordenados) >= 2:
                 # Selecionar períodos para comparação
