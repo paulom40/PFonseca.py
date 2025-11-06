@@ -79,35 +79,28 @@ categorias = filtro_multiselect("Categoria", "Categoria", filtros.get("Categoria
 meses = filtro_multiselect("Mês", "Mes", filtros.get("Mes"))
 anos = filtro_multiselect("Ano", "Ano", filtros.get("Ano"))
 
-# 🔍 Aplica filtros ao dataframe
+# 🔍 CORREÇÃO: Aplica filtros de forma correta
 df_filtrado = df.copy()
 filtros_aplicados = []
 
-# Para aplicar os filtros, precisamos garantir que os tipos correspondam
+# Aplica filtros sequencialmente no dataframe filtrado, não no original
 if clientes: 
-    # Converte clientes selecionados para o tipo original dos dados
-    clientes_orig = df["Cliente"].astype(str).isin(clientes)
-    df_filtrado = df_filtrado[clientes_orig]
+    df_filtrado = df_filtrado[df_filtrado["Cliente"].astype(str).isin(clientes)]
     filtros_aplicados.append(f"Clientes: {len(clientes)}")
 if artigos: 
-    artigos_orig = df["Artigo"].astype(str).isin(artigos)
-    df_filtrado = df_filtrado[artigos_orig]
+    df_filtrado = df_filtrado[df_filtrado["Artigo"].astype(str).isin(artigos)]
     filtros_aplicados.append(f"Artigos: {len(artigos)}")
 if comerciais: 
-    comerciais_orig = df["Comercial"].astype(str).isin(comerciais)
-    df_filtrado = df_filtrado[comerciais_orig]
+    df_filtrado = df_filtrado[df_filtrado["Comercial"].astype(str).isin(comerciais)]
     filtros_aplicados.append(f"Comerciais: {len(comerciais)}")
 if categorias: 
-    categorias_orig = df["Categoria"].astype(str).isin(categorias)
-    df_filtrado = df_filtrado[categorias_orig]
+    df_filtrado = df_filtrado[df_filtrado["Categoria"].astype(str).isin(categorias)]
     filtros_aplicados.append(f"Categorias: {len(categorias)}")
 if meses: 
-    meses_orig = df["Mes"].astype(str).isin(meses)
-    df_filtrado = df_filtrado[meses_orig]
+    df_filtrado = df_filtrado[df_filtrado["Mes"].astype(str).isin(meses)]
     filtros_aplicados.append(f"Meses: {len(meses)}")
 if anos: 
-    anos_orig = df["Ano"].astype(str).isin(anos)
-    df_filtrado = df_filtrado[anos_orig]
+    df_filtrado = df_filtrado[df_filtrado["Ano"].astype(str).isin(anos)]
     filtros_aplicados.append(f"Anos: {len(anos)}")
 
 # 💾 Salvar novo preset
@@ -184,8 +177,10 @@ else:
         # Informações sobre dados inválidos
         if 'V_Liquido' in df_filtrado.columns:
             valores_invalidos = df_filtrado['V_Liquido'].isna().sum()
+            total_valores = len(df_filtrado)
             if valores_invalidos > 0:
-                st.info(f"💡 {valores_invalidos} registros com valores inválidos na coluna 'V_Liquido' foram ignorados.")
+                st.info(f"💡 {valores_invalidos} de {total_valores} registros com valores inválidos na coluna 'V_Liquido' foram ignorados.")
+                st.info(f"📊 Valor total calculado com base em {total_valores - valores_invalidos} registros válidos")
         
         if 'Qtd' in df_filtrado.columns:
             valores_invalidos_qtd = df_filtrado['Qtd'].isna().sum()
@@ -202,7 +197,7 @@ else:
             cliente_selecionado = st.selectbox("🔍 Selecionar Cliente para Análise Detalhada", clientes_disponiveis)
             
             if cliente_selecionado:
-                # Filtrar dados do cliente selecionado
+                # CORREÇÃO: Filtrar do dataframe já filtrado
                 dados_cliente = df_filtrado[df_filtrado['Cliente'].astype(str) == cliente_selecionado]
                 
                 if not dados_cliente.empty:
@@ -259,7 +254,7 @@ else:
             comercial_selecionado = st.selectbox("👨‍💼 Selecionar Comercial para Análise Detalhada", comerciais_disponiveis)
             
             if comercial_selecionado:
-                # Filtrar dados do comercial selecionado
+                # CORREÇÃO: Filtrar do dataframe já filtrado
                 dados_comercial = df_filtrado[df_filtrado['Comercial'].astype(str) == comercial_selecionado]
                 
                 if not dados_comercial.empty:
@@ -314,7 +309,7 @@ else:
         tab1, tab2 = st.tabs(["🏢 Ranking de Clientes", "👨‍💼 Ranking de Comerciais"])
         
         with tab1:
-            # Ranking de clientes
+            # CORREÇÃO: Ranking baseado no dataframe filtrado
             ranking_clientes = df_filtrado.groupby('Cliente').agg({
                 'V_Liquido': 'sum',
                 'Qtd': 'sum',
@@ -332,7 +327,7 @@ else:
                 }))
         
         with tab2:
-            # Ranking de comerciais
+            # CORREÇÃO: Ranking baseado no dataframe filtrado
             ranking_comerciais = df_filtrado.groupby('Comercial').agg({
                 'V_Liquido': 'sum',
                 'Qtd': 'sum',
@@ -356,7 +351,7 @@ else:
         st.header("🚨 Alertas de Performance Mensal - Clientes")
         st.info("📊 Análise baseada na quantidade (Qtd) mensal por cliente")
         
-        # Preparar dados para análise mensal
+        # Preparar dados para análise mensal - CORREÇÃO: usar df_filtrado
         if not df_filtrado.empty and 'Mes' in df_filtrado.columns and 'Ano' in df_filtrado.columns:
             
             # Criar coluna de mês-ano para ordenação
@@ -387,7 +382,7 @@ else:
             meses_ordenados = sorted(df_filtrado['Mes_Ano'].unique(), key=ordenar_mes_ano)
             
             if len(meses_ordenados) >= 2:
-                # Selecionar períodos para comparação - CORREÇÃO DO ERRO AQUI
+                # Selecionar períodos para comparação
                 col1, col2 = st.columns(2)
                 with col1:
                     # Para mês anterior, usamos todos menos o último
@@ -401,7 +396,7 @@ else:
                     mes_atual = st.selectbox("Mês Atual", opcoes_mes_atual,
                                            index=len(opcoes_mes_atual)-1 if opcoes_mes_atual else 0)
                 
-                # Calcular totais por cliente por mês
+                # CORREÇÃO: Calcular totais por cliente por mês do dataframe filtrado
                 dados_mes_anterior = df_filtrado[df_filtrado['Mes_Ano'] == mes_anterior].groupby('Cliente')['Qtd'].sum().reset_index()
                 dados_mes_atual = df_filtrado[df_filtrado['Mes_Ano'] == mes_atual].groupby('Cliente')['Qtd'].sum().reset_index()
                 
