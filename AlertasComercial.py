@@ -231,6 +231,51 @@ else:
                         except:
                             st.metric(f"Ticket Médio - {cliente_selecionado}", "Erro")
                     
+                    # Análise mensal detalhada do cliente
+                    st.subheader(f"📅 Análise Mensal - {cliente_selecionado}")
+                    
+                    # CORREÇÃO: Calcular vendas mensais do cliente específico
+                    vendas_mensais = dados_cliente.groupby(['Ano', 'Mes']).agg({
+                        'V_Liquido': 'sum',
+                        'Qtd': 'sum'
+                    }).reset_index()
+                    
+                    # Criar coluna Mes_Ano para ordenação
+                    vendas_mensais['Mes_Ano'] = vendas_mensais['Mes'].astype(str) + '-' + vendas_mensais['Ano'].astype(str)
+                    
+                    # Ordenar por ano e mês
+                    meses_map = {
+                        'janeiro': 1, 'fevereiro': 2, 'março': 3, 'abril': 4, 'maio': 5, 'junho': 6,
+                        'julho': 7, 'agosto': 8, 'setembro': 9, 'outubro': 10, 'novembro': 11, 'dezembro': 12,
+                        'jan': 1, 'fev': 2, 'mar': 3, 'abr': 4, 'mai': 5, 'jun': 6,
+                        'jul': 7, 'ago': 8, 'set': 9, 'out': 10, 'nov': 11, 'dez': 12
+                    }
+                    
+                    def ordenar_mes_ano(mes_ano):
+                        try:
+                            mes_str, ano = mes_ano.split('-')
+                            try:
+                                mes_num = int(mes_str)
+                            except ValueError:
+                                mes_num = meses_map.get(mes_str.lower(), 13)
+                            return (int(ano), mes_num)
+                        except:
+                            return (9999, 13)
+                    
+                    vendas_mensais['Ordenacao'] = vendas_mensais['Mes_Ano'].apply(ordenar_mes_ano)
+                    vendas_mensais = vendas_mensais.sort_values('Ordenacao')
+                    
+                    # Mostrar tabela de vendas mensais
+                    if not vendas_mensais.empty:
+                        st.dataframe(vendas_mensais[['Mes_Ano', 'V_Liquido', 'Qtd']].rename(columns={
+                            'Mes_Ano': 'Mês-Ano',
+                            'V_Liquido': 'Total Vendas (€)',
+                            'Qtd': 'Quantidade'
+                        }).style.format({
+                            'Total Vendas (€)': '€ {:,.2f}',
+                            'Quantidade': '{:,.2f}'
+                        }))
+                    
                     # Top produtos do cliente
                     st.subheader(f"🛍️ Top Produtos - {cliente_selecionado}")
                     top_produtos = dados_cliente.groupby('Artigo').agg({
@@ -287,6 +332,32 @@ else:
                             st.metric(f"Ticket Médio - {comercial_selecionado}", f"€ {ticket_medio_comercial:,.2f}")
                         except:
                             st.metric(f"Ticket Médio - {comercial_selecionado}", "Erro")
+                    
+                    # Análise mensal detalhada do comercial
+                    st.subheader(f"📅 Análise Mensal - {comercial_selecionado}")
+                    
+                    vendas_mensais_comercial = dados_comercial.groupby(['Ano', 'Mes']).agg({
+                        'V_Liquido': 'sum',
+                        'Qtd': 'sum',
+                        'Cliente': 'nunique'
+                    }).reset_index()
+                    
+                    # Criar coluna Mes_Ano para ordenação
+                    vendas_mensais_comercial['Mes_Ano'] = vendas_mensais_comercial['Mes'].astype(str) + '-' + vendas_mensais_comercial['Ano'].astype(str)
+                    vendas_mensais_comercial['Ordenacao'] = vendas_mensais_comercial['Mes_Ano'].apply(ordenar_mes_ano)
+                    vendas_mensais_comercial = vendas_mensais_comercial.sort_values('Ordenacao')
+                    
+                    # Mostrar tabela de vendas mensais
+                    if not vendas_mensais_comercial.empty:
+                        st.dataframe(vendas_mensais_comercial[['Mes_Ano', 'V_Liquido', 'Qtd', 'Cliente']].rename(columns={
+                            'Mes_Ano': 'Mês-Ano',
+                            'V_Liquido': 'Total Vendas (€)',
+                            'Qtd': 'Quantidade',
+                            'Cliente': 'Clientes Únicos'
+                        }).style.format({
+                            'Total Vendas (€)': '€ {:,.2f}',
+                            'Quantidade': '{:,.2f}'
+                        }))
                     
                     # Top clientes do comercial
                     st.subheader(f"🏆 Top Clientes - {comercial_selecionado}")
@@ -356,27 +427,6 @@ else:
             
             # Criar coluna de mês-ano para ordenação
             df_filtrado['Mes_Ano'] = df_filtrado['Mes'].astype(str) + '-' + df_filtrado['Ano'].astype(str)
-            
-            # Mapeamento de meses para números (para ordenação correta)
-            meses_map = {
-                'janeiro': 1, 'fevereiro': 2, 'março': 3, 'abril': 4, 'maio': 5, 'junho': 6,
-                'julho': 7, 'agosto': 8, 'setembro': 9, 'outubro': 10, 'novembro': 11, 'dezembro': 12,
-                'jan': 1, 'fev': 2, 'mar': 3, 'abr': 4, 'mai': 5, 'jun': 6,
-                'jul': 7, 'ago': 8, 'set': 9, 'out': 10, 'nov': 11, 'dez': 12
-            }
-            
-            def ordenar_mes_ano(mes_ano):
-                try:
-                    mes_str, ano = mes_ano.split('-')
-                    # Tenta converter diretamente para número
-                    try:
-                        mes_num = int(mes_str)
-                    except ValueError:
-                        # Se não for número, usa o mapeamento
-                        mes_num = meses_map.get(mes_str.lower(), 13)  # 13 para meses desconhecidos
-                    return (int(ano), mes_num)
-                except:
-                    return (9999, 13)  # Para valores inválidos
             
             # Ordenar meses por ano e mês
             meses_ordenados = sorted(df_filtrado['Mes_Ano'].unique(), key=ordenar_mes_ano)
