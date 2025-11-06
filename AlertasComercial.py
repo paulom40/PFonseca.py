@@ -151,14 +151,14 @@ else:
     with col1:
         try:
             total_vendas = df_filtrado['V_Liquido'].sum()
-            st.metric("Total de Vendas", f"R$ {total_vendas:,.2f}")
+            st.metric("Total de Vendas", f"€ {total_vendas:,.2f}")
         except (TypeError, ValueError):
             st.metric("Total de Vendas", "Erro no cálculo")
     
     with col2:
         try:
             total_qtd = df_filtrado['Qtd'].sum()
-            st.metric("Quantidade Total", f"{total_qtd:,}")
+            st.metric("Quantidade Total", f"{total_qtd:,.2f}")
         except (TypeError, ValueError):
             st.metric("Quantidade Total", "Erro no cálculo")
     
@@ -206,14 +206,14 @@ else:
                 with col1:
                     try:
                         vendas_cliente = dados_cliente['V_Liquido'].sum()
-                        st.metric(f"Total Vendas - {cliente_selecionado}", f"R$ {vendas_cliente:,.2f}")
+                        st.metric(f"Total Vendas - {cliente_selecionado}", f"€ {vendas_cliente:,.2f}")
                     except:
                         st.metric(f"Total Vendas - {cliente_selecionado}", "Erro")
                 
                 with col2:
                     try:
                         qtd_cliente = dados_cliente['Qtd'].sum()
-                        st.metric(f"Quantidade Total - {cliente_selecionado}", f"{qtd_cliente:,}")
+                        st.metric(f"Quantidade Total - {cliente_selecionado}", f"{qtd_cliente:,.2f}")
                     except:
                         st.metric(f"Quantidade Total - {cliente_selecionado}", "Erro")
                 
@@ -227,7 +227,7 @@ else:
                 with col4:
                     try:
                         ticket_medio = vendas_cliente / qtd_cliente if qtd_cliente > 0 else 0
-                        st.metric(f"Ticket Médio - {cliente_selecionado}", f"R$ {ticket_medio:,.2f}")
+                        st.metric(f"Ticket Médio - {cliente_selecionado}", f"€ {ticket_medio:,.2f}")
                     except:
                         st.metric(f"Ticket Médio - {cliente_selecionado}", "Erro")
                 
@@ -240,8 +240,8 @@ else:
                 
                 if not top_produtos.empty:
                     st.dataframe(top_produtos.style.format({
-                        'V_Liquido': 'R$ {:,.2f}',
-                        'Qtd': '{:,}'
+                        'V_Liquido': '€ {:,.2f}',
+                        'Qtd': '{:,.2f}'
                     }))
     
     # 📊 KPIS DINÂMICOS POR COMERCIAL
@@ -263,14 +263,14 @@ else:
                 with col1:
                     try:
                         vendas_comercial = dados_comercial['V_Liquido'].sum()
-                        st.metric(f"Total Vendas - {comercial_selecionado}", f"R$ {vendas_comercial:,.2f}")
+                        st.metric(f"Total Vendas - {comercial_selecionado}", f"€ {vendas_comercial:,.2f}")
                     except:
                         st.metric(f"Total Vendas - {comercial_selecionado}", "Erro")
                 
                 with col2:
                     try:
                         qtd_comercial = dados_comercial['Qtd'].sum()
-                        st.metric(f"Quantidade Total - {comercial_selecionado}", f"{qtd_comercial:,}")
+                        st.metric(f"Quantidade Total - {comercial_selecionado}", f"{qtd_comercial:,.2f}")
                     except:
                         st.metric(f"Quantidade Total - {comercial_selecionado}", "Erro")
                 
@@ -284,7 +284,7 @@ else:
                 with col4:
                     try:
                         ticket_medio_comercial = vendas_comercial / qtd_comercial if qtd_comercial > 0 else 0
-                        st.metric(f"Ticket Médio - {comercial_selecionado}", f"R$ {ticket_medio_comercial:,.2f}")
+                        st.metric(f"Ticket Médio - {comercial_selecionado}", f"€ {ticket_medio_comercial:,.2f}")
                     except:
                         st.metric(f"Ticket Médio - {comercial_selecionado}", "Erro")
                 
@@ -298,8 +298,8 @@ else:
                 
                 if not top_clientes.empty:
                     st.dataframe(top_clientes.style.format({
-                        'V_Liquido': 'R$ {:,.2f}',
-                        'Qtd': '{:,}'
+                        'V_Liquido': '€ {:,.2f}',
+                        'Qtd': '{:,.2f}'
                     }))
     
     # 📋 VISÃO GERAL COMPARATIVA
@@ -322,8 +322,8 @@ else:
         
         if not ranking_clientes.empty:
             st.dataframe(ranking_clientes.style.format({
-                'V_Liquido': 'R$ {:,.2f}',
-                'Qtd': '{:,}'
+                'V_Liquido': '€ {:,.2f}',
+                'Qtd': '{:,.2f}'
             }))
     
     with tab2:
@@ -340,8 +340,8 @@ else:
         
         if not ranking_comerciais.empty:
             st.dataframe(ranking_comerciais.style.format({
-                'V_Liquido': 'R$ {:,.2f}',
-                'Qtd': '{:,}'
+                'V_Liquido': '€ {:,.2f}',
+                'Qtd': '{:,.2f}'
             }))
     
     st.subheader("📋 Dados Filtrados")
