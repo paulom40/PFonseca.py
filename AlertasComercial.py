@@ -187,5 +187,162 @@ else:
         if valores_invalidos_qtd > 0:
             st.info(f"💡 {valores_invalidos_qtd} registros com valores inválidos na coluna 'Qtd' foram ignorados.")
     
+    # 📈 KPIS DINÂMICOS POR CLIENTE
+    st.markdown("---")
+    st.subheader("📈 KPIs por Cliente")
+    
+    # Selecionar cliente para análise detalhada
+    clientes_disponiveis = sorted(df_filtrado['Cliente'].dropna().astype(str).unique())
+    if clientes_disponiveis:
+        cliente_selecionado = st.selectbox("🔍 Selecionar Cliente para Análise Detalhada", clientes_disponiveis)
+        
+        if cliente_selecionado:
+            # Filtrar dados do cliente selecionado
+            dados_cliente = df_filtrado[df_filtrado['Cliente'].astype(str) == cliente_selecionado]
+            
+            if not dados_cliente.empty:
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    try:
+                        vendas_cliente = dados_cliente['V_Liquido'].sum()
+                        st.metric(f"Total Vendas - {cliente_selecionado}", f"R$ {vendas_cliente:,.2f}")
+                    except:
+                        st.metric(f"Total Vendas - {cliente_selecionado}", "Erro")
+                
+                with col2:
+                    try:
+                        qtd_cliente = dados_cliente['Qtd'].sum()
+                        st.metric(f"Quantidade Total - {cliente_selecionado}", f"{qtd_cliente:,}")
+                    except:
+                        st.metric(f"Quantidade Total - {cliente_selecionado}", "Erro")
+                
+                with col3:
+                    try:
+                        artigos_cliente = dados_cliente['Artigo'].nunique()
+                        st.metric(f"Artigos Únicos - {cliente_selecionado}", artigos_cliente)
+                    except:
+                        st.metric(f"Artigos Únicos - {cliente_selecionado}", "Erro")
+                
+                with col4:
+                    try:
+                        ticket_medio = vendas_cliente / qtd_cliente if qtd_cliente > 0 else 0
+                        st.metric(f"Ticket Médio - {cliente_selecionado}", f"R$ {ticket_medio:,.2f}")
+                    except:
+                        st.metric(f"Ticket Médio - {cliente_selecionado}", "Erro")
+                
+                # Top produtos do cliente
+                st.subheader(f"🛍️ Top Produtos - {cliente_selecionado}")
+                top_produtos = dados_cliente.groupby('Artigo').agg({
+                    'V_Liquido': 'sum',
+                    'Qtd': 'sum'
+                }).sort_values('V_Liquido', ascending=False).head(10)
+                
+                if not top_produtos.empty:
+                    st.dataframe(top_produtos.style.format({
+                        'V_Liquido': 'R$ {:,.2f}',
+                        'Qtd': '{:,}'
+                    }))
+    
+    # 📊 KPIS DINÂMICOS POR COMERCIAL
+    st.markdown("---")
+    st.subheader("📊 KPIs por Comercial")
+    
+    # Selecionar comercial para análise detalhada
+    comerciais_disponiveis = sorted(df_filtrado['Comercial'].dropna().astype(str).unique())
+    if comerciais_disponiveis:
+        comercial_selecionado = st.selectbox("👨‍💼 Selecionar Comercial para Análise Detalhada", comerciais_disponiveis)
+        
+        if comercial_selecionado:
+            # Filtrar dados do comercial selecionado
+            dados_comercial = df_filtrado[df_filtrado['Comercial'].astype(str) == comercial_selecionado]
+            
+            if not dados_comercial.empty:
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    try:
+                        vendas_comercial = dados_comercial['V_Liquido'].sum()
+                        st.metric(f"Total Vendas - {comercial_selecionado}", f"R$ {vendas_comercial:,.2f}")
+                    except:
+                        st.metric(f"Total Vendas - {comercial_selecionado}", "Erro")
+                
+                with col2:
+                    try:
+                        qtd_comercial = dados_comercial['Qtd'].sum()
+                        st.metric(f"Quantidade Total - {comercial_selecionado}", f"{qtd_comercial:,}")
+                    except:
+                        st.metric(f"Quantidade Total - {comercial_selecionado}", "Erro")
+                
+                with col3:
+                    try:
+                        clientes_comercial = dados_comercial['Cliente'].nunique()
+                        st.metric(f"Clientes Únicos - {comercial_selecionado}", clientes_comercial)
+                    except:
+                        st.metric(f"Clientes Únicos - {comercial_selecionado}", "Erro")
+                
+                with col4:
+                    try:
+                        ticket_medio_comercial = vendas_comercial / qtd_comercial if qtd_comercial > 0 else 0
+                        st.metric(f"Ticket Médio - {comercial_selecionado}", f"R$ {ticket_medio_comercial:,.2f}")
+                    except:
+                        st.metric(f"Ticket Médio - {comercial_selecionado}", "Erro")
+                
+                # Top clientes do comercial
+                st.subheader(f"🏆 Top Clientes - {comercial_selecionado}")
+                top_clientes = dados_comercial.groupby('Cliente').agg({
+                    'V_Liquido': 'sum',
+                    'Qtd': 'sum',
+                    'Artigo': 'nunique'
+                }).rename(columns={'Artigo': 'Artigos Únicos'}).sort_values('V_Liquido', ascending=False).head(10)
+                
+                if not top_clientes.empty:
+                    st.dataframe(top_clientes.style.format({
+                        'V_Liquido': 'R$ {:,.2f}',
+                        'Qtd': '{:,}'
+                    }))
+    
+    # 📋 VISÃO GERAL COMPARATIVA
+    st.markdown("---")
+    st.subheader("📋 Visão Geral Comparativa")
+    
+    tab1, tab2 = st.tabs(["🏢 Ranking de Clientes", "👨‍💼 Ranking de Comerciais"])
+    
+    with tab1:
+        # Ranking de clientes
+        ranking_clientes = df_filtrado.groupby('Cliente').agg({
+            'V_Liquido': 'sum',
+            'Qtd': 'sum',
+            'Artigo': 'nunique',
+            'Comercial': 'nunique'
+        }).rename(columns={
+            'Artigo': 'Artigos Únicos',
+            'Comercial': 'Comerciais'
+        }).sort_values('V_Liquido', ascending=False).head(15)
+        
+        if not ranking_clientes.empty:
+            st.dataframe(ranking_clientes.style.format({
+                'V_Liquido': 'R$ {:,.2f}',
+                'Qtd': '{:,}'
+            }))
+    
+    with tab2:
+        # Ranking de comerciais
+        ranking_comerciais = df_filtrado.groupby('Comercial').agg({
+            'V_Liquido': 'sum',
+            'Qtd': 'sum',
+            'Cliente': 'nunique',
+            'Artigo': 'nunique'
+        }).rename(columns={
+            'Cliente': 'Clientes Únicos',
+            'Artigo': 'Artigos Únicos'
+        }).sort_values('V_Liquido', ascending=False).head(15)
+        
+        if not ranking_comerciais.empty:
+            st.dataframe(ranking_comerciais.style.format({
+                'V_Liquido': 'R$ {:,.2f}',
+                'Qtd': '{:,}'
+            }))
+    
     st.subheader("📋 Dados Filtrados")
     st.dataframe(df_filtrado, use_container_width=True)
