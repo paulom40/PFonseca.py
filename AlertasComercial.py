@@ -47,15 +47,22 @@ def salvar_preset(nome, filtros):
 st.sidebar.header("🎛️ Filtros Dinâmicos")
 presets = carregar_presets()
 preset_selecionado = st.sidebar.selectbox("📂 Carregar Preset", [""] + list(presets.keys()))
+
+# Inicializa filtros vazios se nenhum preset for selecionado
 filtros = presets.get(preset_selecionado, {}) if preset_selecionado else {}
 
 def filtro_multiselect(label, coluna, valores=None):
     if coluna not in df.columns:
         st.warning(f"⚠️ Coluna '{coluna}' não encontrada.")
         return []
+    
+    # Verifica se valores é None ou vazio antes de usar
+    valores_default = valores if valores else []
+    
     opcoes = sorted(df[coluna].dropna().unique())
-    return st.sidebar.multiselect(label, opcoes, default=valores if valores else [])
+    return st.sidebar.multiselect(label, opcoes, default=valores_default)
 
+# Aplica os filtros com verificação de segurança
 clientes = filtro_multiselect("Cliente", "Cliente", filtros.get("Cliente"))
 artigos = filtro_multiselect("Artigo", "Artigo", filtros.get("Artigo"))
 comerciais = filtro_multiselect("Comercial", "Comercial", filtros.get("Comercial"))
@@ -63,18 +70,34 @@ categorias = filtro_multiselect("Categoria", "Categoria", filtros.get("Categoria
 meses = filtro_multiselect("Mês", "Mes", filtros.get("Mes"))
 anos = filtro_multiselect("Ano", "Ano", filtros.get("Ano"))
 
-# 🔍 Aplica filtros
+# 🔍 Aplica filtros ao dataframe
 df_filtrado = df.copy()
-if clientes: df_filtrado = df_filtrado[df_filtrado["Cliente"].isin(clientes)]
-if artigos: df_filtrado = df_filtrado[df_filtrado["Artigo"].isin(artigos)]
-if comerciais: df_filtrado = df_filtrado[df_filtrado["Comercial"].isin(comerciais)]
-if categorias: df_filtrado = df_filtrado[df_filtrado["Categoria"].isin(categorias)]
-if meses: df_filtrado = df_filtrado[df_filtrado["Mes"].isin(meses)]
-if anos: df_filtrado = df_filtrado[df_filtrado["Ano"].isin(anos)]
+filtros_aplicados = []
+
+if clientes: 
+    df_filtrado = df_filtrado[df_filtrado["Cliente"].isin(clientes)]
+    filtros_aplicados.append(f"Clientes: {len(clientes)}")
+if artigos: 
+    df_filtrado = df_filtrado[df_filtrado["Artigo"].isin(artigos)]
+    filtros_aplicados.append(f"Artigos: {len(artigos)}")
+if comerciais: 
+    df_filtrado = df_filtrado[df_filtrado["Comercial"].isin(comerciais)]
+    filtros_aplicados.append(f"Comerciais: {len(comerciais)}")
+if categorias: 
+    df_filtrado = df_filtrado[df_filtrado["Categoria"].isin(categorias)]
+    filtros_aplicados.append(f"Categorias: {len(categorias)}")
+if meses: 
+    df_filtrado = df_filtrado[df_filtrado["Mes"].isin(meses)]
+    filtros_aplicados.append(f"Meses: {len(meses)}")
+if anos: 
+    df_filtrado = df_filtrado[df_filtrado["Ano"].isin(anos)]
+    filtros_aplicados.append(f"Anos: {len(anos)}")
 
 # 💾 Salvar novo preset
+st.sidebar.markdown("---")
 st.sidebar.markdown("💾 **Salvar Preset Atual**")
 nome_preset = st.sidebar.text_input("Nome do preset")
+
 if st.sidebar.button("Salvar preset") and nome_preset:
     filtros_atuais = {
         "Cliente": clientes,
@@ -88,20 +111,34 @@ if st.sidebar.button("Salvar preset") and nome_preset:
     st.sidebar.success(f"Preset '{nome_preset}' salvo com sucesso!")
 
 # 🧪 Diagnóstico lateral
-st.sidebar.markdown("📊 Diagnóstico de Filtros")
-st.sidebar.write(filtros_atuais if nome_preset else {
-    "Clientes": clientes,
-    "Artigos": artigos,
-    "Comerciais": comerciais,
-    "Categorias": categorias,
-    "Meses": meses,
-    "Anos": anos
-})
+st.sidebar.markdown("---")
+st.sidebar.markdown("📊 **Diagnóstico de Filtros**")
+st.sidebar.write("**Filtros Aplicados:**")
+if filtros_aplicados:
+    for filtro in filtros_aplicados:
+        st.sidebar.write(f"- {filtro}")
+else:
+    st.sidebar.write("Nenhum filtro aplicado")
 
-# ✅ Validação
+# ✅ Validação e exibição dos dados
+st.title("📊 Dashboard de Vendas")
+
 if df_filtrado.empty:
     st.warning("⚠️ Nenhum dado encontrado com os filtros selecionados.")
-    st.stop()
+    st.info("💡 Tente ajustar os filtros para ver os dados.")
 else:
     st.success(f"✅ {len(df_filtrado)} registros encontrados após filtro.")
-    st.dataframe(df_filtrado)
+    
+    # Métricas principais
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total de Vendas", f"R$ {df_filtrado['V_Liquido'].sum():,.2f}")
+    with col2:
+        st.metric("Quantidade Total", f"{df_filtrado['Qtd'].sum():,}")
+    with col3:
+        st.metric("Clientes Únicos", df_filtrado['Cliente'].nunique())
+    with col4:
+        st.metric("Artigos Únicos", df_filtrado['Artigo'].nunique())
+    
+    st.subheader("📋 Dados Filtrados")
+    st.dataframe(df_filtrado, use_container_width=True)
