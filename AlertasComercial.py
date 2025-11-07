@@ -299,7 +299,7 @@ else:
             st.info(f"Apenas {len(meses_disponiveis)} mês disponível.")
 
     # -------------------------------------------------
-    # 13. COMPARAÇÃO DE VENDAS POR ANO
+    # 13. COMPARAÇÃO DE VENDAS POR ANO (CORRIGIDA)
     # -------------------------------------------------
     st.markdown("<div class='section-header'>Comparação de Vendas por Ano</div>", unsafe_allow_html=True)
     df_ano = df.copy()
@@ -322,24 +322,49 @@ else:
         df_resumo['Vendas_Str'] = df_resumo['V_Liquido'].apply(lambda x: formatar_numero_pt(x, "EUR "))
         df_resumo['Qtd_Str'] = df_resumo['Qtd'].apply(formatar_numero_pt)
         df_resumo['Var_Vendas_%'] = df_resumo['V_Liquido'].pct_change() * 100
-        df_resumo['Var_Vendas_Str'] = df_resumo['Var_Vendas_%'].apply(lambda x: f"{x:+.1f}%" if pd.notna(x) else "")
+        df_resumo['Var_Vendas_Str'] = df_resumo['Var_Vendas_%'].apply(
+            lambda x: f"{x:+.1f}%" if pd.notna(x) else ""
+        )
 
         tabela_ano = df_resumo[['Ano_Str', 'Qtd_Str', 'Vendas_Str', 'Var_Vendas_Str']].rename(columns={
             'Ano_Str': 'Ano', 'Qtd_Str': 'Qtd', 'Vendas_Str': 'Vendas', 'Var_Vendas_Str': 'Variação %'
         })
 
-        st.table(tabela_ano.style.apply(
-            lambda x: ['background: lightgreen' if 'Variação' in x.name and x['Variação %'] != '' and float(x['Variação %'].replace('%','').replace('+','')) > 0 else
-                       'background: lightcoral' if 'Variação' in x.name and x['Variação %'] != '' and float(x['Variação %'].replace('%','').replace('+','')) < 0 else ''
-                       for _ in x], axis=1
-        ))
+        # ESTILO SEGURO
+        def highlight_variacao(val):
+            try:
+                if pd.isna(val) or val == "":
+                    return ""
+                num = float(val.replace('%', '').replace('+', '').replace('−', '-'))
+                if num > 0:
+                    return "background-color: lightgreen"
+                elif num < 0:
+                    return "background-color: lightcoral"
+            except:
+                pass
+            return ""
 
-        fig = px.bar(df_resumo, x='Ano_Str', y='V_Liquido', text='Vendas_Str', title="Vendas por Ano")
+        styled_table = tabela_ano.style.applymap(
+            highlight_variacao,
+            subset=['Variação %']
+        )
+
+        st.table(styled_table)
+
+        # Gráfico
+        fig = px.bar(df_resumo, x='Ano_Str', y='V_Liquido',
+                     text='Vendas_Str', title="Vendas por Ano (EUR)")
         fig.update_traces(textposition='outside')
         fig.update_layout(yaxis_visible=False, yaxis_showticklabels=False)
         st.plotly_chart(fig, use_container_width=True)
 
-        st.download_button("Exportar Vendas por Ano", to_excel(tabela_ano), "vendas_por_ano.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        # Exportação
+        st.download_button(
+            "Exportar Vendas por Ano",
+            to_excel(tabela_ano),
+            "vendas_por_ano.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
     # -------------------------------------------------
     # 14. GRÁFICOS
@@ -349,13 +374,15 @@ else:
     with col1:
         top_c = df_filtrado.groupby('Cliente')['V_Liquido'].sum().nlargest(10)
         if not top_c.empty:
-            fig = px.bar(top_c.reset_index(), x='V_Liquido', y='Cliente', orientation='h', text=top_c.map(lambda x: formatar_numero_pt(x, "EUR ")))
+            fig = px.bar(top_c.reset_index(), x='V_Liquido', y='Cliente', orientation='h',
+                         text=top_c.map(lambda x: formatar_numero_pt(x, "EUR ")))
             fig.update_traces(textposition='outside')
             st.plotly_chart(fig, use_container_width=True)
     with col2:
         top_a = df_filtrado.groupby('Artigo')['V_Liquido'].sum().nlargest(10)
         if not top_a.empty:
-            fig = px.bar(top_a.reset_index(), x='V_Liquido', y='Artigo', orientation='h', text=top_a.map(lambda x: formatar_numero_pt(x, "EUR ")))
+            fig = px.bar(top_a.reset_index(), x='V_Liquido', y='Artigo', orientation='h',
+                         text=top_a.map(lambda x: formatar_numero_pt(x, "EUR ")))
             fig.update_traces(textposition='outside')
             st.plotly_chart(fig, use_container_width=True)
 
