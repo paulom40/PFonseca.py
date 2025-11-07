@@ -1,108 +1,345 @@
 import streamlit as st
 import pandas as pd
+import json
+from pathlib import Path
+import numpy as np
+import plotly.express as px
+from datetime import datetime
 
-st.title("🎯 FILTRO DE ARTIGOS - SOLUÇÃO DEFINITIVA")
+# Configuração da página
+st.set_page_config(
+    page_title="Dashboard de Vendas - Business Intelligence",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
+# CSS personalizado
+st.markdown("""
+<style>
+    .main-header {
+        font-size: 2.5rem;
+        color: #1f77b4;
+        text-align: center;
+        margin-bottom: 2rem;
+        font-weight: 700;
+    }
+    .metric-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 1.5rem;
+        border-radius: 15px;
+        color: white;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .section-header {
+        font-size: 1.5rem;
+        color: #2c3e50;
+        margin: 2rem 0 1rem 0;
+        padding-bottom: 0.5rem;
+        border-bottom: 3px solid #3498db;
+        font-weight: 600;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# 🔄 CARREGAMENTO CORRETO COM FILTRO DE ARTIGOS REAIS
 @st.cache_data
-def load_and_clean_data():
+def load_clean_data():
     try:
         url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
         df = pd.read_excel(url)
         
+        # CORREÇÃO: USAR OS CABEÇALHOS EXATOS DO EXCEL
+        mapeamento = {
+            'Código': 'Codigo',
+            'Cliente': 'Cliente', 
+            'Qtd.': 'Qtd',
+            'UN': 'UN',
+            'PM': 'PM',
+            'V. Líquido': 'V_Liquido',
+            'Artigo': 'Artigo',
+            'Comercial': 'Comercial',
+            'Categoria': 'Categoria',
+            'Mês': 'Mes',
+            'Ano': 'Ano'
+        }
+        
+        # Aplicar renomeação apenas para colunas que existem
+        mapeamento_final = {}
+        for col_original, col_novo in mapeamento.items():
+            if col_original in df.columns:
+                mapeamento_final[col_original] = col_novo
+        
+        df = df.rename(columns=mapeamento_final)
+        
+        # ✅ FILTRAR APENAS ARTIGOS REAIS (não valores numéricos)
         if 'Artigo' in df.columns:
-            # Converter para string
             df['Artigo'] = df['Artigo'].astype(str)
             
-            # FILTRAR APENAS ARTIGOS "REAIS" (não valores numéricos)
-            # Criar uma coluna auxiliar para identificar artigos reais
             def is_real_article(artigo):
                 artigo_str = str(artigo).strip()
-                # Se começa com '-' e depois tem apenas números, é um ajuste numérico
+                # Ignorar valores numéricos (positivos e negativos)
                 if artigo_str.startswith('-') and artigo_str[1:].replace('.', '', 1).isdigit():
                     return False
-                # Se é apenas números (positivos ou negativos)
                 if artigo_str.replace('-', '', 1).replace('.', '', 1).isdigit():
                     return False
-                # Se é vazio ou nan
                 if artigo_str in ['', 'nan', 'None']:
                     return False
                 return True
             
             df['is_real_article'] = df['Artigo'].apply(is_real_article)
-            df_reais = df[df['is_real_article'] == True]
+            df = df[df['is_real_article'] == True]
+        
+        # CONVERSÃO DE TIPOS DE DADOS
+        if 'Cliente' in df.columns:
+            df['Cliente'] = df['Cliente'].astype(str)
+        
+        if 'Comercial' in df.columns:
+            df['Comercial'] = df['Comercial'].astype(str)
+        
+        if 'Categoria' in df.columns:
+            df['Categoria'] = df['Categoria'].astype(str)
+        
+        if 'Mes' in df.columns:
+            df['Mes'] = df['Mes'].astype(str)
+        
+        if 'Ano' in df.columns:
+            df['Ano'] = df['Ano'].astype(str)
+        
+        if 'UN' in df.columns:
+            df['UN'] = df['UN'].astype(str)
+        
+        # Converter colunas numéricas
+        if 'V_Liquido' in df.columns:
+            df['V_Liquido'] = pd.to_numeric(df['V_Liquido'], errors='coerce')
+        
+        if 'Qtd' in df.columns:
+            df['Qtd'] = pd.to_numeric(df['Qtd'], errors='coerce')
+        
+        if 'PM' in df.columns:
+            df['PM'] = pd.to_numeric(df['PM'], errors='coerce')
             
-            st.sidebar.success(f"✅ Artigos reais: {len(df_reais)} de {len(df)} registos")
-            st.sidebar.info(f"📦 Artigos únicos reais: {df_reais['Artigo'].nunique()}")
-            
-            return df_reais
-        else:
-            st.error("Coluna Artigo não encontrada!")
-            return pd.DataFrame()
-            
+        return df
+        
     except Exception as e:
-        st.error(f"Erro: {e}")
+        st.error(f"Erro no carregamento: {str(e)}")
         return pd.DataFrame()
 
-# Carregar dados limpos
-df_clean = load_and_clean_data()
+# Carregar dados
+df = load_clean_data()
 
-if not df_clean.empty:
-    # OBTER ARTIGOS REAIS
-    artigos_reais = sorted(df_clean['Artigo'].dropna().unique())
-    
-    st.header("🎛️ FILTRO DE ARTIGOS REAIS")
-    st.write(f"**📚 {len(artigos_reais)} artigos disponíveis**")
-    
-    # Mostrar alguns exemplos
-    st.write("**📋 Exemplos de artigos disponíveis:**")
-    for i, artigo in enumerate(artigos_reais[:20]):
-        st.write(f"{i+1:2d}. {artigo}")
-    
-    # FILTRO PRINCIPAL
-    artigo_selecionado = st.selectbox(
-        "Selecione o artigo:",
-        options=artigos_reais,
-        index=0,  # Seleciona o primeiro por padrão
-        placeholder="Escolha um artigo..."
-    )
-    
-    if artigo_selecionado:
-        resultado = df_clean[df_clean['Artigo'] == artigo_selecionado]
-        
-        st.success(f"✅ **{len(resultado)} registos encontrados para:** {artigo_selecionado}")
-        
-        # Métricas
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            if 'V. Líquido' in resultado.columns:
-                total = resultado['V. Líquido'].sum()
-                st.metric("💰 Total Vendas", f"€ {total:,.2f}")
-        with col2:
-            if 'Qtd.' in resultado.columns:
-                qtd = resultado['Qtd.'].sum()
-                st.metric("📦 Quantidade", f"{qtd:,.0f}")
-        with col3:
-            if 'Cliente' in resultado.columns:
-                clientes = resultado['Cliente'].nunique()
-                st.metric("👥 Clientes", f"{clientes}")
-        
-        # Dados
-        st.dataframe(resultado, width='stretch')
+# 📁 Presets
+preset_path = Path("diagnosticos/presets_filtros.json")
+preset_path.parent.mkdir(exist_ok=True)
 
+def carregar_presets():
+    if preset_path.exists():
+        with open(preset_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+def salvar_preset(nome, filtros):
+    presets = carregar_presets()
+    presets[nome] = filtros
+    with open(preset_path, "w", encoding="utf-8") as f:
+        json.dump(presets, f, indent=2)
+
+# 🎛️ SIDEBAR
+with st.sidebar:
+    st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
+    st.markdown("### 🎛️ Painel de Controle")
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Presets
+    presets = carregar_presets()
+    preset_selecionado = st.selectbox("📂 Carregar Configuração", [""] + list(presets.keys()))
+    filtros = presets.get(preset_selecionado, {}) if preset_selecionado else {}
+    
+    st.markdown("---")
+    st.markdown("### 🔍 Filtros")
+    
+    # FUNÇÃO DE FILTRO SEGURO
+    def criar_filtro_seguro(label, coluna, valores_default=None):
+        if coluna not in df.columns or df.empty:
+            return []
+        
+        try:
+            valores_default = valores_default or []
+            opcoes = sorted(df[coluna].dropna().astype(str).unique())
+            return st.multiselect(label, opcoes, default=valores_default)
+        except Exception:
+            return []
+    
+    # FILTROS
+    clientes = criar_filtro_seguro("👥 Clientes", "Cliente", filtros.get("Cliente"))
+    
+    # ✅ FILTRO DE ARTIGOS REAIS
+    if not df.empty and 'Artigo' in df.columns:
+        artigos_reais = sorted(df['Artigo'].dropna().unique())
+        artigos = st.multiselect(
+            "📦 Artigos", 
+            artigos_reais,
+            default=filtros.get("Artigo", []),
+            placeholder="Selecione os artigos..."
+        )
+        st.sidebar.info(f"Artigos disponíveis: {len(artigos_reais)}")
+        
+        if artigos:
+            st.sidebar.success(f"✅ {len(artigos)} artigo(s) selecionado(s)")
+    else:
+        artigos = []
+    
+    comerciais = criar_filtro_seguro("👨‍💼 Comerciais", "Comercial", filtros.get("Comercial"))
+    categorias = criar_filtro_seguro("🏷️ Categorias", "Categoria", filtros.get("Categoria"))
+    meses = criar_filtro_seguro("📅 Meses", "Mes", filtros.get("Mes"))
+    anos = criar_filtro_seguro("📊 Anos", "Ano", filtros.get("Ano"))
+    
+    # Salvar preset
+    st.markdown("---")
+    st.markdown("### 💾 Configurações")
+    nome_preset = st.text_input("Nome da configuração")
+    if st.button("💾 Salvar Configuração") and nome_preset:
+        filtros_atuais = {
+            "Cliente": clientes, "Artigo": artigos, "Comercial": comerciais,
+            "Categoria": categorias, "Mes": meses, "Ano": anos
+        }
+        salvar_preset(nome_preset, filtros_atuais)
+        st.success(f"✅ Configuração '{nome_preset}' salva!")
+    
+    # Estatísticas
+    st.markdown("---")
+    st.markdown("### 📈 Estatísticas")
+    if not df.empty:
+        st.write(f"**Registros:** {len(df):,}")
+        if 'Artigo' in df.columns:
+            st.write(f"**Artigos únicos:** {df['Artigo'].nunique():,}")
+        if 'Cliente' in df.columns:
+            st.write(f"**Clientes únicos:** {df['Cliente'].nunique():,}")
+
+# 🎯 APLICAÇÃO DOS FILTROS
+df_filtrado = df.copy()
+filtros_aplicados = []
+
+if not df.empty:
+    if clientes or artigos or comerciais or categorias or meses or anos:
+        # Aplicar filtros sequencialmente
+        if clientes:
+            df_filtrado = df_filtrado[df_filtrado['Cliente'].astype(str).isin(clientes)]
+            filtros_aplicados.append(f"👥 Clientes: {len(clientes)}")
+        
+        if artigos and 'Artigo' in df_filtrado.columns:
+            df_filtrado = df_filtrado[df_filtrado['Artigo'].astype(str).isin(artigos)]
+            filtros_aplicados.append(f"📦 Artigos: {len(artigos)}")
+        
+        if comerciais and 'Comercial' in df_filtrado.columns:
+            df_filtrado = df_filtrado[df_filtrado['Comercial'].astype(str).isin(comerciais)]
+            filtros_aplicados.append(f"👨‍💼 Comerciais: {len(comerciais)}")
+        
+        if categorias and 'Categoria' in df_filtrado.columns:
+            df_filtrado = df_filtrado[df_filtrado['Categoria'].astype(str).isin(categorias)]
+            filtros_aplicados.append(f"🏷️ Categorias: {len(categorias)}")
+        
+        if meses and 'Mes' in df_filtrado.columns:
+            df_filtrado = df_filtrado[df_filtrado['Mes'].astype(str).isin(meses)]
+            filtros_aplicados.append(f"📅 Meses: {len(meses)}")
+        
+        if anos and 'Ano' in df_filtrado.columns:
+            df_filtrado = df_filtrado[df_filtrado['Ano'].astype(str).isin(anos)]
+            filtros_aplicados.append(f"📊 Anos: {len(anos)}")
+
+# 🎯 INTERFACE PRINCIPAL
+st.markdown("<h1 class='main-header'>📊 Dashboard de Vendas</h1>", unsafe_allow_html=True)
+
+if df.empty:
+    st.error("❌ Não foi possível carregar os dados.")
+elif df_filtrado.empty:
+    st.warning("⚠️ Nenhum dado encontrado com os filtros aplicados.")
 else:
-    st.error("❌ Não foi possível carregar os dados")
-
-# 🎯 VERSÃO ALTERNATIVA - MULTISELECT
-st.header("🎪 FILTRO MÚLTIPLO")
-
-if not df_clean.empty:
-    artigos_multiselect = st.multiselect(
-        "Selecione vários artigos:",
-        options=artigos_reais,
-        placeholder="Escolha um ou mais artigos..."
-    )
+    # ✅ DADOS ENCONTRADOS
+    st.success(f"✅ **{len(df_filtrado):,}** registros encontrados")
     
-    if artigos_multiselect:
-        resultado_mult = df_clean[df_clean['Artigo'].isin(artigos_multiselect)]
-        st.success(f"✅ {len(resultado_mult)} registos para {len(artigos_multiselect)} artigo(s)")
-        st.dataframe(resultado_mult, width='stretch')
+    if filtros_aplicados:
+        st.info(f"**Filtros aplicados:** {' | '.join(filtros_aplicados)}")
+    
+    # MÉTRICAS PRINCIPAIS
+    st.markdown("<div class='section-header'>🎯 Métricas Principais</div>", unsafe_allow_html=True)
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        if 'V_Liquido' in df_filtrado.columns:
+            total_vendas = df_filtrado['V_Liquido'].sum()
+            st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
+            st.metric("💰 Total Vendas", f"€ {total_vendas:,.2f}")
+            st.markdown("</div>", unsafe_allow_html=True)
+    
+    with col2:
+        if 'Qtd' in df_filtrado.columns:
+            total_qtd = df_filtrado['Qtd'].sum()
+            st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
+            st.metric("📦 Quantidade", f"{total_qtd:,.0f}")
+            st.markdown("</div>", unsafe_allow_html=True)
+    
+    with col3:
+        if 'Cliente' in df_filtrado.columns:
+            clientes_unicos = df_filtrado['Cliente'].nunique()
+            st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
+            st.metric("👥 Clientes", f"{clientes_unicos:,}")
+            st.markdown("</div>", unsafe_allow_html=True)
+    
+    with col4:
+        if 'Artigo' in df_filtrado.columns:
+            artigos_unicos = df_filtrado['Artigo'].nunique()
+            st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
+            st.metric("🏷️ Artigos", f"{artigos_unicos:,}")
+            st.markdown("</div>", unsafe_allow_html=True)
+    
+    # GRÁFICOS
+    st.markdown("<div class='section-header'>📈 Visualizações</div>", unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if 'V_Liquido' in df_filtrado.columns and 'Cliente' in df_filtrado.columns:
+            top_clientes = df_filtrado.groupby('Cliente')['V_Liquido'].sum().nlargest(10)
+            if not top_clientes.empty:
+                fig = px.bar(
+                    top_clientes, 
+                    x=top_clientes.values, 
+                    y=top_clientes.index,
+                    orientation='h',
+                    title='🏆 Top 10 Clientes',
+                    labels={'x': 'Vendas (€)', 'y': ''}
+                )
+                st.plotly_chart(fig, width='stretch')
+    
+    with col2:
+        if 'V_Liquido' in df_filtrado.columns and 'Artigo' in df_filtrado.columns:
+            top_artigos = df_filtrado.groupby('Artigo')['V_Liquido'].sum().nlargest(10)
+            if not top_artigos.empty:
+                fig = px.bar(
+                    top_artigos,
+                    x=top_artigos.values,
+                    y=top_artigos.index,
+                    orientation='h',
+                    title='📦 Top 10 Artigos',
+                    labels={'x': 'Vendas (€)', 'y': ''}
+                )
+                st.plotly_chart(fig, width='stretch')
+    
+    # DADOS FILTRADOS
+    st.markdown("<div class='section-header'>📋 Dados Filtrados</div>", unsafe_allow_html=True)
+    
+    # Converter colunas para evitar erro de serialização
+    df_display = df_filtrado.copy()
+    for col in df_display.columns:
+        if df_display[col].dtype == 'object':
+            df_display[col] = df_display[col].astype(str)
+    
+    st.dataframe(df_display, width='stretch')
+
+# Footer
+st.markdown("---")
+st.markdown("<div style='text-align: center; color: #7f8c8d;'>", unsafe_allow_html=True)
+st.markdown(f"📊 Dashboard • {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+st.markdown("</div>", unsafe_allow_html=True)
