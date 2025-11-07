@@ -52,7 +52,6 @@ def load_data():
         df = pd.read_excel(url)
         
         st.sidebar.success(f"✅ Arquivo carregado com {len(df)} registros")
-        st.sidebar.info(f"📋 Cabeçalhos: {list(df.columns)}")
         
         # CORREÇÃO: USAR OS CABEÇALHOS EXATOS DO EXCEL
         mapeamento = {
@@ -77,12 +76,27 @@ def load_data():
         
         df = df.rename(columns=mapeamento_final)
         
-        # CONVERSÃO DE TIPOS DE DADOS
+        # CONVERSÃO DE TIPOS DE DADOS - CORREÇÃO PARA EVITAR ERROS
         if 'Artigo' in df.columns:
             df['Artigo'] = df['Artigo'].astype(str)
         
         if 'Cliente' in df.columns:
             df['Cliente'] = df['Cliente'].astype(str)
+        
+        if 'Comercial' in df.columns:
+            df['Comercial'] = df['Comercial'].astype(str)
+        
+        if 'Categoria' in df.columns:
+            df['Categoria'] = df['Categoria'].astype(str)
+        
+        if 'Mes' in df.columns:
+            df['Mes'] = df['Mes'].astype(str)
+        
+        if 'Ano' in df.columns:
+            df['Ano'] = df['Ano'].astype(str)
+        
+        if 'UN' in df.columns:
+            df['UN'] = df['UN'].astype(str)
         
         # Converter colunas numéricas
         if 'V_Liquido' in df.columns:
@@ -90,6 +104,9 @@ def load_data():
         
         if 'Qtd' in df.columns:
             df['Qtd'] = pd.to_numeric(df['Qtd'], errors='coerce')
+        
+        if 'PM' in df.columns:
+            df['PM'] = pd.to_numeric(df['PM'], errors='coerce')
             
         return df
         
@@ -130,41 +147,49 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 🔍 Filtros")
     
-    # FUNÇÃO DE FILTRO
-    def criar_filtro(label, coluna, valores_default=None):
-        if coluna not in df.columns:
+    # FUNÇÃO DE FILTRO SEGURO
+    def criar_filtro_seguro(label, coluna, valores_default=None):
+        if coluna not in df.columns or df.empty:
             st.warning(f"Coluna '{coluna}' não disponível")
             return []
         
-        valores_default = valores_default or []
-        opcoes = sorted(df[coluna].dropna().astype(str).unique())
-        return st.multiselect(label, opcoes, default=valores_default)
+        try:
+            valores_default = valores_default or []
+            # Garantir que todos os valores são strings
+            opcoes = sorted(df[coluna].dropna().astype(str).unique())
+            return st.multiselect(label, opcoes, default=valores_default)
+        except Exception as e:
+            st.error(f"Erro no filtro {label}: {e}")
+            return []
     
     # FILTROS
-    clientes = criar_filtro("👥 Clientes", "Cliente", filtros.get("Cliente"))
+    clientes = criar_filtro_seguro("👥 Clientes", "Cliente", filtros.get("Cliente"))
     
     # ✅ FILTRO DE ARTIGOS - APENAS OS QUE EXISTEM NOS DADOS
-    if 'Artigo' in df.columns:
-        artigos_opcoes = sorted(df['Artigo'].dropna().astype(str).unique())
-        artigos = st.multiselect(
-            "📦 Artigos", 
-            artigos_opcoes,
-            default=filtros.get("Artigo", []),
-            placeholder="Selecione os artigos..."
-        )
-        st.sidebar.info(f"Artigos disponíveis: {len(artigos_opcoes)}")
-        
-        # Mostrar contagem de artigos selecionados
-        if artigos:
-            st.sidebar.success(f"✅ {len(artigos)} artigo(s) selecionado(s)")
+    if not df.empty and 'Artigo' in df.columns:
+        try:
+            artigos_opcoes = sorted(df['Artigo'].dropna().astype(str).unique())
+            artigos = st.multiselect(
+                "📦 Artigos", 
+                artigos_opcoes,
+                default=filtros.get("Artigo", []),
+                placeholder="Selecione os artigos..."
+            )
+            st.sidebar.info(f"Artigos disponíveis: {len(artigos_opcoes)}")
+            
+            if artigos:
+                st.sidebar.success(f"✅ {len(artigos)} artigo(s) selecionado(s)")
+        except Exception as e:
+            st.error(f"Erro no filtro de artigos: {e}")
+            artigos = []
     else:
         st.error("❌ Coluna Artigo não carregada")
         artigos = []
     
-    comerciais = criar_filtro("👨‍💼 Comerciais", "Comercial", filtros.get("Comercial"))
-    categorias = criar_filtro("🏷️ Categorias", "Categoria", filtros.get("Categoria"))
-    meses = criar_filtro("📅 Meses", "Mes", filtros.get("Mes"))
-    anos = criar_filtro("📊 Anos", "Ano", filtros.get("Ano"))
+    comerciais = criar_filtro_seguro("👨‍💼 Comerciais", "Comercial", filtros.get("Comercial"))
+    categorias = criar_filtro_seguro("🏷️ Categorias", "Categoria", filtros.get("Categoria"))
+    meses = criar_filtro_seguro("📅 Meses", "Mes", filtros.get("Mes"))
+    anos = criar_filtro_seguro("📊 Anos", "Ano", filtros.get("Ano"))
     
     # Salvar preset
     st.markdown("---")
@@ -192,32 +217,33 @@ with st.sidebar:
 df_filtrado = df.copy()
 filtros_aplicados = []
 
-if clientes or artigos or comerciais or categorias or meses or anos:
-    # Aplicar filtros sequencialmente
-    if clientes:
-        df_filtrado = df_filtrado[df_filtrado['Cliente'].astype(str).isin(clientes)]
-        filtros_aplicados.append(f"👥 Clientes: {len(clientes)}")
-    
-    # ✅ FILTRO DE ARTIGOS - CORRETO
-    if artigos and 'Artigo' in df_filtrado.columns:
-        df_filtrado = df_filtrado[df_filtrado['Artigo'].astype(str).isin(artigos)]
-        filtros_aplicados.append(f"📦 Artigos: {len(artigos)}")
-    
-    if comerciais and 'Comercial' in df_filtrado.columns:
-        df_filtrado = df_filtrado[df_filtrado['Comercial'].astype(str).isin(comerciais)]
-        filtros_aplicados.append(f"👨‍💼 Comerciais: {len(comerciais)}")
-    
-    if categorias and 'Categoria' in df_filtrado.columns:
-        df_filtrado = df_filtrado[df_filtrado['Categoria'].astype(str).isin(categorias)]
-        filtros_aplicados.append(f"🏷️ Categorias: {len(categorias)}")
-    
-    if meses and 'Mes' in df_filtrado.columns:
-        df_filtrado = df_filtrado[df_filtrado['Mes'].astype(str).isin(meses)]
-        filtros_aplicados.append(f"📅 Meses: {len(meses)}")
-    
-    if anos and 'Ano' in df_filtrado.columns:
-        df_filtrado = df_filtrado[df_filtrado['Ano'].astype(str).isin(anos)]
-        filtros_aplicados.append(f"📊 Anos: {len(anos)}")
+if not df.empty:
+    if clientes or artigos or comerciais or categorias or meses or anos:
+        # Aplicar filtros sequencialmente com verificações de segurança
+        if clientes:
+            df_filtrado = df_filtrado[df_filtrado['Cliente'].astype(str).isin(clientes)]
+            filtros_aplicados.append(f"👥 Clientes: {len(clientes)}")
+        
+        # ✅ FILTRO DE ARTIGOS - CORRETO
+        if artigos and 'Artigo' in df_filtrado.columns:
+            df_filtrado = df_filtrado[df_filtrado['Artigo'].astype(str).isin(artigos)]
+            filtros_aplicados.append(f"📦 Artigos: {len(artigos)}")
+        
+        if comerciais and 'Comercial' in df_filtrado.columns:
+            df_filtrado = df_filtrado[df_filtrado['Comercial'].astype(str).isin(comerciais)]
+            filtros_aplicados.append(f"👨‍💼 Comerciais: {len(comerciais)}")
+        
+        if categorias and 'Categoria' in df_filtrado.columns:
+            df_filtrado = df_filtrado[df_filtrado['Categoria'].astype(str).isin(categorias)]
+            filtros_aplicados.append(f"🏷️ Categorias: {len(categorias)}")
+        
+        if meses and 'Mes' in df_filtrado.columns:
+            df_filtrado = df_filtrado[df_filtrado['Mes'].astype(str).isin(meses)]
+            filtros_aplicados.append(f"📅 Meses: {len(meses)}")
+        
+        if anos and 'Ano' in df_filtrado.columns:
+            df_filtrado = df_filtrado[df_filtrado['Ano'].astype(str).isin(anos)]
+            filtros_aplicados.append(f"📊 Anos: {len(anos)}")
 
 # 🎯 INTERFACE PRINCIPAL
 st.markdown("<h1 class='main-header'>📊 Dashboard de Vendas</h1>", unsafe_allow_html=True)
@@ -273,35 +299,54 @@ else:
     
     with col1:
         if 'V_Liquido' in df_filtrado.columns and 'Cliente' in df_filtrado.columns:
-            top_clientes = df_filtrado.groupby('Cliente')['V_Liquido'].sum().nlargest(10)
-            if not top_clientes.empty:
-                fig = px.bar(
-                    top_clientes, 
-                    x=top_clientes.values, 
-                    y=top_clientes.index,
-                    orientation='h',
-                    title='🏆 Top 10 Clientes',
-                    labels={'x': 'Vendas (€)', 'y': ''}
-                )
-                st.plotly_chart(fig, use_container_width=True)
+            try:
+                top_clientes = df_filtrado.groupby('Cliente')['V_Liquido'].sum().nlargest(10)
+                if not top_clientes.empty:
+                    fig = px.bar(
+                        top_clientes, 
+                        x=top_clientes.values, 
+                        y=top_clientes.index,
+                        orientation='h',
+                        title='🏆 Top 10 Clientes',
+                        labels={'x': 'Vendas (€)', 'y': ''}
+                    )
+                    st.plotly_chart(fig, width='stretch')
+            except Exception as e:
+                st.error(f"Erro no gráfico de clientes: {e}")
     
     with col2:
         if 'V_Liquido' in df_filtrado.columns and 'Artigo' in df_filtrado.columns:
-            top_artigos = df_filtrado.groupby('Artigo')['V_Liquido'].sum().nlargest(10)
-            if not top_artigos.empty:
-                fig = px.bar(
-                    top_artigos,
-                    x=top_artigos.values,
-                    y=top_artigos.index,
-                    orientation='h',
-                    title='📦 Top 10 Artigos',
-                    labels={'x': 'Vendas (€)', 'y': ''}
-                )
-                st.plotly_chart(fig, use_container_width=True)
+            try:
+                top_artigos = df_filtrado.groupby('Artigo')['V_Liquido'].sum().nlargest(10)
+                if not top_artigos.empty:
+                    fig = px.bar(
+                        top_artigos,
+                        x=top_artigos.values,
+                        y=top_artigos.index,
+                        orientation='h',
+                        title='📦 Top 10 Artigos',
+                        labels={'x': 'Vendas (€)', 'y': ''}
+                    )
+                    st.plotly_chart(fig, width='stretch')
+            except Exception as e:
+                st.error(f"Erro no gráfico de artigos: {e}")
     
     # DADOS FILTRADOS
     st.markdown("<div class='section-header'>📋 Dados Filtrados</div>", unsafe_allow_html=True)
-    st.dataframe(df_filtrado, width='stretch')
+    
+    # Converter colunas problemáticas para evitar erro de serialização
+    try:
+        df_display = df_filtrado.copy()
+        # Garantir que todas as colunas são strings para evitar erro Arrow
+        for col in df_display.columns:
+            if df_display[col].dtype == 'object':
+                df_display[col] = df_display[col].astype(str)
+        
+        st.dataframe(df_display, width='stretch')
+    except Exception as e:
+        st.error(f"Erro ao exibir dados: {e}")
+        st.write("Primeiras 10 linhas dos dados originais:")
+        st.dataframe(df_filtrado.head(10), width='stretch')
 
 # Footer
 st.markdown("---")
