@@ -267,15 +267,14 @@ else:
 
         df_tabela_alertas = pd.DataFrame(alertas_list)
         if not df_tabela_alertas.empty:
-            # CORREÇÃO FINAL: Remove TUDO que não seja número
             df_tabela_alertas['Qtd_Num'] = (
                 df_tabela_alertas['Qtd Atual']
                 .fillna('0')
                 .astype(str)
                 .str.replace('N/D', '0')
-                .str.replace(r'[^0-9.]', '', regex=True)   # ← Remove espaços, vírgulas, etc.
-                .str.replace(r'\.+', '.', regex=True)      # ← Evita múltiplos pontos
-                .replace('', '0')                          # ← Se ficar vazio → 0
+                .str.replace(r'[^0-9.]', '', regex=True)
+                .str.replace(r'\.+', '.', regex=True)
+                .replace('', '0')
                 .astype(float)
             )
             df_tabela_alertas = df_tabela_alertas.sort_values('Qtd_Num', ascending=False).drop('Qtd_Num', axis=1).head(20)
@@ -314,8 +313,10 @@ else:
                       7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'}
         df_comparacao['Mês'] = df_comparacao['Mes'].map(meses_nome)
 
-        df_comparacao = df_comparacao[['Mês', 'Qtd_2024', 'Qtd_2025', 'Var_Qtd_%', 'V_Liquido_2024', 'V_Liquido_2025', 'Var_VL_%']]
+        # CORREÇÃO: Ordenar por 'Mes' antes de selecionar colunas
         df_comparacao = df_comparacao.sort_values('Mes')
+
+        df_comparacao = df_comparacao[['Mês', 'Qtd_2024', 'Qtd_2025', 'Var_Qtd_%', 'V_Liquido_2024', 'V_Liquido_2025', 'Var_VL_%']]
 
         df_display_comp = df_comparacao.copy()
         df_display_comp['Qtd_2024'] = df_display_comp['Qtd_2024'].apply(formatar_numero_pt)
