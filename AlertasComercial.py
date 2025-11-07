@@ -13,7 +13,7 @@ st.set_page_config(
     page_title="Dashboard de Vendas - Business Intelligence",
     page_icon="Chart",
     layout="wide",
-     initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded"
 )
 
 # -------------------------------------------------
@@ -46,7 +46,7 @@ def formatar_numero_pt(valor, simbolo="", sinal_forcado=False):
     return formato
 
 # -------------------------------------------------
-# 4. CARREGAMENTO DOS DADOS
+# 4. CARREGAMENTO DOS DADOS (CORRIGIDO)
 # -------------------------------------------------
 @st.cache_data
 def load_all_data():
@@ -63,18 +63,21 @@ def load_all_data():
         mapeamento_final = {k: v for k, v in mapeamento.items() if k in df.columns}
         df = df.rename(columns=mapeamento_final)
 
+        # CORREÇÃO 1: Forçar colunas problemáticas como string
+        colunas_string = ['UN', 'Artigo', 'Cliente', 'Comercial', 'Categoria', 'Mes', 'Ano']
+        for col in colunas_string:
+            if col in df.columns:
+                df[col] = df[col].astype(str).replace({'nan': 'N/D', 'None': 'N/D'})
+
+        # Números
         for col in ['V_Liquido', 'Qtd', 'PM']:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
 
-        for col in ['Artigo', 'Cliente', 'Comercial', 'Categoria', 'Mes', 'Ano', 'UN']:
-            if col in df.columns:
-                df[col] = df[col].astype(str)
-
         return df
 
     except Exception as e:
-        st.error(f"Erro no carregamento dos dados.")
+        st.error(f"Erro ao carregar dados: {e}")
         return pd.DataFrame()
 
 df = load_all_data()
@@ -129,10 +132,7 @@ with st.sidebar:
     st.markdown("### Configurações")
     nome_preset = st.text_input("Nome da configuração")
     if st.button("Salvar Configuração") and nome_preset:
-        filtros_atuais = {
-            "Cliente": clientes, "Artigo": artigos, "Comercial": comerciais,
-            "Categoria": categorias, "Mes": meses, "Ano": anos
-        }
+        filtros_atuais = {k: v for k, v in locals().items() if k in ["clientes", "artigos", "comerciais", "categorias", "meses", "anos"]}
         salvar_preset(nome_preset, filtros_atuais)
         st.success(f"Configuração '{nome_preset}' salva!")
 
@@ -140,15 +140,10 @@ with st.sidebar:
     st.markdown("### Estatísticas")
     if not df.empty:
         st.write(f"**Registros:** {len(df):,}")
-        if 'Artigo' in df.columns:
-            st.write(f"**Artigos únicos:** {df['Artigo'].nunique():,}")
-        if 'Cliente' in df.columns:
-            st.write(f"**Clientes únicos:** {df['Cliente'].nunique():,}")
-
-        if 'V_Liquido' in df.columns and 'Qtd' in df.columns:
-            st.write("**Totais do ficheiro:**")
-            st.write(f"- V. Líquido: {formatar_numero_pt(df['V_Liquido'].sum(), 'EUR ')}")
-            st.write(f"- Qtd: {formatar_numero_pt(df['Qtd'].sum())}")
+        st.write(f"**Artigos únicos:** {df['Artigo'].nunique():,}")
+        st.write(f"**Clientes únicos:** {df['Cliente'].nunique():,}")
+        st.write(f"- V. Líquido: {formatar_numero_pt(df['V_Liquido'].sum(), 'EUR ')}")
+        st.write(f"- Qtd: {formatar_numero_pt(df['Qtd'].sum())}")
 
 # -------------------------------------------------
 # 7. APLICAÇÃO DOS FILTROS
@@ -157,24 +152,12 @@ df_filtrado = df.copy()
 filtros_aplicados = []
 
 if not df.empty:
-    if clientes:
-        df_filtrado = df_filtrado[df_filtrado['Cliente'].astype(str).isin(clientes)]
-        filtros_aplicados.append(f"Clientes: {len(clientes)}")
-    if artigos:
-        df_filtrado = df_filtrado[df_filtrado['Artigo'].astype(str).isin(artigos)]
-        filtros_aplicados.append(f"Artigos: {len(artigos)}")
-    if comerciais:
-        df_filtrado = df_filtrado[df_filtrado['Comercial'].astype(str).isin(comerciais)]
-        filtros_aplicados.append(f"Comerciais: {len(comerciais)}")
-    if categorias:
-        df_filtrado = df_filtrado[df_filtrado['Categoria'].astype(str).isin(categorias)]
-        filtros_aplicados.append(f"Categorias: {len(categorias)}")
-    if meses:
-        df_filtrado = df_filtrado[df_filtrado['Mes'].astype(str).isin(meses)]
-        filtros_aplicados.append(f"Meses: {len(meses)}")
-    if anos:
-        df_filtrado = df_filtrado[df_filtrado['Ano'].astype(str).isin(anos)]
-        filtros_aplicados.append(f"Anos: {len(anos)}")
+    if clientes: df_filtrado = df_filtrado[df_filtrado['Cliente'].isin(clientes)]; filtros_aplicados.append(f"Clientes: {len(clientes)}")
+    if artigos: df_filtrado = df_filtrado[df_filtrado['Artigo'].isin(artigos)]; filtros_aplicados.append(f"Artigos: {len(artigos)}")
+    if comerciais: df_filtrado = df_filtrado[df_filtrado['Comercial'].isin(comerciais)]; filtros_aplicados.append(f"Comerciais: {len(comerciais)}")
+    if categorias: df_filtrado = df_filtrado[df_filtrado['Categoria'].isin(categorias)]; filtros_aplicados.append(f"Categorias: {len(categorias)}")
+    if meses: df_filtrado = df_filtrado[df_filtrado['Mes'].isin(meses)]; filtros_aplicados.append(f"Meses: {len(meses)}")
+    if anos: df_filtrado = df_filtrado[df_filtrado['Ano'].isin(anos)]; filtros_aplicados.append(f"Anos: {len(anos)}")
 
 # -------------------------------------------------
 # 8. INTERFACE PRINCIPAL
@@ -198,27 +181,17 @@ else:
 
     with col1:
         total_vendas = df_filtrado['V_Liquido'].sum()
-        st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
         st.metric("Total Vendas", formatar_numero_pt(total_vendas, "EUR "))
-        st.markdown("</div>", unsafe_allow_html=True)
 
     with col2:
         total_qtd = df_filtrado['Qtd'].sum()
-        st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
         st.metric("Quantidade", formatar_numero_pt(total_qtd))
-        st.markdown("</div>", unsafe_allow_html=True)
 
     with col3:
-        clientes_unicos = df_filtrado['Cliente'].nunique()
-        st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
-        st.metric("Clientes", f"{clientes_unicos:,}")
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.metric("Clientes", f"{df_filtrado['Cliente'].nunique():,}")
 
     with col4:
-        artigos_unicos = df_filtrado['Artigo'].nunique()
-        st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
-        st.metric("Artigos", f"{artigos_unicos:,}")
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.metric("Artigos", f"{df_filtrado['Artigo'].nunique():,}")
 
     # -------------------------------------------------
     # 10. ALERTAS MENSAIS (por Cliente)
@@ -229,20 +202,16 @@ else:
     df_alertas['Mes'] = pd.to_numeric(df_alertas['Mes'], errors='coerce').fillna(0).astype(int)
     df_alertas['Ano'] = pd.to_numeric(df_alertas['Ano'], errors='coerce').fillna(0).astype(int)
     df_alertas['AnoMes'] = df_alertas['Ano'] * 100 + df_alertas['Mes']
-
     df_alertas = df_alertas.groupby(['Cliente', 'AnoMes'])['Qtd'].sum().reset_index()
-    df_alertas = df_alertas.sort_values(['Cliente', 'AnoMes'])
 
     if not df_alertas.empty:
         ultimo_ano_mes = df_alertas['AnoMes'].max()
         mes_atual = ultimo_ano_mes % 100
-
         alertas_list = []
+
         for cliente in df_alertas['Cliente'].unique():
             dados = df_alertas[df_alertas['Cliente'] == cliente].sort_values('AnoMes')
-            if dados.empty or len(dados) < 2:
-                continue
-
+            if len(dados) < 2: continue
             qtd_atual = dados.iloc[-1]['Qtd']
             qtd_anterior = dados.iloc[-2]['Qtd']
             variacao = (qtd_atual - qtd_anterior) / qtd_anterior * 100 if qtd_anterior > 0 else 0
@@ -256,43 +225,22 @@ else:
                 'Status': status
             })
 
-        df_tabela_alertas = pd.DataFrame(alertas_list)
+        df_tabela_alertas = pd.DataFrame(alertas_list).head(20)
         if not df_tabela_alertas.empty:
-            df_tabela_alertas['Qtd_Num'] = (
-                df_tabela_alertas['Qtd Atual']
-                .str.replace('N/D', '0')
-                .str.replace(r'[^0-9.]', '', regex=True)
-                .str.replace(r'\.+', '.', regex=True)
-                .replace('', '0')
-                .astype(float)
-            )
-            df_tabela_alertas = df_tabela_alertas.sort_values('Qtd_Num', ascending=False).drop('Qtd_Num', axis=1).head(20)
-
-            # ALERTAS VISUAIS
-            def aplicar_estilo(row):
+            def estilo_alerta(row):
                 cor = 'green' if 'Aumento' in row['Status'] else 'red' if 'Descida' in row['Status'] else 'orange'
                 return [f'color: {cor}; font-weight: bold' for _ in row]
-
-            st.table(df_tabela_alertas.style.apply(aplicar_estilo, axis=1))
-            descidas = len(df_tabela_alertas[df_tabela_alertas['Status'] == 'Descida'])
-            st.info(f"Resumo: {len(df_tabela_alertas)} clientes | {descidas} em descida")
-        else:
-            st.warning("Nenhum cliente com histórico.")
-    else:
-        st.warning("Nenhum dado para alertas.")
+            st.table(df_tabela_alertas.style.apply(estilo_alerta, axis=1))
 
     # -------------------------------------------------
     # 11. COMPARAÇÃO DE MESES (Qtd Comprada)
     # -------------------------------------------------
     st.markdown("<div class='section-header'>Comparação de Qtd por Mês</div>", unsafe_allow_html=True)
 
-    # Preparar dados
     df_comp = df_filtrado.copy()
     df_comp['Mes'] = pd.to_numeric(df_comp['Mes'], errors='coerce').fillna(0).astype(int)
     df_comp['Ano'] = pd.to_numeric(df_comp['Ano'], errors='coerce').fillna(0).astype(int)
     df_comp['AnoMes'] = df_comp['Ano'].astype(str) + "-" + df_comp['Mes'].astype(str).str.zfill(2)
-
-    # Lista de meses disponíveis
     meses_disponiveis = sorted(df_comp['AnoMes'].unique())
 
     if len(meses_disponiveis) >= 2:
@@ -300,41 +248,24 @@ else:
         with col1:
             mes_1 = st.selectbox("Mês 1", options=meses_disponiveis, index=0)
         with col2:
-            mes_2 = st.selectbox("Mês 2", options=meses_disponiveis, index=1 if len(meses_disponiveis) > 1 else 0)
+            mes_2 = st.selectbox("Mês 2", options=meses_disponiveis, index=1)
 
-        # Filtrar dados
         qtd_mes1 = df_comp[df_comp['AnoMes'] == mes_1]['Qtd'].sum()
         qtd_mes2 = df_comp[df_comp['AnoMes'] == mes_2]['Qtd'].sum()
         variacao = ((qtd_mes2 - qtd_mes1) / qtd_mes1 * 100) if qtd_mes1 > 0 else 0
 
-        # Ícone de alerta
-        if variacao > 10:
-            icone = "High Increase"
-            cor = "green"
-        elif variacao > 0:
-            icone = "Moderate Increase"
-            cor = "lightgreen"
-        elif variacao < -10:
-            icone = "High Decrease"
-            cor = "red"
-        elif variacao < 0:
-            icone = "Moderate Decrease"
-            cor = "orange"
-        else:
-            icone = "Stable"
-            cor = "gray"
+        icone = "High Increase" if variacao > 10 else "Moderate Increase" if variacao > 0 else "High Decrease" if variacao < -10 else "Moderate Decrease" if variacao < 0 else "Stable"
+        cor = "green" if variacao > 10 else "lightgreen" if variacao > 0 else "red" if variacao < -10 else "orange" if variacao < 0 else "gray"
 
-        # Tabela com alerta
+        st.markdown(f"**{icone}** <span style='color:{cor}'>Variação: {variacao:+.1f}%</span>", unsafe_allow_html=True)
         dados_comp = pd.DataFrame({
             'Mês': [mes_1, mes_2],
             'Qtd': [formatar_numero_pt(qtd_mes1), formatar_numero_pt(qtd_mes2)],
-            'Variação': ['', f"{variacao:+.1f}%"]
+           一个小节: ['', f"{variacao:+.1f}%"]
         })
-
-        st.markdown(f"**{icone}** <span style='color:{cor}'>Variação: {variacao:+.1f}%</span>", unsafe_allow_html=True)
         st.table(dados_comp.style.apply(lambda x: ['background: lightyellow' if x.name == 1 else '' for _ in x], axis=1))
     else:
-        st.info("Menos de 2 meses disponíveis para comparação.")
+        st.info("Menos de 2 meses disponíveis.")
 
     # -------------------------------------------------
     # 12. GRÁFICOS
@@ -343,52 +274,33 @@ else:
     col1, col2 = st.columns(2)
 
     with col1:
-        if 'V_Liquido' in df_filtrado.columns and 'Cliente' in df_filtrado.columns:
-            top_clientes = df_filtrado.groupby('Cliente')['V_Liquido'].sum().nlargest(10)
-            if not top_clientes.empty:
-                fig = px.bar(
-                    top_clientes.reset_index(),
-                    x='V_Liquido', y='Cliente',
-                    orientation='h',
-                    title='Top 10 Clientes',
-                    labels={'V_Liquido': 'Vendas (EUR)', 'Cliente': ''},
-                    text=top_clientes.map(lambda x: formatar_numero_pt(x, "EUR "))
-                )
-                fig.update_traces(textposition='outside')
-                st.plotly_chart(fig, use_container_width=True)
+        top_clientes = df_filtrado.groupby('Cliente')['V_Liquido'].sum().nlargest(10)
+        if not top_clientes.empty:
+            fig = px.bar(top_clientes.reset_index(), x='V_Liquido', y='Cliente', orientation='h',
+                         title='Top 10 Clientes', text=top_clientes.map(lambda x: formatar_numero_pt(x, "EUR ")))
+            fig.update_traces(textposition='outside')
+            st.plotly_chart(fig, width='stretch')  # CORRIGIDO
 
     with col2:
-        if 'V_Liquido' in df_filtrado.columns and 'Artigo' in df_filtrado.columns:
-            top_artigos = df_filtrado.groupby('Artigo')['V_Liquido'].sum().nlargest(10)
-            if not top_artigos.empty:
-                fig = px.bar(
-                    top_artigos.reset_index(),
-                    x='V_Liquido', y='Artigo',
-                    orientation='h',
-                    title='Top 10 Artigos',
-                    labels={'V_Liquido': 'Vendas (EUR)', 'Artigo': ''},
-                    text=top_artigos.map(lambda x: formatar_numero_pt(x, "EUR "))
-                )
-                fig.update_traces(textposition='outside')
-                st.plotly_chart(fig, use_container_width=True)
+        top_artigos = df_filtrado.groupby('Artigo')['V_Liquido'].sum().nlargest(10)
+        if not top_artigos.empty:
+            fig = px.bar(top_artigos.reset_index(), x='V_Liquido', y='Artigo', orientation='h',
+                         title='Top 10 Artigos', text=top_artigos.map(lambda x: formatar_numero_pt(x, "EUR ")))
+            fig.update_traces(textposition='outside')
+            st.plotly_chart(fig, width='stretch')  # CORRIGIDO
 
     # -------------------------------------------------
-    # 13. TABELA DE DADOS FILTRADOS
+    # 13. TABELA DE DADOS FILTRADOS (CORRIGIDA)
     # -------------------------------------------------
     st.markdown("<div class='section-header'>Dados Filtrados</div>", unsafe_allow_html=True)
     df_display = df_filtrado.copy()
-    for col in df_display.columns:
-        if df_display[col].dtype == 'object':
-            df_display[col] = df_display[col].astype(str)
-    st.dataframe(df_display, use_container_width=True)
+    # CORREÇÃO 2: Forçar todas as colunas object como string
+    for col in df_display.select_dtypes(include=['object']).columns:
+        df_display[col] = df_display[col].astype(str)
+    st.dataframe(df_display, width='stretch')  # CORRIGIDO
 
 # -------------------------------------------------
 # 14. FOOTER
 # -------------------------------------------------
 st.markdown("---")
-st.markdown(
-    f"<div style='text-align:center;color:#7f8c8d;'>"
-    f"Dashboard • {datetime.now().strftime('%d/%m/%Y %H:%M')}"
-    f"</div>",
-    unsafe_allow_html=True
-)
+st.markdown(f"<div style='text-align:center;color:#7f8c8d;'>Dashboard • {datetime.now().strftime('%d/%m/%Y %H:%M')}</div>", unsafe_allow_html=True)
