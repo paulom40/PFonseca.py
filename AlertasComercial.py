@@ -31,6 +31,13 @@ st.markdown("""
         color: white;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
+    .metric-card-reference {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        padding: 1.5rem;
+        border-radius: 15px;
+        color: white;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
     .section-header {
         font-size: 1.5rem;
         color: #2c3e50;
@@ -38,6 +45,14 @@ st.markdown("""
         padding-bottom: 0.5rem;
         border-bottom: 3px solid #3498db;
         font-weight: 600;
+    }
+    .validation-badge {
+        background: #f39c12;
+        color: white;
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: bold;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -127,6 +142,10 @@ def load_clean_data():
 
 # Carregar dados
 df = load_clean_data()
+
+# 📊 MÉTRICAS DE REFERÊNCIA (VALIDAÇÃO)
+TOTAL_QTD_REFERENCIA = 4449342.03
+TOTAL_V_LIQUIDO_REFERENCIA = 11032291.5
 
 # 📁 Presets
 preset_path = Path("diagnosticos/presets_filtros.json")
@@ -293,6 +312,53 @@ else:
             st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
             st.metric("🏷️ Artigos", f"{artigos_unicos:,}")
             st.markdown("</div>", unsafe_allow_html=True)
+    
+    # 🎯 MÉTRICAS DE VALIDAÇÃO
+    st.markdown("<div class='section-header'>📊 Validação de Dados</div>", unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if 'Qtd' in df_filtrado.columns:
+            total_qtd_atual = df_filtrado['Qtd'].sum()
+            diferenca_qtd = total_qtd_atual - TOTAL_QTD_REFERENCIA
+            percentual_qtd = (diferenca_qtd / TOTAL_QTD_REFERENCIA) * 100 if TOTAL_QTD_REFERENCIA != 0 else 0
+            
+            st.markdown("<div class='metric-card-reference'>", unsafe_allow_html=True)
+            st.metric(
+                "📦 Validação Qtd", 
+                f"{total_qtd_atual:,.2f}",
+                delta=f"{diferenca_qtd:+.2f} ({percentual_qtd:+.2f}%)",
+                help=f"Referência: {TOTAL_QTD_REFERENCIA:,.2f}"
+            )
+            st.markdown("</div>", unsafe_allow_html=True)
+            
+            # Badge de validação
+            if abs(percentual_qtd) < 0.01:  # Menos de 0.01% de diferença
+                st.success("✅ Qtd VALIDADA - Dados consistentes")
+            else:
+                st.warning(f"⚠️ Diferença de {abs(percentual_qtd):.4f}% na Qtd")
+    
+    with col2:
+        if 'V_Liquido' in df_filtrado.columns:
+            total_vendas_atual = df_filtrado['V_Liquido'].sum()
+            diferenca_vendas = total_vendas_atual - TOTAL_V_LIQUIDO_REFERENCIA
+            percentual_vendas = (diferenca_vendas / TOTAL_V_LIQUIDO_REFERENCIA) * 100 if TOTAL_V_LIQUIDO_REFERENCIA != 0 else 0
+            
+            st.markdown("<div class='metric-card-reference'>", unsafe_allow_html=True)
+            st.metric(
+                "💰 Validação V. Líquido", 
+                f"€ {total_vendas_atual:,.2f}",
+                delta=f"€ {diferenca_vendas:+.2f} ({percentual_vendas:+.2f}%)",
+                help=f"Referência: € {TOTAL_V_LIQUIDO_REFERENCIA:,.2f}"
+            )
+            st.markdown("</div>", unsafe_allow_html=True)
+            
+            # Badge de validação
+            if abs(percentual_vendas) < 0.01:  # Menos de 0.01% de diferença
+                st.success("✅ V. Líquido VALIDADO - Dados consistentes")
+            else:
+                st.warning(f"⚠️ Diferença de {abs(percentual_vendas):.4f}% no V. Líquido")
     
     # GRÁFICOS
     st.markdown("<div class='section-header'>📈 Visualizações</div>", unsafe_allow_html=True)
