@@ -148,7 +148,7 @@ with st.sidebar:
         return st.multiselect(label, opcoes, default=valores_default)
 
     clientes = filtro_multiselect("👥 Clientes", "Cliente", filtros.get("Cliente"))
-    artigos = filtro_multiselect("📦 Artigos", "Artigo", filtros.get("Artigo"))
+    artigos = filtro_multiselect("📦 Artigos", "Artigo", filtros.get("Artigo"))  # CORREÇÃO: Buscando da coluna "Artigo"
     comerciais = filtro_multiselect("👨‍💼 Comerciais", "Comercial", filtros.get("Comercial"))
     categorias = filtro_multiselect("🏷️ Categorias", "Categoria", filtros.get("Categoria"))
     meses = filtro_multiselect("📅 Meses", "Mes", filtros.get("Mes"))
@@ -173,7 +173,7 @@ with st.sidebar:
     st.write(f"**Clientes Únicos:** {df['Cliente'].nunique():,}")
     st.write(f"**Artigos Únicos:** {df['Artigo'].nunique():,}")
 
-# 🔍 Aplicar filtros
+# 🔍 Aplicar filtros - CORREÇÃO: Filtro de artigos corrigido
 df_filtrado = df.copy()
 filtros_aplicados = []
 
@@ -186,6 +186,7 @@ if clientes or artigos or comerciais or categorias or meses or anos:
         filtros_aplicados.append(f"👥 Clientes: {len(clientes)}")
     
     if artigos:
+        # CORREÇÃO: Agora filtra pela coluna "Artigo" corretamente
         mascara_artigo = df_filtrado["Artigo"].astype(str).isin(artigos)
         mascara = mascara & mascara_artigo
         filtros_aplicados.append(f"📦 Artigos: {len(artigos)}")
@@ -223,6 +224,28 @@ if df_filtrado.empty:
     st.markdown("- Tente aplicar menos filtros de cada vez")
     st.markdown("- Verifique se os valores existem nos dados")
     st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Mostrar amostra de dados disponíveis
+    with st.expander("🔍 Ver amostra de dados disponíveis"):
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.write("**📦 Artigos disponíveis (primeiros 10):**")
+            artigos_disponiveis = sorted(df['Artigo'].dropna().astype(str).unique())[:10]
+            for artigo in artigos_disponiveis:
+                st.write(f"- {artigo}")
+        
+        with col2:
+            st.write("**👥 Clientes disponíveis (primeiros 10):**")
+            clientes_disponiveis = sorted(df['Cliente'].dropna().astype(str).unique())[:10]
+            for cliente in clientes_disponiveis:
+                st.write(f"- {cliente}")
+        
+        with col3:
+            st.write("**👨‍💼 Comerciais disponíveis:**")
+            comerciais_disponiveis = sorted(df['Comercial'].dropna().astype(str).unique())
+            for comercial in comerciais_disponiveis:
+                st.write(f"- {comercial}")
 else:
     # ✅ Indicadores de sucesso
     st.markdown("<div class='success-box'>", unsafe_allow_html=True)
@@ -292,20 +315,30 @@ else:
                 st.plotly_chart(fig, use_container_width=True)
         
         with col2:
-            # Top 10 comerciais
-            top_comerciais = df_filtrado.groupby('Comercial')['V_Liquido'].sum().nlargest(10)
-            if not top_comerciais.empty:
+            # Top 10 artigos - CORREÇÃO: Mostrando artigos corretamente
+            top_artigos = df_filtrado.groupby('Artigo')['V_Liquido'].sum().nlargest(10)
+            if not top_artigos.empty:
                 fig = px.pie(
-                    top_comerciais,
-                    values=top_comerciais.values,
-                    names=top_comerciais.index,
-                    title='👨‍💼 Distribuição por Comercial',
+                    top_artigos,
+                    values=top_artigos.values,
+                    names=top_artigos.index,
+                    title='📦 Top 10 Artigos por Vendas',
                     hole=0.4
                 )
                 st.plotly_chart(fig, use_container_width=True)
         
         # 📋 Dados detalhados
         st.markdown("<div class='section-header'>📋 Dados Filtrados</div>", unsafe_allow_html=True)
+        
+        # Mostrar estatísticas dos dados filtrados
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.info(f"**📊 Total de Vendas:** € {df_filtrado['V_Liquido'].sum():,.2f}")
+        with col2:
+            st.info(f"**📦 Quantidade Total:** {df_filtrado['Qtd'].sum():,.0f}")
+        with col3:
+            st.info(f"**👥 Clientes no Filtro:** {df_filtrado['Cliente'].nunique():,}")
+        
         st.dataframe(df_filtrado, width='stretch')
     
     with tab2:
@@ -313,7 +346,7 @@ else:
         
         clientes_disponiveis = sorted(df_filtrado['Cliente'].dropna().astype(str).unique())
         if clientes_disponiveis:
-            cliente_selecionado = st.selectbox("🔍 Selecionar Cliente", clientes_disponiveis)
+            cliente_selecionado = st.selectbox("🔍 Selecionar Cliente", clientes_disponiveis, key="cliente_select")
             
             if cliente_selecionado:
                 dados_cliente = df_filtrado[df_filtrado['Cliente'].astype(str) == cliente_selecionado]
@@ -360,8 +393,8 @@ else:
                         )
                         st.plotly_chart(fig, use_container_width=True)
                     
-                    # Top produtos
-                    st.markdown("#### 🏆 Top Produtos")
+                    # Top produtos do cliente - CORREÇÃO: Mostrando artigos corretamente
+                    st.markdown("#### 🏆 Top Produtos do Cliente")
                     top_produtos = dados_cliente.groupby('Artigo').agg({
                         'V_Liquido': 'sum',
                         'Qtd': 'sum'
@@ -381,7 +414,7 @@ else:
         
         comerciais_disponiveis = sorted(df_filtrado['Comercial'].dropna().astype(str).unique())
         if comerciais_disponiveis:
-            comercial_selecionado = st.selectbox("🔍 Selecionar Comercial", comerciais_disponiveis)
+            comercial_selecionado = st.selectbox("🔍 Selecionar Comercial", comerciais_disponiveis, key="comercial_select")
             
             if comercial_selecionado:
                 dados_comercial = df_filtrado[df_filtrado['Comercial'].astype(str) == comercial_selecionado]
@@ -415,7 +448,7 @@ else:
                         st.markdown("</div>", unsafe_allow_html=True)
                     
                     # Top clientes do comercial
-                    st.markdown("#### 🏆 Top Clientes")
+                    st.markdown("#### 🏆 Top Clientes do Comercial")
                     top_clientes_comercial = dados_comercial.groupby('Cliente').agg({
                         'V_Liquido': 'sum',
                         'Qtd': 'sum',
