@@ -80,49 +80,43 @@ def load_data():
         # Carregar o arquivo mantendo a estrutura original das colunas
         df = pd.read_excel(url)
         
-        # CORREÇÃO: Mapeamento direto das colunas pelo nome original
-        # Vamos identificar as colunas pelo conteúdo em vez de renomear cegamente
+        st.sidebar.info(f"📋 Colunas originais: {', '.join(df.columns.tolist())}")
         
-        # Criar dicionário de mapeamento baseado no conteúdo das colunas
-        mapeamento_colunas = {}
+        # CORREÇÃO: Mapeamento direto pelo índice da coluna (posição)
+        # Assumindo que a estrutura é:
+        # A (0) = Cliente, B (1) = Qtd, C (2) = Artigo, D (3) = V_Liquido, etc.
+        mapeamento_por_indice = {}
         
-        for coluna in df.columns:
+        # Identificar colunas pelo conteúdo
+        for idx, coluna in enumerate(df.columns):
             coluna_upper = coluna.strip().upper()
             
-            # Identificar colunas pelo conteúdo típico
             if "CLIENTE" in coluna_upper:
-                mapeamento_colunas[coluna] = "Cliente"
+                mapeamento_por_indice[coluna] = "Cliente"
             elif "QTD" in coluna_upper or "QUANTIDADE" in coluna_upper:
-                mapeamento_colunas[coluna] = "Qtd"
-            elif "ARTIGO" in coluna_upper or "PRODUTO" in coluna_upper:
-                mapeamento_colunas[coluna] = "Artigo"
-            elif "LÍQUIDO" in coluna_upper or "LIQUIDO" in coluna_upper or "VALOR" in coluna_upper:
-                mapeamento_colunas[coluna] = "V_Liquido"
+                mapeamento_por_indice[coluna] = "Qtd"
+            elif "ARTIGO" in coluna_upper or "PRODUTO" in coluna_upper or idx == 2:  # Coluna C (índice 2)
+                mapeamento_por_indice[coluna] = "Artigo"
+            elif "LÍQUIDO" in coluna_upper or "LIQUIDO" in coluna_upper or idx == 3:  # Coluna D (índice 3)
+                mapeamento_por_indice[coluna] = "V_Liquido"
             elif "COMERCIAL" in coluna_upper or "VENDEDOR" in coluna_upper:
-                mapeamento_colunas[coluna] = "Comercial"
+                mapeamento_por_indice[coluna] = "Comercial"
             elif "CATEGORIA" in coluna_upper:
-                mapeamento_colunas[coluna] = "Categoria"
+                mapeamento_por_indice[coluna] = "Categoria"
             elif "MÊS" in coluna_upper or "MES" in coluna_upper:
-                mapeamento_colunas[coluna] = "Mes"
+                mapeamento_por_indice[coluna] = "Mes"
             elif "ANO" in coluna_upper:
-                mapeamento_colunas[coluna] = "Ano"
-        
-        # CORREÇÃO ESPECÍFICA: Se não encontramos a coluna Artigo, usar a coluna G (índice 6)
-        if not any("ARTIGO" in coluna_upper for coluna_upper in [col.strip().upper() for col in df.columns]):
-            if len(df.columns) > 6:  # Verificar se existe coluna G (índice 6)
-                mapeamento_colunas[df.columns[6]] = "Artigo"
-                st.info(f"🔧 Coluna G identificada como 'Artigo': {df.columns[6]}")
+                mapeamento_por_indice[coluna] = "Ano"
         
         # Aplicar o mapeamento
-        df = df.rename(columns=mapeamento_colunas)
+        df = df.rename(columns=mapeamento_por_indice)
         
         # Manter apenas as colunas mapeadas
         colunas_para_manter = ['Cliente', 'Qtd', 'Artigo', 'V_Liquido', 'Comercial', 'Categoria', 'Mes', 'Ano']
         colunas_existentes = [col for col in colunas_para_manter if col in df.columns]
         df = df[colunas_existentes]
         
-        # CORREÇÃO: Mostrar informações sobre as colunas carregadas
-        st.sidebar.info(f"📋 Colunas carregadas: {', '.join(colunas_existentes)}")
+        st.sidebar.success(f"✅ Colunas mapeadas: {', '.join(colunas_existentes)}")
         
         # Converter todas as colunas de texto para string
         text_columns = ['Cliente', 'Artigo', 'Comercial', 'Categoria', 'Mes', 'Ano']
@@ -130,16 +124,24 @@ def load_data():
             if col in df.columns:
                 df[col] = df[col].astype(str)
         
-        # CORREÇÃO: Converter colunas numéricas com tratamento robusto
+        # CORREÇÃO IMPORTANTE: Converter colunas numéricas com tratamento robusto
         if 'V_Liquido' in df.columns:
             # Primeiro converter para string para limpar, depois para numérico
             df['V_Liquido'] = df['V_Liquido'].astype(str)
-            # Remover caracteres não numéricos exceto ponto e vírgula
-            df['V_Liquido'] = df['V_Liquido'].str.replace('[^\d.,]', '', regex=True)
-            # Substituir vírgula por ponto para decimal
-            df['V_Liquido'] = df['V_Liquido'].str.replace(',', '.')
+            # Remover espaços em branco
+            df['V_Liquido'] = df['V_Liquido'].str.strip()
+            # Remover caracteres de moeda e símbolos
+            df['V_Liquido'] = df['V_Liquido'].str.replace('[^\d.,\-]', '', regex=True)
+            # Substituir vírgula por ponto para decimal (se necessário)
+            df['V_Liquido'] = df['V_Liquido'].str.replace('.', '', regex=False)  # Remove pontos de separador de milhares
+            df['V_Liquido'] = df['V_Liquido'].str.replace(',', '.', regex=False)  # Converte vírgula para ponto
             # Converter para numérico
             df['V_Liquido'] = pd.to_numeric(df['V_Liquido'], errors='coerce')
+            
+            # Diagnosticar valores inválidos
+            invalidos = df['V_Liquido'].isna().sum()
+            if invalidos > 0:
+                st.sidebar.warning(f"⚠️ {invalidos} valores inválidos em V_Liquido foram convertidos para NaN")
         
         if 'Qtd' in df.columns:
             df['Qtd'] = pd.to_numeric(df['Qtd'], errors='coerce')
@@ -148,6 +150,8 @@ def load_data():
         
     except Exception as e:
         st.error(f"Erro ao carregar dados: {str(e)}")
+        import traceback
+        st.error(traceback.format_exc())
         return pd.DataFrame()
 
 df = load_data()
@@ -193,7 +197,7 @@ with st.sidebar:
 
     clientes = filtro_multiselect("👥 Clientes", "Cliente", filtros.get("Cliente"))
     
-    # CORREÇÃO: Filtro de Artigos usando a coluna correta
+    # CORREÇÃO: Filtro de Artigos usando a coluna correta (coluna G)
     artigos = filtro_multiselect("📦 Artigos", "Artigo", filtros.get("Artigo"))
     
     comerciais = filtro_multiselect("👨‍💼 Comerciais", "Comercial", filtros.get("Comercial"))
@@ -222,6 +226,10 @@ with st.sidebar:
         st.write(f"**Artigos Únicos:** {df['Artigo'].nunique():,}")
     else:
         st.write("**Artigos Únicos:** Coluna não encontrada")
+    
+    if 'V_Liquido' in df.columns:
+        total_v_liquido = df['V_Liquido'].sum()
+        st.write(f"**Total V_Liquido (bruto):** € {total_v_liquido:,.2f}")
 
 # 🔍 Aplicar filtros
 df_filtrado = df.copy()
@@ -236,7 +244,7 @@ if clientes or artigos or comerciais or categorias or meses or anos:
         mascara = mascara & mascara_cliente
         filtros_aplicados.append(f"👥 Clientes: {len(clientes)}")
     
-    # CORREÇÃO: Aplicar filtro de Artigos na coluna correta
+    # CORREÇÃO: Filtro de Artigos na coluna correta
     if artigos:
         artigos_str = [str(artigo) for artigo in artigos]
         if 'Artigo' in df_filtrado.columns:
@@ -365,7 +373,7 @@ else:
         col1, col2 = st.columns(2)
         
         with col1:
-            # Top 10 clientes - CORREÇÃO: Usando nomes dos clientes corretamente
+            # Top 10 clientes
             if 'V_Liquido' in df_filtrado.columns:
                 top_clientes = df_filtrado.groupby('Cliente')['V_Liquido'].sum().nlargest(10)
                 if not top_clientes.empty:
@@ -383,11 +391,10 @@ else:
                     st.plotly_chart(fig, use_container_width=True)
         
         with col2:
-            # CORREÇÃO: Top 10 artigos usando os NOMES dos artigos corretamente
+            # Top 10 artigos
             if 'V_Liquido' in df_filtrado.columns and 'Artigo' in df_filtrado.columns:
                 top_artigos = df_filtrado.groupby('Artigo')['V_Liquido'].sum().nlargest(10)
                 if not top_artigos.empty:
-                    # CORREÇÃO: Garantir que estamos usando os nomes dos artigos, não valores de Qtd
                     fig = px.bar(
                         top_artigos,
                         x=top_artigos.values,
@@ -401,7 +408,7 @@ else:
                     fig.update_layout(showlegend=False)
                     st.plotly_chart(fig, use_container_width=True)
         
-        # Gráfico de pizza para distribuição de artigos - CORREÇÃO: Usando nomes dos artigos
+        # Gráfico de pizza para distribuição de artigos
         st.markdown("<div class='section-header'>📊 Distribuição por Artigo</div>", unsafe_allow_html=True)
         
         col1, col2 = st.columns(2)
@@ -409,7 +416,6 @@ else:
         with col1:
             # Distribuição de vendas por artigo
             if 'V_Liquido' in df_filtrado.columns and 'Artigo' in df_filtrado.columns:
-                # Pegar top 15 artigos para o gráfico de pizza
                 top_artigos_pizza = df_filtrado.groupby('Artigo')['V_Liquido'].sum().nlargest(15)
                 if not top_artigos_pizza.empty:
                     fig = px.pie(
@@ -425,16 +431,13 @@ else:
         with col2:
             # Evolução temporal dos artigos mais vendidos
             if 'V_Liquido' in df_filtrado.columns and 'Artigo' in df_filtrado.columns and 'Mes' in df_filtrado.columns and 'Ano' in df_filtrado.columns:
-                # Top 5 artigos para análise temporal
                 top_5_artigos = df_filtrado.groupby('Artigo')['V_Liquido'].sum().nlargest(5).index
                 df_top_artigos = df_filtrado[df_filtrado['Artigo'].isin(top_5_artigos)]
                 
                 if not df_top_artigos.empty:
-                    # Criar coluna de mês-ano para ordenação
                     df_top_artigos = df_top_artigos.copy()
                     df_top_artigos['Mes_Ano'] = df_top_artigos['Mes'].astype(str) + '-' + df_top_artigos['Ano'].astype(str)
                     
-                    # Agrupar por artigo e mês-ano
                     evolucao_artigos = df_top_artigos.groupby(['Artigo', 'Mes_Ano'])['V_Liquido'].sum().reset_index()
                     
                     fig = px.line(
@@ -450,18 +453,16 @@ else:
         # 📋 Dados detalhados
         st.markdown("<div class='section-header'>📋 Dados Filtrados</div>", unsafe_allow_html=True)
         
-        # Mostrar estatísticas dos dados filtrados
         col1, col2, col3 = st.columns(3)
         with col1:
             if 'V_Liquido' in df_filtrado.columns:
-                st.info(f"**📊 Total de Vendas:** € {df_filtrado['V_Liquido'].sum():,.2f}")
+                st.info(f"**💰 Total de Vendas:** € {df_filtrado['V_Liquido'].sum():,.2f}")
         with col2:
             if 'Qtd' in df_filtrado.columns:
                 st.info(f"**📦 Quantidade Total:** {df_filtrado['Qtd'].sum():,.0f}")
         with col3:
             st.info(f"**👥 Clientes no Filtro:** {df_filtrado['Cliente'].nunique():,}")
         
-        # Garantir que todas as colunas sejam strings antes de exibir
         df_display = df_filtrado.copy()
         for col in df_display.columns:
             if df_display[col].dtype == 'object':
