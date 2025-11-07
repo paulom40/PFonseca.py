@@ -365,7 +365,7 @@ else:
         col1, col2 = st.columns(2)
         
         with col1:
-            # Top 10 clientes
+            # Top 10 clientes - CORREÇÃO: Usando nomes dos clientes corretamente
             if 'V_Liquido' in df_filtrado.columns:
                 top_clientes = df_filtrado.groupby('Cliente')['V_Liquido'].sum().nlargest(10)
                 if not top_clientes.empty:
@@ -383,16 +383,67 @@ else:
                     st.plotly_chart(fig, use_container_width=True)
         
         with col2:
-            # CORREÇÃO: Top 10 artigos usando a coluna correta
+            # CORREÇÃO: Top 10 artigos usando os NOMES dos artigos corretamente
             if 'V_Liquido' in df_filtrado.columns and 'Artigo' in df_filtrado.columns:
                 top_artigos = df_filtrado.groupby('Artigo')['V_Liquido'].sum().nlargest(10)
                 if not top_artigos.empty:
-                    fig = px.pie(
+                    # CORREÇÃO: Garantir que estamos usando os nomes dos artigos, não valores de Qtd
+                    fig = px.bar(
                         top_artigos,
-                        values=top_artigos.values,
-                        names=top_artigos.index,
+                        x=top_artigos.values,
+                        y=top_artigos.index,
+                        orientation='h',
                         title='📦 Top 10 Artigos por Vendas',
+                        labels={'x': 'Vendas (€)', 'y': 'Artigo'},
+                        color=top_artigos.values,
+                        color_continuous_scale='plasma'
+                    )
+                    fig.update_layout(showlegend=False)
+                    st.plotly_chart(fig, use_container_width=True)
+        
+        # Gráfico de pizza para distribuição de artigos - CORREÇÃO: Usando nomes dos artigos
+        st.markdown("<div class='section-header'>📊 Distribuição por Artigo</div>", unsafe_allow_html=True)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Distribuição de vendas por artigo
+            if 'V_Liquido' in df_filtrado.columns and 'Artigo' in df_filtrado.columns:
+                # Pegar top 15 artigos para o gráfico de pizza
+                top_artigos_pizza = df_filtrado.groupby('Artigo')['V_Liquido'].sum().nlargest(15)
+                if not top_artigos_pizza.empty:
+                    fig = px.pie(
+                        top_artigos_pizza,
+                        values=top_artigos_pizza.values,
+                        names=top_artigos_pizza.index,
+                        title='📦 Distribuição de Vendas por Artigo (Top 15)',
                         hole=0.4
+                    )
+                    fig.update_traces(textposition='inside', textinfo='percent+label')
+                    st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            # Evolução temporal dos artigos mais vendidos
+            if 'V_Liquido' in df_filtrado.columns and 'Artigo' in df_filtrado.columns and 'Mes' in df_filtrado.columns and 'Ano' in df_filtrado.columns:
+                # Top 5 artigos para análise temporal
+                top_5_artigos = df_filtrado.groupby('Artigo')['V_Liquido'].sum().nlargest(5).index
+                df_top_artigos = df_filtrado[df_filtrado['Artigo'].isin(top_5_artigos)]
+                
+                if not df_top_artigos.empty:
+                    # Criar coluna de mês-ano para ordenação
+                    df_top_artigos = df_top_artigos.copy()
+                    df_top_artigos['Mes_Ano'] = df_top_artigos['Mes'].astype(str) + '-' + df_top_artigos['Ano'].astype(str)
+                    
+                    # Agrupar por artigo e mês-ano
+                    evolucao_artigos = df_top_artigos.groupby(['Artigo', 'Mes_Ano'])['V_Liquido'].sum().reset_index()
+                    
+                    fig = px.line(
+                        evolucao_artigos,
+                        x='Mes_Ano',
+                        y='V_Liquido',
+                        color='Artigo',
+                        title='📈 Evolução dos Top 5 Artigos ao Longo do Tempo',
+                        markers=True
                     )
                     st.plotly_chart(fig, use_container_width=True)
         
