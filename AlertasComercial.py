@@ -1,57 +1,62 @@
 import streamlit as st
 import pandas as pd
 
-st.title("🚀 TESTE SIMPLES - Filtro de Artigos")
+st.title("🔄 ABORDAGEM RADICAL - Debug Completo")
 
-# Carregar dados
 @st.cache_data
-def load_simple_data():
+def load_raw_data():
     try:
         url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
+        
+        # Tentar carregar sem conversões
         df = pd.read_excel(url)
-        return df
-    except:
+        
+        # DEBUG: Mostrar TUDO sobre a coluna Artigo
+        st.header("🔍 DEBUG COMPLETO - Coluna Artigo")
+        
+        if 'Artigo' in df.columns:
+            st.write("**1. Informações básicas:**")
+            st.write(f"- Tipo: {df['Artigo'].dtype}")
+            st.write(f"- Valores únicos: {df['Artigo'].nunique()}")
+            st.write(f"- Nulos: {df['Artigo'].isna().sum()}")
+            
+            st.write("**2. Primeiros 30 valores CRUS:**")
+            for i in range(min(30, len(df))):
+                valor = df.iloc[i]['Artigo']
+                st.write(f"Linha {i}: '{valor}' (tipo: {type(valor).__name__})")
+            
+            st.write("**3. Conversão forçada para texto:**")
+            df['Artigo_Texto'] = df['Artigo'].astype(str)
+            
+            st.write("**4. Valores únicos como texto:**")
+            artigos_texto = sorted(df['Artigo_Texto'].dropna().unique())
+            for i, artigo in enumerate(artigos_texto[:30]):
+                st.write(f"{i+1}. '{artigo}'")
+            
+            return df
+        else:
+            st.error("Coluna Artigo não existe!")
+            st.write("Colunas disponíveis:", list(df.columns))
+            return df
+            
+    except Exception as e:
+        st.error(f"Erro: {e}")
         return pd.DataFrame()
 
-df = load_simple_data()
+df = load_raw_data()
 
-if not df.empty:
-    st.success(f"✅ Dados carregados: {len(df)} registos")
+# Filtro usando a coluna convertida
+if not df.empty and 'Artigo_Texto' in df.columns:
+    st.header("🎛️ FILTRO - Usando coluna convertida")
     
-    # Verificar se a coluna Artigo existe
-    if 'Artigo' in df.columns:
-        st.success("✅ Coluna 'Artigo' encontrada!")
-        
-        # Mostrar informações sobre a coluna Artigo
-        st.write("**Informações da coluna Artigo:**")
-        st.write(f"- Tipo: {df['Artigo'].dtype}")
-        st.write(f"- Valores únicos: {df['Artigo'].nunique()}")
-        st.write(f"- Valores nulos: {df['Artigo'].isna().sum()}")
-        
-        # Mostrar primeiros 10 artigos
-        st.write("**Primeiros 10 artigos:**")
-        artigos_amostra = df['Artigo'].dropna().head(10).tolist()
-        for i, artigo in enumerate(artigos_amostra, 1):
-            st.write(f"{i}. {artigo}")
-        
-        # FILTRO SIMPLES
-        st.header("🎛️ Filtro de Artigos")
-        
-        artigos_unicos = sorted(df['Artigo'].dropna().astype(str).unique())
-        st.write(f"📚 Total de artigos únicos: {len(artigos_unicos)}")
-        
-        artigo_selecionado = st.selectbox(
-            "Selecione um artigo:",
-            options=artigos_unicos
-        )
-        
-        if artigo_selecionado:
-            df_filtrado = df[df['Artigo'] == artigo_selecionado]
-            st.success(f"✅ Filtrado: {len(df_filtrado)} registos para '{artigo_selecionado}'")
-            st.dataframe(df_filtrado)
-        
-    else:
-        st.error("❌ Coluna 'Artigo' NÃO encontrada!")
-        st.write("Colunas disponíveis:", list(df.columns))
-else:
-    st.error("❌ Não foi possível carregar os dados")
+    artigos_unicos = sorted(df['Artigo_Texto'].dropna().unique())
+    
+    artigo_selecionado = st.selectbox(
+        "Selecione:",
+        options=artigos_unicos
+    )
+    
+    if artigo_selecionado:
+        resultado = df[df['Artigo_Texto'] == artigo_selecionado]
+        st.success(f"✅ Encontrados: {len(resultado)} registos")
+        st.dataframe(resultado.head())
