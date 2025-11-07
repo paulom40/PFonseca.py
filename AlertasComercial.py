@@ -23,7 +23,6 @@ st.markdown("""
 <style>
     .main-header {font-size:2.5rem;color:#1f77b4;text-align:center;margin-bottom:2rem;font-weight:700;}
     .metric-card {background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:1.5rem;border-radius:15px;color:white;box-shadow:0 4px 6px rgba(0,0,0,0.1);}
-    .metric-card-reference {background:linear-gradient(135deg,#11998e 0%,#38ef7d 100%);padding:1.5rem;border-radius:15px;color:white;box-shadow:0 4px 6px rgba(0,0,0,0.1);}
     .section-header {font-size:1.5rem;color:#2c3e50;margin:2rem 0 1rem 0;padding-bottom:0.5rem;border-bottom:3px solid #3498db;font-weight:600;}
 </style>
 """, unsafe_allow_html=True)
@@ -32,31 +31,15 @@ st.markdown("""
 # 3. FUNÇÃO DE FORMATAÇÃO PT-PT
 # -------------------------------------------------
 def formatar_numero_pt(valor, simbolo="", sinal_forcado=False):
-    """
-    Formata número no estilo português:
-      - separador de milhares = espaço
-      - separador decimal    = vírgula
-      - remove .00 se inteiro
-    """
     if pd.isna(valor):
         return "N/D"
     valor = float(valor)
-
-    # sinal opcional (usado no delta)
-    if sinal_forcado and valor >= 0:
-        sinal = "+"
-    else:
-        sinal = "-" if valor < 0 else ""
-
+    sinal = "+" if sinal_forcado and valor >= 0 else ("-" if valor < 0 else "")
     valor_abs = abs(valor)
-
     if valor_abs == int(valor_abs):
         formato = f"{sinal}{simbolo}{valor_abs:,.0f}".replace(",", " ")
     else:
-        # 1 234 567,89
-        formato = f"{sinal}{simbolo}{valor_abs:,.2f}".replace(",", "X") \
-                    .replace(".", ",") \
-                    .replace("X", ".")
+        formato = f"{sinal}{simbolo}{valor_abs:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     return formato
 
 # -------------------------------------------------
@@ -66,11 +49,9 @@ def formatar_numero_pt(valor, simbolo="", sinal_forcado=False):
 def load_all_data():
     try:
         url = "https://github.com/paulom40/PFonseca.py/raw/main/VendasGeraisTranf.xlsx"
-        # Força leitura correta de vírgula como decimal
         df = pd.read_excel(url, thousands=None, decimal=',')
         st.sidebar.success(f"Ficheiro carregado: {len(df)} registos")
 
-        # Mapeamento de colunas (apenas as que existirem)
         mapeamento = {
             'Código': 'Codigo', 'Cliente': 'Cliente', 'Qtd.': 'Qtd', 'UN': 'UN',
             'PM': 'PM', 'V. Líquido': 'V_Liquido', 'Artigo': 'Artigo',
@@ -80,7 +61,6 @@ def load_all_data():
         mapeamento_final = {k: v for k, v in mapeamento.items() if k in df.columns}
         df = df.rename(columns=mapeamento_final)
 
-        # Conversões seguras
         for col in ['V_Liquido', 'Qtd', 'PM']:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
@@ -100,13 +80,7 @@ def load_all_data():
 df = load_all_data()
 
 # -------------------------------------------------
-# 5. VALORES DE REFERÊNCIA (para validação)
-# -------------------------------------------------
-TOTAL_QTD_REFERENCIA       = 4_449_342.03
-TOTAL_V_LIQUIDO_REFERENCIA = 11_032_291.50
-
-# -------------------------------------------------
-# 6. PRESETS DE FILTROS
+# 5. PRESETS DE FILTROS
 # -------------------------------------------------
 preset_path = Path("diagnosticos/presets_filtros.json")
 preset_path.parent.mkdir(exist_ok=True)
@@ -124,14 +98,13 @@ def salvar_preset(nome, filtros):
         json.dump(presets, f, indent=2)
 
 # -------------------------------------------------
-# 7. SIDEBAR – CONTROLES
+# 6. SIDEBAR – CONTROLES
 # -------------------------------------------------
 with st.sidebar:
     st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
     st.markdown("### Painel de Controle")
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # ----- PRESETS -----
     presets = carregar_presets()
     preset_selecionado = st.selectbox("Carregar Configuração", [""] + list(presets.keys()))
     filtros = presets.get(preset_selecionado, {}) if preset_selecionado else {}
@@ -153,7 +126,6 @@ with st.sidebar:
     meses      = criar_filtro("Meses", "Mes", filtros.get("Mes"))
     anos       = criar_filtro("Anos", "Ano", filtros.get("Ano"))
 
-    # ----- SALVAR PRESET -----
     st.markdown("---")
     st.markdown("### Configurações")
     nome_preset = st.text_input("Nome da configuração")
@@ -165,7 +137,6 @@ with st.sidebar:
         salvar_preset(nome_preset, filtros_atuais)
         st.success(f"Configuração '{nome_preset}' salva!")
 
-    # ----- ESTATÍSTICAS -----
     st.markdown("---")
     st.markdown("### Estatísticas")
     if not df.empty:
@@ -181,7 +152,7 @@ with st.sidebar:
             st.write(f"- Qtd: {formatar_numero_pt(df['Qtd'].sum())}")
 
 # -------------------------------------------------
-# 8. APLICAÇÃO DOS FILTROS
+# 7. APLICAÇÃO DOS FILTROS
 # -------------------------------------------------
 df_filtrado = df.copy()
 filtros_aplicados = []
@@ -207,23 +178,21 @@ if not df.empty:
         filtros_aplicados.append(f"Anos: {len(anos)}")
 
 # -------------------------------------------------
-# 9. INTERFACE PRINCIPAL
+# 8. INTERFACE PRINCIPAL
 # -------------------------------------------------
 st.markdown("<h1 class='main-header'>Dashboard de Vendas</h1>", unsafe_allow_html=True)
 
-# ----- DEBUG (expander) -----
+# ----- DEBUG (opcional) -----
 with st.expander("Informações Técnicas", expanded=False):
     if not df.empty:
-        st.write("**Estrutura dos dados carregados:**")
+        st.write("**Estrutura dos dados:**")
         for col in df.columns:
             st.write(f"- **{col}**: {df[col].dtype} | Únicos: {df[col].nunique():,}")
         st.write("**Totais (sem filtros):**")
-        if 'V_Liquido' in df.columns:
-            st.write(f"- V_Liquido: {formatar_numero_pt(df['V_Liquido'].sum(), 'EUR ')}")
-        if 'Qtd' in df.columns:
-            st.write(f"- Qtd: {formatar_numero_pt(df['Qtd'].sum())}")
+        st.write(f"- V_Liquido: {formatar_numero_pt(df['V_Liquido'].sum(), 'EUR ')}")
+        st.write(f"- Qtd: {formatar_numero_pt(df['Qtd'].sum())}")
 
-# ----- MENSAGENS DE ESTADO -----
+# ----- MENSAGENS -----
 if df.empty:
     st.error("Não foi possível carregar os dados.")
 elif df_filtrado.empty:
@@ -234,76 +203,42 @@ else:
         st.info("**Filtros aplicados:** " + " | ".join(filtros_aplicados))
 
     # -------------------------------------------------
-    # 10. MÉTRICAS PRINCIPAIS
+    # 9. MÉTRICAS PRINCIPAIS
     # -------------------------------------------------
     st.markdown("<div class='section-header'>Métricas Principais</div>", unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
 
-    with col1:  # Total Vendas
+    with col1:
         total_vendas = df_filtrado['V_Liquido'].sum()
         st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
         st.metric("Total Vendas", formatar_numero_pt(total_vendas, "EUR "))
         st.markdown("</div>", unsafe_allow_html=True)
 
-    with col2:  # Quantidade
+    with col2:
         total_qtd = df_filtrado['Qtd'].sum()
         st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
         st.metric("Quantidade", formatar_numero_pt(total_qtd))
         st.markdown("</div>", unsafe_allow_html=True)
 
-    with col3:  # Clientes únicos
+    with col3:
         clientes_unicos = df_filtrado['Cliente'].nunique()
         st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
         st.metric("Clientes", f"{clientes_unicos:,}")
         st.markdown("</div>", unsafe_allow_html=True)
 
-    with col4:  # Artigos únicos
+    with col4:
         artigos_unicos = df_filtrado['Artigo'].nunique()
         st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
         st.metric("Artigos", f"{artigos_unicos:,}")
         st.markdown("</div>", unsafe_allow_html=True)
 
     # -------------------------------------------------
-    # 11. VALIDAÇÃO DE DADOS
-    # -------------------------------------------------
-    st.markdown("<div class='section-header'>Validação de Dados</div>", unsafe_allow_html=True)
-    col1, col2 = st.columns(2)
-
-    with col1:  # Qtd
-        total_qtd_atual = df_filtrado['Qtd'].sum()
-        diferenca_qtd = total_qtd_atual - TOTAL_QTD_REFERENCIA
-        percentual_qtd = (diferenca_qtd / TOTAL_QTD_REFERENCIA) * 100 if TOTAL_QTD_REFERENCIA else 0
-
-        st.markdown("<div class='metric-card-reference'>", unsafe_allow_html=True)
-        st.metric(
-            "Validação Qtd",
-            formatar_numero_pt(total_qtd_atual),
-            delta=f"{formatar_numero_pt(diferenca_qtd, sinal_forcado=True)} ({percentual_qtd:+.2f}%)",
-            help=f"Referência: {formatar_numero_pt(TOTAL_QTD_REFERENCIA)}"
-        )
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    with col2:  # V. Líquido
-        total_vendas_atual = df_filtrado['V_Liquido'].sum()
-        diferenca_vendas = total_vendas_atual - TOTAL_V_LIQUIDO_REFERENCIA
-        percentual_vendas = (diferenca_vendas / TOTAL_V_LIQUIDO_REFERENCIA) * 100 if TOTAL_V_LIQUIDO_REFERENCIA else 0
-
-        st.markdown("<div class='metric-card-reference'>", unsafe_allow_html=True)
-        st.metric(
-            "Validação V. Líquido",
-            formatar_numero_pt(total_vendas_atual, "EUR "),
-            delta=f"{formatar_numero_pt(diferenca_vendas, 'EUR ', sinal_forcado=True)} ({percentual_vendas:+.2f}%)",
-            help=f"Referência: {formatar_numero_pt(TOTAL_V_LIQUIDO_REFERENCIA, 'EUR ')}"
-        )
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    # -------------------------------------------------
-    # 12. GRÁFICOS
+    # 10. GRÁFICOS
     # -------------------------------------------------
     st.markdown("<div class='section-header'>Visualizações</div>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
 
-    with col1:  # Top 10 Clientes
+    with col1:
         if 'V_Liquido' in df_filtrado.columns and 'Cliente' in df_filtrado.columns:
             top_clientes = df_filtrado.groupby('Cliente')['V_Liquido'].sum().nlargest(10)
             if not top_clientes.empty:
@@ -318,7 +253,7 @@ else:
                 fig.update_traces(textposition='outside')
                 st.plotly_chart(fig, use_container_width=True)
 
-    with col2:  # Top 10 Artigos
+    with col2:
         if 'V_Liquido' in df_filtrado.columns and 'Artigo' in df_filtrado.columns:
             top_artigos = df_filtrado.groupby('Artigo')['V_Liquido'].sum().nlargest(10)
             if not top_artigos.empty:
@@ -334,7 +269,7 @@ else:
                 st.plotly_chart(fig, use_container_width=True)
 
     # -------------------------------------------------
-    # 13. TABELA DE DADOS FILTRADOS
+    # 11. TABELA DE DADOS
     # -------------------------------------------------
     st.markdown("<div class='section-header'>Dados Filtrados</div>", unsafe_allow_html=True)
     df_display = df_filtrado.copy()
@@ -344,7 +279,7 @@ else:
     st.dataframe(df_display, use_container_width=True)
 
 # -------------------------------------------------
-# 14. FOOTER
+# 12. FOOTER
 # -------------------------------------------------
 st.markdown("---")
 st.markdown(
