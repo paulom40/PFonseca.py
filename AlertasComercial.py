@@ -96,6 +96,12 @@ def load_data():
         colunas_existentes = [col for col in colunas_para_manter if col in df.columns]
         df = df[colunas_existentes]
         
+        # CORREÇÃO: Converter todas as colunas de texto para string
+        text_columns = ['Cliente', 'Artigo', 'Comercial', 'Categoria', 'Mes', 'Ano']
+        for col in text_columns:
+            if col in df.columns:
+                df[col] = df[col].astype(str)
+        
         # Converter colunas numéricas
         if 'V_Liquido' in df.columns:
             df['V_Liquido'] = pd.to_numeric(df['V_Liquido'], errors='coerce')
@@ -148,7 +154,7 @@ with st.sidebar:
         return st.multiselect(label, opcoes, default=valores_default)
 
     clientes = filtro_multiselect("👥 Clientes", "Cliente", filtros.get("Cliente"))
-    artigos = filtro_multiselect("📦 Artigos", "Artigo", filtros.get("Artigo"))  # CORREÇÃO: Buscando da coluna "Artigo"
+    artigos = filtro_multiselect("📦 Artigos", "Artigo", filtros.get("Artigo"))
     comerciais = filtro_multiselect("👨‍💼 Comerciais", "Comercial", filtros.get("Comercial"))
     categorias = filtro_multiselect("🏷️ Categorias", "Categoria", filtros.get("Categoria"))
     meses = filtro_multiselect("📅 Meses", "Mes", filtros.get("Mes"))
@@ -173,7 +179,7 @@ with st.sidebar:
     st.write(f"**Clientes Únicos:** {df['Cliente'].nunique():,}")
     st.write(f"**Artigos Únicos:** {df['Artigo'].nunique():,}")
 
-# 🔍 Aplicar filtros - CORREÇÃO: Filtro de artigos corrigido
+# 🔍 Aplicar filtros
 df_filtrado = df.copy()
 filtros_aplicados = []
 
@@ -186,7 +192,6 @@ if clientes or artigos or comerciais or categorias or meses or anos:
         filtros_aplicados.append(f"👥 Clientes: {len(clientes)}")
     
     if artigos:
-        # CORREÇÃO: Agora filtra pela coluna "Artigo" corretamente
         mascara_artigo = df_filtrado["Artigo"].astype(str).isin(artigos)
         mascara = mascara & mascara_artigo
         filtros_aplicados.append(f"📦 Artigos: {len(artigos)}")
@@ -315,7 +320,7 @@ else:
                 st.plotly_chart(fig, use_container_width=True)
         
         with col2:
-            # Top 10 artigos - CORREÇÃO: Mostrando artigos corretamente
+            # Top 10 artigos
             top_artigos = df_filtrado.groupby('Artigo')['V_Liquido'].sum().nlargest(10)
             if not top_artigos.empty:
                 fig = px.pie(
@@ -339,7 +344,13 @@ else:
         with col3:
             st.info(f"**👥 Clientes no Filtro:** {df_filtrado['Cliente'].nunique():,}")
         
-        st.dataframe(df_filtrado, width='stretch')
+        # CORREÇÃO: Garantir que todas as colunas sejam strings antes de exibir
+        df_display = df_filtrado.copy()
+        for col in df_display.columns:
+            if df_display[col].dtype == 'object':
+                df_display[col] = df_display[col].astype(str)
+        
+        st.dataframe(df_display, width='stretch')
     
     with tab2:
         st.markdown("<div class='section-header'>👥 Análise Detalhada por Cliente</div>", unsafe_allow_html=True)
@@ -393,7 +404,7 @@ else:
                         )
                         st.plotly_chart(fig, use_container_width=True)
                     
-                    # Top produtos do cliente - CORREÇÃO: Mostrando artigos corretamente
+                    # Top produtos do cliente
                     st.markdown("#### 🏆 Top Produtos do Cliente")
                     top_produtos = dados_cliente.groupby('Artigo').agg({
                         'V_Liquido': 'sum',
@@ -401,8 +412,12 @@ else:
                     }).sort_values('V_Liquido', ascending=False).head(10)
                     
                     if not top_produtos.empty:
+                        # CORREÇÃO: Garantir que o índice seja string
+                        top_produtos_display = top_produtos.copy()
+                        top_produtos_display.index = top_produtos_display.index.astype(str)
+                        
                         st.dataframe(
-                            top_produtos.style.format({
+                            top_produtos_display.style.format({
                                 'V_Liquido': '€ {:,.2f}',
                                 'Qtd': '{:,.0f}'
                             }), 
@@ -456,8 +471,12 @@ else:
                     }).rename(columns={'Artigo': 'Artigos Únicos'}).sort_values('V_Liquido', ascending=False).head(10)
                     
                     if not top_clientes_comercial.empty:
+                        # CORREÇÃO: Garantir que o índice seja string
+                        top_clientes_display = top_clientes_comercial.copy()
+                        top_clientes_display.index = top_clientes_display.index.astype(str)
+                        
                         st.dataframe(
-                            top_clientes_comercial.style.format({
+                            top_clientes_display.style.format({
                                 'V_Liquido': '€ {:,.2f}',
                                 'Qtd': '{:,.0f}'
                             }), 
@@ -574,6 +593,11 @@ else:
                     'Variacao': 'Variação',
                     'Variacao_Percentual': 'Variação %'
                 })
+                
+                # CORREÇÃO: Garantir que todas as colunas de texto sejam strings
+                for col in ['Cliente', 'Status']:
+                    if col in comparacao_display.columns:
+                        comparacao_display[col] = comparacao_display[col].astype(str)
                 
                 st.dataframe(comparacao_display.style.format({
                     f'Qtd {mes_anterior}': '{:,.0f}',
