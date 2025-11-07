@@ -268,7 +268,8 @@ else:
 
         df_tabela_alertas = pd.DataFrame(alertas_list)
         if not df_tabela_alertas.empty:
-            df_tabela_alertas['Qtd_Num'] = df_tabela_alertas['Qtd Atual'].str.replace(' ', '').str.replace(',', '.').astype(float)
+            # CORREÇÃO: Substitui "N/D" por "0" antes da conversão
+            df_tabela_alertas['Qtd_Num'] = df_tabela_alertas['Qtd Atual'].replace('N/D', '0').str.replace(' ', '').str.replace(',', '.').astype(float)
             df_tabela_alertas = df_tabela_alertas.sort_values('Qtd_Num', ascending=False).drop('Qtd_Num', axis=1).head(20)
             st.table(df_tabela_alertas.style.apply(
                 lambda x: ['color: green' if 'Aumento' in v else 'color: red' if 'Descida' in v else '' for v in x],
@@ -288,7 +289,6 @@ else:
 
     df_comp = df_filtrado.copy()
 
-    # CONVERSÃO SEGURA
     df_comp['Mes'] = pd.to_numeric(df_comp['Mes'], errors='coerce').fillna(0).astype(int)
     df_comp['Ano'] = pd.to_numeric(df_comp['Ano'], errors='coerce').fillna(0).astype(int)
 
@@ -300,7 +300,6 @@ else:
     df_comparacao = pd.merge(df_2024, df_2025, on='Mes', how='inner')
 
     if not df_comparacao.empty:
-        # CORREÇÃO AQUI: .replace(0, np.nan)
         df_comparacao['Var_Qtd_%'] = ((df_comparacao['Qtd_2025'] - df_comparacao['Qtd_2024']) / df_comparacao['Qtd_2024'].replace(0, np.nan) * 100).round(1)
         df_comparacao['Var_VL_%'] = ((df_comparacao['V_Liquido_2025'] - df_comparacao['V_Liquido_2024']) / df_comparacao['V_Liquido_2024'].replace(0, np.nan) * 100).round(1)
 
