@@ -51,8 +51,6 @@ def load_data():
         # Carregar o arquivo mantendo os cabeçalhos originais
         df = pd.read_excel(url)
         
-        st.sidebar.success(f"✅ Arquivo carregado com {len(df)} registros")
-        
         # CORREÇÃO: USAR OS CABEÇALHOS EXATOS DO EXCEL
         mapeamento = {
             'Código': 'Codigo',
@@ -150,7 +148,6 @@ with st.sidebar:
     # FUNÇÃO DE FILTRO SEGURO
     def criar_filtro_seguro(label, coluna, valores_default=None):
         if coluna not in df.columns or df.empty:
-            st.warning(f"Coluna '{coluna}' não disponível")
             return []
         
         try:
@@ -158,8 +155,7 @@ with st.sidebar:
             # Garantir que todos os valores são strings
             opcoes = sorted(df[coluna].dropna().astype(str).unique())
             return st.multiselect(label, opcoes, default=valores_default)
-        except Exception as e:
-            st.error(f"Erro no filtro {label}: {e}")
+        except Exception:
             return []
     
     # FILTROS
@@ -167,23 +163,14 @@ with st.sidebar:
     
     # ✅ FILTRO DE ARTIGOS - APENAS OS QUE EXISTEM NOS DADOS
     if not df.empty and 'Artigo' in df.columns:
-        try:
-            artigos_opcoes = sorted(df['Artigo'].dropna().astype(str).unique())
-            artigos = st.multiselect(
-                "📦 Artigos", 
-                artigos_opcoes,
-                default=filtros.get("Artigo", []),
-                placeholder="Selecione os artigos..."
-            )
-            st.sidebar.info(f"Artigos disponíveis: {len(artigos_opcoes)}")
-            
-            if artigos:
-                st.sidebar.success(f"✅ {len(artigos)} artigo(s) selecionado(s)")
-        except Exception as e:
-            st.error(f"Erro no filtro de artigos: {e}")
-            artigos = []
+        artigos_opcoes = sorted(df['Artigo'].dropna().astype(str).unique())
+        artigos = st.multiselect(
+            "📦 Artigos", 
+            artigos_opcoes,
+            default=filtros.get("Artigo", []),
+            placeholder="Selecione os artigos..."
+        )
     else:
-        st.error("❌ Coluna Artigo não carregada")
         artigos = []
     
     comerciais = criar_filtro_seguro("👨‍💼 Comerciais", "Comercial", filtros.get("Comercial"))
@@ -224,7 +211,6 @@ if not df.empty:
             df_filtrado = df_filtrado[df_filtrado['Cliente'].astype(str).isin(clientes)]
             filtros_aplicados.append(f"👥 Clientes: {len(clientes)}")
         
-        # ✅ FILTRO DE ARTIGOS - CORRETO
         if artigos and 'Artigo' in df_filtrado.columns:
             df_filtrado = df_filtrado[df_filtrado['Artigo'].astype(str).isin(artigos)]
             filtros_aplicados.append(f"📦 Artigos: {len(artigos)}")
@@ -299,54 +285,43 @@ else:
     
     with col1:
         if 'V_Liquido' in df_filtrado.columns and 'Cliente' in df_filtrado.columns:
-            try:
-                top_clientes = df_filtrado.groupby('Cliente')['V_Liquido'].sum().nlargest(10)
-                if not top_clientes.empty:
-                    fig = px.bar(
-                        top_clientes, 
-                        x=top_clientes.values, 
-                        y=top_clientes.index,
-                        orientation='h',
-                        title='🏆 Top 10 Clientes',
-                        labels={'x': 'Vendas (€)', 'y': ''}
-                    )
-                    st.plotly_chart(fig, width='stretch')
-            except Exception as e:
-                st.error(f"Erro no gráfico de clientes: {e}")
+            top_clientes = df_filtrado.groupby('Cliente')['V_Liquido'].sum().nlargest(10)
+            if not top_clientes.empty:
+                fig = px.bar(
+                    top_clientes, 
+                    x=top_clientes.values, 
+                    y=top_clientes.index,
+                    orientation='h',
+                    title='🏆 Top 10 Clientes',
+                    labels={'x': 'Vendas (€)', 'y': ''}
+                )
+                st.plotly_chart(fig, width='stretch')
     
     with col2:
         if 'V_Liquido' in df_filtrado.columns and 'Artigo' in df_filtrado.columns:
-            try:
-                top_artigos = df_filtrado.groupby('Artigo')['V_Liquido'].sum().nlargest(10)
-                if not top_artigos.empty:
-                    fig = px.bar(
-                        top_artigos,
-                        x=top_artigos.values,
-                        y=top_artigos.index,
-                        orientation='h',
-                        title='📦 Top 10 Artigos',
-                        labels={'x': 'Vendas (€)', 'y': ''}
-                    )
-                    st.plotly_chart(fig, width='stretch')
-            except Exception as e:
-                st.error(f"Erro no gráfico de artigos: {e}")
+            top_artigos = df_filtrado.groupby('Artigo')['V_Liquido'].sum().nlargest(10)
+            if not top_artigos.empty:
+                fig = px.bar(
+                    top_artigos,
+                    x=top_artigos.values,
+                    y=top_artigos.index,
+                    orientation='h',
+                    title='📦 Top 10 Artigos',
+                    labels={'x': 'Vendas (€)', 'y': ''}
+                )
+                st.plotly_chart(fig, width='stretch')
     
     # DADOS FILTRADOS
     st.markdown("<div class='section-header'>📋 Dados Filtrados</div>", unsafe_allow_html=True)
     
     # Converter colunas problemáticas para evitar erro de serialização
-    try:
-        df_display = df_filtrado.copy()
-        # Garantir que todas as colunas são strings para evitar erro Arrow
-        for col in df_display.columns:
-            if df_display[col].dtype == 'object':
-                df_display[col] = df_display[col].astype(str)
-        
-        st.dataframe(df_display, width='stretch')
-    except Exception as e:
-        st.error(f"Erro ao exibir dados: {e}")
-        st.write("Primeiras 10 linhas dos dados originais:")
-        st.dataframe(df_filtrado.head(10), width='stretch')
+    df_display = df_filtrado.copy()
+    # Garantir que todas as colunas são strings para evitar erro Arrow
+    for col in df_display.columns:
+        if df_display[col].dtype == 'object':
+            df_display[col] = df_display[col].astype(str)
+    
+    st.dataframe(df_display, width='stretch')
 
 # Footer
 st.markdown("---")
