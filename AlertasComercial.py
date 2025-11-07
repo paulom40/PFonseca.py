@@ -156,6 +156,11 @@ def load_data():
 
 df = load_data()
 
+# Verificar se DataFrame foi carregado corretamente
+if df.empty:
+    st.error("❌ Nenhum dado foi carregado. Verifique a URL ou o arquivo.")
+    st.stop()
+
 # 📁 Presets
 preset_path = Path("diagnosticos/presets_filtros.json")
 preset_path.parent.mkdir(exist_ok=True)
@@ -191,9 +196,18 @@ with st.sidebar:
         if coluna not in df.columns:
             st.warning(f"Coluna '{coluna}' não encontrada nos dados")
             return []
-        valores_default = valores if valores else []
-        opcoes = sorted(df[coluna].dropna().astype(str).unique())
-        return st.multiselect(label, opcoes, default=valores_default)
+        try:
+            valores_default = valores if valores else []
+            # Garantir que a coluna é string antes de processar
+            col_data = df[coluna].astype(str).dropna()
+            if col_data.empty:
+                st.warning(f"Coluna '{coluna}' está vazia")
+                return []
+            opcoes = sorted(col_data.unique())
+            return st.multiselect(label, opcoes, default=valores_default)
+        except Exception as e:
+            st.error(f"Erro ao processar coluna '{coluna}': {str(e)}")
+            return []
 
     clientes = filtro_multiselect("👥 Clientes", "Cliente", filtros.get("Cliente"))
     
@@ -221,11 +235,12 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 📈 Estatísticas")
     st.write(f"**Total de Registros:** {len(df):,}")
-    st.write(f"**Clientes Únicos:** {df['Cliente'].nunique():,}")
+    
+    if 'Cliente' in df.columns:
+        st.write(f"**Clientes Únicos:** {df['Cliente'].nunique():,}")
+    
     if 'Artigo' in df.columns:
         st.write(f"**Artigos Únicos:** {df['Artigo'].nunique():,}")
-    else:
-        st.write("**Artigos Únicos:** Coluna não encontrada")
     
     if 'V_Liquido' in df.columns:
         total_v_liquido = df['V_Liquido'].sum()
@@ -388,7 +403,7 @@ else:
                         color_continuous_scale='viridis'
                     )
                     fig.update_layout(showlegend=False)
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width='stretch')
         
         with col2:
             # Top 10 artigos
@@ -426,7 +441,7 @@ else:
                         hole=0.4
                     )
                     fig.update_traces(textposition='inside', textinfo='percent+label')
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width='stretch')
         
         with col2:
             # Evolução temporal dos artigos mais vendidos
@@ -448,7 +463,7 @@ else:
                         title='📈 Evolução dos Top 5 Artigos ao Longo do Tempo',
                         markers=True
                     )
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width='stretch')
         
         # 📋 Dados detalhados
         st.markdown("<div class='section-header'>📋 Dados Filtrados</div>", unsafe_allow_html=True)
