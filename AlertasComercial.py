@@ -43,7 +43,7 @@ def formatar_numero_pt(valor, simbolo="", sinal_forcado=False):
     return formato
 
 # -------------------------------------------------
-# 4. CARREGAMENTO DOS DADOS (sem logs)
+# 4. CARREGAMENTO DOS DADOS
 # -------------------------------------------------
 @st.cache_data
 def load_all_data():
@@ -60,7 +60,6 @@ def load_all_data():
         mapeamento_final = {k: v for k, v in mapeamento.items() if k in df.columns}
         df = df.rename(columns=mapeamento_final)
 
-        # Conversões silenciosas
         for col in ['V_Liquido', 'Qtd', 'PM']:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
@@ -230,7 +229,6 @@ else:
     df_alertas['Ano'] = pd.to_numeric(df_alertas['Ano'], errors='coerce').fillna(0).astype(int)
     df_alertas['AnoMes'] = df_alertas['Ano'] * 100 + df_alertas['Mes']
 
-    # Agrupar
     df_alertas = df_alertas.groupby(['Cliente', 'AnoMes'])['Qtd'].sum().reset_index()
     df_alertas = df_alertas.sort_values(['Cliente', 'AnoMes'])
 
@@ -302,8 +300,9 @@ else:
     df_comparacao = pd.merge(df_2024, df_2025, on='Mes', how='inner')
 
     if not df_comparacao.empty:
+        # CORREÇÃO AQUI: .replace(0, np.nan)
         df_comparacao['Var_Qtd_%'] = ((df_comparacao['Qtd_2025'] - df_comparacao['Qtd_2024']) / df_comparacao['Qtd_2024'].replace(0, np.nan) * 100).round(1)
-        df_comparacao['Var_VL_%'] = ((df_comparacao['V_Liquido_2025'] - df_comparacao['V_Liquido_2024']) / df_comparacao['V_Liquido_2024'].-preset(0, np.nan) * 100).round(1)
+        df_comparacao['Var_VL_%'] = ((df_comparacao['V_Liquido_2025'] - df_comparacao['V_Liquido_2024']) / df_comparacao['V_Liquido_2024'].replace(0, np.nan) * 100).round(1)
 
         meses_nome = {1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun',
                       7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'}
