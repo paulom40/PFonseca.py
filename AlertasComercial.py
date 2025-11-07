@@ -42,82 +42,74 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 🔄 CARREGAMENTO SIMPLIFICADO - CORREÇÃO DEFINITIVA
+# 🔄 CARREGAMENTO CORRETO - USANDO OS CABEÇALHOS EXATOS
 @st.cache_data
 def load_data():
     try:
         url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
         
-        # Carregar o arquivo mantendo os nomes originais
+        # Carregar o arquivo mantendo os cabeçalhos originais
         df = pd.read_excel(url)
         
-        st.sidebar.info(f"📋 Colunas originais carregadas: {list(df.columns)}")
+        st.sidebar.success(f"✅ Arquivo carregado com {len(df)} registros")
+        st.sidebar.info(f"📋 Cabeçalhos: {list(df.columns)}")
         
-        # VERIFICAÇÃO MANUAL DAS COLUNAS
-        st.sidebar.markdown("### 🔍 Verificação das Colunas")
-        
-        # Mostrar amostra de cada coluna para identificação
-        for i, coluna in enumerate(df.columns):
-            amostra = df[coluna].dropna().head(3).tolist()
-            st.sidebar.write(f"**Coluna {i} ({coluna}):** {amostra}")
-        
-        # CORREÇÃO DEFINITIVA: MAPEAMENTO MANUAL BASEADO NA POSIÇÃO
-        # Vamos assumir que:
-        # Coluna 0: Cliente
-        # Coluna 1: Qtd  
-        # Coluna 6: Artigo (Coluna G)
-        # E procurar as outras pelo nome
-        
-        mapeamento = {}
-        
-        # Mapeamento por posição (garantido)
-        if len(df.columns) > 0:
-            mapeamento[df.columns[0]] = "Cliente"
-        if len(df.columns) > 1:
-            mapeamento[df.columns[1]] = "Qtd"
-        if len(df.columns) > 6:
-            mapeamento[df.columns[6]] = "Artigo"
-            st.sidebar.success(f"✅ **Coluna G definida como Artigo:** '{df.columns[6]}'")
-        
-        # Procurar outras colunas pelo nome
+        # VERIFICAÇÃO DOS DADOS - MOSTRAR AMOSTRA DE CADA COLUNA
+        st.sidebar.markdown("### 🔍 Amostra dos Dados")
         for coluna in df.columns:
-            col_upper = str(coluna).upper()
-            if "LÍQUIDO" in col_upper or "LIQUIDO" in col_upper:
-                mapeamento[coluna] = "V_Liquido"
-            elif "COMERCIAL" in col_upper:
-                mapeamento[coluna] = "Comercial"
-            elif "CATEGORIA" in col_upper:
-                mapeamento[coluna] = "Categoria"
-            elif "MÊS" in col_upper or "MES" in col_upper:
-                mapeamento[coluna] = "Mes"
-            elif "ANO" in col_upper:
-                mapeamento[coluna] = "Ano"
+            amostra = df[coluna].dropna().head(3).tolist()
+            st.sidebar.write(f"**{coluna}:** {amostra}")
         
-        # Aplicar renomeação
-        df = df.rename(columns=mapeamento)
+        # CORREÇÃO: USAR OS CABEÇALHOS EXATOS DO EXCEL
+        mapeamento = {
+            'Código': 'Codigo',
+            'Cliente': 'Cliente', 
+            'Qtd.': 'Qtd',
+            'UN': 'UN',
+            'PM': 'PM',
+            'V. Líquido': 'V_Liquido',
+            'Artigo': 'Artigo',  # ✅ COLUNA ARTIGO IDENTIFICADA
+            'Comercial': 'Comercial',
+            'Categoria': 'Categoria',
+            'Mês': 'Mes',
+            'Ano': 'Ano'
+        }
         
-        # Manter apenas colunas mapeadas
-        colunas_desejadas = ['Cliente', 'Qtd', 'Artigo', 'V_Liquido', 'Comercial', 'Categoria', 'Mes', 'Ano']
-        colunas_existentes = [col for col in colunas_desejadas if col in df.columns]
-        df = df[colunas_existentes]
+        # Aplicar renomeação apenas para colunas que existem
+        mapeamento_final = {}
+        for col_original, col_novo in mapeamento.items():
+            if col_original in df.columns:
+                mapeamento_final[col_original] = col_novo
+                st.sidebar.success(f"✅ {col_original} → {col_novo}")
         
-        st.sidebar.success(f"🎯 Colunas finais: {colunas_existentes}")
+        df = df.rename(columns=mapeamento_final)
         
         # VERIFICAÇÃO CRÍTICA DA COLUNA ARTIGO
         if 'Artigo' in df.columns:
-            st.sidebar.success(f"📦 Coluna Artigo carregada com {df['Artigo'].nunique():,} valores únicos")
-            st.sidebar.write(f"📊 Amostra de Artigos: {df['Artigo'].dropna().head(5).tolist()}")
+            st.sidebar.success(f"📦 Coluna 'Artigo' encontrada!")
+            st.sidebar.info(f"Valores únicos: {df['Artigo'].nunique():,}")
+            st.sidebar.info(f"Tipo de dados: {df['Artigo'].dtype}")
+            
+            # Mostrar amostra dos valores de Artigo
+            artigos_amostra = df['Artigo'].dropna().head(10).tolist()
+            st.sidebar.write("**Amostra de Artigos:**", artigos_amostra)
         else:
-            st.sidebar.error("❌ COLUNA ARTIGO NÃO ENCONTRADA!")
+            st.sidebar.error("❌ Coluna 'Artigo' NÃO encontrada!")
             return pd.DataFrame()
         
-        # Converter tipos de dados
+        # CONVERSÃO DE TIPOS DE DADOS
+        # Converter Artigo para string (mesmo que sejam números)
         if 'Artigo' in df.columns:
             df['Artigo'] = df['Artigo'].astype(str)
+            st.sidebar.success("✅ Artigos convertidos para texto")
+        
         if 'Cliente' in df.columns:
             df['Cliente'] = df['Cliente'].astype(str)
+        
+        # Converter colunas numéricas
         if 'V_Liquido' in df.columns:
             df['V_Liquido'] = pd.to_numeric(df['V_Liquido'], errors='coerce')
+        
         if 'Qtd' in df.columns:
             df['Qtd'] = pd.to_numeric(df['Qtd'], errors='coerce')
             
@@ -146,7 +138,7 @@ def salvar_preset(nome, filtros):
     with open(preset_path, "w", encoding="utf-8") as f:
         json.dump(presets, f, indent=2)
 
-# 🎛️ SIDEBAR SIMPLIFICADA
+# 🎛️ SIDEBAR
 with st.sidebar:
     st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
     st.markdown("### 🎛️ Painel de Controle")
@@ -160,7 +152,7 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 🔍 Filtros")
     
-    # FUNÇÃO DE FILTRO SIMPLIFICADA
+    # FUNÇÃO DE FILTRO
     def criar_filtro(label, coluna, valores_default=None):
         if coluna not in df.columns:
             st.warning(f"Coluna '{coluna}' não disponível")
@@ -173,15 +165,19 @@ with st.sidebar:
     # FILTROS
     clientes = criar_filtro("👥 Clientes", "Cliente", filtros.get("Cliente"))
     
-    # FILTRO DE ARTIGOS - CORREÇÃO DEFINITIVA
+    # ✅ FILTRO DE ARTIGOS CORRETO
     if 'Artigo' in df.columns:
         artigos_opcoes = sorted(df['Artigo'].dropna().astype(str).unique())
         artigos = st.multiselect(
-            "📦 Artigos (Coluna G)", 
+            "📦 Artigos", 
             artigos_opcoes,
             default=filtros.get("Artigo", [])
         )
         st.sidebar.info(f"Artigos disponíveis: {len(artigos_opcoes):,}")
+        
+        # Mostrar contagem de artigos selecionados
+        if artigos:
+            st.sidebar.success(f"✅ {len(artigos)} artigo(s) selecionado(s)")
     else:
         st.error("❌ Coluna Artigo não carregada")
         artigos = []
@@ -201,7 +197,7 @@ with st.sidebar:
             "Categoria": categorias, "Mes": meses, "Ano": anos
         }
         salvar_preset(nome_preset, filtros_atuais)
-        st.success(f"✅ Configuração salva!")
+        st.success(f"✅ Configuração '{nome_preset}' salva!")
     
     # Estatísticas
     st.markdown("---")
@@ -223,7 +219,7 @@ if clientes or artigos or comerciais or categorias or meses or anos:
         df_filtrado = df_filtrado[df_filtrado['Cliente'].astype(str).isin(clientes)]
         filtros_aplicados.append(f"👥 Clientes: {len(clientes)}")
     
-    # FILTRO DE ARTIGOS - APLICAÇÃO DIRETA
+    # ✅ FILTRO DE ARTIGOS - CORRETO
     if artigos and 'Artigo' in df_filtrado.columns:
         df_filtrado = df_filtrado[df_filtrado['Artigo'].astype(str).isin(artigos)]
         filtros_aplicados.append(f"📦 Artigos: {len(artigos)}")
@@ -249,7 +245,7 @@ if clientes or artigos or comerciais or categorias or meses or anos:
 st.markdown("<h1 class='main-header'>📊 Dashboard de Vendas</h1>", unsafe_allow_html=True)
 
 # DEBUG EXPANDER
-with st.expander("🔧 Debug - Informações Técnicas", expanded=False):
+with st.expander("🔧 Informações Técnicas", expanded=False):
     if not df.empty:
         st.write("**Estrutura dos dados:**")
         for col in df.columns:
@@ -262,17 +258,12 @@ with st.expander("🔧 Debug - Informações Técnicas", expanded=False):
                 st.write(f"  {i:2d}. {artigo}")
 
 if df.empty:
-    st.error("❌ Não foi possível carregar os dados. Verifique o arquivo Excel.")
+    st.error("❌ Não foi possível carregar os dados.")
 elif df_filtrado.empty:
     st.warning("⚠️ Nenhum dado encontrado com os filtros aplicados.")
     
     if artigos and 'Artigo' not in df.columns:
-        st.error("""
-        **Problema crítico com a coluna Artigo:**
-        - A coluna G não foi identificada como Artigo
-        - Verifique se o arquivo Excel tem dados na coluna G
-        - As colunas carregadas são mostradas na sidebar
-        """)
+        st.error("**Problema com a coluna Artigo**")
 else:
     # ✅ DADOS ENCONTRADOS
     st.success(f"✅ **{len(df_filtrado):,}** registros encontrados")
