@@ -267,14 +267,15 @@ else:
 
         df_tabela_alertas = pd.DataFrame(alertas_list)
         if not df_tabela_alertas.empty:
-            # CORREÇÃO FINAL: .fillna('0') antes de .str
+            # CORREÇÃO FINAL: Remove TUDO que não seja número
             df_tabela_alertas['Qtd_Num'] = (
                 df_tabela_alertas['Qtd Atual']
                 .fillna('0')
                 .astype(str)
                 .str.replace('N/D', '0')
-                .str.replace(' ', '')
-                .str.replace(',', '.')
+                .str.replace(r'[^0-9.]', '', regex=True)   # ← Remove espaços, vírgulas, etc.
+                .str.replace(r'\.+', '.', regex=True)      # ← Evita múltiplos pontos
+                .replace('', '0')                          # ← Se ficar vazio → 0
                 .astype(float)
             )
             df_tabela_alertas = df_tabela_alertas.sort_values('Qtd_Num', ascending=False).drop('Qtd_Num', axis=1).head(20)
