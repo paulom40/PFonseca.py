@@ -13,7 +13,7 @@ st.set_page_config(
     page_title="Dashboard de Vendas - Business Intelligence",
     page_icon="Chart",
     layout="wide",
-    initial_sidebar_state="expanded"
+     initial_sidebar_state="expanded"
 )
 
 # -------------------------------------------------
@@ -24,6 +24,9 @@ st.markdown("""
     .main-header {font-size:2.5rem;color:#1f77b4;text-align:center;margin-bottom:2rem;font-weight:700;}
     .metric-card {background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:1.5rem;border-radius:15px;color:white;box-shadow:0 4px 6px rgba(0,0,0,0.1);}
     .section-header {font-size:1.5rem;color:#2c3e50;margin:2rem 0 1rem 0;padding-bottom:0.5rem;border-bottom:3px solid #3498db;font-weight:600;}
+    .alerta-verde {color: green; font-weight: bold;}
+    .alerta-vermelho {color: red; font-weight: bold;}
+    .alerta-amarelo {color: orange; font-weight: bold;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -223,7 +226,6 @@ else:
     st.markdown("<div class='section-header'>Alertas Mensais (por Cliente)</div>", unsafe_allow_html=True)
 
     df_alertas = df_filtrado[['Cliente', 'Mes', 'Ano', 'Qtd']].copy()
-
     df_alertas['Mes'] = pd.to_numeric(df_alertas['Mes'], errors='coerce').fillna(0).astype(int)
     df_alertas['Ano'] = pd.to_numeric(df_alertas['Ano'], errors='coerce').fillna(0).astype(int)
     df_alertas['AnoMes'] = df_alertas['Ano'] * 100 + df_alertas['Mes']
@@ -238,39 +240,26 @@ else:
         alertas_list = []
         for cliente in df_alertas['Cliente'].unique():
             dados = df_alertas[df_alertas['Cliente'] == cliente].sort_values('AnoMes')
-            if dados.empty:
+            if dados.empty or len(dados) < 2:
                 continue
 
             qtd_atual = dados.iloc[-1]['Qtd']
-            mes_cliente = dados.iloc[-1]['AnoMes'] % 100
-
-            if len(dados) >= 2:
-                qtd_anterior = dados.iloc[-2]['Qtd']
-                variacao = (qtd_atual - qtd_anterior) / qtd_anterior * 100 if qtd_anterior > 0 else 0
-                status = "Aumento" if variacao > 0 else ("Descida" if variacao < 0 else "Estável")
-                variacao_str = f"{variacao:+.1f}%"
-            else:
-                status = "Novo Cliente"
-                variacao_str = "N/A"
-
-            comprou_atual = "Sim" if mes_cliente == mes_atual else "Não"
-            tempo_sem = "Atual" if mes_cliente == mes_atual else f"{mes_atual - mes_cliente} meses"
+            qtd_anterior = dados.iloc[-2]['Qtd']
+            variacao = (qtd_atual - qtd_anterior) / qtd_anterior * 100 if qtd_anterior > 0 else 0
+            status = "Aumento" if variacao > 0 else ("Descida" if variacao < 0 else "Estável")
+            variacao_str = f"{variacao:+.1f}%"
 
             alertas_list.append({
                 'Cliente': cliente,
                 'Qtd Atual': formatar_numero_pt(qtd_atual),
                 'Variação %': variacao_str,
-                'Status': status,
-                'Comprou Atual?': comprou_atual,
-                'Tempo sem Compra': tempo_sem
+                'Status': status
             })
 
         df_tabela_alertas = pd.DataFrame(alertas_list)
         if not df_tabela_alertas.empty:
             df_tabela_alertas['Qtd_Num'] = (
                 df_tabela_alertas['Qtd Atual']
-                .fillna('0')
-                .astype(str)
                 .str.replace('N/D', '0')
                 .str.replace(r'[^0-9.]', '', regex=True)
                 .str.replace(r'\.+', '.', regex=True)
@@ -278,57 +267,74 @@ else:
                 .astype(float)
             )
             df_tabela_alertas = df_tabela_alertas.sort_values('Qtd_Num', ascending=False).drop('Qtd_Num', axis=1).head(20)
-            st.table(df_tabela_alertas.style.apply(
-                lambda x: ['color: green' if 'Aumento' in v else 'color: red' if 'Descida' in v else '' for v in x],
-                subset=['Status']
-            ))
+
+            # ALERTAS VISUAIS
+            def aplicar_estilo(row):
+                cor = 'green' if 'Aumento' in row['Status'] else 'red' if 'Descida' in row['Status'] else 'orange'
+                return [f'color: {cor}; font-weight: bold' for _ in row]
+
+            st.table(df_tabela_alertas.style.apply(aplicar_estilo, axis=1))
             descidas = len(df_tabela_alertas[df_tabela_alertas['Status'] == 'Descida'])
-            st.info(f"Resumo: {len(df_tabela_alertas)} clientes monitorizados | {descidas} em descida")
+            st.info(f"Resumo: {len(df_tabela_alertas)} clientes | {descidas} em descida")
         else:
-            st.warning("Nenhum cliente com histórico suficiente.")
+            st.warning("Nenhum cliente com histórico.")
     else:
-        st.warning("Nenhum dado para alertas mensais.")
+        st.warning("Nenhum dado para alertas.")
 
     # -------------------------------------------------
-    # 11. COMPARAÇÃO 2024 vs 2025
+    # 11. COMPARAÇÃO DE MESES (Qtd Comprada)
     # -------------------------------------------------
-    st.markdown("<div class='section-header'>Comparação 2024 vs 2025 (mesmos meses)</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-header'>Comparação de Qtd por Mês</div>", unsafe_allow_html=True)
 
+    # Preparar dados
     df_comp = df_filtrado.copy()
     df_comp['Mes'] = pd.to_numeric(df_comp['Mes'], errors='coerce').fillna(0).astype(int)
     df_comp['Ano'] = pd.to_numeric(df_comp['Ano'], errors='coerce').fillna(0).astype(int)
+    df_comp['AnoMes'] = df_comp['Ano'].astype(str) + "-" + df_comp['Mes'].astype(str).str.zfill(2)
 
-    df_comp = df_comp.groupby(['Ano', 'Mes']).agg({'Qtd': 'sum', 'V_Liquido': 'sum'}).reset_index()
+    # Lista de meses disponíveis
+    meses_disponiveis = sorted(df_comp['AnoMes'].unique())
 
-    df_2024 = df_comp[df_comp['Ano'] == 2024][['Mes', 'Qtd', 'V_Liquido']].rename(columns={'Qtd': 'Qtd_2024', 'V_Liquido': 'V_Liquido_2024'})
-    df_2025 = df_comp[df_comp['Ano'] == 2025][['Mes', 'Qtd', 'V_Liquido']].rename(columns={'Qtd': 'Qtd_2025', 'V_Liquido': 'V_Liquido_2025'})
+    if len(meses_disponiveis) >= 2:
+        col1, col2 = st.columns(2)
+        with col1:
+            mes_1 = st.selectbox("Mês 1", options=meses_disponiveis, index=0)
+        with col2:
+            mes_2 = st.selectbox("Mês 2", options=meses_disponiveis, index=1 if len(meses_disponiveis) > 1 else 0)
 
-    df_comparacao = pd.merge(df_2024, df_2025, on='Mes', how='inner')
+        # Filtrar dados
+        qtd_mes1 = df_comp[df_comp['AnoMes'] == mes_1]['Qtd'].sum()
+        qtd_mes2 = df_comp[df_comp['AnoMes'] == mes_2]['Qtd'].sum()
+        variacao = ((qtd_mes2 - qtd_mes1) / qtd_mes1 * 100) if qtd_mes1 > 0 else 0
 
-    if not df_comparacao.empty:
-        df_comparacao['Var_Qtd_%'] = ((df_comparacao['Qtd_2025'] - df_comparacao['Qtd_2024']) / df_comparacao['Qtd_2024'].replace(0, np.nan) * 100).round(1)
-        df_comparacao['Var_VL_%'] = ((df_comparacao['V_Liquido_2025'] - df_comparacao['V_Liquido_2024']) / df_comparacao['V_Liquido_2024'].replace(0, np.nan) * 100).round(1)
+        # Ícone de alerta
+        if variacao > 10:
+            icone = "High Increase"
+            cor = "green"
+        elif variacao > 0:
+            icone = "Moderate Increase"
+            cor = "lightgreen"
+        elif variacao < -10:
+            icone = "High Decrease"
+            cor = "red"
+        elif variacao < 0:
+            icone = "Moderate Decrease"
+            cor = "orange"
+        else:
+            icone = "Stable"
+            cor = "gray"
 
-        meses_nome = {1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun',
-                      7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'}
-        df_comparacao['Mês'] = df_comparacao['Mes'].map(meses_nome)
+        # Tabela com alerta
+        dados_comp = pd.DataFrame({
+            'Mês': [mes_1, mes_2],
+            'Qtd': [formatar_numero_pt(qtd_mes1), formatar_numero_pt(qtd_mes2)],
+            'Variação': ['', f"{variacao:+.1f}%"]
+        })
 
-        # CORREÇÃO: Ordenar por 'Mes' antes de selecionar colunas
-        df_comparacao = df_comparacao.sort_values('Mes')
-
-        df_comparacao = df_comparacao[['Mês', 'Qtd_2024', 'Qtd_2025', 'Var_Qtd_%', 'V_Liquido_2024', 'V_Liquido_2025', 'Var_VL_%']]
-
-        df_display_comp = df_comparacao.copy()
-        df_display_comp['Qtd_2024'] = df_display_comp['Qtd_2024'].apply(formatar_numero_pt)
-        df_display_comp['Qtd_2025'] = df_display_comp['Qtd_2025'].apply(formatar_numero_pt)
-        df_display_comp['V_Liquido_2024'] = df_display_comp['V_Liquido_2024'].apply(lambda x: formatar_numero_pt(x, 'EUR '))
-        df_display_comp['V_Liquido_2025'] = df_display_comp['V_Liquido_2025'].apply(lambda x: formatar_numero_pt(x, 'EUR '))
-        df_display_comp['Var_Qtd_%'] = df_display_comp['Var_Qtd_%'].apply(lambda x: f"{x:+.1f}%" if pd.notna(x) else "N/D")
-        df_display_comp['Var_VL_%'] = df_display_comp['Var_VL_%'].apply(lambda x: f"{x:+.1f}%" if pd.notna(x) else "N/D")
-
-        st.table(df_display_comp)
+        st.markdown(f"**{icone}** <span style='color:{cor}'>Variação: {variacao:+.1f}%</span>", unsafe_allow_html=True)
+        st.table(dados_comp.style.apply(lambda x: ['background: lightyellow' if x.name == 1 else '' for _ in x], axis=1))
     else:
-        st.info("Nenhum mês comum entre 2024 e 2025 nos dados filtrados.")
+        st.info("Menos de 2 meses disponíveis para comparação.")
 
     # -------------------------------------------------
     # 12. GRÁFICOS
