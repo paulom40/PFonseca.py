@@ -24,6 +24,7 @@ st.markdown("""
     .main-header {font-size:2.5rem;color:#1f77b4;text-align:center;margin-bottom:2rem;font-weight:700;}
     .metric-card {background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:1.5rem;border-radius:15px;color:white;box-shadow:0 4px 6px rgba(0,0,0,0.1);}
     .section-header {font-size:1.5rem;color:#2c3e50;margin:2rem 0 1rem 0;padding-bottom:0.5rem;border-bottom:3px solid #3498db;font-weight:600;}
+    .alert-table td {font-size:0.9rem;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -60,7 +61,7 @@ def load_all_data():
         mapeamento_final = {k: v for k, v in mapeamento.items() if k in df.columns}
         df = df.rename(columns=mapeamento_final)
 
-        # Conversões silenciosas (sem st.info)
+        # Conversões silenciosas
         for col in ['V_Liquido', 'Qtd', 'PM']:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
@@ -96,14 +97,13 @@ def salvar_preset(nome, filtros):
         json.dump(presets, f, indent=2)
 
 # -------------------------------------------------
-# 6. SIDEBAR – CONTROLES (sem logs)
+# 6. SIDEBAR – CONTROLES
 # -------------------------------------------------
 with st.sidebar:
     st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
     st.markdown("### Painel de Controle")
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # Presets
     presets = carregar_presets()
     preset_selecionado = st.selectbox("Carregar Configuração", [""] + list(presets.keys()))
     filtros = presets.get(preset_selecionado, {}) if preset_selecionado else {}
@@ -124,7 +124,6 @@ with st.sidebar:
     meses      = criar_filtro("Meses", "Mes", filtros.get("Mes"))
     anos       = criar_filtro("Anos", "Ano", filtros.get("Ano"))
 
-    # Salvar preset
     st.markdown("---")
     st.markdown("### Configurações")
     nome_preset = st.text_input("Nome da configuração")
@@ -136,7 +135,6 @@ with st.sidebar:
         salvar_preset(nome_preset, filtros_atuais)
         st.success(f"Configuração '{nome_preset}' salva!")
 
-    # Estatísticas (apenas totais)
     st.markdown("---")
     st.markdown("### Estatísticas")
     if not df.empty:
@@ -182,7 +180,6 @@ if not df.empty:
 # -------------------------------------------------
 st.markdown("<h1 class='main-header'>Dashboard de Vendas</h1>", unsafe_allow_html=True)
 
-# Mensagens de estado
 if df.empty:
     st.error("Não foi possível carregar os dados.")
 elif df_filtrado.empty:
@@ -223,7 +220,107 @@ else:
         st.markdown("</div>", unsafe_allow_html=True)
 
     # -------------------------------------------------
-    # 10. GRÁFICOS
+    # 10. ALERTAS MENSAIS (por Cliente)
+    # -------------------------------------------------
+    st.markdown("<div class='section-header'>Alertas Mensais (por Cliente)</div>", unsafe_allow_html=True)
+
+    df_alertas = df_filtrado[['Cliente', 'Mes', 'Ano', 'Qtd']].copy()
+    df_alertas['Mes'] = df_alertas['Mes'].astype(int)
+    df_alertas['Ano'] = df_alertas['Ano'].astype(int)
+    df_alertas['AnoMes'] = df_alertas['Ano'] * 100 + df_alertas['Mes']
+    df_alertas = df_alertas.groupby(['Cliente', 'AnoMes'])['Qtd'].sum().reset_index()
+    df_alertas = df_alertas.sort_values(['Cliente', 'AnoMes'])
+
+    ultimo_ano_mes = df_alertas['AnoMes'].max()
+    mes_atual = ultimo_ano_mes % 100
+    ano_atual = ultimo_ano_mes // 100
+
+    alertas_list = []
+    for cliente in df_alertas['Cliente'].unique():
+        dados = df_alertas[df_alertas['Cliente'] == cliente].sort_values('AnoMes')
+        if dados.empty:
+            continue
+
+        qtd_atual = dados.iloc[-1]['Qtd']
+        mes_cliente = dados.iloc[-1]['AnoMes'] % 100
+
+        if len(dados) >= 2:
+            qtd_anterior = dados.iloc[-2]['Qtd']
+            variacao = (qtd_atual - qtd_anterior) / qtd_anterior * 100 if qtd_anterior > 0 else 0
+            status = "Aumento" if variacao > 0 else ("Descida" if variacao < 0 else "Estável")
+            variacao_str = f"{variacao:+.1f}%"
+        else:
+            status = "Novo Cliente"
+            variacao_str = "N/A"
+
+        comprou_atual = "Sim" if mes_cliente == mes_atual else "Não"
+        tempo_sem = "Atual" if mes_cliente == mes_atual else f"{mes_atual - mes_cliente} meses"
+
+        alertas_list.append({
+            'Cliente': cliente,
+            'Qtd Atual': formatar_numero_pt(qtd_atual),
+            'Variação %': variacao_str,
+            'Status': status,
+            'Comprou Atual?': comprou_atual,
+            'Tempo sem Compra': tempo_sem
+        })
+
+    df_tabela_alertas = pd.DataFrame(alertas_list)
+    if not df_tabela_alertas.empty:
+        df_tabela_alertas['Qtd_Num'] = df_tabela_alertas['Qtd Atual'].str.replace(' ', '').str.replace(',', '.').astype(float)
+        df_tabela_alertas = df_tabela_alertas.sort_values('Qtd_Num', ascending=False).drop('Qtd_Num', axis=1).head(20)
+        st.table(df_tabela_alertas.style.apply(lambda x: ['color: green' if 'Aumento' in v else 'color: red' if 'Descida' in v else '' for v in x], subset=['Status']))
+
+        descidas = len(df_tabela_alertas[df_tabela_alertas['Status'] == 'Descida'])
+        st.info(f"Resumo: {len(df_tabela_alertas)} clientes monitorizados | {descidas} em descida")
+    else:
+        st.warning("Nenhum cliente com histórico suficiente para alertas.")
+
+    # -------------------------------------------------
+    # 11. COMPARAÇÃO 2024 vs 2025 (mesmos meses)
+    # -------------------------------------------------
+    st.markdown("<div class='section-header'>Comparação 2024 vs 2025 (mesmos meses)</div>", unsafe_allow_html=True)
+
+    df_comp = df_filtrado.copy()
+    df_comp['Mes'] = df_comp['Mes'].astype(int)
+    df_comp['Ano'] = df_comp['Ano'].astype(int)
+    df_comp = df_comp.groupby(['Ano', 'Mes']).agg({
+        'Qtd': 'sum',
+        'V_Liquido': 'sum'
+    }).reset_index()
+
+    # Pivot para 2024 e 2025
+    df_2024 = df_comp[df_comp['Ano'] == 2024][['Mes', 'Qtd', 'V_Liquido']].rename(columns={'Qtd': 'Qtd_2024', 'V_Liquido': 'V_Liquido_2024'})
+    df_2025 = df_comp[df_comp['Ano'] == 2025][['Mes', 'Qtd', 'V_Liquido']].rename(columns={'Qtd': 'Qtd_2025', 'V_Liquido': 'V_Liquido_2025'})
+
+    df_comparacao = pd.merge(df_2024, df_2025, on='Mes', how='inner')
+    df_comparacao['Var_Qtd_%'] = ((df_comparacao['Qtd_2025'] - df_comparacao['Qtd_2024']) / df_comparacao['Qtd_2024'] * 100).round(1)
+    df_comparacao['Var_VL_%'] = ((df_comparacao['V_Liquido_2025'] - df_comparacao['V_Liquido_2024']) / df_comparacao['V_Liquido_2024'] * 100).round(1)
+
+    # Nome do mês
+    meses_nome = {1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun',
+                  7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'}
+    df_comparacao['Mês'] = df_comparacao['Mes'].map(meses_nome)
+
+    df_comparacao = df_comparacao[['Mês', 'Qtd_2024', 'Qtd_2025', 'Var_Qtd_%', 'V_Liquido_2024', 'V_Liquido_2025', 'Var_VL_%']]
+    df_comparacao = df_comparacao.sort_values('Mes')
+
+    # Formatação
+    df_display_comp = df_comparacao.copy()
+    df_display_comp['Qtd_2024'] = df_display_comp['Qtd_2024'].apply(lambda x: formatar_numero_pt(x))
+    df_display_comp['Qtd_2025'] = df_display_comp['Qtd_2025'].apply(lambda x: formatar_numero_pt(x))
+    df_display_comp['V_Liquido_2024'] = df_display_comp['V_Liquido_2024'].apply(lambda x: formatar_numero_pt(x, 'EUR '))
+    df_display_comp['V_Liquido_2025'] = df_display_comp['V_Liquido_2025'].apply(lambda x: formatar_numero_pt(x, 'EUR '))
+    df_display_comp['Var_Qtd_%'] = df_display_comp['Var_Qtd_%'].apply(lambda x: f"{x:+.1f}%")
+    df_display_comp['Var_VL_%'] = df_display_comp['Var_VL_%'].apply(lambda x: f"{x:+.1f}%")
+
+    if not df_display_comp.empty:
+        st.table(df_display_comp)
+    else:
+        st.info("Nenhum mês comum entre 2024 e 2025 nos dados filtrados.")
+
+    # -------------------------------------------------
+    # 12. GRÁFICOS
     # -------------------------------------------------
     st.markdown("<div class='section-header'>Visualizações</div>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
@@ -259,7 +356,7 @@ else:
                 st.plotly_chart(fig, use_container_width=True)
 
     # -------------------------------------------------
-    # 11. TABELA DE DADOS
+    # 13. TABELA DE DADOS FILTRADOS
     # -------------------------------------------------
     st.markdown("<div class='section-header'>Dados Filtrados</div>", unsafe_allow_html=True)
     df_display = df_filtrado.copy()
@@ -269,7 +366,7 @@ else:
     st.dataframe(df_display, use_container_width=True)
 
 # -------------------------------------------------
-# 12. FOOTER
+# 14. FOOTER
 # -------------------------------------------------
 st.markdown("---")
 st.markdown(
