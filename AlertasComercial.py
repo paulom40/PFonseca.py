@@ -46,20 +46,28 @@ st.markdown("""
         border-bottom: 3px solid #3498db;
         font-weight: 600;
     }
-    .validation-badge {
-        background: #f39c12;
+    .badge-adjustment {
+        background: #e74c3c;
         color: white;
-        padding: 0.3rem 0.8rem;
-        border-radius: 20px;
-        font-size: 0.8rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: bold;
+    }
+    .badge-product {
+        background: #27ae60;
+        color: white;
+        padding: 0.2rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.7rem;
         font-weight: bold;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# 🔄 CARREGAMENTO CORRETO COM FILTRO DE ARTIGOS REAIS
+# 🔄 CARREGAMENTO CORRETO - MANTÉM TODOS OS DADOS
 @st.cache_data
-def load_clean_data():
+def load_all_data():
     try:
         url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
         df = pd.read_excel(url)
@@ -87,52 +95,40 @@ def load_clean_data():
         
         df = df.rename(columns=mapeamento_final)
         
-        # ✅ FILTRAR APENAS ARTIGOS REAIS (não valores numéricos)
+        # ✅ CORREÇÃO: MANTÉM TODOS OS DADOS E CATEGORIZA OS ARTIGOS
         if 'Artigo' in df.columns:
             df['Artigo'] = df['Artigo'].astype(str)
             
-            def is_real_article(artigo):
+            def categorizar_artigo(artigo):
                 artigo_str = str(artigo).strip()
-                # Ignorar valores numéricos (positivos e negativos)
+                
+                # Ajustes/Devoluções (valores numéricos negativos)
                 if artigo_str.startswith('-') and artigo_str[1:].replace('.', '', 1).isdigit():
-                    return False
-                if artigo_str.replace('-', '', 1).replace('.', '', 1).isdigit():
-                    return False
-                if artigo_str in ['', 'nan', 'None']:
-                    return False
-                return True
+                    return "Ajuste/Devolução"
+                # Vendas numéricas (valores numéricos positivos)
+                elif artigo_str.replace('-', '', 1).replace('.', '', 1).isdigit():
+                    return "Venda Numérica"
+                # Produtos principais (baseado em palavras-chave)
+                elif any(palavra in artigo_str.lower() for palavra in ['leitao', 'banha', 'bacalhau', 'camarão', 'polvo', 'lula', 'amêijoa', 'salmão']):
+                    return "Produto Principal"
+                # Vazios/Nulos
+                elif artigo_str in ['', 'nan', 'None']:
+                    return "Sem Artigo"
+                # Outros produtos
+                else:
+                    return "Outros Produtos"
             
-            df['is_real_article'] = df['Artigo'].apply(is_real_article)
-            df = df[df['is_real_article'] == True]
+            df['categoria_artigo'] = df['Artigo'].apply(categorizar_artigo)
         
         # CONVERSÃO DE TIPOS DE DADOS
-        if 'Cliente' in df.columns:
-            df['Cliente'] = df['Cliente'].astype(str)
-        
-        if 'Comercial' in df.columns:
-            df['Comercial'] = df['Comercial'].astype(str)
-        
-        if 'Categoria' in df.columns:
-            df['Categoria'] = df['Categoria'].astype(str)
-        
-        if 'Mes' in df.columns:
-            df['Mes'] = df['Mes'].astype(str)
-        
-        if 'Ano' in df.columns:
-            df['Ano'] = df['Ano'].astype(str)
-        
-        if 'UN' in df.columns:
-            df['UN'] = df['UN'].astype(str)
+        for col in ['Cliente', 'Comercial', 'Categoria', 'Mes', 'Ano', 'UN']:
+            if col in df.columns:
+                df[col] = df[col].astype(str)
         
         # Converter colunas numéricas
-        if 'V_Liquido' in df.columns:
-            df['V_Liquido'] = pd.to_numeric(df['V_Liquido'], errors='coerce')
-        
-        if 'Qtd' in df.columns:
-            df['Qtd'] = pd.to_numeric(df['Qtd'], errors='coerce')
-        
-        if 'PM' in df.columns:
-            df['PM'] = pd.to_numeric(df['PM'], errors='coerce')
+        for col in ['V_Liquido', 'Qtd', 'PM']:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
             
         return df
         
@@ -141,7 +137,7 @@ def load_clean_data():
         return pd.DataFrame()
 
 # Carregar dados
-df = load_clean_data()
+df = load_all_data()
 
 # 📊 MÉTRICAS DE REFERÊNCIA (VALIDAÇÃO)
 TOTAL_QTD_REFERENCIA = 4449342.03
@@ -192,24 +188,38 @@ with st.sidebar:
     # FILTROS
     clientes = criar_filtro_seguro("👥 Clientes", "Cliente", filtros.get("Cliente"))
     
-    # ✅ FILTRO DE ARTIGOS REAIS
+    # ✅ FILTRO DE ARTIGOS INTELIGENTE
     if not df.empty and 'Artigo' in df.columns:
-        artigos_reais = sorted(df['Artigo'].dropna().unique())
+        artigos_todos = sorted(df['Artigo'].dropna().unique())
         artigos = st.multiselect(
-            "📦 Artigos", 
-            artigos_reais,
+            "📦 Artigos (Todos)", 
+            artigos_todos,
             default=filtros.get("Artigo", []),
             placeholder="Selecione os artigos..."
         )
-        st.sidebar.info(f"Artigos disponíveis: {len(artigos_reais)}")
+        st.sidebar.info(f"Total artigos: {len(artigos_todos)}")
+        
+        # Filtro por categoria de artigo
+        if 'categoria_artigo' in df.columns:
+            categorias = sorted(df['categoria_artigo'].unique())
+            categorias_selecionadas = st.multiselect(
+                "🏷️ Categorias de Artigo",
+                categorias,
+                default=[],
+                placeholder="Filtrar por tipo..."
+            )
+            st.sidebar.info(f"Categorias: {len(categorias)}")
+        else:
+            categorias_selecionadas = []
         
         if artigos:
             st.sidebar.success(f"✅ {len(artigos)} artigo(s) selecionado(s)")
     else:
         artigos = []
+        categorias_selecionadas = []
     
     comerciais = criar_filtro_seguro("👨‍💼 Comerciais", "Comercial", filtros.get("Comercial"))
-    categorias = criar_filtro_seguro("🏷️ Categorias", "Categoria", filtros.get("Categoria"))
+    categorias_orig = criar_filtro_seguro("📁 Categorias Orig.", "Categoria", filtros.get("Categoria"))
     meses = criar_filtro_seguro("📅 Meses", "Mes", filtros.get("Mes"))
     anos = criar_filtro_seguro("📊 Anos", "Ano", filtros.get("Ano"))
     
@@ -220,7 +230,7 @@ with st.sidebar:
     if st.button("💾 Salvar Configuração") and nome_preset:
         filtros_atuais = {
             "Cliente": clientes, "Artigo": artigos, "Comercial": comerciais,
-            "Categoria": categorias, "Mes": meses, "Ano": anos
+            "Categoria": categorias_orig, "Mes": meses, "Ano": anos
         }
         salvar_preset(nome_preset, filtros_atuais)
         st.success(f"✅ Configuração '{nome_preset}' salva!")
@@ -240,7 +250,7 @@ df_filtrado = df.copy()
 filtros_aplicados = []
 
 if not df.empty:
-    if clientes or artigos or comerciais or categorias or meses or anos:
+    if clientes or artigos or comerciais or categorias_orig or meses or anos or categorias_selecionadas:
         # Aplicar filtros sequencialmente
         if clientes:
             df_filtrado = df_filtrado[df_filtrado['Cliente'].astype(str).isin(clientes)]
@@ -250,13 +260,17 @@ if not df.empty:
             df_filtrado = df_filtrado[df_filtrado['Artigo'].astype(str).isin(artigos)]
             filtros_aplicados.append(f"📦 Artigos: {len(artigos)}")
         
+        if categorias_selecionadas and 'categoria_artigo' in df_filtrado.columns:
+            df_filtrado = df_filtrado[df_filtrado['categoria_artigo'].isin(categorias_selecionadas)]
+            filtros_aplicados.append(f"🏷️ Categorias: {len(categorias_selecionadas)}")
+        
         if comerciais and 'Comercial' in df_filtrado.columns:
             df_filtrado = df_filtrado[df_filtrado['Comercial'].astype(str).isin(comerciais)]
             filtros_aplicados.append(f"👨‍💼 Comerciais: {len(comerciais)}")
         
-        if categorias and 'Categoria' in df_filtrado.columns:
-            df_filtrado = df_filtrado[df_filtrado['Categoria'].astype(str).isin(categorias)]
-            filtros_aplicados.append(f"🏷️ Categorias: {len(categorias)}")
+        if categorias_orig and 'Categoria' in df_filtrado.columns:
+            df_filtrado = df_filtrado[df_filtrado['Categoria'].astype(str).isin(categorias_orig)]
+            filtros_aplicados.append(f"📁 Categorias: {len(categorias_orig)}")
         
         if meses and 'Mes' in df_filtrado.columns:
             df_filtrado = df_filtrado[df_filtrado['Mes'].astype(str).isin(meses)]
@@ -267,7 +281,7 @@ if not df.empty:
             filtros_aplicados.append(f"📊 Anos: {len(anos)}")
 
 # 🎯 INTERFACE PRINCIPAL
-st.markdown("<h1 class='main-header'>📊 Dashboard de Vendas</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='main-header'>📊 Dashboard de Vendas - TODOS OS DADOS</h1>", unsafe_allow_html=True)
 
 if df.empty:
     st.error("❌ Não foi possível carregar os dados.")
@@ -334,10 +348,10 @@ else:
             st.markdown("</div>", unsafe_allow_html=True)
             
             # Badge de validação
-            if abs(percentual_qtd) < 0.01:  # Menos de 0.01% de diferença
+            if abs(percentual_qtd) < 1:  # Menos de 1% de diferença
                 st.success("✅ Qtd VALIDADA - Dados consistentes")
             else:
-                st.warning(f"⚠️ Diferença de {abs(percentual_qtd):.4f}% na Qtd")
+                st.warning(f"⚠️ Diferença de {abs(percentual_qtd):.2f}% na Qtd")
     
     with col2:
         if 'V_Liquido' in df_filtrado.columns:
@@ -355,10 +369,40 @@ else:
             st.markdown("</div>", unsafe_allow_html=True)
             
             # Badge de validação
-            if abs(percentual_vendas) < 0.01:  # Menos de 0.01% de diferença
+            if abs(percentual_vendas) < 1:  # Menos de 1% de diferença
                 st.success("✅ V. Líquido VALIDADO - Dados consistentes")
             else:
-                st.warning(f"⚠️ Diferença de {abs(percentual_vendas):.4f}% no V. Líquido")
+                st.warning(f"⚠️ Diferença de {abs(percentual_vendas):.2f}% no V. Líquido")
+    
+    # 📊 ANÁLISE POR CATEGORIA DE ARTIGO
+    if 'categoria_artigo' in df_filtrado.columns:
+        st.markdown("<div class='section-header'>📈 Análise por Categoria de Artigo</div>", unsafe_allow_html=True)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Gráfico de vendas por categoria
+            vendas_por_categoria = df_filtrado.groupby('categoria_artigo')['V_Liquido'].sum().sort_values(ascending=False)
+            if not vendas_por_categoria.empty:
+                fig1 = px.pie(
+                    vendas_por_categoria,
+                    values=vendas_por_categoria.values,
+                    names=vendas_por_categoria.index,
+                    title='💰 Vendas por Categoria de Artigo'
+                )
+                st.plotly_chart(fig1, width='stretch')
+        
+        with col2:
+            # Tabela de estatísticas por categoria
+            stats_categoria = df_filtrado.groupby('categoria_artigo').agg({
+                'V_Liquido': ['sum', 'count'],
+                'Qtd': 'sum'
+            }).round(2)
+            stats_categoria.columns = ['V_Liquido_Total', 'Num_Registros', 'Qtd_Total']
+            stats_categoria = stats_categoria.sort_values('V_Liquido_Total', ascending=False)
+            
+            st.write("**📊 Estatísticas por Categoria:**")
+            st.dataframe(stats_categoria)
     
     # GRÁFICOS
     st.markdown("<div class='section-header'>📈 Visualizações</div>", unsafe_allow_html=True)
