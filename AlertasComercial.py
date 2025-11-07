@@ -43,14 +43,13 @@ def formatar_numero_pt(valor, simbolo="", sinal_forcado=False):
     return formato
 
 # -------------------------------------------------
-# 4. CARREGAMENTO DOS DADOS
+# 4. CARREGAMENTO DOS DADOS (sem logs)
 # -------------------------------------------------
 @st.cache_data
 def load_all_data():
     try:
         url = "https://github.com/paulom40/PFonseca.py/raw/main/VendasGeraisTranf.xlsx"
         df = pd.read_excel(url, thousands=None, decimal=',')
-        st.sidebar.success(f"Ficheiro carregado: {len(df)} registos")
 
         mapeamento = {
             'Código': 'Codigo', 'Cliente': 'Cliente', 'Qtd.': 'Qtd', 'UN': 'UN',
@@ -61,20 +60,19 @@ def load_all_data():
         mapeamento_final = {k: v for k, v in mapeamento.items() if k in df.columns}
         df = df.rename(columns=mapeamento_final)
 
+        # Conversões silenciosas (sem st.info)
         for col in ['V_Liquido', 'Qtd', 'PM']:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
-                st.sidebar.info(f"{col} → numérico")
 
         for col in ['Artigo', 'Cliente', 'Comercial', 'Categoria', 'Mes', 'Ano', 'UN']:
             if col in df.columns:
                 df[col] = df[col].astype(str)
-                st.sidebar.info(f"{col} → texto")
 
         return df
 
     except Exception as e:
-        st.error(f"Erro no carregamento: {str(e)}")
+        st.error(f"Erro no carregamento dos dados.")
         return pd.DataFrame()
 
 df = load_all_data()
@@ -98,13 +96,14 @@ def salvar_preset(nome, filtros):
         json.dump(presets, f, indent=2)
 
 # -------------------------------------------------
-# 6. SIDEBAR – CONTROLES
+# 6. SIDEBAR – CONTROLES (sem logs)
 # -------------------------------------------------
 with st.sidebar:
     st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
     st.markdown("### Painel de Controle")
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # Presets
     presets = carregar_presets()
     preset_selecionado = st.selectbox("Carregar Configuração", [""] + list(presets.keys()))
     filtros = presets.get(preset_selecionado, {}) if preset_selecionado else {}
@@ -114,7 +113,6 @@ with st.sidebar:
 
     def criar_filtro(label, coluna, default=None):
         if coluna not in df.columns or df.empty:
-            st.warning(f"Coluna '{coluna}' não disponível")
             return []
         opcoes = sorted(df[coluna].dropna().astype(str).unique())
         return st.multiselect(label, opcoes, default=default or [])
@@ -126,6 +124,7 @@ with st.sidebar:
     meses      = criar_filtro("Meses", "Mes", filtros.get("Mes"))
     anos       = criar_filtro("Anos", "Ano", filtros.get("Ano"))
 
+    # Salvar preset
     st.markdown("---")
     st.markdown("### Configurações")
     nome_preset = st.text_input("Nome da configuração")
@@ -137,6 +136,7 @@ with st.sidebar:
         salvar_preset(nome_preset, filtros_atuais)
         st.success(f"Configuração '{nome_preset}' salva!")
 
+    # Estatísticas (apenas totais)
     st.markdown("---")
     st.markdown("### Estatísticas")
     if not df.empty:
@@ -182,17 +182,7 @@ if not df.empty:
 # -------------------------------------------------
 st.markdown("<h1 class='main-header'>Dashboard de Vendas</h1>", unsafe_allow_html=True)
 
-# ----- DEBUG (opcional) -----
-with st.expander("Informações Técnicas", expanded=False):
-    if not df.empty:
-        st.write("**Estrutura dos dados:**")
-        for col in df.columns:
-            st.write(f"- **{col}**: {df[col].dtype} | Únicos: {df[col].nunique():,}")
-        st.write("**Totais (sem filtros):**")
-        st.write(f"- V_Liquido: {formatar_numero_pt(df['V_Liquido'].sum(), 'EUR ')}")
-        st.write(f"- Qtd: {formatar_numero_pt(df['Qtd'].sum())}")
-
-# ----- MENSAGENS -----
+# Mensagens de estado
 if df.empty:
     st.error("Não foi possível carregar os dados.")
 elif df_filtrado.empty:
