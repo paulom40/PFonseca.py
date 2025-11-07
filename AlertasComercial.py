@@ -18,7 +18,7 @@ st.set_page_config(
 )
 
 # -------------------------------------------------
-# 2. CSS PERSONALIZADO
+# 2. CSS + LOGO NO CANTO SUPERIOR ESQUERDO
 # -------------------------------------------------
 st.markdown("""
 <style>
@@ -28,11 +28,32 @@ st.markdown("""
     .alerta-critico {color: #8B0000; font-weight: bold; background-color: #ffe6e6; padding: 2px 6px; border-radius: 4px;}
     .alerta-alto {color: #d32f2f; font-weight: bold;}
     .alerta-moderado {color: #f57c00; font-weight: bold;}
+    .logo-container {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        z-index: 1000;
+        background: white;
+        padding: 5px;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .logo-container img {
+        height: 70px;
+        width: auto;
+    }
 </style>
 """, unsafe_allow_html=True)
 
+# LOGO NO CANTO SUPERIOR ESQUERDO
+st.markdown(f"""
+<div class="logo-container">
+    <img src="https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png" alt="Bracar Logo">
+</div>
+""", unsafe_allow_html=True)
+
 # -------------------------------------------------
-# 3. FUNÇÃO DE FORMATAÇÃO PT-PT
+# 3. FORMATAÇÃO PT-PT
 # -------------------------------------------------
 def formatar_numero_pt(valor, simbolo="", sinal_forcado=False):
     if pd.isna(valor):
@@ -46,7 +67,7 @@ def formatar_numero_pt(valor, simbolo="", sinal_forcado=False):
         return f"{sinal}{simbolo}{valor_abs:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 # -------------------------------------------------
-# 4. FUNÇÃO DE EXPORTAÇÃO PARA EXCEL
+# 4. EXPORTAÇÃO PARA EXCEL
 # -------------------------------------------------
 def to_excel(df, sheet_name="Dados"):
     output = BytesIO()
@@ -69,18 +90,13 @@ def load_all_data():
             'Mês': 'Mes', 'Ano': 'Ano'
         }
         df = df.rename(columns={k: v for k, v in mapeamento.items() if k in df.columns})
-
-        # Forçar colunas como string
         colunas_string = ['UN', 'Artigo', 'Cliente', 'Comercial', 'Categoria', 'Mes', 'Ano']
         for col in colunas_string:
             if col in df.columns:
                 df[col] = df[col].astype(str).replace({'nan': 'N/D', 'None': 'N/D'})
-
-        # Números
         for col in ['V_Liquido', 'Qtd', 'PM']:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
-
         return df
     except Exception as e:
         st.error(f"Erro ao carregar dados: {e}")
@@ -107,24 +123,20 @@ def salvar_preset(nome, filtros):
         json.dump(presets, f, indent=2)
 
 # -------------------------------------------------
-# 7. SIDEBAR – CONTROLES
+# 7. SIDEBAR
 # -------------------------------------------------
 with st.sidebar:
     st.markdown("<div class='metric-card'>Painel de Controle</div>", unsafe_allow_html=True)
-
     presets = carregar_presets()
-    preset_selecionado = st.selectbox("Carregar Configuração", [""] + list(presets.keys()))
+    preset_selecionado = st.selectbox("Configuração", [""] + list(presets.keys()))
     filtros = presets.get(preset_selecionado, {}) if preset_selecionado else {}
 
     st.markdown("---")
     st.markdown("### Filtros")
-
     def criar_filtro(label, coluna, default=None):
-        if coluna not in df.columns or df.empty:
-            return []
+        if coluna not in df.columns or df.empty: return []
         opcoes = sorted(df[coluna].dropna().astype(str).unique())
         return st.multiselect(label, opcoes, default=default or [])
-
     clientes   = criar_filtro("Clientes", "Cliente", filtros.get("Cliente"))
     artigos    = criar_filtro("Artigos", "Artigo", filtros.get("Artigo"))
     comerciais = criar_filtro("Comerciais", "Comercial", filtros.get("Comercial"))
@@ -134,15 +146,13 @@ with st.sidebar:
 
     st.markdown("---")
     nome_preset = st.text_input("Nome da configuração")
-    if st.button("Salvar Configuração") and nome_preset:
-        salvar_preset(nome_preset, {
-            "Cliente": clientes, "Artigo": artigos, "Comercial": comerciais,
-            "Categoria": categorias, "Mes": meses, "Ano": anos
-        })
-        st.success(f"Configuração '{nome_preset}' salva!")
+    if st.button("Salvar") and nome_preset:
+        salvar_preset(nome_preset, {"Cliente": clientes, "Artigo": artigos, "Comercial": comerciais,
+                                   "Categoria": categorias, "Mes": meses, "Ano": anos})
+        st.success(f"Salvo: {nome_preset}")
 
 # -------------------------------------------------
-# 8. APLICAÇÃO DOS FILTROS
+# 8. FILTROS PRINCIPAIS (df_filtrado)
 # -------------------------------------------------
 df_filtrado = df.copy()
 if clientes: df_filtrado = df_filtrado[df_filtrado['Cliente'].isin(clientes)]
@@ -153,32 +163,31 @@ if meses: df_filtrado = df_filtrado[df_filtrado['Mes'].isin(meses)]
 if anos: df_filtrado = df_filtrado[df_filtrado['Ano'].isin(anos)]
 
 # -------------------------------------------------
-# 9. INTERFACE PRINCIPAL
+# 9. INTERFACE
 # -------------------------------------------------
 st.markdown("<h1 class='main-header'>Dashboard de Vendas</h1>", unsafe_allow_html=True)
 
 if df.empty:
-    st.error("Não foi possível carregar os dados.")
+    st.error("Erro ao carregar dados.")
 elif df_filtrado.empty:
-    st.warning("Nenhum dado encontrado com os filtros aplicados.")
+    st.warning("Nenhum dado com os filtros.")
 else:
-    st.success(f"**{len(df_filtrado):,}** registos encontrados")
+    st.success(f"**{len(df_filtrado):,}** registos")
 
     # -------------------------------------------------
-    # 10. MÉTRICAS PRINCIPAIS
+    # 10. MÉTRICAS
     # -------------------------------------------------
-    st.markdown("<div class='section-header'>Métricas Principais</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-header'>Métricas</div>", unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
-    with col1: st.metric("Total Vendas", formatar_numero_pt(df_filtrado['V_Liquido'].sum(), "EUR "))
-    with col2: st.metric("Quantidade", formatar_numero_pt(df_filtrado['Qtd'].sum()))
+    with col1: st.metric("Vendas", formatar_numero_pt(df_filtrado['V_Liquido'].sum(), "EUR "))
+    with col2: st.metric("Qtd", formatar_numero_pt(df_filtrado['Qtd'].sum()))
     with col3: st.metric("Clientes", f"{df_filtrado['Cliente'].nunique():,}")
     with col4: st.metric("Artigos", f"{df_filtrado['Artigo'].nunique():,}")
 
     # -------------------------------------------------
-    # 11. TOP 20 CLIENTES EM DESCIDA (Qtd)
+    # 11. TOP 20 CLIENTES EM DESCIDA
     # -------------------------------------------------
     st.markdown("<div class='section-header'>Top 20 Clientes em Descida (Qtd)</div>", unsafe_allow_html=True)
-
     df_alertas = df_filtrado[['Cliente', 'Mes', 'Ano', 'Qtd']].copy()
     df_alertas['Mes_Raw'] = df_alertas['Mes'].astype(str).str.strip().str.lower()
     df_alertas['Ano_Raw'] = df_alertas['Ano'].astype(str).str.strip()
@@ -200,7 +209,6 @@ else:
     df_alertas['Ano_Pad'] = df_alertas['Ano_Raw'].str.extract(r'(\d{4})')[0]
     df_alertas = df_alertas.dropna(subset=['Mes_Pad', 'Ano_Pad'])
     df_alertas['AnoMes'] = df_alertas['Ano_Pad'] + df_alertas['Mes_Pad']
-
     df_alertas = df_alertas.groupby(['Cliente', 'AnoMes'])['Qtd'].sum().reset_index()
 
     if df_alertas['AnoMes'].nunique() >= 2:
@@ -227,28 +235,30 @@ else:
                 'Qtd_Anterior_Str': 'Qtd Anterior', 'Qtd_Atual_Str': 'Qtd Atual'
             })
             st.markdown(tabela.to_html(escape=False, index=False), unsafe_allow_html=True)
-            excel_top = to_excel(tabela)
-            st.download_button("Exportar Top 20 Descidas", excel_top, "top20_descidas.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            st.download_button("Exportar Top 20", to_excel(tabela), "top20_descidas.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         else:
             st.success("Nenhum cliente em descida.")
     else:
-        st.info("Dados insuficientes para comparar meses.")
+        st.info("Dados insuficientes para comparação.")
 
     # -------------------------------------------------
-    # 12. COMPARAÇÃO DE MESES (CORRIGIDA)
+    # 12. COMPARAÇÃO DE MESES (IGNORA FILTRO DE MES/ANO)
     # -------------------------------------------------
     st.markdown("<div class='section-header'>Comparação de Qtd por Mês</div>", unsafe_allow_html=True)
+    df_comp = df.copy()
+    if clientes: df_comp = df_comp[df_comp['Cliente'].isin(clientes)]
+    if artigos: df_comp = df_comp[df_comp['Artigo'].isin(artigos)]
+    if comerciais: df_comp = df_comp[df_comp['Comercial'].isin(comerciais)]
+    if categorias: df_comp = df_comp[df_comp['Categoria'].isin(categorias)]
 
-    df_comp = df_filtrado.copy()
     df_comp['Mes_Raw'] = df_comp['Mes'].astype(str).str.strip().str.lower()
     df_comp['Ano_Raw'] = df_comp['Ano'].astype(str).str.strip()
-
     df_comp['Mes_Pad'] = df_comp['Mes_Raw'].apply(padronizar_mes)
     df_comp['Ano_Pad'] = df_comp['Ano_Raw'].str.extract(r'(\d{4})')[0]
     df_comp = df_comp.dropna(subset=['Mes_Pad', 'Ano_Pad'])
 
     if df_comp.empty:
-        st.warning("Nenhum mês válido encontrado.")
+        st.warning("Nenhum dado válido para comparação.")
     else:
         meses_nome = {'01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Abr', '05': 'Mai', '06': 'Jun',
                       '07': 'Jul', '08': 'Ago', '09': 'Set', '10': 'Out', '11': 'Nov', '12': 'Dez'}
@@ -260,9 +270,9 @@ else:
         if len(meses_disponiveis) >= 2:
             col1, col2 = st.columns(2)
             with col1:
-                mes_label_1 = st.selectbox("Mês 1", options=meses_disponiveis, index=0)
+                mes_label_1 = st.selectbox("Mês 1", options=meses_disponiveis, index=0, key="comp_mes1")
             with col2:
-                mes_label_2 = st.selectbox("Mês 2", options=meses_disponiveis, index=1)
+                mes_label_2 = st.selectbox("Mês 2", options=meses_disponiveis, index=1, key="comp_mes2")
 
             mes_1 = df_comp[df_comp['Label'] == mes_label_1]['AnoMes'].iloc[0]
             mes_2 = df_comp[df_comp['Label'] == mes_label_2]['AnoMes'].iloc[0]
@@ -278,9 +288,7 @@ else:
                 'Variação': ['', f"{var:+.1f}%"]
             })
             st.table(dados_comp.style.apply(lambda x: ['background: lightyellow' if x.name == 1 else '' for _ in x], axis=1))
-
-            excel_comp = to_excel(dados_comp)
-            st.download_button("Exportar Comparação", excel_comp, "comparacao_meses.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            st.download_button("Exportar Comparação", to_excel(dados_comp), "comparacao_meses.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         else:
             st.info(f"Apenas {len(meses_disponiveis)} mês disponível.")
 
@@ -295,14 +303,14 @@ else:
             fig = px.bar(top_c.reset_index(), x='V_Liquido', y='Cliente', orientation='h',
                          text=top_c.map(lambda x: formatar_numero_pt(x, "EUR ")))
             fig.update_traces(textposition='outside')
-            st.plotly_chart(fig, width='stretch')
+            st.plotly_chart(fig, use_container_width=True)
     with col2:
         top_a = df_filtrado.groupby('Artigo')['V_Liquido'].sum().nlargest(10)
         if not top_a.empty:
             fig = px.bar(top_a.reset_index(), x='V_Liquido', y='Artigo', orientation='h',
                          text=top_a.map(lambda x: formatar_numero_pt(x, "EUR ")))
             fig.update_traces(textposition='outside')
-            st.plotly_chart(fig, width='stretch')
+            st.plotly_chart(fig, use_container_width=True)
 
     # -------------------------------------------------
     # 14. TABELA FINAL + EXPORTAÇÃO
@@ -311,10 +319,8 @@ else:
     df_display = df_filtrado.copy()
     for col in df_display.select_dtypes(include=['object']).columns:
         df_display[col] = df_display[col].astype(str)
-    st.dataframe(df_display, width='stretch')
-
-    excel_all = to_excel(df_display)
-    st.download_button("Exportar Todos os Dados", excel_all, "dados_completos.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    st.dataframe(df_display, use_container_width=True)
+    st.download_button("Exportar Todos os Dados", to_excel(df_display), "dados_completos.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # -------------------------------------------------
 # 15. FOOTER
