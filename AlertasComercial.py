@@ -224,7 +224,6 @@ else:
 
     df_alertas = df_filtrado[['Cliente', 'Mes', 'Ano', 'Qtd']].copy()
 
-    # CONVERSÃO SEGURA
     df_alertas['Mes'] = pd.to_numeric(df_alertas['Mes'], errors='coerce').fillna(0).astype(int)
     df_alertas['Ano'] = pd.to_numeric(df_alertas['Ano'], errors='coerce').fillna(0).astype(int)
     df_alertas['AnoMes'] = df_alertas['Ano'] * 100 + df_alertas['Mes']
@@ -268,8 +267,16 @@ else:
 
         df_tabela_alertas = pd.DataFrame(alertas_list)
         if not df_tabela_alertas.empty:
-            # CORREÇÃO: Substitui "N/D" por "0" antes da conversão
-            df_tabela_alertas['Qtd_Num'] = df_tabela_alertas['Qtd Atual'].replace('N/D', '0').str.replace(' ', '').str.replace(',', '.').astype(float)
+            # CORREÇÃO FINAL: .fillna('0') antes de .str
+            df_tabela_alertas['Qtd_Num'] = (
+                df_tabela_alertas['Qtd Atual']
+                .fillna('0')
+                .astype(str)
+                .str.replace('N/D', '0')
+                .str.replace(' ', '')
+                .str.replace(',', '.')
+                .astype(float)
+            )
             df_tabela_alertas = df_tabela_alertas.sort_values('Qtd_Num', ascending=False).drop('Qtd_Num', axis=1).head(20)
             st.table(df_tabela_alertas.style.apply(
                 lambda x: ['color: green' if 'Aumento' in v else 'color: red' if 'Descida' in v else '' for v in x],
@@ -288,7 +295,6 @@ else:
     st.markdown("<div class='section-header'>Comparação 2024 vs 2025 (mesmos meses)</div>", unsafe_allow_html=True)
 
     df_comp = df_filtrado.copy()
-
     df_comp['Mes'] = pd.to_numeric(df_comp['Mes'], errors='coerce').fillna(0).astype(int)
     df_comp['Ano'] = pd.to_numeric(df_comp['Ano'], errors='coerce').fillna(0).astype(int)
 
