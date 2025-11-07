@@ -54,12 +54,6 @@ def load_data():
         st.sidebar.success(f"✅ Arquivo carregado com {len(df)} registros")
         st.sidebar.info(f"📋 Cabeçalhos: {list(df.columns)}")
         
-        # VERIFICAÇÃO DOS DADOS - MOSTRAR AMOSTRA DE CADA COLUNA
-        st.sidebar.markdown("### 🔍 Amostra dos Dados")
-        for coluna in df.columns:
-            amostra = df[coluna].dropna().head(3).tolist()
-            st.sidebar.write(f"**{coluna}:** {amostra}")
-        
         # CORREÇÃO: USAR OS CABEÇALHOS EXATOS DO EXCEL
         mapeamento = {
             'Código': 'Codigo',
@@ -68,7 +62,7 @@ def load_data():
             'UN': 'UN',
             'PM': 'PM',
             'V. Líquido': 'V_Liquido',
-            'Artigo': 'Artigo',  # ✅ COLUNA ARTIGO IDENTIFICADA
+            'Artigo': 'Artigo',
             'Comercial': 'Comercial',
             'Categoria': 'Categoria',
             'Mês': 'Mes',
@@ -80,28 +74,12 @@ def load_data():
         for col_original, col_novo in mapeamento.items():
             if col_original in df.columns:
                 mapeamento_final[col_original] = col_novo
-                st.sidebar.success(f"✅ {col_original} → {col_novo}")
         
         df = df.rename(columns=mapeamento_final)
         
-        # VERIFICAÇÃO CRÍTICA DA COLUNA ARTIGO
-        if 'Artigo' in df.columns:
-            st.sidebar.success(f"📦 Coluna 'Artigo' encontrada!")
-            st.sidebar.info(f"Valores únicos: {df['Artigo'].nunique():,}")
-            st.sidebar.info(f"Tipo de dados: {df['Artigo'].dtype}")
-            
-            # Mostrar amostra dos valores de Artigo
-            artigos_amostra = df['Artigo'].dropna().head(10).tolist()
-            st.sidebar.write("**Amostra de Artigos:**", artigos_amostra)
-        else:
-            st.sidebar.error("❌ Coluna 'Artigo' NÃO encontrada!")
-            return pd.DataFrame()
-        
         # CONVERSÃO DE TIPOS DE DADOS
-        # Converter Artigo para string (mesmo que sejam números)
         if 'Artigo' in df.columns:
             df['Artigo'] = df['Artigo'].astype(str)
-            st.sidebar.success("✅ Artigos convertidos para texto")
         
         if 'Cliente' in df.columns:
             df['Cliente'] = df['Cliente'].astype(str)
@@ -165,15 +143,16 @@ with st.sidebar:
     # FILTROS
     clientes = criar_filtro("👥 Clientes", "Cliente", filtros.get("Cliente"))
     
-    # ✅ FILTRO DE ARTIGOS CORRETO
+    # ✅ FILTRO DE ARTIGOS - APENAS OS QUE EXISTEM NOS DADOS
     if 'Artigo' in df.columns:
         artigos_opcoes = sorted(df['Artigo'].dropna().astype(str).unique())
         artigos = st.multiselect(
             "📦 Artigos", 
             artigos_opcoes,
-            default=filtros.get("Artigo", [])
+            default=filtros.get("Artigo", []),
+            placeholder="Selecione os artigos..."
         )
-        st.sidebar.info(f"Artigos disponíveis: {len(artigos_opcoes):,}")
+        st.sidebar.info(f"Artigos disponíveis: {len(artigos_opcoes)}")
         
         # Mostrar contagem de artigos selecionados
         if artigos:
@@ -223,7 +202,6 @@ if clientes or artigos or comerciais or categorias or meses or anos:
     if artigos and 'Artigo' in df_filtrado.columns:
         df_filtrado = df_filtrado[df_filtrado['Artigo'].astype(str).isin(artigos)]
         filtros_aplicados.append(f"📦 Artigos: {len(artigos)}")
-        st.sidebar.success(f"✅ Filtro Artigo aplicado: {len(df_filtrado)} registros")
     
     if comerciais and 'Comercial' in df_filtrado.columns:
         df_filtrado = df_filtrado[df_filtrado['Comercial'].astype(str).isin(comerciais)]
@@ -244,26 +222,10 @@ if clientes or artigos or comerciais or categorias or meses or anos:
 # 🎯 INTERFACE PRINCIPAL
 st.markdown("<h1 class='main-header'>📊 Dashboard de Vendas</h1>", unsafe_allow_html=True)
 
-# DEBUG EXPANDER
-with st.expander("🔧 Informações Técnicas", expanded=False):
-    if not df.empty:
-        st.write("**Estrutura dos dados:**")
-        for col in df.columns:
-            st.write(f"- **{col}**: {df[col].dtype} | Únicos: {df[col].nunique():,}")
-        
-        if 'Artigo' in df.columns:
-            st.write("**Valores de Artigo (primeiros 20):**")
-            artigos_unicos = sorted(df['Artigo'].dropna().astype(str).unique())[:20]
-            for i, artigo in enumerate(artigos_unicos, 1):
-                st.write(f"  {i:2d}. {artigo}")
-
 if df.empty:
     st.error("❌ Não foi possível carregar os dados.")
 elif df_filtrado.empty:
     st.warning("⚠️ Nenhum dado encontrado com os filtros aplicados.")
-    
-    if artigos and 'Artigo' not in df.columns:
-        st.error("**Problema com a coluna Artigo**")
 else:
     # ✅ DADOS ENCONTRADOS
     st.success(f"✅ **{len(df_filtrado):,}** registros encontrados")
