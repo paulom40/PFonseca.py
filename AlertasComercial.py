@@ -1,62 +1,108 @@
 import streamlit as st
 import pandas as pd
 
-st.title("🔄 ABORDAGEM RADICAL - Debug Completo")
+st.title("🎯 FILTRO DE ARTIGOS - SOLUÇÃO DEFINITIVA")
 
 @st.cache_data
-def load_raw_data():
+def load_and_clean_data():
     try:
         url = "https://github.com/paulom40/PFonseca.py/raw/main/Vendas_Globais.xlsx"
-        
-        # Tentar carregar sem conversões
         df = pd.read_excel(url)
         
-        # DEBUG: Mostrar TUDO sobre a coluna Artigo
-        st.header("🔍 DEBUG COMPLETO - Coluna Artigo")
-        
         if 'Artigo' in df.columns:
-            st.write("**1. Informações básicas:**")
-            st.write(f"- Tipo: {df['Artigo'].dtype}")
-            st.write(f"- Valores únicos: {df['Artigo'].nunique()}")
-            st.write(f"- Nulos: {df['Artigo'].isna().sum()}")
+            # Converter para string
+            df['Artigo'] = df['Artigo'].astype(str)
             
-            st.write("**2. Primeiros 30 valores CRUS:**")
-            for i in range(min(30, len(df))):
-                valor = df.iloc[i]['Artigo']
-                st.write(f"Linha {i}: '{valor}' (tipo: {type(valor).__name__})")
+            # FILTRAR APENAS ARTIGOS "REAIS" (não valores numéricos)
+            # Criar uma coluna auxiliar para identificar artigos reais
+            def is_real_article(artigo):
+                artigo_str = str(artigo).strip()
+                # Se começa com '-' e depois tem apenas números, é um ajuste numérico
+                if artigo_str.startswith('-') and artigo_str[1:].replace('.', '', 1).isdigit():
+                    return False
+                # Se é apenas números (positivos ou negativos)
+                if artigo_str.replace('-', '', 1).replace('.', '', 1).isdigit():
+                    return False
+                # Se é vazio ou nan
+                if artigo_str in ['', 'nan', 'None']:
+                    return False
+                return True
             
-            st.write("**3. Conversão forçada para texto:**")
-            df['Artigo_Texto'] = df['Artigo'].astype(str)
+            df['is_real_article'] = df['Artigo'].apply(is_real_article)
+            df_reais = df[df['is_real_article'] == True]
             
-            st.write("**4. Valores únicos como texto:**")
-            artigos_texto = sorted(df['Artigo_Texto'].dropna().unique())
-            for i, artigo in enumerate(artigos_texto[:30]):
-                st.write(f"{i+1}. '{artigo}'")
+            st.sidebar.success(f"✅ Artigos reais: {len(df_reais)} de {len(df)} registos")
+            st.sidebar.info(f"📦 Artigos únicos reais: {df_reais['Artigo'].nunique()}")
             
-            return df
+            return df_reais
         else:
-            st.error("Coluna Artigo não existe!")
-            st.write("Colunas disponíveis:", list(df.columns))
-            return df
+            st.error("Coluna Artigo não encontrada!")
+            return pd.DataFrame()
             
     except Exception as e:
         st.error(f"Erro: {e}")
         return pd.DataFrame()
 
-df = load_raw_data()
+# Carregar dados limpos
+df_clean = load_and_clean_data()
 
-# Filtro usando a coluna convertida
-if not df.empty and 'Artigo_Texto' in df.columns:
-    st.header("🎛️ FILTRO - Usando coluna convertida")
+if not df_clean.empty:
+    # OBTER ARTIGOS REAIS
+    artigos_reais = sorted(df_clean['Artigo'].dropna().unique())
     
-    artigos_unicos = sorted(df['Artigo_Texto'].dropna().unique())
+    st.header("🎛️ FILTRO DE ARTIGOS REAIS")
+    st.write(f"**📚 {len(artigos_reais)} artigos disponíveis**")
     
+    # Mostrar alguns exemplos
+    st.write("**📋 Exemplos de artigos disponíveis:**")
+    for i, artigo in enumerate(artigos_reais[:20]):
+        st.write(f"{i+1:2d}. {artigo}")
+    
+    # FILTRO PRINCIPAL
     artigo_selecionado = st.selectbox(
-        "Selecione:",
-        options=artigos_unicos
+        "Selecione o artigo:",
+        options=artigos_reais,
+        index=0,  # Seleciona o primeiro por padrão
+        placeholder="Escolha um artigo..."
     )
     
     if artigo_selecionado:
-        resultado = df[df['Artigo_Texto'] == artigo_selecionado]
-        st.success(f"✅ Encontrados: {len(resultado)} registos")
-        st.dataframe(resultado.head())
+        resultado = df_clean[df_clean['Artigo'] == artigo_selecionado]
+        
+        st.success(f"✅ **{len(resultado)} registos encontrados para:** {artigo_selecionado}")
+        
+        # Métricas
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if 'V. Líquido' in resultado.columns:
+                total = resultado['V. Líquido'].sum()
+                st.metric("💰 Total Vendas", f"€ {total:,.2f}")
+        with col2:
+            if 'Qtd.' in resultado.columns:
+                qtd = resultado['Qtd.'].sum()
+                st.metric("📦 Quantidade", f"{qtd:,.0f}")
+        with col3:
+            if 'Cliente' in resultado.columns:
+                clientes = resultado['Cliente'].nunique()
+                st.metric("👥 Clientes", f"{clientes}")
+        
+        # Dados
+        st.dataframe(resultado, width='stretch')
+
+else:
+    st.error("❌ Não foi possível carregar os dados")
+
+# 🎯 VERSÃO ALTERNATIVA - MULTISELECT
+st.header("🎪 FILTRO MÚLTIPLO")
+
+if not df_clean.empty:
+    artigos_multiselect = st.multiselect(
+        "Selecione vários artigos:",
+        options=artigos_reais,
+        placeholder="Escolha um ou mais artigos..."
+    )
+    
+    if artigos_multiselect:
+        resultado_mult = df_clean[df_clean['Artigo'].isin(artigos_multiselect)]
+        st.success(f"✅ {len(resultado_mult)} registos para {len(artigos_multiselect)} artigo(s)")
+        st.dataframe(resultado_mult, width='stretch')
