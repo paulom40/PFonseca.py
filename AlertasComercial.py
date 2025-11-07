@@ -6,6 +6,7 @@ import numpy as np
 import plotly.express as px
 from datetime import datetime
 from io import BytesIO
+import re
 
 # -------------------------------------------------
 # 1. CONFIGURAÇÃO DA PÁGINA
@@ -45,7 +46,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# LOGO NO CANTO SUPERIOR ESQUERDO
+# LOGO
 st.markdown(f"""
 <div class="logo-container">
     <img src="https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png" alt="Bracar Logo">
@@ -105,7 +106,7 @@ def load_all_data():
 df = load_all_data()
 
 # -------------------------------------------------
-# 6. PRESETS DE FILTROS
+# 6. PRESETS
 # -------------------------------------------------
 preset_path = Path("diagnosticos/presets_filtros.json")
 preset_path.parent.mkdir(exist_ok=True)
@@ -152,7 +153,7 @@ with st.sidebar:
         st.success(f"Salvo: {nome_preset}")
 
 # -------------------------------------------------
-# 8. FILTROS PRINCIPAIS (df_filtrado)
+# 8. FILTROS PRINCIPAIS
 # -------------------------------------------------
 df_filtrado = df.copy()
 if clientes: df_filtrado = df_filtrado[df_filtrado['Cliente'].isin(clientes)]
@@ -185,7 +186,7 @@ else:
     with col4: st.metric("Artigos", f"{df_filtrado['Artigo'].nunique():,}")
 
     # -------------------------------------------------
-    # 11. TOP 20 CLIENTES EM DESCIDA
+    # 11. TOP 20 DESCIDAS
     # -------------------------------------------------
     st.markdown("<div class='section-header'>Top 20 Clientes em Descida (Qtd)</div>", unsafe_allow_html=True)
     df_alertas = df_filtrado[['Cliente', 'Mes', 'Ano', 'Qtd']].copy()
@@ -200,13 +201,18 @@ else:
     }
 
     def padronizar_mes(m):
-        m = m.lower().strip()
+        m = str(m).lower().strip()
         if m in meses_map: return meses_map[m]
         if m.isdigit() and 1 <= int(m) <= 12: return f"{int(m):02d}"
         return None
 
+    def extrair_ano(a):
+        a = str(a).strip()
+        match = re.search(r'\d{4}', a)
+        return match.group(0) if match else None
+
     df_alertas['Mes_Pad'] = df_alertas['Mes_Raw'].apply(padronizar_mes)
-    df_alertas['Ano_Pad'] = df_alertas['Ano_Raw'].str.extract(r'(\d{4})')[0]
+    df_alertas['Ano_Pad'] = df_alertas['Ano_Raw'].apply(extrair_ano)
     df_alertas = df_alertas.dropna(subset=['Mes_Pad', 'Ano_Pad'])
     df_alertas['AnoMes'] = df_alertas['Ano_Pad'] + df_alertas['Mes_Pad']
     df_alertas = df_alertas.groupby(['Cliente', 'AnoMes'])['Qtd'].sum().reset_index()
@@ -239,10 +245,10 @@ else:
         else:
             st.success("Nenhum cliente em descida.")
     else:
-        st.info("Dados insuficientes para comparação.")
+        st.info("Dados insuficientes.")
 
     # -------------------------------------------------
-    # 12. COMPARAÇÃO DE MESES (IGNORA FILTRO DE MES/ANO)
+    # 12. COMPARAÇÃO DE QTD POR MÊS
     # -------------------------------------------------
     st.markdown("<div class='section-header'>Comparação de Qtd por Mês</div>", unsafe_allow_html=True)
     df_comp = df.copy()
@@ -254,18 +260,18 @@ else:
     df_comp['Mes_Raw'] = df_comp['Mes'].astype(str).str.strip().str.lower()
     df_comp['Ano_Raw'] = df_comp['Ano'].astype(str).str.strip()
     df_comp['Mes_Pad'] = df_comp['Mes_Raw'].apply(padronizar_mes)
-    df_comp['Ano_Pad'] = df_comp['Ano_Raw'].str.extract(r'(\d{4})')[0]
-    df_comp = df_comp.dropna(subset=['Mes_Pad', 'Ano_Pad'])
+    df_comp['Ano_Pad'] = df_comp['Ano_Raw'].apply(extrair_ano)
+    df_valido = df_comp.dropna(subset=['Mes_Pad', 'Ano_Pad', 'Qtd']).copy()
+    df_valido['AnoMes'] = df_valido['Ano_Pad'] + "-" + df_valido['Mes_Pad']
 
-    if df_comp.empty:
-        st.warning("Nenhum dado válido para comparação.")
+    if df_valido.empty:
+        st.warning("Nenhum mês válido encontrado.")
     else:
         meses_nome = {'01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Abr', '05': 'Mai', '06': 'Jun',
                       '07': 'Jul', '08': 'Ago', '09': 'Set', '10': 'Out', '11': 'Nov', '12': 'Dez'}
-        df_comp['Mes_Nome'] = df_comp['Mes_Pad'].map(meses_nome)
-        df_comp['Label'] = df_comp['Mes_Nome'] + " " + df_comp['Ano_Pad']
-        df_comp['AnoMes'] = df_comp['Ano_Pad'] + "-" + df_comp['Mes_Pad']
-        meses_disponiveis = sorted(df_comp['Label'].unique())
+        df_valido['Mes_Nome'] = df_valido['Mes_Pad'].map(meses_nome)
+        df_valido['Label'] = df_valido['Mes_Nome'] + " " + df_valido['Ano_Pad']
+        meses_disponiveis = sorted(df_valido['Label'].unique())
 
         if len(meses_disponiveis) >= 2:
             col1, col2 = st.columns(2)
@@ -274,13 +280,13 @@ else:
             with col2:
                 mes_label_2 = st.selectbox("Mês 2", options=meses_disponiveis, index=1, key="comp_mes2")
 
-            mes_1 = df_comp[df_comp['Label'] == mes_label_1]['AnoMes'].iloc[0]
-            mes_2 = df_comp[df_comp['Label'] == mes_label_2]['AnoMes'].iloc[0]
-            qtd1 = df_comp[df_comp['AnoMes'] == mes_1]['Qtd'].sum()
-            qtd2 = df_comp[df_comp['AnoMes'] == mes_2]['Qtd'].sum()
+            mes_1 = df_valido[df_valido['Label'] == mes_label_1]['AnoMes'].iloc[0]
+            mes_2 = df_valido[df_valido['Label'] == mes_label_2]['AnoMes'].iloc[0]
+            qtd1 = df_valido[df_valido['AnoMes'] == mes_1]['Qtd'].sum()
+            qtd2 = df_valido[df_valido['AnoMes'] == mes_2]['Qtd'].sum()
             var = (qtd2 - qtd1) / qtd1 * 100 if qtd1 > 0 else 0
             cor = "green" if var >= 10 else "lightgreen" if var > 0 else "red" if var <= -10 else "orange" if var < 0 else "gray"
-            st.markdown(f"<span style='color:{cor}'>Variação: {var:+.1f}%</span>", unsafe_allow_html=True)
+            st.markdown(f"<span style='color:{cor};font-weight:bold'>Variação: {var:+.1f}%</span>", unsafe_allow_html=True)
 
             dados_comp = pd.DataFrame({
                 'Mês': [mes_label_1, mes_label_2],
@@ -293,27 +299,68 @@ else:
             st.info(f"Apenas {len(meses_disponiveis)} mês disponível.")
 
     # -------------------------------------------------
-    # 13. GRÁFICOS
+    # 13. COMPARAÇÃO DE VENDAS POR ANO
+    # -------------------------------------------------
+    st.markdown("<div class='section-header'>Comparação de Vendas por Ano</div>", unsafe_allow_html=True)
+    df_ano = df.copy()
+    if clientes: df_ano = df_ano[df_ano['Cliente'].isin(clientes)]
+    if artigos: df_ano = df_ano[df_ano['Artigo'].isin(artigos)]
+    if comerciais: df_ano = df_ano[df_ano['Comercial'].isin(comerciais)]
+    if categorias: df_ano = df_ano[df_ano['Categoria'].isin(categorias)]
+
+    df_ano['Ano_Str'] = df_ano['Ano'].astype(str).str.strip()
+    df_ano = df_ano[df_ano['Ano_Str'].str.match(r'^\d{4}$')]
+
+    if df_ano.empty:
+        st.warning("Nenhum ano válido encontrado.")
+    else:
+        df_resumo = df_ano.groupby('Ano_Str').agg({
+            'V_Liquido': 'sum',
+            'Qtd': 'sum'
+        }).reset_index()
+        df_resumo = df_resumo.sort_values('Ano_Str')
+        df_resumo['Vendas_Str'] = df_resumo['V_Liquido'].apply(lambda x: formatar_numero_pt(x, "EUR "))
+        df_resumo['Qtd_Str'] = df_resumo['Qtd'].apply(formatar_numero_pt)
+        df_resumo['Var_Vendas_%'] = df_resumo['V_Liquido'].pct_change() * 100
+        df_resumo['Var_Vendas_Str'] = df_resumo['Var_Vendas_%'].apply(lambda x: f"{x:+.1f}%" if pd.notna(x) else "")
+
+        tabela_ano = df_resumo[['Ano_Str', 'Qtd_Str', 'Vendas_Str', 'Var_Vendas_Str']].rename(columns={
+            'Ano_Str': 'Ano', 'Qtd_Str': 'Qtd', 'Vendas_Str': 'Vendas', 'Var_Vendas_Str': 'Variação %'
+        })
+
+        st.table(tabela_ano.style.apply(
+            lambda x: ['background: lightgreen' if 'Variação' in x.name and x['Variação %'] != '' and float(x['Variação %'].replace('%','').replace('+','')) > 0 else
+                       'background: lightcoral' if 'Variação' in x.name and x['Variação %'] != '' and float(x['Variação %'].replace('%','').replace('+','')) < 0 else ''
+                       for _ in x], axis=1
+        ))
+
+        fig = px.bar(df_resumo, x='Ano_Str', y='V_Liquido', text='Vendas_Str', title="Vendas por Ano")
+        fig.update_traces(textposition='outside')
+        fig.update_layout(yaxis_visible=False, yaxis_showticklabels=False)
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.download_button("Exportar Vendas por Ano", to_excel(tabela_ano), "vendas_por_ano.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+    # -------------------------------------------------
+    # 14. GRÁFICOS
     # -------------------------------------------------
     st.markdown("<div class='section-header'>Visualizações</div>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
         top_c = df_filtrado.groupby('Cliente')['V_Liquido'].sum().nlargest(10)
         if not top_c.empty:
-            fig = px.bar(top_c.reset_index(), x='V_Liquido', y='Cliente', orientation='h',
-                         text=top_c.map(lambda x: formatar_numero_pt(x, "EUR ")))
+            fig = px.bar(top_c.reset_index(), x='V_Liquido', y='Cliente', orientation='h', text=top_c.map(lambda x: formatar_numero_pt(x, "EUR ")))
             fig.update_traces(textposition='outside')
             st.plotly_chart(fig, use_container_width=True)
     with col2:
         top_a = df_filtrado.groupby('Artigo')['V_Liquido'].sum().nlargest(10)
         if not top_a.empty:
-            fig = px.bar(top_a.reset_index(), x='V_Liquido', y='Artigo', orientation='h',
-                         text=top_a.map(lambda x: formatar_numero_pt(x, "EUR ")))
+            fig = px.bar(top_a.reset_index(), x='V_Liquido', y='Artigo', orientation='h', text=top_a.map(lambda x: formatar_numero_pt(x, "EUR ")))
             fig.update_traces(textposition='outside')
             st.plotly_chart(fig, use_container_width=True)
 
     # -------------------------------------------------
-    # 14. TABELA FINAL + EXPORTAÇÃO
+    # 15. TABELA FINAL
     # -------------------------------------------------
     st.markdown("<div class='section-header'>Dados Filtrados</div>", unsafe_allow_html=True)
     df_display = df_filtrado.copy()
@@ -323,7 +370,7 @@ else:
     st.download_button("Exportar Todos os Dados", to_excel(df_display), "dados_completos.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # -------------------------------------------------
-# 15. FOOTER
+# 16. FOOTER
 # -------------------------------------------------
 st.markdown("---")
 st.markdown(f"<div style='text-align:center;color:#7f8c8d;'>Atualizado: {datetime.now().strftime('%d/%m/%Y %H:%M')}</div>", unsafe_allow_html=True)
