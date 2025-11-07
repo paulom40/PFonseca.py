@@ -484,6 +484,61 @@ else:
                 df_display[col] = df_display[col].astype(str)
         
         st.dataframe(df_display, width='stretch')
+    
+    with tab2:
+        st.markdown("<div class='section-header'>👥 Análise por Cliente</div>", unsafe_allow_html=True)
+        st.info("📊 Selecione um cliente para análise detalhada")
+        
+        if 'Cliente' in df_filtrado.columns and not df_filtrado.empty:
+            clientes_lista = sorted(df_filtrado['Cliente'].dropna().unique())
+            if clientes_lista:
+                cliente_selecionado = st.selectbox("Cliente", clientes_lista)
+                df_cliente = df_filtrado[df_filtrado['Cliente'] == cliente_selecionado]
+                
+                if not df_cliente.empty and 'V_Liquido' in df_cliente.columns:
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Total de Vendas", f"€ {df_cliente['V_Liquido'].sum():,.2f}")
+                    with col2:
+                        st.metric("Nº de Transações", f"{len(df_cliente):,}")
+                    with col3:
+                        st.metric("Ticket Médio", f"€ {df_cliente['V_Liquido'].mean():,.2f}")
+    
+    with tab3:
+        st.markdown("<div class='section-header'>👨‍💼 Análise por Comercial</div>", unsafe_allow_html=True)
+        st.info("📊 Selecione um comercial para análise detalhada")
+        
+        if 'Comercial' in df_filtrado.columns and not df_filtrado.empty:
+            comerciais_lista = sorted(df_filtrado['Comercial'].dropna().unique())
+            if comerciais_lista:
+                comercial_selecionado = st.selectbox("Comercial", comerciais_lista)
+                df_comercial = df_filtrado[df_filtrado['Comercial'] == comercial_selecionado]
+                
+                if not df_comercial.empty and 'V_Liquido' in df_comercial.columns:
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Total de Vendas", f"€ {df_comercial['V_Liquido'].sum():,.2f}")
+                    with col2:
+                        st.metric("Nº de Transações", f"{len(df_comercial):,}")
+                    with col3:
+                        st.metric("Ticket Médio", f"€ {df_comercial['V_Liquido'].mean():,.2f}")
+    
+    with tab4:
+        st.markdown("<div class='section-header'>🚨 Alertas & Insights</div>", unsafe_allow_html=True)
+        
+        if 'V_Liquido' in df_filtrado.columns:
+            media_vendas = df_filtrado['V_Liquido'].mean()
+            mediana_vendas = df_filtrado['V_Liquido'].median()
+            
+            st.markdown("<div class='info-box'>", unsafe_allow_html=True)
+            st.markdown(f"### 📊 Estatísticas Gerais")
+            st.markdown(f"- **Média de Vendas:** € {media_vendas:,.2f}")
+            st.markdown(f"- **Mediana de Vendas:** € {mediana_vendas:,.2f}")
+            st.markdown("</div>", unsafe_allow_html=True)
+        
+        st.markdown("<div class='success-box'>", unsafe_allow_html=True)
+        st.markdown("✅ Dashboard carregado com sucesso!")
+        st.markdown("</div>", unsafe_allow_html=True)
 
 # 🎯 Footer
 st.markdown("---")
