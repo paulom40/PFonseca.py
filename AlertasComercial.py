@@ -214,7 +214,7 @@ else:
     df_alertas['Mes_Pad'] = df_alertas['Mes_Raw'].apply(padronizar_mes)
     df_alertas['Ano_Pad'] = df_alertas['Ano_Raw'].apply(extrair_ano)
     df_alertas = df_alertas.dropna(subset=['Mes_Pad', 'Ano_Pad'])
-    df_alertas['AnoMes'] = df_alertas['Ano_Pad'] + "-" + df_alertas['Mes_Pad']  # CORREÇÃO: Adicionado separador
+    df_alertas['AnoMes'] = df_alertas['Ano_Pad'] + "-" + df_alertas['Mes_Pad']
     df_alertas = df_alertas.groupby(['Cliente', 'AnoMes'])['Qtd'].sum().reset_index()
 
     if df_alertas['AnoMes'].nunique() >= 2:
@@ -264,7 +264,7 @@ else:
     df_comp['Mes_Pad'] = df_comp['Mes_Raw'].apply(padronizar_mes)
     df_comp['Ano_Pad'] = df_comp['Ano_Raw'].apply(extrair_ano)
     df_valido = df_comp.dropna(subset=['Mes_Pad', 'Ano_Pad', 'Qtd']).copy()
-    df_valido['AnoMes'] = df_valido['Ano_Pad'] + "-" + df_valido['Mes_Pad']  # CORREÇÃO: Adicionado separador
+    df_valido['AnoMes'] = df_valido['Ano_Pad'] + "-" + df_valido['Mes_Pad']
 
     if df_valido.empty:
         st.warning("Nenhum mês válido encontrado.")
@@ -341,7 +341,7 @@ else:
                 comparacao_display['Var_Qtd_%'] = comparacao_clientes['Var_Qtd'].apply(lambda x: f"{x:+.1f}%")
                 comparacao_display['Var_Vendas_%'] = comparacao_clientes['Var_Vendas'].apply(lambda x: f"{x:+.1f}%")
                 
-                st.dataframe(comparacao_display, use_container_width=True)
+                st.dataframe(comparacao_display, width='stretch')
                 
             with tab2:
                 st.subheader("Dados Comparativos Consolidados")
@@ -373,20 +373,20 @@ else:
                     title=f"Comparação de Quantidades: {mes_label_1} vs {mes_label_2}"
                 )
                 fig_comp.update_traces(textposition='outside')
-                st.plotly_chart(fig_comp, use_container_width=True)
+                st.plotly_chart(fig_comp, width='stretch')
 
             # Botão de exportação
             st.download_button(
                 "📥 Exportar Comparação Completa", 
                 to_excel(comparacao_clientes), 
-                f"comparacao_{mes_label1}_{mes_label2}.xlsx".replace(" ", "_"),
+                f"comparacao_{mes_label_1}_{mes_label_2}.xlsx".replace(" ", "_"),
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
         else:
             st.info(f"Apenas {len(meses_disponiveis)} mês disponível.")
 
     # -------------------------------------------------
-    # 13. COMPARAÇÃO DE VENDAS POR ANO
+    # 13. COMPARAÇÃO DE VENDAS POR ANO (CORRIGIDA)
     # -------------------------------------------------
     st.markdown("<div class='section-header'>Comparação de Vendas por Ano</div>", unsafe_allow_html=True)
     df_ano = df.copy()
@@ -417,11 +417,11 @@ else:
             'Ano_Str': 'Ano', 'Qtd_Str': 'Qtd', 'Vendas_Str': 'Vendas', 'Var_Vendas_Str': 'Variação %'
         })
 
-        # ESTILO SEGURO
+        # CORREÇÃO: Substituir applymap por map (Styler.map)
         def highlight_variacao(val):
+            if pd.isna(val) or val == "":
+                return ""
             try:
-                if pd.isna(val) or val == "":
-                    return ""
                 num = float(val.replace('%', '').replace('+', '').replace('−', '-'))
                 if num > 0:
                     return "background-color: lightgreen"
@@ -431,7 +431,7 @@ else:
                 pass
             return ""
 
-        styled_table = tabela_ano.style.applymap(
+        styled_table = tabela_ano.style.map(
             highlight_variacao,
             subset=['Variação %']
         )
@@ -443,7 +443,7 @@ else:
                      text='Vendas_Str', title="Vendas por Ano (EUR)")
         fig.update_traces(textposition='outside')
         fig.update_layout(yaxis_visible=False, yaxis_showticklabels=False)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
         # Exportação
         st.download_button(
@@ -464,14 +464,14 @@ else:
             fig = px.bar(top_c.reset_index(), x='V_Liquido', y='Cliente', orientation='h',
                          text=top_c.map(lambda x: formatar_numero_pt(x, "EUR ")))
             fig.update_traces(textposition='outside')
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
     with col2:
         top_a = df_filtrado.groupby('Artigo')['V_Liquido'].sum().nlargest(10)
         if not top_a.empty:
             fig = px.bar(top_a.reset_index(), x='V_Liquido', y='Artigo', orientation='h',
                          text=top_a.map(lambda x: formatar_numero_pt(x, "EUR ")))
             fig.update_traces(textposition='outside')
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
     # -------------------------------------------------
     # 15. TABELA FINAL
@@ -480,7 +480,7 @@ else:
     df_display = df_filtrado.copy()
     for col in df_display.select_dtypes(include=['object']).columns:
         df_display[col] = df_display[col].astype(str)
-    st.dataframe(df_display, use_container_width=True)
+    st.dataframe(df_display, width='stretch')
     st.download_button("Exportar Todos os Dados", to_excel(df_display), "dados_completos.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # -------------------------------------------------
