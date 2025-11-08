@@ -13,7 +13,7 @@ import re
 # -------------------------------------------------
 st.set_page_config(
     page_title="Dashboard de Vendas - BI",
-    page_icon="📊",
+    page_icon="Chart",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -164,64 +164,7 @@ if meses: df_filtrado = df_filtrado[df_filtrado['Mes'].isin(meses)]
 if anos: df_filtrado = df_filtrado[df_filtrado['Ano'].isin(anos)]
 
 # -------------------------------------------------
-# 9. FUNÇÃO PARA PROCESSAR DATAS
-# -------------------------------------------------
-def processar_datas_mes_ano(df):
-    """Processa colunas Mes e Ano para criar períodos consistentes"""
-    df_processed = df.copy()
-    
-    # Mapeamento completo de meses
-    meses_map = {
-        'jan': '01', 'fev': '02', 'mar': '03', 'abr': '04', 'mai': '05', 'jun': '06',
-        'jul': '07', 'ago': '08', 'set': '09', 'out': '10', 'nov': '11', 'dez': '12',
-        'january': '01', 'february': '02', 'march': '03', 'april': '04', 'may': '05', 
-        'june': '06', 'july': '07', 'august': '08', 'september': '09', 'october': '10', 
-        'november': '11', 'december': '12',
-        '1': '01', '2': '02', '3': '03', '4': '04', '5': '05', '6': '06',
-        '7': '07', '8': '08', '9': '09', '10': '10', '11': '11', '12': '12'
-    }
-    
-    def padronizar_mes(mes_str):
-        if pd.isna(mes_str):
-            return None
-        mes_str = str(mes_str).lower().strip()
-        # Remove pontos e espaços extras
-        mes_str = re.sub(r'[.\s]', '', mes_str)
-        return meses_map.get(mes_str, None)
-    
-    def padronizar_ano(ano_str):
-        if pd.isna(ano_str):
-            return None
-        ano_str = str(ano_str).strip()
-        # Extrai apenas números
-        match = re.search(r'\d{4}', ano_str)
-        if match:
-            return match.group(0)
-        return None
-    
-    # Aplicar padronização
-    df_processed['Mes_Padronizado'] = df_processed['Mes'].apply(padronizar_mes)
-    df_processed['Ano_Padronizado'] = df_processed['Ano'].apply(padronizar_ano)
-    
-    # Filtrar apenas registros com dados válidos
-    df_valido = df_processed.dropna(subset=['Mes_Padronizado', 'Ano_Padronizado']).copy()
-    
-    if not df_valido.empty:
-        # Criar período no formato YYYY-MM
-        df_valido['Periodo'] = df_valido['Ano_Padronizado'] + '-' + df_valido['Mes_Padronizado']
-        
-        # Mapear nomes dos meses para exibição
-        meses_nome = {
-            '01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Abr', '05': 'Mai', '06': 'Jun',
-            '07': 'Jul', '08': 'Ago', '09': 'Set', '10': 'Out', '11': 'Nov', '12': 'Dez'
-        }
-        df_valido['Mes_Nome'] = df_valido['Mes_Padronizado'].map(meses_nome)
-        df_valido['Periodo_Label'] = df_valido['Mes_Nome'] + ' ' + df_valido['Ano_Padronizado']
-    
-    return df_valido
-
-# -------------------------------------------------
-# 10. INTERFACE
+# 9. INTERFACE
 # -------------------------------------------------
 st.markdown("<h1 class='main-header'>Dashboard de Vendas</h1>", unsafe_allow_html=True)
 
@@ -233,7 +176,7 @@ else:
     st.success(f"**{len(df_filtrado):,}** registos")
 
     # -------------------------------------------------
-    # 11. MÉTRICAS
+    # 10. MÉTRICAS
     # -------------------------------------------------
     st.markdown("<div class='section-header'>Métricas</div>", unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
@@ -243,230 +186,218 @@ else:
     with col4: st.metric("Artigos", f"{df_filtrado['Artigo'].nunique():,}")
 
     # -------------------------------------------------
-    # 12. TOP 20 DESCIDAS (CORRIGIDO)
+    # 11. TOP 20 DESCIDAS
     # -------------------------------------------------
     st.markdown("<div class='section-header'>Top 20 Clientes em Descida (Qtd)</div>", unsafe_allow_html=True)
-    
-    # Processar datas para análise de descidas
-    df_alertas = processar_datas_mes_ano(df_filtrado[['Cliente', 'Mes', 'Ano', 'Qtd']])
-    
-    if not df_alertas.empty:
-        # Agrupar por cliente e período
-        df_agrupado = df_alertas.groupby(['Cliente', 'Periodo'])['Qtd'].sum().reset_index()
-        
-        # Verificar se temos pelo menos 2 períodos
-        periodos_unicos = sorted(df_agrupado['Periodo'].unique())
-        
-        if len(periodos_unicos) >= 2:
-            ultimo_periodo = periodos_unicos[-1]
-            penultimo_periodo = periodos_unicos[-2]
-            
-            # Dados do último período
-            dados_atuais = df_agrupado[df_agrupado['Periodo'] == ultimo_periodo][['Cliente', 'Qtd']].rename(columns={'Qtd': 'Qtd_Atual'})
-            
-            # Dados do penúltimo período
-            dados_anteriores = df_agrupado[df_agrupado['Periodo'] == penultimo_periodo][['Cliente', 'Qtd']].rename(columns={'Qtd': 'Qtd_Anterior'})
-            
-            # Combinar dados
-            comparacao = pd.merge(dados_atuais, dados_anteriores, on='Cliente', how='inner')
-            
-            if not comparacao.empty:
-                # Calcular variação
-                comparacao['Variacao'] = (comparacao['Qtd_Atual'] - comparacao['Qtd_Anterior']) / comparacao['Qtd_Anterior'] * 100
-                
-                # Filtrar apenas descidas
-                descidas = comparacao[comparacao['Variacao'] < 0].copy()
-                descidas['Variacao_Abs'] = descidas['Variacao'].abs()
-                descidas = descidas.sort_values('Variacao_Abs', ascending=False).head(20)
-                
-                if not descidas.empty:
-                    # Formatar para exibição
-                    descidas['Qtd_Atual_Str'] = descidas['Qtd_Atual'].apply(formatar_numero_pt)
-                    descidas['Qtd_Anterior_Str'] = descidas['Qtd_Anterior'].apply(formatar_numero_pt)
-                    
-                    def classificar_alerta(variacao):
-                        if variacao <= -30:
-                            return f"<span class='alerta-critico'>▼ {variacao:+.1f}%</span>"
-                        elif variacao <= -10:
-                            return f"<span class='alerta-alto'>▼ {variacao:+.1f}%</span>"
-                        else:
-                            return f"<span class='alerta-moderado'>▼ {variacao:+.1f}%</span>"
-                    
-                    descidas['Alerta'] = descidas['Variacao'].apply(classificar_alerta)
-                    
-                    # Criar tabela para exibição
-                    tabela_descidas = descidas[['Cliente', 'Qtd_Anterior_Str', 'Qtd_Atual_Str', 'Alerta']].rename(columns={
-                        'Qtd_Anterior_Str': 'Qtd Anterior', 
-                        'Qtd_Atual_Str': 'Qtd Atual'
-                    })
-                    
-                    st.markdown(tabela_descidas.to_html(escape=False, index=False), unsafe_allow_html=True)
-                    st.download_button(
-                        "Exportar Top 20 Descidas", 
-                        to_excel(descidas), 
-                        "top20_descidas.xlsx", 
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
-                else:
-                    st.success("🎉 Nenhum cliente em descida significativa!")
-            else:
-                st.info("⚠️ Não há dados suficientes para comparação entre os períodos.")
+    df_alertas = df_filtrado[['Cliente', 'Mes', 'Ano', 'Qtd']].copy()
+    df_alertas['Mes_Raw'] = df_alertas['Mes'].astype(str).str.strip().str.lower()
+    df_alertas['Ano_Raw'] = df_alertas['Ano'].astype(str).str.strip()
+
+    meses_map = {
+        'jan': '01', 'fev': '02', 'mar': '03', 'abr': '04', 'mai': '05', 'jun': '06',
+        'jul': '07', 'ago': '08', 'set': '09', 'out': '10', 'nov': '11', 'dez': '12',
+        'january': '01', 'february': '02', 'march': '03', 'april': '04', 'may': '05', 'june': '06',
+        'july': '07', 'august': '08', 'september': '09', 'october': '10', 'november': '11', 'december': '12'
+    }
+
+    def padronizar_mes(m):
+        m = str(m).lower().strip()
+        if m in meses_map: return meses_map[m]
+        if m.isdigit() and 1 <= int(m) <= 12: return f"{int(m):02d}"
+        return None
+
+    def extrair_ano(a):
+        a = str(a).strip()
+        match = re.search(r'\d{4}', a)
+        return match.group(0) if match else None
+
+    df_alertas['Mes_Pad'] = df_alertas['Mes_Raw'].apply(padronizar_mes)
+    df_alertas['Ano_Pad'] = df_alertas['Ano_Raw'].apply(extrair_ano)
+    df_alertas = df_alertas.dropna(subset=['Mes_Pad', 'Ano_Pad'])
+    df_alertas['AnoMes'] = df_alertas['Ano_Pad'] + df_alertas['Mes_Pad']
+    df_alertas = df_alertas.groupby(['Cliente', 'AnoMes'])['Qtd'].sum().reset_index()
+
+    if df_alertas['AnoMes'].nunique() >= 2:
+        ultimo = df_alertas['AnoMes'].max()
+        penultimo = df_alertas[df_alertas['AnoMes'] < ultimo]['AnoMes'].max()
+        atual = df_alertas[df_alertas['AnoMes'] == ultimo][['Cliente', 'Qtd']].rename(columns={'Qtd': 'Qtd_Atual'})
+        anterior = df_alertas[df_alertas['AnoMes'] == penultimo][['Cliente', 'Qtd']].rename(columns={'Qtd': 'Qtd_Anterior'})
+        comp = pd.merge(atual, anterior, on='Cliente')
+        comp['Variacao'] = (comp['Qtd_Atual'] - comp['Qtd_Anterior']) / comp['Qtd_Anterior'] * 100
+        descidas = comp[comp['Variacao'] < 0].copy()
+        descidas['Variacao_Abs'] = descidas['Variacao'].abs()
+        descidas = descidas.sort_values('Variacao_Abs', ascending=False).head(20)
+
+        if not descidas.empty:
+            descidas['Qtd_Atual_Str'] = descidas['Qtd_Atual'].apply(formatar_numero_pt)
+            descidas['Qtd_Anterior_Str'] = descidas['Qtd_Anterior'].apply(formatar_numero_pt)
+            def alerta(row):
+                v = row['Variacao']
+                if v <= -30: return f"<span class='alerta-critico'>Down Arrow {v:+.1f}%</span>"
+                elif v <= -10: return f"<span class='alerta-alto'>Down Arrow {v:+.1f}%</span>"
+                else: return f"<span class='alerta-moderado'>Down Arrow {v:+.1f}%</span>"
+            descidas['Alerta'] = descidas.apply(alerta, axis=1)
+            tabela = descidas[['Cliente', 'Qtd_Anterior_Str', 'Qtd_Atual_Str', 'Alerta']].rename(columns={
+                'Qtd_Anterior_Str': 'Qtd Anterior', 'Qtd_Atual_Str': 'Qtd Atual'
+            })
+            st.markdown(tabela.to_html(escape=False, index=False), unsafe_allow_html=True)
+            st.download_button("Exportar Top 20", to_excel(tabela), "top20_descidas.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         else:
-            st.info(f"ℹ️ São necessários pelo menos 2 períodos para análise. Períodos encontrados: {len(periodos_unicos)}")
+            st.success("Nenhum cliente em descida.")
     else:
-        st.warning("⚠️ Não foi possível processar os dados de data para análise de descidas.")
+        st.info("Dados insuficientes.")
 
     # -------------------------------------------------
-    # 13. COMPARAÇÃO DE QTD POR MÊS (CORRIGIDO)
+    # 12. COMPARAÇÃO DE QTD POR MÊS
     # -------------------------------------------------
     st.markdown("<div class='section-header'>Comparação de Qtd por Mês</div>", unsafe_allow_html=True)
-    
-    # Processar dados para comparação
-    df_comparacao = processar_datas_mes_ano(df_filtrado)
-    
-    if not df_comparacao.empty:
-        # Obter períodos disponíveis
-        periodos_disponiveis = sorted(df_comparacao['Periodo_Label'].unique())
-        
-        st.write(f"**Períodos disponíveis:** {len(periodos_disponiveis)}")
-        
-        if len(periodos_disponiveis) >= 2:
+    df_comp = df.copy()
+    if clientes: df_comp = df_comp[df_comp['Cliente'].isin(clientes)]
+    if artigos: df_comp = df_comp[df_comp['Artigo'].isin(artigos)]
+    if comerciais: df_comp = df_comp[df_comp['Comercial'].isin(comerciais)]
+    if categorias: df_comp = df_comp[df_comp['Categoria'].isin(categorias)]
+
+    df_comp['Mes_Raw'] = df_comp['Mes'].astype(str).str.strip().str.lower()
+    df_comp['Ano_Raw'] = df_comp['Ano'].astype(str).str.strip()
+    df_comp['Mes_Pad'] = df_comp['Mes_Raw'].apply(padronizar_mes)
+    df_comp['Ano_Pad'] = df_comp['Ano_Raw'].apply(extrair_ano)
+    df_valido = df_comp.dropna(subset=['Mes_Pad', 'Ano_Pad', 'Qtd']).copy()
+    df_valido['AnoMes'] = df_valido['Ano_Pad'] + "-" + df_valido['Mes_Pad']
+
+    if df_valido.empty:
+        st.warning("Nenhum mês válido encontrado.")
+    else:
+        meses_nome = {'01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Abr', '05': 'Mai', '06': 'Jun',
+                      '07': 'Jul', '08': 'Ago', '09': 'Set', '10': 'Out', '11': 'Nov', '12': 'Dez'}
+        df_valido['Mes_Nome'] = df_valido['Mes_Pad'].map(meses_nome)
+        df_valido['Label'] = df_valido['Mes_Nome'] + " " + df_valido['Ano_Pad']
+        meses_disponiveis = sorted(df_valido['Label'].unique())
+
+        if len(meses_disponiveis) >= 2:
             col1, col2 = st.columns(2)
             with col1:
-                periodo_1 = st.selectbox(
-                    "Selecione o primeiro período:",
-                    options=periodos_disponiveis,
-                    index=len(periodos_disponiveis)-2,
-                    key="periodo_1"
-                )
+                mes_label_1 = st.selectbox("Mês 1", options=meses_disponiveis, index=0, key="comp_mes1")
             with col2:
-                periodo_2 = st.selectbox(
-                    "Selecione o segundo período:",
-                    options=periodos_disponiveis,
-                    index=len(periodos_disponiveis)-1,
-                    key="periodo_2"
-                )
-            
-            if periodo_1 != periodo_2:
-                # Obter códigos dos períodos selecionados
-                periodo_1_codigo = df_comparacao[df_comparacao['Periodo_Label'] == periodo_1]['Periodo'].iloc[0]
-                periodo_2_codigo = df_comparacao[df_comparacao['Periodo_Label'] == periodo_2]['Periodo'].iloc[0]
-                
-                # Calcular totais
-                qtd_periodo_1 = df_comparacao[df_comparacao['Periodo'] == periodo_1_codigo]['Qtd'].sum()
-                qtd_periodo_2 = df_comparacao[df_comparacao['Periodo'] == periodo_2_codigo]['Qtd'].sum()
-                
-                # Calcular variação
-                if qtd_periodo_1 > 0:
-                    variacao = ((qtd_periodo_2 - qtd_periodo_1) / qtd_periodo_1) * 100
-                else:
-                    variacao = 0
-                
-                # Exibir métricas
-                col_met1, col_met2, col_met3 = st.columns(3)
-                with col_met1:
-                    st.metric(f"Qtd {periodo_1}", formatar_numero_pt(qtd_periodo_1))
-                with col_met2:
-                    st.metric(f"Qtd {periodo_2}", formatar_numero_pt(qtd_periodo_2), f"{variacao:+.1f}%")
-                with col_met3:
-                    cor = "green" if variacao >= 10 else "lightgreen" if variacao > 0 else "red" if variacao <= -10 else "orange" if variacao < 0 else "gray"
-                    st.markdown(f"**Variação:** <span style='color:{cor};font-weight:bold'>{variacao:+.1f}%</span>", unsafe_allow_html=True)
-                
-                # Criar abas para análise detalhada
-                tab1, tab2 = st.tabs([f"🔍 Análise Detalhada", "📊 Dados Comparativos"])
-                
-                with tab1:
-                    st.subheader(f"Comparação Detalhada: {periodo_1} vs {periodo_2}")
-                    
-                    # Dados do período 1
-                    dados_periodo_1 = df_comparacao[df_comparacao['Periodo'] == periodo_1_codigo].groupby('Cliente').agg({
-                        'Qtd': 'sum',
-                        'V_Liquido': 'sum'
-                    }).reset_index()
-                    dados_periodo_1 = dados_periodo_1.rename(columns={
-                        'Qtd': f'Qtd_{periodo_1}', 
-                        'V_Liquido': f'Vendas_{periodo_1}'
-                    })
-                    
-                    # Dados do período 2
-                    dados_periodo_2 = df_comparacao[df_comparacao['Periodo'] == periodo_2_codigo].groupby('Cliente').agg({
-                        'Qtd': 'sum',
-                        'V_Liquido': 'sum'
-                    }).reset_index()
-                    dados_periodo_2 = dados_periodo_2.rename(columns={
-                        'Qtd': f'Qtd_{periodo_2}', 
-                        'V_Liquido': f'Vendas_{periodo_2}'
-                    })
-                    
-                    # Combinar dados
-                    comparacao_detalhada = pd.merge(dados_periodo_1, dados_periodo_2, on='Cliente', how='outer').fillna(0)
-                    
-                    # Calcular variações
-                    comparacao_detalhada['Var_Qtd_%'] = ((comparacao_detalhada[f'Qtd_{periodo_2}'] - comparacao_detalhada[f'Qtd_{periodo_1}']) / 
-                                                        comparacao_detalhada[f'Qtd_{periodo_1}'].replace(0, 1)) * 100
-                    comparacao_detalhada['Var_Vendas_%'] = ((comparacao_detalhada[f'Vendas_{periodo_2}'] - comparacao_detalhada[f'Vendas_{periodo_1}']) / 
-                                                           comparacao_detalhada[f'Vendas_{periodo_1}'].replace(0, 1)) * 100
-                    
-                    # Formatar para exibição
-                    comparacao_display = comparacao_detalhada.copy()
-                    for col in [f'Qtd_{periodo_1}', f'Qtd_{periodo_2}', f'Vendas_{periodo_1}', f'Vendas_{periodo_2}']:
-                        if 'Vendas' in col:
-                            comparacao_display[col] = comparacao_display[col].apply(lambda x: formatar_numero_pt(x, "EUR "))
-                        else:
-                            comparacao_display[col] = comparacao_display[col].apply(formatar_numero_pt)
-                    
-                    comparacao_display['Var_Qtd'] = comparacao_detalhada['Var_Qtd_%'].apply(lambda x: f"{x:+.1f}%")
-                    comparacao_display['Var_Vendas'] = comparacao_detalhada['Var_Vendas_%'].apply(lambda x: f"{x:+.1f}%")
-                    
-                    st.dataframe(comparacao_display, width='stretch')
-                    
-                with tab2:
-                    st.subheader("Visão Consolidada")
-                    
-                    dados_consolidados = pd.DataFrame({
-                        'Período': [periodo_1, periodo_2],
-                        'Quantidade': [formatar_numero_pt(qtd_periodo_1), formatar_numero_pt(qtd_periodo_2)],
-                        'Vendas': [
-                            formatar_numero_pt(df_comparacao[df_comparacao['Periodo'] == periodo_1_codigo]['V_Liquido'].sum(), "EUR "),
-                            formatar_numero_pt(df_comparacao[df_comparacao['Periodo'] == periodo_2_codigo]['V_Liquido'].sum(), "EUR ")
-                        ],
-                        'Variação': ['-', f"{variacao:+.1f}%"]
-                    })
-                    
-                    st.table(dados_consolidados)
-                    
-                    # Gráfico comparativo
-                    fig = px.bar(
-                        x=[periodo_1, periodo_2],
-                        y=[qtd_periodo_1, qtd_periodo_2],
-                        text=[formatar_numero_pt(qtd_periodo_1), formatar_numero_pt(qtd_periodo_2)],
-                        title=f"Comparação de Quantidades: {periodo_1} vs {periodo_2}",
-                        labels={'x': 'Período', 'y': 'Quantidade'}
-                    )
-                    fig.update_traces(textposition='outside')
-                    st.plotly_chart(fig, width='stretch')
-                
-                # Botão de exportação
-                st.download_button(
-                    "📥 Exportar Comparação Completa", 
-                    to_excel(comparacao_detalhada), 
-                    f"comparacao_{periodo_1}_{periodo_2}.xlsx".replace(" ", "_"),
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-            else:
-                st.warning("⚠️ Selecione períodos diferentes para comparação.")
+                mes_label_2 = st.selectbox("Mês 2", options=meses_disponiveis, index=1, key="comp_mes2")
+
+            mes_1 = df_valido[df_valido['Label'] == mes_label_1]['AnoMes'].iloc[0]
+            mes_2 = df_valido[df_valido['Label'] == mes_label_2]['AnoMes'].iloc[0]
+            qtd1 = df_valido[df_valido['AnoMes'] == mes_1]['Qtd'].sum()
+            qtd2 = df_valido[df_valido['AnoMes'] == mes_2]['Qtd'].sum()
+            var = (qtd2 - qtd1) / qtd1 * 100 if qtd1 > 0 else 0
+            cor = "green" if var >= 10 else "lightgreen" if var > 0 else "red" if var <= -10 else "orange" if var < 0 else "gray"
+            st.markdown(f"<span style='color:{cor};font-weight:bold'>Variação: {var:+.1f}%</span>", unsafe_allow_html=True)
+
+            dados_comp = pd.DataFrame({
+                'Mês': [mes_label_1, mes_label_2],
+                'Qtd': [formatar_numero_pt(qtd1), formatar_numero_pt(qtd2)],
+                'Variação': ['', f"{var:+.1f}%"]
+            })
+            st.table(dados_comp.style.apply(lambda x: ['background: lightyellow' if x.name == 1 else '' for _ in x], axis=1))
+            st.download_button("Exportar Comparação", to_excel(dados_comp), "comparacao_meses.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         else:
-            st.info(f"ℹ️ São necessários pelo menos 2 períodos para comparação. Períodos encontrados: {len(periodos_disponiveis)}")
-    else:
-        st.warning("⚠️ Não foi possível processar os dados para comparação entre períodos.")
+            st.info(f"Apenas {len(meses_disponiveis)} mês disponível.")
 
     # -------------------------------------------------
-    # RESTANTE DO CÓDIGO (gráficos, tabela final, etc.)
+    # 13. COMPARAÇÃO DE VENDAS POR ANO (CORRIGIDA)
     # -------------------------------------------------
-    # ... (o restante do código permanece igual)
+    st.markdown("<div class='section-header'>Comparação de Vendas por Ano</div>", unsafe_allow_html=True)
+    df_ano = df.copy()
+    if clientes: df_ano = df_ano[df_ano['Cliente'].isin(clientes)]
+    if artigos: df_ano = df_ano[df_ano['Artigo'].isin(artigos)]
+    if comerciais: df_ano = df_ano[df_ano['Comercial'].isin(comerciais)]
+    if categorias: df_ano = df_ano[df_ano['Categoria'].isin(categorias)]
+
+    df_ano['Ano_Str'] = df_ano['Ano'].astype(str).str.strip()
+    df_ano = df_ano[df_ano['Ano_Str'].str.match(r'^\d{4}$')]
+
+    if df_ano.empty:
+        st.warning("Nenhum ano válido encontrado.")
+    else:
+        df_resumo = df_ano.groupby('Ano_Str').agg({
+            'V_Liquido': 'sum',
+            'Qtd': 'sum'
+        }).reset_index()
+        df_resumo = df_resumo.sort_values('Ano_Str')
+        df_resumo['Vendas_Str'] = df_resumo['V_Liquido'].apply(lambda x: formatar_numero_pt(x, "EUR "))
+        df_resumo['Qtd_Str'] = df_resumo['Qtd'].apply(formatar_numero_pt)
+        df_resumo['Var_Vendas_%'] = df_resumo['V_Liquido'].pct_change() * 100
+        df_resumo['Var_Vendas_Str'] = df_resumo['Var_Vendas_%'].apply(
+            lambda x: f"{x:+.1f}%" if pd.notna(x) else ""
+        )
+
+        tabela_ano = df_resumo[['Ano_Str', 'Qtd_Str', 'Vendas_Str', 'Var_Vendas_Str']].rename(columns={
+            'Ano_Str': 'Ano', 'Qtd_Str': 'Qtd', 'Vendas_Str': 'Vendas', 'Var_Vendas_Str': 'Variação %'
+        })
+
+        # ESTILO SEGURO
+        def highlight_variacao(val):
+            try:
+                if pd.isna(val) or val == "":
+                    return ""
+                num = float(val.replace('%', '').replace('+', '').replace('−', '-'))
+                if num > 0:
+                    return "background-color: lightgreen"
+                elif num < 0:
+                    return "background-color: lightcoral"
+            except:
+                pass
+            return ""
+
+        styled_table = tabela_ano.style.applymap(
+            highlight_variacao,
+            subset=['Variação %']
+        )
+
+        st.table(styled_table)
+
+        # Gráfico
+        fig = px.bar(df_resumo, x='Ano_Str', y='V_Liquido',
+                     text='Vendas_Str', title="Vendas por Ano (EUR)")
+        fig.update_traces(textposition='outside')
+        fig.update_layout(yaxis_visible=False, yaxis_showticklabels=False)
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Exportação
+        st.download_button(
+            "Exportar Vendas por Ano",
+            to_excel(tabela_ano),
+            "vendas_por_ano.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+    # -------------------------------------------------
+    # 14. GRÁFICOS
+    # -------------------------------------------------
+    st.markdown("<div class='section-header'>Visualizações</div>", unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        top_c = df_filtrado.groupby('Cliente')['V_Liquido'].sum().nlargest(10)
+        if not top_c.empty:
+            fig = px.bar(top_c.reset_index(), x='V_Liquido', y='Cliente', orientation='h',
+                         text=top_c.map(lambda x: formatar_numero_pt(x, "EUR ")))
+            fig.update_traces(textposition='outside')
+            st.plotly_chart(fig, use_container_width=True)
+    with col2:
+        top_a = df_filtrado.groupby('Artigo')['V_Liquido'].sum().nlargest(10)
+        if not top_a.empty:
+            fig = px.bar(top_a.reset_index(), x='V_Liquido', y='Artigo', orientation='h',
+                         text=top_a.map(lambda x: formatar_numero_pt(x, "EUR ")))
+            fig.update_traces(textposition='outside')
+            st.plotly_chart(fig, use_container_width=True)
+
+    # -------------------------------------------------
+    # 15. TABELA FINAL
+    # -------------------------------------------------
+    st.markdown("<div class='section-header'>Dados Filtrados</div>", unsafe_allow_html=True)
+    df_display = df_filtrado.copy()
+    for col in df_display.select_dtypes(include=['object']).columns:
+        df_display[col] = df_display[col].astype(str)
+    st.dataframe(df_display, use_container_width=True)
+    st.download_button("Exportar Todos os Dados", to_excel(df_display), "dados_completos.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # -------------------------------------------------
-# FOOTER
+# 16. FOOTER
 # -------------------------------------------------
 st.markdown("---")
 st.markdown(f"<div style='text-align:center;color:#7f8c8d;'>Atualizado: {datetime.now().strftime('%d/%m/%Y %H:%M')}</div>", unsafe_allow_html=True)
