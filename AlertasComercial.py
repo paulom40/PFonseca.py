@@ -13,7 +13,7 @@ import re
 # -------------------------------------------------
 st.set_page_config(
     page_title="Dashboard de Vendas - BI",
-    page_icon="Chart",
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -214,7 +214,7 @@ else:
     df_alertas['Mes_Pad'] = df_alertas['Mes_Raw'].apply(padronizar_mes)
     df_alertas['Ano_Pad'] = df_alertas['Ano_Raw'].apply(extrair_ano)
     df_alertas = df_alertas.dropna(subset=['Mes_Pad', 'Ano_Pad'])
-    df_alertas['AnoMes'] = df_alertas['Ano_Pad'] + df_alertas['Mes_Pad']
+    df_alertas['AnoMes'] = df_alertas['Ano_Pad'] + "-" + df_alertas['Mes_Pad']  # CORREÇÃO: Adicionado separador
     df_alertas = df_alertas.groupby(['Cliente', 'AnoMes'])['Qtd'].sum().reset_index()
 
     if df_alertas['AnoMes'].nunique() >= 2:
@@ -248,9 +248,11 @@ else:
         st.info("Dados insuficientes.")
 
     # -------------------------------------------------
-    # 12. COMPARAÇÃO DE QTD POR MÊS
+    # 12. COMPARAÇÃO DE QTD POR MÊS (CORRIGIDA)
     # -------------------------------------------------
     st.markdown("<div class='section-header'>Comparação de Qtd por Mês</div>", unsafe_allow_html=True)
+    
+    # Preparar dados para comparação
     df_comp = df.copy()
     if clientes: df_comp = df_comp[df_comp['Cliente'].isin(clientes)]
     if artigos: df_comp = df_comp[df_comp['Artigo'].isin(artigos)]
@@ -262,7 +264,7 @@ else:
     df_comp['Mes_Pad'] = df_comp['Mes_Raw'].apply(padronizar_mes)
     df_comp['Ano_Pad'] = df_comp['Ano_Raw'].apply(extrair_ano)
     df_valido = df_comp.dropna(subset=['Mes_Pad', 'Ano_Pad', 'Qtd']).copy()
-    df_valido['AnoMes'] = df_valido['Ano_Pad'] + "-" + df_valido['Mes_Pad']
+    df_valido['AnoMes'] = df_valido['Ano_Pad'] + "-" + df_valido['Mes_Pad']  # CORREÇÃO: Adicionado separador
 
     if df_valido.empty:
         st.warning("Nenhum mês válido encontrado.")
@@ -280,26 +282,111 @@ else:
             with col2:
                 mes_label_2 = st.selectbox("Mês 2", options=meses_disponiveis, index=1, key="comp_mes2")
 
+            # Obter os códigos AnoMes correspondentes
             mes_1 = df_valido[df_valido['Label'] == mes_label_1]['AnoMes'].iloc[0]
             mes_2 = df_valido[df_valido['Label'] == mes_label_2]['AnoMes'].iloc[0]
+            
+            # Calcular totais
             qtd1 = df_valido[df_valido['AnoMes'] == mes_1]['Qtd'].sum()
             qtd2 = df_valido[df_valido['AnoMes'] == mes_2]['Qtd'].sum()
             var = (qtd2 - qtd1) / qtd1 * 100 if qtd1 > 0 else 0
-            cor = "green" if var >= 10 else "lightgreen" if var > 0 else "red" if var <= -10 else "orange" if var < 0 else "gray"
-            st.markdown(f"<span style='color:{cor};font-weight:bold'>Variação: {var:+.1f}%</span>", unsafe_allow_html=True)
+            
+            # Exibir métricas
+            col_met1, col_met2, col_met3 = st.columns(3)
+            with col_met1:
+                st.metric(f"Qtd {mes_label_1}", formatar_numero_pt(qtd1))
+            with col_met2:
+                st.metric(f"Qtd {mes_label_2}", formatar_numero_pt(qtd2), f"{var:+.1f}%")
+            with col_met3:
+                cor = "green" if var >= 10 else "lightgreen" if var > 0 else "red" if var <= -10 else "orange" if var < 0 else "gray"
+                st.markdown(f"**Variação:** <span style='color:{cor};font-weight:bold'>{var:+.1f}%</span>", unsafe_allow_html=True)
 
-            dados_comp = pd.DataFrame({
-                'Mês': [mes_label_1, mes_label_2],
-                'Qtd': [formatar_numero_pt(qtd1), formatar_numero_pt(qtd2)],
-                'Variação': ['', f"{var:+.1f}%"]
-            })
-            st.table(dados_comp.style.apply(lambda x: ['background: lightyellow' if x.name == 1 else '' for _ in x], axis=1))
-            st.download_button("Exportar Comparação", to_excel(dados_comp), "comparacao_meses.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            # Criar abas para análise detalhada
+            tab1, tab2 = st.tabs([f"🔍 Análise Detalhada {mes_label_1} vs {mes_label_2}", "📊 Dados Comparativos"])
+            
+            with tab1:
+                st.subheader(f"Comparação Detalhada: {mes_label_1} vs {mes_label_2}")
+                
+                # Dados do Mês 1
+                dados_mes1 = df_valido[df_valido['AnoMes'] == mes_1].groupby('Cliente').agg({
+                    'Qtd': 'sum',
+                    'V_Liquido': 'sum'
+                }).reset_index()
+                dados_mes1 = dados_mes1.rename(columns={'Qtd': f'Qtd_{mes_label_1}', 'V_Liquido': f'Vendas_{mes_label_1}'})
+                
+                # Dados do Mês 2
+                dados_mes2 = df_valido[df_valido['AnoMes'] == mes_2].groupby('Cliente').agg({
+                    'Qtd': 'sum',
+                    'V_Liquido': 'sum'
+                }).reset_index()
+                dados_mes2 = dados_mes2.rename(columns={'Qtd': f'Qtd_{mes_label_2}', 'V_Liquido': f'Vendas_{mes_label_2}'})
+                
+                # Merge dos dados
+                comparacao_clientes = pd.merge(dados_mes1, dados_mes2, on='Cliente', how='outer').fillna(0)
+                
+                # Calcular variações
+                comparacao_clientes['Var_Qtd'] = ((comparacao_clientes[f'Qtd_{mes_label_2}'] - comparacao_clientes[f'Qtd_{mes_label_1}']) / 
+                                                comparacao_clientes[f'Qtd_{mes_label_1}'].replace(0, 1)) * 100
+                comparacao_clientes['Var_Vendas'] = ((comparacao_clientes[f'Vendas_{mes_label_2}'] - comparacao_clientes[f'Vendas_{mes_label_1}']) / 
+                                                   comparacao_clientes[f'Vendas_{mes_label_1}'].replace(0, 1)) * 100
+                
+                # Formatar para exibição
+                comparacao_display = comparacao_clientes.copy()
+                for col in [f'Qtd_{mes_label_1}', f'Qtd_{mes_label_2}', f'Vendas_{mes_label_1}', f'Vendas_{mes_label_2}']:
+                    if 'Vendas' in col:
+                        comparacao_display[col] = comparacao_display[col].apply(lambda x: formatar_numero_pt(x, "EUR "))
+                    else:
+                        comparacao_display[col] = comparacao_display[col].apply(formatar_numero_pt)
+                
+                comparacao_display['Var_Qtd_%'] = comparacao_clientes['Var_Qtd'].apply(lambda x: f"{x:+.1f}%")
+                comparacao_display['Var_Vendas_%'] = comparacao_clientes['Var_Vendas'].apply(lambda x: f"{x:+.1f}%")
+                
+                st.dataframe(comparacao_display, use_container_width=True)
+                
+            with tab2:
+                st.subheader("Dados Comparativos Consolidados")
+                
+                dados_comp = pd.DataFrame({
+                    'Mês': [mes_label_1, mes_label_2],
+                    'Quantidade': [qtd1, qtd2],
+                    'Quantidade_Formatada': [formatar_numero_pt(qtd1), formatar_numero_pt(qtd2)],
+                    'Variação_Qtd': ['-', f"{var:+.1f}%"],
+                    'Vendas_Totais': [
+                        df_valido[df_valido['AnoMes'] == mes_1]['V_Liquido'].sum(),
+                        df_valido[df_valido['AnoMes'] == mes_2]['V_Liquido'].sum()
+                    ]
+                })
+                dados_comp['Vendas_Formatadas'] = dados_comp['Vendas_Totais'].apply(lambda x: formatar_numero_pt(x, "EUR "))
+                
+                st.table(dados_comp[['Mês', 'Quantidade_Formatada', 'Vendas_Formatadas', 'Variação_Qtd']].rename(columns={
+                    'Quantidade_Formatada': 'Quantidade',
+                    'Vendas_Formatadas': 'Vendas',
+                    'Variação_Qtd': 'Variação Qtd'
+                }))
+                
+                # Gráfico comparativo
+                fig_comp = px.bar(
+                    dados_comp, 
+                    x='Mês', 
+                    y='Quantidade',
+                    text='Quantidade_Formatada',
+                    title=f"Comparação de Quantidades: {mes_label_1} vs {mes_label_2}"
+                )
+                fig_comp.update_traces(textposition='outside')
+                st.plotly_chart(fig_comp, use_container_width=True)
+
+            # Botão de exportação
+            st.download_button(
+                "📥 Exportar Comparação Completa", 
+                to_excel(comparacao_clientes), 
+                f"comparacao_{mes_label1}_{mes_label2}.xlsx".replace(" ", "_"),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
         else:
             st.info(f"Apenas {len(meses_disponiveis)} mês disponível.")
 
     # -------------------------------------------------
-    # 13. COMPARAÇÃO DE VENDAS POR ANO (CORRIGIDA)
+    # 13. COMPARAÇÃO DE VENDAS POR ANO
     # -------------------------------------------------
     st.markdown("<div class='section-header'>Comparação de Vendas por Ano</div>", unsafe_allow_html=True)
     df_ano = df.copy()
