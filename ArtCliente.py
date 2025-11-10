@@ -1,8 +1,3 @@
-### Código Alterado para Perceber as Qtd Vendidas de Artigos por Cliente Mensalmente
-
-Abaixo está o código modificado para exibir a **quantidade (Qtd) vendida de artigos por cliente mensalmente**. Foram adicionadas novas seções para análise detalhada por artigo, cliente e mês, além de um gráfico interativo.
-
-```python
 import streamlit as st
 import pandas as pd
 import json
@@ -342,12 +337,10 @@ def criar_tabela_qtd_artigo_cliente_mes(df):
     if df_processado.empty or 'Artigo' not in df_processado.columns:
         return pd.DataFrame()
     
-    # Agrupar por Cliente, Artigo e Período
     df_agrupado = df_processado.groupby(['Cliente', 'Artigo', 'Periodo', 'Periodo_Label']).agg({
         'Qtd': 'sum'
     }).reset_index()
     
-    # Criar tabela pivotada
     df_pivot = df_agrupado.pivot_table(
         index=['Cliente', 'Artigo'],
         columns='Periodo_Label',
@@ -356,7 +349,6 @@ def criar_tabela_qtd_artigo_cliente_mes(df):
         fill_value=0
     ).reset_index()
     
-    # Reordenar colunas: Cliente, Artigo primeiro, depois os períodos mais recentes primeiro
     colunas_periodo = sorted(df_pivot.columns[2:], reverse=True)
     df_pivot = df_pivot[['Cliente', 'Artigo'] + colunas_periodo]
     
@@ -450,21 +442,17 @@ else:
     df_qtd_artigo = criar_tabela_qtd_artigo_cliente_mes(df_filtrado)
     
     if not df_qtd_artigo.empty:
-        # Filtro para cliente
         clientes_unicos = sorted(df_qtd_artigo['Cliente'].unique())
         cliente_selecionado = st.selectbox("Selecione o Cliente:", ["Todos"] + clientes_unicos, key="cliente_artigo")
         
-        # Filtrar dados
         if cliente_selecionado != "Todos":
             df_display = df_qtd_artigo[df_qtd_artigo['Cliente'] == cliente_selecionado]
         else:
             df_display = df_qtd_artigo
         
-        # Exibir tabela
         st.subheader(f"Quantidade de Artigos Vendidos por Mês" if cliente_selecionado == "Todos" else f"Quantidade de Artigos para {cliente_selecionado}")
         st.dataframe(df_display, width='stretch', height=600)
         
-        # Botão de exportação
         st.download_button(
             "📥 Exportar Detalhes de Artigos",
             to_excel(df_display),
@@ -488,14 +476,12 @@ else:
                 opcoes_cliente_grafico = [cliente_selecionado]
             cliente_grafico = st.selectbox("Selecione o Cliente:", opcoes_cliente_grafico, key="cliente_grafico")
         
-        # Filtrar dados para o gráfico
         df_grafico = df_qtd_artigo.copy()
         if artigo_selecionado != "Todos":
             df_grafico = df_grafico[df_grafico['Artigo'] == artigo_selecionado]
         if cliente_grafico != "Todos":
             df_grafico = df_grafico[df_grafico['Cliente'] == cliente_grafico]
         
-        # Transformar para formato longo para o gráfico
         colunas_periodo = [col for col in df_grafico.columns if col not in ['Cliente', 'Artigo']]
         df_melt = df_grafico.melt(id_vars=['Cliente', 'Artigo'], value_vars=colunas_periodo, 
                                   var_name='Mês', value_name='Qtd')
@@ -516,21 +502,3 @@ else:
 # -------------------------------------------------
 st.markdown("---")
 st.markdown(f"<div style='text-align:center;color:#7f8c8d;'>Atualizado: {datetime.now().strftime('%d/%m/%Y %H:%M')}</div>", unsafe_allow_html=True)
-``` 
-
-### Principais Alterações:
-
-1. **Nova Função `criar_tabela_qtd_artigo_cliente_mes`**:
-   - Agrupa os dados por `Cliente`, `Artigo` e `Mês`.
-   - Cria uma tabela pivotada mostrando a quantidade vendida para cada artigo por cliente em cada mês.
-
-2. **Nova Seção no Dashboard**:
-   - **Tabela de Quantidades por Artigo por Cliente**: Permite visualizar e filtrar os dados por cliente.
-   - **Botão de Exportação**: Exporta os dados para um arquivo Excel.
-   - **Gráfico Interativo**: Mostra a tendência de vendas de um artigo específico por cliente ao longo dos meses.
-
-3. **Melhorias na Interação**:
-   - Selectboxes para escolher cliente e artigo para análise detalhada.
-   - Gráfico dinâmico usando `Plotly` para visualizar tendências mensais.
-
-Essas alterações permitem que você **perceba claramente a quantidade vendida de cada artigo por cliente mensalmente**, tanto em tabela quanto em gráfico.
