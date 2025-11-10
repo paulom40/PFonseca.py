@@ -39,7 +39,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Logo
 st.markdown(f"""
 <div class="logo-container">
     <img src="https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png" alt="Bracar Logo">
@@ -148,7 +147,7 @@ if categorias: df_filtrado = df_filtrado[df_filtrado['Categoria'].isin(categoria
 if meses: df_filtrado = df_filtrado[df_filtrado['Mes'].isin(meses)]
 if anos: df_filtrado = df_filtrado[df_filtrado['Ano'].isin(anos)]
 
-# Processar datas
+# Processar datas com Periodo_Date
 def processar_datas_mes_ano(df):
     df_processed = df.copy()
     meses_map = {
@@ -156,8 +155,6 @@ def processar_datas_mes_ano(df):
         'jul': '07', 'ago': '08', 'set': '09', 'out': '10', 'nov': '11', 'dez': '12',
         'janeiro': '01', 'fevereiro': '02', 'março': '03', 'abril': '04', 'maio': '05', 'junho': '06',
         'julho': '07', 'agosto': '08', 'setembro': '09', 'outubro': '10', 'novembro': '11', 'dezembro': '12',
-        'january': '01', 'february': '02', 'march': '03', 'april': '04', 'may': '05', 'june': '06',
-        'july': '07', 'august': '08', 'september': '09', 'october': '10', 'november': '11', 'december': '12',
         '1': '01', '2': '02', '3': '03', '4': '04', '5': '05', '6': '06',
         '7': '07', '8': '08', '9': '09', '10': '10', '11': '11', '12': '12',
         '01': '01', '02': '02', '03': '03', '04': '04', '05': '05', '06': '06',
@@ -187,6 +184,8 @@ def processar_datas_mes_ano(df):
 
     if not df_valido.empty:
         df_valido['Periodo'] = df_valido['Ano_Padronizado'] + '-' + df_valido['Mes_Padronizado']
+        # Nova coluna: data real para ordenação
+        df_valido['Periodo_Date'] = pd.to_datetime(df_valido['Periodo'], format='%Y-%m')
         meses_nome = {'01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Abr', '05': 'Mai', '06': 'Jun',
                       '07': 'Jul', '08': 'Ago', '09': 'Set', '10': 'Out', '11': 'Nov', '12': 'Dez'}
         df_valido['Mes_Nome'] = df_valido['Mes_Padronizado'].map(meses_nome)
@@ -199,11 +198,11 @@ def criar_tabela_geral_clientes(df):
     if df_processado.empty:
         return pd.DataFrame()
 
-    df_agrupado = df_processado.groupby(['Cliente', 'Periodo', 'Periodo_Label']).agg({
+    df_agrupado = df_processado.groupby(['Cliente', 'Periodo', 'Periodo_Label', 'Periodo_Date']).agg({
         'Qtd': 'sum', 'V_Liquido': 'sum'
     }).reset_index()
 
-    periodos_ordenados = sorted(df_agrupado['Periodo'].unique())
+    periodos_ordenados = df_agrupado['Periodo_Date'].drop_duplicates().sort_values(ascending=False)
     if len(periodos_ordenados) < 2:
         return pd.DataFrame()
 
@@ -211,15 +210,8 @@ def criar_tabela_geral_clientes(df):
         index='Cliente', columns='Periodo_Label', values='Qtd', aggfunc='sum', fill_value=0
     ).reset_index()
 
-    # ORDEM CRONOLÓGICA REVERSA (mais recente à esquerda)
-    meses_ordenados = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-    colunas_periodo = []
-    for ano in sorted(df_pivot.columns[1:], key=lambda x: x.split()[-1], reverse=True):
-        mes_nome = ' '.join(ano.split()[:-1])
-        if mes_nome in meses_ordenados:
-            colunas_periodo.append(ano)
-    colunas_periodo = sorted(colunas_periodo, key=lambda x: (x.split()[-1], meses_ordenados.index(' '.join(x.split()[:-1]))), reverse=True)
-    colunas_ordenadas = ['Cliente'] + colunas_periodo
+    # Ordenar colunas por Periodo_Date (mais recente à esquerda)
+    colunas_ordenadas = ['Cliente'] + [label for date in periodos_ordenados for label in df_pivot.columns if label != 'Cliente' and df_agrupado[df_agrupado['Periodo_Label'] == label]['Periodo_Date'].iloc[0] == date]
     df_pivot = df_pivot[colunas_ordenadas]
 
     if len(df_pivot.columns) >= 3:
@@ -270,20 +262,17 @@ def criar_tabela_qtd_artigo_cliente_mes(df):
     if df_processado.empty or 'Artigo' not in df_processado.columns:
         return pd.DataFrame()
 
-    df_agrupado = df_processado.groupby(['Cliente', 'Artigo', 'Periodo_Label']).agg({'Qtd': 'sum'}).reset_index()
+    df_agrupado = df_processado.groupby(['Cliente', 'Artigo', 'Periodo_Label', 'Periodo_Date']).agg({'Qtd': 'sum'}).reset_index()
     df_pivot = df_agrupado.pivot_table(
         index=['Cliente', 'Artigo'], columns='Periodo_Label', values='Qtd', aggfunc='sum', fill_value=0
     ).reset_index()
 
-    # ORDEM CRONOLÓGICA REVERSA
-    meses_ordenados = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-    colunas_periodo = []
-    for col in df_pivot.columns[2:]:
-        mes_nome = ' '.join(col.split()[:-1])
-        if mes_nome in meses_ordenados:
-            colunas_periodo.append(col)
-    colunas_periodo = sorted(colunas_periodo, key=lambda x: (x.split()[-1], meses_ordenados.index(' '.join(x.split()[:-1]))), reverse=True)
-    
+    # Ordenar colunas por Periodo_Date
+    colunas_periodo = sorted(
+        [col for col in df_pivot.columns if col not in ['Cliente', 'Artigo']],
+        key=lambda x: df_agrupado[df_agrupado['Periodo_Label'] == x]['Periodo_Date'].iloc[0],
+        reverse=True
+    )
     return df_pivot[['Cliente', 'Artigo'] + colunas_periodo]
 
 # Interface Principal
@@ -388,27 +377,27 @@ else:
         if df_grafico.empty or len(colunas_periodo) == 0:
             st.warning("Sem dados suficientes para o gráfico.")
         else:
-            df_melt = df_grafico.melt(id_vars=['Cliente', 'Artigo'], value_vars=colunas_periodo, var_name='Mês', value_name='Qtd')
-            
-            # ORDEM CRONOLÓGICA NO GRÁFICO
-            meses_ordenados = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-            meses_no_dado = [m for m in meses_ordenados if m in df_melt['Mês'].unique()]
-            
+            # Criar df_melt com Periodo_Date
+            df_melt = pd.melt(df_grafico, id_vars=['Cliente', 'Artigo'], value_vars=colunas_periodo,
+                              var_name='Periodo_Label', value_name='Qtd')
+            df_melt = df_melt.merge(
+                df_processado[['Periodo_Label', 'Periodo_Date']].drop_duplicates(),
+                on='Periodo_Label', how='left'
+            )
+            df_melt = df_melt.sort_values('Periodo_Date')
+
             color_param = 'Artigo' if len(artigos_selecionados) > 0 else None
             title = f"Quantidade Vendida - {', '.join(artigos_selecionados)}" if artigos_selecionados else "Quantidade Vendida"
             line_group_param = 'Cliente' if cliente_grafico == "Todos" and len(df_grafico['Cliente'].unique()) > 1 else None
 
             fig = px.line(
-                df_melt, x="Mês", y="Qtd", color=color_param, line_group=line_group_param,
-                title=title, labels={'Qtd': 'Quantidade'}, markers=True
+                df_melt, x="Periodo_Label", y="Qtd", color=color_param, line_group=line_group_param,
+                title=title, labels={'Qtd': 'Quantidade', 'Periodo_Label': 'Mês'}, markers=True
             )
-            
-            # Forçar ordem cronológica
-            fig.update_xaxes(categoryorder='array', categoryarray=meses_no_dado)
             st.plotly_chart(fig, width="stretch")
     else:
         st.warning("Nenhum dado disponível para artigos por cliente mensalmente.")
 
 # Footer
-st.markdown("---2")
+st.markdown("---")
 st.markdown(f"<div style='text-align:center;color:#7f8c8d;'>Atualizado em: {datetime.now().strftime('%d/%m/%Y %H:%M')}</div>", unsafe_allow_html=True)
