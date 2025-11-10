@@ -164,97 +164,10 @@ if meses: df_filtrado = df_filtrado[df_filtrado['Mes'].isin(meses)]
 if anos: df_filtrado = df_filtrado[df_filtrado['Ano'].isin(anos)]
 
 # -------------------------------------------------
-# 9. FUNÇÃO PARA PROCESSAR DATAS (VERSÃO DEBUGÁVEL)
+# 9. FUNÇÃO PARA PROCESSAR DATAS
 # -------------------------------------------------
-def processar_datas_mes_ano_debug(df):
-    """Processa colunas Mes e Ano para criar períodos consistentes - versão com debug"""
-    st.info("🔍 **DEBUG: Analisando dados de entrada...**")
-    
-    # Mostrar primeiras linhas dos dados originais
-    st.write("**Primeiras linhas dos dados:**")
-    st.write(df[['Mes', 'Ano']].head(10))
-    
-    # Mostrar valores únicos
-    st.write("**Valores únicos em 'Mes':**", df['Mes'].astype(str).unique()[:20])
-    st.write("**Valores únicos em 'Ano':**", df['Ano'].astype(str).unique()[:20])
-    
-    df_processed = df.copy()
-    
-    # Mapeamento completo de meses
-    meses_map = {
-        'jan': '01', 'fev': '02', 'mar': '03', 'abr': '04', 'mai': '05', 'jun': '06',
-        'jul': '07', 'ago': '08', 'set': '09', 'out': '10', 'nov': '11', 'dez': '12',
-        'january': '01', 'february': '02', 'march': '03', 'april': '04', 'may': '05', 
-        'june': '06', 'july': '07', 'august': '08', 'september': '09', 'october': '10', 
-        'november': '11', 'december': '12',
-        '1': '01', '2': '02', '3': '03', '4': '04', '5': '05', '6': '06',
-        '7': '07', '8': '08', '9': '09', '10': '10', '11': '11', '12': '12',
-        '01': '01', '02': '02', '03': '03', '04': '04', '05': '05', '06': '06',
-        '07': '07', '08': '08', '09': '09', '10': '10', '11': '11', '12': '12'
-    }
-    
-    def padronizar_mes(mes_str):
-        if pd.isna(mes_str) or mes_str == 'nan' or mes_str == 'None':
-            return None
-        mes_str = str(mes_str).lower().strip()
-        # Remove pontos, acentos e espaços extras
-        mes_str = re.sub(r'[.\s]', '', mes_str)
-        mes_str = mes_str.replace('ç', 'c').replace('ã', 'a').replace('õ', 'o')
-        return meses_map.get(mes_str, None)
-    
-    def padronizar_ano(ano_str):
-        if pd.isna(ano_str) or ano_str == 'nan' or ano_str == 'None':
-            return None
-        ano_str = str(ano_str).strip()
-        # Extrai apenas números
-        match = re.search(r'\d{4}', ano_str)
-        if match:
-            return match.group(0)
-        # Se for ano de 2 dígitos, assume século 20 ou 21
-        match_2dig = re.search(r'\b\d{2}\b', ano_str)
-        if match_2dig:
-            ano = int(match_2dig.group(0))
-            return f"20{ano:02d}" if ano < 50 else f"19{ano:02d}"
-        return None
-    
-    # Aplicar padronização
-    df_processed['Mes_Padronizado'] = df_processed['Mes'].apply(padronizar_mes)
-    df_processed['Ano_Padronizado'] = df_processed['Ano'].apply(padronizar_ano)
-    
-    # Mostrar resultados da padronização
-    st.write("**Resultados da padronização:**")
-    st.write(df_processed[['Mes', 'Mes_Padronizado', 'Ano', 'Ano_Padronizado']].head(10))
-    
-    # Contar valores válidos
-    mes_validos = df_processed['Mes_Padronizado'].notna().sum()
-    ano_validos = df_processed['Ano_Padronizado'].notna().sum()
-    st.write(f"**Meses válidos:** {mes_validos}/{len(df_processed)}")
-    st.write(f"**Anos válidos:** {ano_validos}/{len(df_processed)}")
-    
-    # Filtrar apenas registros com dados válidos
-    df_valido = df_processed.dropna(subset=['Mes_Padronizado', 'Ano_Padronizado']).copy()
-    
-    st.write(f"**Registros válidos após filtro:** {len(df_valido)}/{len(df_processed)}")
-    
-    if not df_valido.empty:
-        # Criar período no formato YYYY-MM
-        df_valido['Periodo'] = df_valido['Ano_Padronizado'] + '-' + df_valido['Mes_Padronizado']
-        
-        # Mapear nomes dos meses para exibição
-        meses_nome = {
-            '01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Abr', '05': 'Mai', '06': 'Jun',
-            '07': 'Jul', '08': 'Ago', '09': 'Set', '10': 'Out', '11': 'Nov', '12': 'Dez'
-        }
-        df_valido['Mes_Nome'] = df_valido['Mes_Padronizado'].map(meses_nome)
-        df_valido['Periodo_Label'] = df_valido['Mes_Nome'] + ' ' + df_valido['Ano_Padronizado']
-        
-        # Mostrar períodos encontrados
-        st.write("**Períodos únicos encontrados:**", sorted(df_valido['Periodo_Label'].unique()))
-        
-    return df_valido
-
 def processar_datas_mes_ano(df):
-    """Processa colunas Mes e Ano para criar períodos consistentes - versão final"""
+    """Processa colunas Mes e Ano para criar períodos consistentes"""
     df_processed = df.copy()
     
     # Mapeamento completo de meses
@@ -338,17 +251,25 @@ else:
     with col4: st.metric("Artigos", f"{df_filtrado['Artigo'].nunique():,}")
 
     # -------------------------------------------------
-    # 12. COMPARAÇÃO DE QTD POR MÊS ENTRE ANOS
+    # 12. COMPARAÇÃO DE QTD POR MÊS ENTRE ANOS (CORRIGIDO)
     # -------------------------------------------------
     st.markdown("<div class='section-header'>Comparação de Qtd por Mês Entre Anos</div>", unsafe_allow_html=True)
     
-    # Botão para debug
-    if st.checkbox("🔧 Mostrar análise de debug dos dados"):
+    # SEMPRE processar os dados (correção do erro)
+    df_comparacao = processar_datas_mes_ano(df_filtrado)
+    
+    # Botão para debug (opcional)
+    debug_mode = st.checkbox("🔧 Mostrar análise de debug dos dados")
+    
+    if debug_mode:
         st.warning("**MODO DEBUG ATIVADO**")
-        df_comparacao_debug = processar_datas_mes_ano_debug(df_filtrado)
-    else:
-        # Processar dados para comparação (modo normal)
-        df_comparacao = processar_datas_mes_ano(df_filtrado)
+        st.write("**Primeiras linhas dos dados originais:**")
+        st.write(df_filtrado[['Mes', 'Ano']].head(10))
+        st.write("**Valores únicos em 'Mes':**", df_filtrado['Mes'].astype(str).unique()[:20])
+        st.write("**Valores únicos em 'Ano':**", df_filtrado['Ano'].astype(str).unique()[:20])
+        st.write(f"**Registros válidos após processamento:** {len(df_comparacao)}/{len(df_filtrado)}")
+        if not df_comparacao.empty:
+            st.write("**Períodos únicos encontrados:**", sorted(df_comparacao['Periodo_Label'].unique()))
     
     if not df_comparacao.empty:
         # Criar abas para diferentes tipos de comparação
@@ -361,7 +282,6 @@ else:
             periodos_disponiveis = sorted(df_comparacao['Periodo_Label'].unique())
             
             st.write(f"**Períodos disponíveis:** {len(periodos_disponiveis)}")
-            st.write(f"**Lista de períodos:** {periodos_disponiveis}")
             
             if len(periodos_disponiveis) >= 2:
                 col1, col2 = st.columns(2)
@@ -435,8 +355,8 @@ else:
             meses_disponiveis = sorted(df_meses_anos['Mes_Nome'].unique())
             anos_disponiveis = sorted(df_meses_anos['Ano_Padronizado'].unique())
             
-            st.write(f"**Meses disponíveis:** {len(meses_disponiveis)} - {meses_disponiveis}")
-            st.write(f"**Anos disponíveis:** {len(anos_disponiveis)} - {anos_disponiveis}")
+            st.write(f"**Meses disponíveis:** {len(meses_disponiveis)}")
+            st.write(f"**Anos disponíveis:** {len(anos_disponiveis)}")
             
             if len(meses_disponiveis) > 0 and len(anos_disponiveis) >= 2:
                 col1, col2 = st.columns(2)
@@ -540,11 +460,37 @@ else:
         st.info("💡 **Dica:** Ative o 'Modo Debug' acima para ver detalhes dos dados")
 
     # -------------------------------------------------
-    # RESTANTE DO CÓDIGO...
+    # 13. GRÁFICOS
     # -------------------------------------------------
+    st.markdown("<div class='section-header'>Visualizações</div>", unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        top_c = df_filtrado.groupby('Cliente')['V_Liquido'].sum().nlargest(10)
+        if not top_c.empty:
+            fig = px.bar(top_c.reset_index(), x='V_Liquido', y='Cliente', orientation='h',
+                         text=top_c.map(lambda x: formatar_numero_pt(x, "EUR ")))
+            fig.update_traces(textposition='outside')
+            st.plotly_chart(fig, width='stretch')
+    with col2:
+        top_a = df_filtrado.groupby('Artigo')['V_Liquido'].sum().nlargest(10)
+        if not top_a.empty:
+            fig = px.bar(top_a.reset_index(), x='V_Liquido', y='Artigo', orientation='h',
+                         text=top_a.map(lambda x: formatar_numero_pt(x, "EUR ")))
+            fig.update_traces(textposition='outside')
+            st.plotly_chart(fig, width='stretch')
+
+    # -------------------------------------------------
+    # 14. TABELA FINAL
+    # -------------------------------------------------
+    st.markdown("<div class='section-header'>Dados Filtrados</div>", unsafe_allow_html=True)
+    df_display = df_filtrado.copy()
+    for col in df_display.select_dtypes(include=['object']).columns:
+        df_display[col] = df_display[col].astype(str)
+    st.dataframe(df_display, width='stretch')
+    st.download_button("Exportar Todos os Dados", to_excel(df_display), "dados_completos.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # -------------------------------------------------
-# FOOTER
+# 15. FOOTER
 # -------------------------------------------------
 st.markdown("---")
 st.markdown(f"<div style='text-align:center;color:#7f8c8d;'>Atualizado: {datetime.now().strftime('%d/%m/%Y %H:%M')}</div>", unsafe_allow_html=True)
