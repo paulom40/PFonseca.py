@@ -1,8 +1,3 @@
-Parece que houve um erro de cópia no código anterior. Vou fornecer a versão correta com a sintaxe apropriada. O erro ocorreu porque o código foi truncado com uma marca de código (```) no meio do arquivo.
-
-Aqui está o código completo e funcional, com o filtro de múltiplos artigos implementado corretamente:
-
-```python
 import streamlit as st
 import pandas as pd
 import json
