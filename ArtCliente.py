@@ -210,7 +210,16 @@ def criar_tabela_geral_clientes(df):
     df_pivot = df_agrupado.pivot_table(
         index='Cliente', columns='Periodo_Label', values='Qtd', aggfunc='sum', fill_value=0
     ).reset_index()
-    colunas_ordenadas = ['Cliente'] + sorted(df_pivot.columns[1:], reverse=True)
+
+    # ORDEM CRONOLÓGICA REVERSA (mais recente à esquerda)
+    meses_ordenados = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+    colunas_periodo = []
+    for ano in sorted(df_pivot.columns[1:], key=lambda x: x.split()[-1], reverse=True):
+        mes_nome = ' '.join(ano.split()[:-1])
+        if mes_nome in meses_ordenados:
+            colunas_periodo.append(ano)
+    colunas_periodo = sorted(colunas_periodo, key=lambda x: (x.split()[-1], meses_ordenados.index(' '.join(x.split()[:-1]))), reverse=True)
+    colunas_ordenadas = ['Cliente'] + colunas_periodo
     df_pivot = df_pivot[colunas_ordenadas]
 
     if len(df_pivot.columns) >= 3:
@@ -265,7 +274,16 @@ def criar_tabela_qtd_artigo_cliente_mes(df):
     df_pivot = df_agrupado.pivot_table(
         index=['Cliente', 'Artigo'], columns='Periodo_Label', values='Qtd', aggfunc='sum', fill_value=0
     ).reset_index()
-    colunas_periodo = sorted(df_pivot.columns[2:], reverse=True)
+
+    # ORDEM CRONOLÓGICA REVERSA
+    meses_ordenados = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+    colunas_periodo = []
+    for col in df_pivot.columns[2:]:
+        mes_nome = ' '.join(col.split()[:-1])
+        if mes_nome in meses_ordenados:
+            colunas_periodo.append(col)
+    colunas_periodo = sorted(colunas_periodo, key=lambda x: (x.split()[-1], meses_ordenados.index(' '.join(x.split()[:-1]))), reverse=True)
+    
     return df_pivot[['Cliente', 'Artigo'] + colunas_periodo]
 
 # Interface Principal
@@ -322,7 +340,7 @@ else:
                 return [''] * len(row)
 
         styled_df = df_filtrado_tabela.style.apply(colorir_linhas, axis=1)
-        st.dataframe(styled_df, width="stretch", height=600)  # Atualizado
+        st.dataframe(styled_df, width="stretch", height=600)
 
         st.download_button(
             "Exportar Tabela Geral",
@@ -342,7 +360,7 @@ else:
         cliente_selecionado = st.selectbox("Selecione o Cliente:", ["Todos"] + clientes_unicos, key="cliente_artigo")
 
         df_display = df_qtd_artigo if cliente_selecionado == "Todos" else df_qtd_artigo[df_qtd_artigo['Cliente'] == cliente_selecionado]
-        st.dataframe(df_display, width="stretch", height=600)  # Atualizado
+        st.dataframe(df_display, width="stretch", height=600)
 
         st.download_button(
             "Exportar Detalhes de Artigos",
@@ -371,6 +389,11 @@ else:
             st.warning("Sem dados suficientes para o gráfico.")
         else:
             df_melt = df_grafico.melt(id_vars=['Cliente', 'Artigo'], value_vars=colunas_periodo, var_name='Mês', value_name='Qtd')
+            
+            # ORDEM CRONOLÓGICA NO GRÁFICO
+            meses_ordenados = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+            meses_no_dado = [m for m in meses_ordenados if m in df_melt['Mês'].unique()]
+            
             color_param = 'Artigo' if len(artigos_selecionados) > 0 else None
             title = f"Quantidade Vendida - {', '.join(artigos_selecionados)}" if artigos_selecionados else "Quantidade Vendida"
             line_group_param = 'Cliente' if cliente_grafico == "Todos" and len(df_grafico['Cliente'].unique()) > 1 else None
@@ -379,11 +402,13 @@ else:
                 df_melt, x="Mês", y="Qtd", color=color_param, line_group=line_group_param,
                 title=title, labels={'Qtd': 'Quantidade'}, markers=True
             )
-            st.plotly_chart(fig, width="stretch")  # Atualizado
-
+            
+            # Forçar ordem cronológica
+            fig.update_xaxes(categoryorder='array', categoryarray=meses_no_dado)
+            st.plotly_chart(fig, width="stretch")
     else:
         st.warning("Nenhum dado disponível para artigos por cliente mensalmente.")
 
 # Footer
-st.markdown("---")
+st.markdown("---2")
 st.markdown(f"<div style='text-align:center;color:#7f8c8d;'>Atualizado em: {datetime.now().strftime('%d/%m/%Y %H:%M')}</div>", unsafe_allow_html=True)
