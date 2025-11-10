@@ -8,9 +8,7 @@ from datetime import datetime
 from io import BytesIO
 import re
 
-# -------------------------------------------------
-# 1. CONFIGURAÇÃO DA PÁGINA
-# -------------------------------------------------
+# Configuração da página
 st.set_page_config(
     page_title="Dashboard de Vendas - BI",
     page_icon="📊",
@@ -18,20 +16,12 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# -------------------------------------------------
-# 2. CSS + LOGO NO CANTO SUPERIOR ESQUERDO
-# -------------------------------------------------
+# CSS + Logo
 st.markdown("""
 <style>
     .main-header {font-size:2.5rem;color:#1f77b4;text-align:center;margin-bottom:2rem;font-weight:700;}
     .metric-card {background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:1.5rem;border-radius:15px;color:white;box-shadow:0 4px 6px rgba(0,0,0,0.1);}
     .section-header {font-size:1.5rem;color:#2c3e50;margin:2rem 0 1rem 0;padding-bottom:0.5rem;border-bottom:3px solid #3498db;font-weight:600;}
-    .alerta-critico {color: #8B0000; font-weight: bold; background-color: #ffe6e6; padding: 2px 6px; border-radius: 4px;}
-    .alerta-alto {color: #d32f2f; font-weight: bold;}
-    .alerta-moderado {color: #f57c00; font-weight: bold;}
-    .alerta-positivo {color: #2e7d32; font-weight: bold; background-color: #e8f5e8; padding: 2px 6px; border-radius: 4px;}
-    .alerta-negativo {color: #8B0000; font-weight: bold; background-color: #ffe6e6; padding: 2px 6px; border-radius: 4px;}
-    .alerta-neutro {color: #666666; font-weight: bold; background-color: #f5f5f5; padding: 2px 6px; border-radius: 4px;}
     .logo-container {
         position: fixed;
         top: 10px;
@@ -46,33 +36,17 @@ st.markdown("""
         height: 70px;
         width: auto;
     }
-    .card-alerta {
-        background: white;
-        padding: 1rem;
-        border-radius: 10px;
-        border-left: 5px solid;
-        margin-bottom: 1rem;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .card-subida { border-left-color: #2e7d32; }
-    .card-descida { border-left-color: #d32f2f; }
-    .card-inativo { border-left-color: #666666; }
-    .seta-subida { color: #2e7d32; font-weight: bold; }
-    .seta-descida { color: #d32f2f; font-weight: bold; }
-    .seta-neutra { color: #666666; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
-# LOGO
+# Logo
 st.markdown(f"""
 <div class="logo-container">
     <img src="https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png" alt="Bracar Logo">
 </div>
 """, unsafe_allow_html=True)
 
-# -------------------------------------------------
-# 3. FORMATAÇÃO PT-PT
-# -------------------------------------------------
+# Formatação PT-PT
 def formatar_numero_pt(valor, simbolo="", sinal_forcado=False):
     if pd.isna(valor):
         return "N/D"
@@ -84,18 +58,14 @@ def formatar_numero_pt(valor, simbolo="", sinal_forcado=False):
     else:
         return f"{sinal}{simbolo}{valor_abs:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-# -------------------------------------------------
-# 4. EXPORTAÇÃO PARA EXCEL
-# -------------------------------------------------
+# Exportação para Excel
 def to_excel(df, sheet_name="Dados"):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name=sheet_name)
     return output.getvalue()
 
-# -------------------------------------------------
-# 5. CARREGAMENTO DOS DADOS
-# -------------------------------------------------
+# Carregamento dos dados
 @st.cache_data
 def load_all_data():
     try:
@@ -122,9 +92,7 @@ def load_all_data():
 
 df = load_all_data()
 
-# -------------------------------------------------
-# 6. PRESETS
-# -------------------------------------------------
+# Presets
 preset_path = Path("diagnosticos/presets_filtros.json")
 preset_path.parent.mkdir(exist_ok=True)
 
@@ -140,9 +108,7 @@ def salvar_preset(nome, filtros):
     with open(preset_path, "w", encoding="utf-8") as f:
         json.dump(presets, f, indent=2)
 
-# -------------------------------------------------
-# 7. SIDEBAR
-# -------------------------------------------------
+# Sidebar
 with st.sidebar:
     st.markdown("<div class='metric-card'>Painel de Controle</div>", unsafe_allow_html=True)
     presets = carregar_presets()
@@ -169,9 +135,7 @@ with st.sidebar:
                                    "Categoria": categorias, "Mes": meses, "Ano": anos})
         st.success(f"Salvo: {nome_preset}")
 
-# -------------------------------------------------
-# 8. FILTROS PRINCIPAIS
-# -------------------------------------------------
+# Filtros principais
 df_filtrado = df.copy()
 if clientes: df_filtrado = df_filtrado[df_filtrado['Cliente'].isin(clientes)]
 if artigos: df_filtrado = df_filtrado[df_filtrado['Artigo'].isin(artigos)]
@@ -180,11 +144,8 @@ if categorias: df_filtrado = df_filtrado[df_filtrado['Categoria'].isin(categoria
 if meses: df_filtrado = df_filtrado[df_filtrado['Mes'].isin(meses)]
 if anos: df_filtrado = df_filtrado[df_filtrado['Ano'].isin(anos)]
 
-# -------------------------------------------------
-# 9. FUNÇÃO PARA PROCESSAR DATAS (VERSÃO MAIS ROBUSTA)
-# -------------------------------------------------
+# Função para processar datas
 def processar_datas_mes_ano(df):
-    """Processa colunas Mes e Ano para criar períodos consistentes - versão mais robusta"""
     df_processed = df.copy()
     
     meses_map = {
@@ -243,12 +204,8 @@ def processar_datas_mes_ano(df):
         
     return df_valido
 
-# -------------------------------------------------
-# 10. FUNÇÃO PARA CRIAR TABELA GERAL DE CLIENTES
-# -------------------------------------------------
+# Função para criar tabela geral de clientes
 def criar_tabela_geral_clientes(df):
-    """Cria tabela geral com Qtd mensal por cliente e alertas de variação"""
-    
     df_processado = processar_datas_mes_ano(df)
     
     if df_processado.empty:
@@ -263,9 +220,6 @@ def criar_tabela_geral_clientes(df):
     
     if len(periodos_ordenados) < 2:
         return pd.DataFrame()
-    
-    periodo_atual = periodos_ordenados[-1]
-    periodo_anterior = periodos_ordenados[-2]
     
     df_pivot = df_agrupado.pivot_table(
         index='Cliente',
@@ -328,11 +282,8 @@ def criar_tabela_geral_clientes(df):
     
     return pd.DataFrame()
 
-# -------------------------------------------------
-# 11. NOVA FUNÇÃO: TABELA DE QTD POR ARTIGO, CLIENTE E MÊS
-# -------------------------------------------------
+# Função para tabela de Qtd por artigo, cliente e mês
 def criar_tabela_qtd_artigo_cliente_mes(df):
-    """Agrupa os dados por Cliente, Artigo e Mês, somando as quantidades."""
     df_processado = processar_datas_mes_ano(df)
     if df_processado.empty or 'Artigo' not in df_processado.columns:
         return pd.DataFrame()
@@ -354,9 +305,7 @@ def criar_tabela_qtd_artigo_cliente_mes(df):
     
     return df_pivot
 
-# -------------------------------------------------
-# 12. INTERFACE
-# -------------------------------------------------
+# Interface principal
 st.markdown("<h1 class='main-header'>Dashboard de Vendas</h1>", unsafe_allow_html=True)
 
 if df.empty:
@@ -366,9 +315,7 @@ elif df_filtrado.empty:
 else:
     st.success(f"**{len(df_filtrado):,}** registos")
 
-    # -------------------------------------------------
-    # 13. MÉTRICAS
-    # -------------------------------------------------
+    # Métricas
     st.markdown("<div class='section-header'>Métricas</div>", unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
     with col1: st.metric("Vendas", formatar_numero_pt(df_filtrado['V_Liquido'].sum(), "EUR "))
@@ -376,9 +323,7 @@ else:
     with col3: st.metric("Clientes", f"{df_filtrado['Cliente'].nunique():,}")
     with col4: st.metric("Artigos", f"{df_filtrado['Artigo'].nunique():,}")
 
-    # -------------------------------------------------
-    # 14. TABELA GERAL DE CLIENTES - VISÃO MENSAL
-    # -------------------------------------------------
+    # Tabela geral de clientes
     st.markdown("<div class='section-header'>📊 Tabela Geral de Clientes - Visão Mensal</div>", unsafe_allow_html=True)
     
     df_tabela_geral = criar_tabela_geral_clientes(df_filtrado)
@@ -389,8 +334,6 @@ else:
         total_clientes = len(df_tabela_geral)
         clientes_subida = len(df_tabela_geral[df_tabela_geral['Alerta'].str.contains('Subida')])
         clientes_descida = len(df_tabela_geral[df_tabela_geral['Alerta'].str.contains('Descida')])
-        clientes_novos = len(df_tabela_geral[df_tabela_geral['Alerta'] == '🟢 Novo Cliente'])
-        clientes_inativos = len(df_tabela_geral[df_tabela_geral['Alerta'] == '🔴 Parou de Comprar'])
         
         with col1:
             st.metric("Total Clientes", total_clientes)
@@ -432,11 +375,9 @@ else:
         )
         
     else:
-        st.warning("Não foi possível gerar a tabela geral. Verifique se há dados suficientes para análise.")
+        st.warning("Não foi possível gerar a tabela geral.")
 
-    # -------------------------------------------------
-    # 15. NOVA SEÇÃO: QUANTIDADE DE ARTIGOS POR CLIENTE MENSALMENTE
-    # -------------------------------------------------
+    # Quantidade de artigos por cliente mensalmente
     st.markdown("<div class='section-header'>📦 Quantidade de Artigos por Cliente Mensalmente</div>", unsafe_allow_html=True)
     
     df_qtd_artigo = criar_tabela_qtd_artigo_cliente_mes(df_filtrado)
@@ -460,9 +401,7 @@ else:
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
         
-        # -------------------------------------------------
-        # 16. GRÁFICO DE TENDÊNCIA POR ARTIGO E CLIENTE (COM FILTRO DE MÚLTIPLOS ARTIGOS)
-        # -------------------------------------------------
+        # Gráfico de tendência
         st.markdown("<div class='section-header'>📈 Tendência de Vendas por Artigo</div>", unsafe_allow_html=True)
         
         # Filtro para múltiplos artigos
@@ -481,10 +420,9 @@ else:
             opcoes_cliente_grafico = [cliente_selecionado]
         cliente_grafico = st.selectbox("Selecione o Cliente:", opcoes_cliente_grafico, key="cliente_grafico")
         
-        # Filtrar dados com base nas seleções
+        # Filtrar dados
         df_grafico = df_qtd_artigo.copy()
         
-        # Aplicar filtros
         if artigos_selecionados:
             df_grafico = df_grafico[df_grafico['Artigo'].isin(artigos_selecionados)]
         
@@ -502,10 +440,10 @@ else:
                 value_name='Qtd'
             )
             
-            # Determinar como agrupar as linhas
+            # Configurar parâmetros do gráfico
             if len(artigos_selecionados) > 0:
                 color_param = 'Artigo'
-                title = f"Quantidade Vendida para {', '.join(artigos_selecionados)}"
+                title = f"Quantidade Vendida - {', '.join(artigos_selecionados)}"
             else:
                 color_param = None
                 title = "Quantidade Vendida"
@@ -533,28 +471,21 @@ else:
     else:
         st.warning("Nenhum dado disponível para a visualização de artigos por cliente mensalmente.")
 
-# -------------------------------------------------
-# FOOTER
-# -------------------------------------------------
+# Footer
 st.markdown("---")
 st.markdown(f"<div style='text-align:center;color:#7f8c8d;'>Atualizado: {datetime.now().strftime('%d/%m/%Y %H:%M')}</div>", unsafe_allow_html=True)
 ```
 
-### Principais Correções:
+### Principais características desta versão:
 
-1. **Remoção da opção "Todos" no multiselect de artigos**:
-   - Agora o filtro de artigos mostra apenas os artigos disponíveis.
-   - O gráfico só é exibido quando pelo menos um artigo é selecionado.
+1. **Código Limpo**: Removido qualquer caractere especial que possa causar problemas de sintaxe
+2. **Filtro Múltiplo de Artigos**: Permite selecionar vários artigos para análise
+3. **Gráfico Dinâmico**: Adapta-se aos filtros selecionados
+4. **Funcionalidades Mantidas**: 
+   - Métricas principais
+   - Tabela geral de clientes com alertas
+   - Tabela de quantidade por artigo/cliente/mês
+   - Exportação para Excel
+   - Presets de filtros
 
-2. **Melhoria na lógica de exibição do gráfico**:
-   - Se múltiplos artigos forem selecionados, o gráfico mostrará uma linha para cada artigo.
-   - Se apenas um artigo for selecionado, o gráfico mostrará as linhas agrupadas por cliente (caso "Todos" os clientes estejam selecionados).
-
-3. **Tratamento de Casos Especiais**:
-   - Mensagem de aviso quando nenhum artigo é selecionado.
-   - Título dinâmico do gráfico baseado nos artigos selecionados.
-
-4. **Correção de Sintaxe**:
-   - Remoção de caracteres inválidos que estavam causando o erro de sintaxe.
-
-Este código agora deve funcionar corretamente, permitindo a seleção de múltiplos artigos no gráfico de tendências.
+Este código deve funcionar corretamente sem erros de sintaxe.
