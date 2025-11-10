@@ -251,7 +251,7 @@ def criar_tabela_geral_clientes(df):
 
         df_pivot['Variação %'] = df_pivot['Variacao_%'].apply(lambda x: f"{x:+.1f}%" if pd.notna(x) else "N/D")
         colunas_finais = ['Cliente', 'Alerta', 'Variação %'] + colunas_ordenadas[1:]
-        return df_pivot[colunas_finais].rename(columns={'Variação %': 'Variação %'})
+        return df_pivot[colunas_finais]
 
     return pd.DataFrame()
 
@@ -322,7 +322,7 @@ else:
                 return [''] * len(row)
 
         styled_df = df_filtrado_tabela.style.apply(colorir_linhas, axis=1)
-        st.dataframe(styled_df, use_container_width=True, height=600)
+        st.dataframe(styled_df, width="stretch", height=600)  # Atualizado
 
         st.download_button(
             "Exportar Tabela Geral",
@@ -342,7 +342,7 @@ else:
         cliente_selecionado = st.selectbox("Selecione o Cliente:", ["Todos"] + clientes_unicos, key="cliente_artigo")
 
         df_display = df_qtd_artigo if cliente_selecionado == "Todos" else df_qtd_artigo[df_qtd_artigo['Cliente'] == cliente_selecionado]
-        st.dataframe(df_display, use_container_width=True, height=600)
+        st.dataframe(df_display, width="stretch", height=600)  # Atualizado
 
         st.download_button(
             "Exportar Detalhes de Artigos",
@@ -379,7 +379,8 @@ else:
                 df_melt, x="Mês", y="Qtd", color=color_param, line_group=line_group_param,
                 title=title, labels={'Qtd': 'Quantidade'}, markers=True
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")  # Atualizado
+
     else:
         st.warning("Nenhum dado disponível para artigos por cliente mensalmente.")
 
