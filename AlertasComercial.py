@@ -656,20 +656,20 @@ else:
     # Processar dados
     df_comparacao, mes_validos, ano_validos = processar_datas_mes_ano(df_filtrado)
     
-    # DEBUG: Mostrar informações detalhadas
-    st.info(f"**DEBUG INFO:** Meses válidos: {mes_validos}/{len(df_filtrado)} | Anos válidos: {ano_validos}/{len(df_filtrado)}")
+    # DEBUG: Mostrar informações detalhadas (mantido apenas para debug)
+    # st.info(f"**DEBUG INFO:** Meses válidos: {mes_validos}/{len(df_filtrado)} | Anos válidos: {ano_validos}/{len(df_filtrado)}")
     
     if not df_comparacao.empty:
         st.success(f"✅ **{len(df_comparacao)} registros processados com sucesso!**")
         
-        # Mostrar exemplos dos dados processados
-        st.write("**Amostra dos dados processados:**")
-        st.dataframe(df_comparacao[['Mes', 'Ano', 'Mes_Padronizado', 'Ano_Padronizado', 'Periodo_Label']].head(10))
+        # REMOVIDO: Mostrar exemplos dos dados processados
+        # st.write("**Amostra dos dados processados:**")
+        # st.dataframe(df_comparacao[['Mes', 'Ano', 'Mes_Padronizado', 'Ano_Padronizado', 'Periodo_Label']].head(10))
         
-        # Mostrar períodos disponíveis
+        # Mostrar períodos disponíveis (mantido apenas o contador)
         periodos_disponiveis = sorted(df_comparacao['Periodo_Label'].unique())
-        st.write(f"**Períodos disponíveis para análise:** {len(periodos_disponiveis)}")
-        st.write(periodos_disponiveis)
+        # REMOVIDO: st.write(f"**Períodos disponíveis para análise:** {len(periodos_disponiveis)}")
+        # REMOVIDO: st.write(periodos_disponiveis)
         
         # Criar abas para diferentes tipos de comparação
         tab1, tab2 = st.tabs(["🔍 Comparação Mês a Mês", "📊 Comparação Entre Anos (Mesmo Mês)"])
@@ -749,8 +749,8 @@ else:
             meses_disponiveis = sorted(df_meses_anos['Mes_Nome'].unique())
             anos_disponiveis = sorted(df_meses_anos['Ano_Padronizado'].unique())
             
-            st.write(f"**Meses disponíveis:** {len(meses_disponiveis)}")
-            st.write(f"**Anos disponíveis:** {len(anos_disponiveis)}")
+            # REMOVIDO: st.write(f"**Meses disponíveis:** {len(meses_disponiveis)}")
+            # REMOVIDO: st.write(f"**Anos disponíveis:** {len(anos_disponiveis)}")
             
             if len(meses_disponiveis) > 0 and len(anos_disponiveis) >= 2:
                 col1, col2 = st.columns(2)
@@ -857,20 +857,6 @@ else:
         - Valores nulos ou inválidos nas colunas 'Mes' e 'Ano'
         - Formato diferente do esperado
         """)
-        
-        # Mostrar análise detalhada dos dados problemáticos
-        st.subheader("🔍 Análise Detalhada dos Dados")
-        
-        # Mostrar valores únicos problemáticos
-        st.write("**Valores únicos na coluna 'Mes':**")
-        st.write(df_filtrado['Mes'].astype(str).unique()[:30])
-        
-        st.write("**Valores únicos na coluna 'Ano':**")
-        st.write(df_filtrado['Ano'].astype(str).unique()[:30])
-        
-        # Mostrar exemplos dos dados problemáticos
-        st.write("**Exemplos de dados problemáticos (primeiras 10 linhas):**")
-        st.dataframe(df_filtrado[['Mes', 'Ano']].head(10))
 
 # -------------------------------------------------
 # FOOTER
