@@ -68,18 +68,40 @@ def mapear_colunas(df):
 
 # --- Upload de Dados ---
 with st.expander("📁 Carregar Dados (CSV/Excel)", expanded=True):
-    uploaded_file = st.file_uploader("Escolha um arquivo", type=["csv", "xlsx"])
+    tab_upload, tab_url = st.tabs(["📤 Upload Local", "🔗 URL do GitHub"])
     
-    if uploaded_file:
+    df_loaded = False
+    
+    with tab_upload:
+        uploaded_file = st.file_uploader("Escolha um arquivo", type=["csv", "xlsx"])
+        if uploaded_file:
+            df_loaded = True
+            df = pd.read_excel(uploaded_file) if uploaded_file.name.endswith('.xlsx') else pd.read_csv(uploaded_file)
+    
+    with tab_url:
+        github_url = st.text_input("Cole o link do GitHub:", 
+                                   value="https://github.com/paulom40/PFonseca.py/blob/main/VendasGeraisTranf.xlsx")
+        
+        if st.button("📥 Carregar do GitHub"):
+            try:
+                with st.spinner("Carregando ficheiro..."):
+                    # Converter link /blob/ para /raw/
+                    raw_url = github_url.replace("/blob/", "/raw/")
+                    st.write(f"🔗 URL convertida: {raw_url}")
+                    
+                    if raw_url.endswith('.xlsx'):
+                        df = pd.read_excel(raw_url)
+                    else:
+                        df = pd.read_csv(raw_url)
+                    df_loaded = True
+                    st.success("✅ Ficheiro carregado com sucesso!")
+            except Exception as e:
+                st.error(f"❌ Erro ao carregar: {str(e)}")
+                st.info("💡 O link será automaticamente convertido de /blob/ para /raw/")
+                st.write(f"URL convertida: {github_url.replace('/blob/', '/raw/')}")
+    
+    if df_loaded:
         try:
-            # Carregar arquivo
-            if uploaded_file.name.endswith('.csv'):
-                df = pd.read_csv(uploaded_file)
-            else:
-                df = carregar_excel_com_opcoes(uploaded_file)
-                if df is None:
-                    st.stop()
-            
             st.info(f"📊 Ficheiro carregado: {len(df)} linhas, {len(df.columns)} colunas")
             st.write("**Colunas disponíveis:**", list(df.columns))
             
@@ -116,10 +138,10 @@ with st.expander("📁 Carregar Dados (CSV/Excel)", expanded=True):
             st.success(f"✅ Dados mapeados com sucesso!")
             
         except Exception as e:
-            st.error(f"❌ Erro ao carregar arquivo: {str(e)}")
+            st.error(f"❌ Erro ao processar dados: {str(e)}")
             st.stop()
     else:
-        st.info("📥 Carregue um arquivo CSV ou Excel para começar.")
+        st.info("📥 Carregue um arquivo ou use uma URL do GitHub para começar.")
         st.stop()
 
 df = st.session_state.df.copy()
