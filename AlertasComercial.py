@@ -405,22 +405,6 @@ else:
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
             
-            # Gráfico das maiores subidas
-            st.subheader("📊 Top 10 Maiores Subidas")
-            top_subidas = df_subidas.head(10)
-            fig_subidas = px.bar(
-                top_subidas,
-                x='Variacao_Percentual',
-                y='Cliente',
-                orientation='h',
-                text='Variacao_Formatada',
-                title="Top 10 Clientes com Maiores Subidas",
-                color='Variacao_Percentual',
-                color_continuous_scale='Viridis'
-            )
-            fig_subidas.update_traces(textposition='outside')
-            st.plotly_chart(fig_subidas, width='stretch')
-            
         else:
             st.success("🎉 Nenhum cliente com subida significativa identificada!")
     
@@ -480,22 +464,6 @@ else:
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
             
-            # Gráfico das maiores descidas
-            st.subheader("📊 Top 10 Maiores Descidas")
-            top_descidas = df_descidas.head(10)
-            fig_descidas = px.bar(
-                top_descidas,
-                x='Variacao_Percentual',
-                y='Cliente',
-                orientation='h',
-                text='Variacao_Formatada',
-                title="Top 10 Clientes com Maiores Descidas",
-                color='Variacao_Percentual',
-                color_continuous_scale='Reds_r'
-            )
-            fig_descidas.update_traces(textposition='outside')
-            st.plotly_chart(fig_descidas, width='stretch')
-            
         else:
             st.success("✅ Nenhum cliente com descida significativa identificada!")
     
@@ -554,22 +522,6 @@ else:
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
             
-            # Gráfico dos clientes com maior volume perdido
-            st.subheader("📊 Top 10 Clientes com Maior Volume Perdido")
-            top_inativos = df_inativos.head(10)
-            fig_inativos = px.bar(
-                top_inativos,
-                x='Qtd_Anterior',
-                y='Cliente',
-                orientation='h',
-                text='Perda_Formatada',
-                title="Top 10 Clientes com Maior Volume Perdido",
-                color='Qtd_Anterior',
-                color_continuous_scale='Blues'
-            )
-            fig_inativos.update_traces(textposition='outside')
-            st.plotly_chart(fig_inativos, width='stretch')
-            
         else:
             st.success("✅ Nenhum cliente inativo identificado!")
 
@@ -603,6 +555,230 @@ else:
             delta=f"-{len(df_inativos)}",
             delta_color="off"
         )
+
+    # -------------------------------------------------
+    # 14. COMPARAÇÃO DE QTD POR MÊS ENTRE ANOS
+    # -------------------------------------------------
+    st.markdown("<div class='section-header'>Comparação de Qtd por Mês Entre Anos</div>", unsafe_allow_html=True)
+    
+    # Processar dados
+    df_comparacao, mes_validos, ano_validos = processar_datas_mes_ano(df_filtrado)
+    
+    # DEBUG: Mostrar informações detalhadas
+    st.info(f"**DEBUG INFO:** Meses válidos: {mes_validos}/{len(df_filtrado)} | Anos válidos: {ano_validos}/{len(df_filtrado)}")
+    
+    if not df_comparacao.empty:
+        st.success(f"✅ **{len(df_comparacao)} registros processados com sucesso!**")
+        
+        # Mostrar exemplos dos dados processados
+        st.write("**Amostra dos dados processados:**")
+        st.dataframe(df_comparacao[['Mes', 'Ano', 'Mes_Padronizado', 'Ano_Padronizado', 'Periodo_Label']].head(10))
+        
+        # Mostrar períodos disponíveis
+        periodos_disponiveis = sorted(df_comparacao['Periodo_Label'].unique())
+        st.write(f"**Períodos disponíveis para análise:** {len(periodos_disponiveis)}")
+        st.write(periodos_disponiveis)
+        
+        # Criar abas para diferentes tipos de comparação
+        tab1, tab2 = st.tabs(["🔍 Comparação Mês a Mês", "📊 Comparação Entre Anos (Mesmo Mês)"])
+        
+        with tab1:
+            st.subheader("Comparação entre Períodos Consecutivos")
+            
+            if len(periodos_disponiveis) >= 2:
+                col1, col2 = st.columns(2)
+                with col1:
+                    periodo_1 = st.selectbox(
+                        "Selecione o primeiro período:",
+                        options=periodos_disponiveis,
+                        index=len(periodos_disponiveis)-2,
+                        key="periodo_1_tab1"
+                    )
+                with col2:
+                    periodo_2 = st.selectbox(
+                        "Selecione o segundo período:",
+                        options=periodos_disponiveis,
+                        index=len(periodos_disponiveis)-1,
+                        key="periodo_2_tab1"
+                    )
+                
+                if periodo_1 != periodo_2:
+                    # Obter códigos dos períodos selecionados
+                    periodo_1_codigo = df_comparacao[df_comparacao['Periodo_Label'] == periodo_1]['Periodo'].iloc[0]
+                    periodo_2_codigo = df_comparacao[df_comparacao['Periodo_Label'] == periodo_2]['Periodo'].iloc[0]
+                    
+                    # Calcular totais
+                    qtd_periodo_1 = df_comparacao[df_comparacao['Periodo'] == periodo_1_codigo]['Qtd'].sum()
+                    qtd_periodo_2 = df_comparacao[df_comparacao['Periodo'] == periodo_2_codigo]['Qtd'].sum()
+                    
+                    # Calcular variação
+                    if qtd_periodo_1 > 0:
+                        variacao = ((qtd_periodo_2 - qtd_periodo_1) / qtd_periodo_1) * 100
+                    else:
+                        variacao = 0
+                    
+                    # Exibir métricas
+                    col_met1, col_met2, col_met3 = st.columns(3)
+                    with col_met1:
+                        st.metric(f"Qtd {periodo_1}", formatar_numero_pt(qtd_periodo_1))
+                    with col_met2:
+                        st.metric(f"Qtd {periodo_2}", formatar_numero_pt(qtd_periodo_2), f"{variacao:+.1f}%")
+                    with col_met3:
+                        cor = "green" if variacao >= 10 else "lightgreen" if variacao > 0 else "red" if variacao <= -10 else "orange" if variacao < 0 else "gray"
+                        st.markdown(f"**Variação:** <span style='color:{cor};font-weight:bold'>{variacao:+.1f}%</span>", unsafe_allow_html=True)
+                    
+                    # Gráfico comparativo
+                    fig = px.bar(
+                        x=[periodo_1, periodo_2],
+                        y=[qtd_periodo_1, qtd_periodo_2],
+                        text=[formatar_numero_pt(qtd_periodo_1), formatar_numero_pt(qtd_periodo_2)],
+                        title=f"Comparação de Quantidades: {periodo_1} vs {periodo_2}",
+                        labels={'x': 'Período', 'y': 'Quantidade'}
+                    )
+                    fig.update_traces(textposition='outside')
+                    st.plotly_chart(fig, width='stretch')
+                    
+                else:
+                    st.warning("⚠️ Selecione períodos diferentes para comparação.")
+            else:
+                st.info(f"ℹ️ São necessários pelo menos 2 períodos para comparação. Períodos encontrados: {len(periodos_disponiveis)}")
+        
+        with tab2:
+            st.subheader("Comparação do Mesmo Mês Entre Diferentes Anos")
+            
+            # Agrupar por mês e ano para análise entre anos
+            df_meses_anos = df_comparacao.groupby(['Mes_Nome', 'Ano_Padronizado']).agg({
+                'Qtd': 'sum',
+                'V_Liquido': 'sum',
+                'Cliente': 'nunique'
+            }).reset_index()
+            
+            # Obter meses disponíveis
+            meses_disponiveis = sorted(df_meses_anos['Mes_Nome'].unique())
+            anos_disponiveis = sorted(df_meses_anos['Ano_Padronizado'].unique())
+            
+            st.write(f"**Meses disponíveis:** {len(meses_disponiveis)}")
+            st.write(f"**Anos disponíveis:** {len(anos_disponiveis)}")
+            
+            if len(meses_disponiveis) > 0 and len(anos_disponiveis) >= 2:
+                col1, col2 = st.columns(2)
+                with col1:
+                    mes_selecionado = st.selectbox(
+                        "Selecione o mês para comparação:",
+                        options=meses_disponiveis,
+                        key="mes_comparacao"
+                    )
+                with col2:
+                    # Encontrar anos que têm dados para o mês selecionado
+                    anos_para_mes = df_meses_anos[df_meses_anos['Mes_Nome'] == mes_selecionado]['Ano_Padronizado'].unique()
+                    anos_para_mes = sorted(anos_para_mes)
+                    
+                    if len(anos_para_mes) >= 2:
+                        ano_1 = st.selectbox(
+                            "Primeiro ano:",
+                            options=anos_para_mes,
+                            index=0,
+                            key="ano_1_tab2"
+                        )
+                        ano_2 = st.selectbox(
+                            "Segundo ano:",
+                            options=anos_para_mes,
+                            index=len(anos_para_mes)-1,
+                            key="ano_2_tab2"
+                        )
+                    else:
+                        st.warning(f"Apenas {len(anos_para_mes)} ano(s) disponível para {mes_selecionado}")
+                        ano_1 = ano_2 = None
+                
+                if ano_1 and ano_2 and ano_1 != ano_2:
+                    # Buscar dados para comparação
+                    dados_ano1 = df_meses_anos[
+                        (df_meses_anos['Mes_Nome'] == mes_selecionado) & 
+                        (df_meses_anos['Ano_Padronizado'] == ano_1)
+                    ]
+                    dados_ano2 = df_meses_anos[
+                        (df_meses_anos['Mes_Nome'] == mes_selecionado) & 
+                        (df_meses_anos['Ano_Padronizado'] == ano_2)
+                    ]
+                    
+                    if not dados_ano1.empty and not dados_ano2.empty:
+                        qtd_ano1 = dados_ano1['Qtd'].iloc[0]
+                        qtd_ano2 = dados_ano2['Qtd'].iloc[0]
+                        vendas_ano1 = dados_ano1['V_Liquido'].iloc[0]
+                        vendas_ano2 = dados_ano2['V_Liquido'].iloc[0]
+                        clientes_ano1 = dados_ano1['Cliente'].iloc[0]
+                        clientes_ano2 = dados_ano2['Cliente'].iloc[0]
+                        
+                        # Calcular variações
+                        var_qtd = ((qtd_ano2 - qtd_ano1) / qtd_ano1 * 100) if qtd_ano1 > 0 else 0
+                        var_vendas = ((vendas_ano2 - vendas_ano1) / vendas_ano1 * 100) if vendas_ano1 > 0 else 0
+                        var_clientes = ((clientes_ano2 - clientes_ano1) / clientes_ano1 * 100) if clientes_ano1 > 0 else 0
+                        
+                        # Exibir métricas
+                        st.subheader(f"Comparação: {mes_selecionado} {ano_1} vs {mes_selecionado} {ano_2}")
+                        
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric(
+                                f"Quantidade {ano_1}",
+                                formatar_numero_pt(qtd_ano1),
+                                f"{var_qtd:+.1f}%"
+                            )
+                        with col2:
+                            st.metric(
+                                f"Vendas {ano_1}",
+                                formatar_numero_pt(vendas_ano1, "EUR "),
+                                f"{var_vendas:+.1f}%"
+                            )
+                        with col3:
+                            st.metric(
+                                f"Clientes {ano_1}",
+                                formatar_numero_pt(clientes_ano1),
+                                f"{var_clientes:+.1f}%"
+                            )
+                        
+                        # Gráfico de comparação
+                        fig_comparacao = px.bar(
+                            x=[f"{mes_selecionado} {ano_1}", f"{mes_selecionado} {ano_2}"],
+                            y=[qtd_ano1, qtd_ano2],
+                            text=[formatar_numero_pt(qtd_ano1), formatar_numero_pt(qtd_ano2)],
+                            title=f"Comparação de Quantidades: {mes_selecionado} {ano_1} vs {mes_selecionado} {ano_2}",
+                            labels={'x': 'Período', 'y': 'Quantidade'},
+                            color=[f"{mes_selecionado} {ano_1}", f"{mes_selecionado} {ano_2}"],
+                            color_discrete_sequence=['#1f77b4', '#ff7f0e']
+                        )
+                        fig_comparacao.update_traces(textposition='outside')
+                        st.plotly_chart(fig_comparacao, width='stretch')
+                        
+                    else:
+                        st.warning("Dados insuficientes para comparação")
+                else:
+                    st.warning("Selecione anos diferentes para comparação")
+            else:
+                st.info("São necessários dados de pelo menos 2 anos diferentes para comparação")
+                
+    else:
+        st.error("🚨 **Nenhum registro válido encontrado após processamento!**")
+        st.warning("""
+        **Possíveis causas:**
+        - Formato das datas não reconhecido
+        - Valores nulos ou inválidos nas colunas 'Mes' e 'Ano'
+        - Formato diferente do esperado
+        """)
+        
+        # Mostrar análise detalhada dos dados problemáticos
+        st.subheader("🔍 Análise Detalhada dos Dados")
+        
+        # Mostrar valores únicos problemáticos
+        st.write("**Valores únicos na coluna 'Mes':**")
+        st.write(df_filtrado['Mes'].astype(str).unique()[:30])
+        
+        st.write("**Valores únicos na coluna 'Ano':**")
+        st.write(df_filtrado['Ano'].astype(str).unique()[:30])
+        
+        # Mostrar exemplos dos dados problemáticos
+        st.write("**Exemplos de dados problemáticos (primeiras 10 linhas):**")
+        st.dataframe(df_filtrado[['Mes', 'Ano']].head(10))
 
 # -------------------------------------------------
 # FOOTER
