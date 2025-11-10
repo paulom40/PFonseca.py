@@ -1,10 +1,3 @@
-### Correção do Código para Visualizar Qtd Vendida de Artigos por Cliente Mensalmente
-
-O erro ocorre porque **texto explicativo foi incluído diretamente no arquivo Python**, fora de strings ou comentários, causando sintaxe inválida. Abaixo está o código **corrigido e funcional**:
-
----
-
-```python
 import streamlit as st
 import pandas as pd
 import json
