@@ -178,7 +178,99 @@ if meses: df_filtrado = df_filtrado[df_filtrado['Mes'].isin(meses)]
 if anos: df_filtrado = df_filtrado[df_filtrado['Ano'].isin(anos)]
 
 # -------------------------------------------------
-# 9. FUNÇÃO PARA ANÁLISE DE ALERTAS
+# 9. FUNÇÃO PARA PROCESSAR DATAS (VERSÃO MAIS ROBUSTA)
+# -------------------------------------------------
+def processar_datas_mes_ano(df):
+    """Processa colunas Mes e Ano para criar períodos consistentes - versão mais robusta"""
+    df_processed = df.copy()
+    
+    # Mapeamento COMPLETO de meses
+    meses_map = {
+        # Português
+        'jan': '01', 'fev': '02', 'mar': '03', 'abr': '04', 'mai': '05', 'jun': '06',
+        'jul': '07', 'ago': '08', 'set': '09', 'out': '10', 'nov': '11', 'dez': '12',
+        'janeiro': '01', 'fevereiro': '02', 'março': '03', 'abril': '04', 'maio': '05', 'junho': '06',
+        'julho': '07', 'agosto': '08', 'setembro': '09', 'outubro': '10', 'novembro': '11', 'dezembro': '12',
+        # Inglês
+        'january': '01', 'february': '02', 'march': '03', 'april': '04', 'may': '05', 'june': '06',
+        'july': '07', 'august': '08', 'september': '09', 'october': '10', 'november': '11', 'december': '12',
+        # Números
+        '1': '01', '2': '02', '3': '03', '4': '04', '5': '05', '6': '06',
+        '7': '07', '8': '08', '9': '09', '10': '10', '11': '11', '12': '12',
+        '01': '01', '02': '02', '03': '03', '04': '04', '05': '05', '06': '06',
+        '07': '07', '08': '08', '09': '09', '10': '10', '11': '11', '12': '12'
+    }
+    
+    def padronizar_mes(mes_str):
+        if pd.isna(mes_str) or mes_str in ['nan', 'None', 'NULL', '', ' ']:
+            return None
+        
+        mes_str = str(mes_str).lower().strip()
+        
+        # Remove todos os caracteres especiais, mantendo apenas letras e números
+        mes_str = re.sub(r'[^a-z0-9]', '', mes_str)
+        
+        # Tenta encontrar correspondência direta
+        if mes_str in meses_map:
+            return meses_map[mes_str]
+        
+        # Tenta correspondências parciais
+        for key, value in meses_map.items():
+            if key in mes_str:
+                return value
+        
+        return None
+    
+    def padronizar_ano(ano_str):
+        if pd.isna(ano_str) or ano_str in ['nan', 'None', 'NULL', '', ' ']:
+            return None
+        
+        ano_str = str(ano_str).strip()
+        
+        # Remove todos os caracteres não numéricos
+        ano_numeros = re.sub(r'[^\d]', '', ano_str)
+        
+        if len(ano_numeros) == 4:
+            # Ano completo (2023, 2024, etc.)
+            return ano_numeros
+        elif len(ano_numeros) == 2:
+            # Ano de 2 dígitos
+            ano = int(ano_numeros)
+            return f"20{ano:02d}" if ano < 50 else f"19{ano:02d}"
+        elif len(ano_numeros) == 1:
+            # Apenas um dígito - assume ano atual
+            ano_atual = datetime.now().year
+            return str(ano_atual)
+        
+        return None
+    
+    # Aplicar padronização
+    df_processed['Mes_Padronizado'] = df_processed['Mes'].apply(padronizar_mes)
+    df_processed['Ano_Padronizado'] = df_processed['Ano'].apply(padronizar_ano)
+    
+    # DEBUG: Mostrar estatísticas
+    mes_validos = df_processed['Mes_Padronizado'].notna().sum()
+    ano_validos = df_processed['Ano_Padronizado'].notna().sum()
+    
+    # Filtrar apenas registros com dados válidos
+    df_valido = df_processed.dropna(subset=['Mes_Padronizado', 'Ano_Padronizado']).copy()
+    
+    if not df_valido.empty:
+        # Criar período no formato YYYY-MM
+        df_valido['Periodo'] = df_valido['Ano_Padronizado'] + '-' + df_valido['Mes_Padronizado']
+        
+        # Mapear nomes dos meses para exibição
+        meses_nome = {
+            '01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Abr', '05': 'Mai', '06': 'Jun',
+            '07': 'Jul', '08': 'Ago', '09': 'Set', '10': 'Out', '11': 'Nov', '12': 'Dez'
+        }
+        df_valido['Mes_Nome'] = df_valido['Mes_Padronizado'].map(meses_nome)
+        df_valido['Periodo_Label'] = df_valido['Mes_Nome'] + ' ' + df_valido['Ano_Padronizado']
+        
+    return df_valido, mes_validos, ano_validos
+
+# -------------------------------------------------
+# 10. FUNÇÃO PARA ANÁLISE DE ALERTAS
 # -------------------------------------------------
 def analisar_alertas_clientes(df):
     """Analisa subidas, descidas e clientes inativos baseado na quantidade"""
@@ -313,7 +405,7 @@ def analisar_alertas_clientes(df):
     return df_subidas, df_descidas, df_inativos
 
 # -------------------------------------------------
-# 10. INTERFACE
+# 11. INTERFACE
 # -------------------------------------------------
 st.markdown("<h1 class='main-header'>Dashboard de Vendas</h1>", unsafe_allow_html=True)
 
@@ -325,7 +417,7 @@ else:
     st.success(f"**{len(df_filtrado):,}** registos")
 
     # -------------------------------------------------
-    # 11. MÉTRICAS
+    # 12. MÉTRICAS
     # -------------------------------------------------
     st.markdown("<div class='section-header'>Métricas</div>", unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
@@ -335,7 +427,7 @@ else:
     with col4: st.metric("Artigos", f"{df_filtrado['Artigo'].nunique():,}")
 
     # -------------------------------------------------
-    # 12. ALERTAS DE COMPRAS - SUBIDAS, DESCIDAS E INATIVOS
+    # 13. ALERTAS DE COMPRAS - SUBIDAS, DESCIDAS E INATIVOS
     # -------------------------------------------------
     st.markdown("<div class='section-header'>🚨 Alertas de Compras - Análise de Tendências</div>", unsafe_allow_html=True)
     
@@ -526,7 +618,7 @@ else:
             st.success("✅ Nenhum cliente inativo identificado!")
 
     # -------------------------------------------------
-    # 13. RESUMO EXECUTIVO DOS ALERTAS
+    # 14. RESUMO EXECUTIVO DOS ALERTAS
     # -------------------------------------------------
     st.markdown("<div class='section-header'>📋 Resumo Executivo dos Alertas</div>", unsafe_allow_html=True)
     
@@ -557,7 +649,7 @@ else:
         )
 
     # -------------------------------------------------
-    # 14. COMPARAÇÃO DE QTD POR MÊS ENTRE ANOS
+    # 15. COMPARAÇÃO DE QTD POR MÊS ENTRE ANOS
     # -------------------------------------------------
     st.markdown("<div class='section-header'>Comparação de Qtd por Mês Entre Anos</div>", unsafe_allow_html=True)
     
