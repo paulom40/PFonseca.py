@@ -26,28 +26,94 @@ st.markdown("<h1 class='main-header'>📊 Dashboard Comercial</h1>", unsafe_allo
 if 'df' not in st.session_state:
     st.session_state.df = None
 
+# --- Funções de Carregamento ---
+def carregar_excel_com_opcoes(uploaded_file):
+    """Tenta carregar Excel com diferentes opções"""
+    try:
+        # Primeiro tenta a primeira sheet
+        df = pd.read_excel(uploaded_file, sheet_name=0)
+        return df
+    except Exception as e1:
+        try:
+            # Se falhar, lista as sheets disponíveis
+            xls = pd.ExcelFile(uploaded_file)
+            st.warning(f"Erro na primeira sheet. Sheets disponíveis: {xls.sheet_names}")
+            sheet = st.selectbox("Escolha a sheet:", xls.sheet_names)
+            df = pd.read_excel(uploaded_file, sheet_name=sheet)
+            return df
+        except Exception as e2:
+            st.error(f"Erro ao carregar: {str(e2)}")
+            return None
+
+def mapear_colunas(df):
+    """Tenta identificar automaticamente as colunas relevantes"""
+    colunas_lower = {col.lower().strip(): col for col in df.columns}
+    
+    # Mapeamento de possíveis nomes
+    mapeamento = {
+        'mes': ['mes', 'mês', 'month', 'mês'],
+        'ano': ['ano', 'year', 'ano'],
+        'cliente': ['cliente', 'client', 'customer', 'nome_cliente'],
+        'qtd': ['qtd', 'quantidade', 'qty', 'volume', 'vendas']
+    }
+    
+    colunas_encontradas = {}
+    for chave, opcoes in mapeamento.items():
+        for opcao in opcoes:
+            if opcao in colunas_lower:
+                colunas_encontradas[chave] = colunas_lower[opcao]
+                break
+    
+    return colunas_encontradas
+
 # --- Upload de Dados ---
 with st.expander("📁 Carregar Dados (CSV/Excel)", expanded=True):
     uploaded_file = st.file_uploader("Escolha um arquivo", type=["csv", "xlsx"])
     
     if uploaded_file:
         try:
+            # Carregar arquivo
             if uploaded_file.name.endswith('.csv'):
                 df = pd.read_csv(uploaded_file)
             else:
-                df = pd.read_excel(uploaded_file)
+                df = carregar_excel_com_opcoes(uploaded_file)
+                if df is None:
+                    st.stop()
             
-            # Validar colunas obrigatórias
-            required_cols = ['Mes', 'Ano', 'Cliente', 'Qtd']
-            missing_cols = [col for col in required_cols if col not in df.columns]
+            st.info(f"📊 Ficheiro carregado: {len(df)} linhas, {len(df.columns)} colunas")
+            st.write("**Colunas disponíveis:**", list(df.columns))
             
-            if missing_cols:
-                st.error(f"❌ Colunas obrigatórias faltando: {', '.join(missing_cols)}")
-                st.info(f"📋 Colunas esperadas: {', '.join(required_cols)}")
-                st.stop()
+            # Tentar mapear colunas automaticamente
+            mapa = mapear_colunas(df)
             
-            st.session_state.df = df.copy()
-            st.success(f"✅ Dados carregados com sucesso: {len(df)} linhas e {len(df.columns)} colunas")
+            if len(mapa) < 4:
+                st.warning("❌ Nem todas as colunas foram identificadas automaticamente")
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    mes_col = st.selectbox("Coluna Mês:", df.columns, index=list(df.columns).index(mapa.get('mes', df.columns[0])) if 'mes' in mapa else 0)
+                with col2:
+                    ano_col = st.selectbox("Coluna Ano:", df.columns, index=list(df.columns).index(mapa.get('ano', df.columns[0])) if 'ano' in mapa else 1)
+                with col3:
+                    cliente_col = st.selectbox("Coluna Cliente:", df.columns, index=list(df.columns).index(mapa.get('cliente', df.columns[0])) if 'cliente' in mapa else 2)
+                with col4:
+                    qtd_col = st.selectbox("Coluna Qtd:", df.columns, index=list(df.columns).index(mapa.get('qtd', df.columns[0])) if 'qtd' in mapa else 3)
+            else:
+                mes_col = mapa['mes']
+                ano_col = mapa['ano']
+                cliente_col = mapa['cliente']
+                qtd_col = mapa['qtd']
+                st.success("✅ Colunas identificadas automaticamente!")
+            
+            # Renomear colunas para o padrão esperado
+            df.rename(columns={
+                mes_col: 'Mes',
+                ano_col: 'Ano',
+                cliente_col: 'Cliente',
+                qtd_col: 'Qtd'
+            }, inplace=True)
+            
+            st.session_state.df = df[['Mes', 'Ano', 'Cliente', 'Qtd']].copy()
+            st.success(f"✅ Dados mapeados com sucesso!")
             
         except Exception as e:
             st.error(f"❌ Erro ao carregar arquivo: {str(e)}")
