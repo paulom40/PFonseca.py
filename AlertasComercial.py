@@ -57,6 +57,9 @@ st.markdown("""
     .card-subida { border-left-color: #2e7d32; }
     .card-descida { border-left-color: #d32f2f; }
     .card-inativo { border-left-color: #666666; }
+    .seta-subida { color: #2e7d32; font-weight: bold; }
+    .seta-descida { color: #d32f2f; font-weight: bold; }
+    .seta-neutra { color: #666666; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -248,10 +251,6 @@ def processar_datas_mes_ano(df):
     df_processed['Mes_Padronizado'] = df_processed['Mes'].apply(padronizar_mes)
     df_processed['Ano_Padronizado'] = df_processed['Ano'].apply(padronizar_ano)
     
-    # DEBUG: Mostrar estatísticas
-    mes_validos = df_processed['Mes_Padronizado'].notna().sum()
-    ano_validos = df_processed['Ano_Padronizado'].notna().sum()
-    
     # Filtrar apenas registros com dados válidos
     df_valido = df_processed.dropna(subset=['Mes_Padronizado', 'Ano_Padronizado']).copy()
     
@@ -267,142 +266,104 @@ def processar_datas_mes_ano(df):
         df_valido['Mes_Nome'] = df_valido['Mes_Padronizado'].map(meses_nome)
         df_valido['Periodo_Label'] = df_valido['Mes_Nome'] + ' ' + df_valido['Ano_Padronizado']
         
-    return df_valido, mes_validos, ano_validos
+    return df_valido
 
 # -------------------------------------------------
-# 10. FUNÇÃO PARA ANÁLISE DE ALERTAS
+# 10. FUNÇÃO PARA CRIAR TABELA GERAL DE CLIENTES
 # -------------------------------------------------
-def analisar_alertas_clientes(df):
-    """Analisa subidas, descidas e clientes inativos baseado na quantidade"""
+def criar_tabela_geral_clientes(df):
+    """Cria tabela geral com Qtd mensal por cliente e alertas de variação"""
     
     # Processar datas
-    df_processed = df.copy()
+    df_processado = processar_datas_mes_ano(df)
     
-    # Mapeamento de meses
-    meses_map = {
-        'jan': '01', 'fev': '02', 'mar': '03', 'abr': '04', 'mai': '05', 'jun': '06',
-        'jul': '07', 'ago': '08', 'set': '09', 'out': '10', 'nov': '11', 'dez': '12',
-        '1': '01', '2': '02', '3': '03', '4': '04', '5': '05', '6': '06',
-        '7': '07', '8': '08', '9': '09', '10': '10', '11': '11', '12': '12',
-        '01': '01', '02': '02', '03': '03', '04': '04', '05': '05', '06': '06',
-        '07': '07', '08': '08', '09': '09', '10': '10', '11': '11', '12': '12'
-    }
-    
-    def padronizar_mes(mes_str):
-        if pd.isna(mes_str) or mes_str in ['nan', 'None', 'NULL', '', ' ']:
-            return None
-        mes_str = str(mes_str).lower().strip()
-        mes_str = re.sub(r'[^a-z0-9]', '', mes_str)
-        return meses_map.get(mes_str, None)
-    
-    def padronizar_ano(ano_str):
-        if pd.isna(ano_str) or ano_str in ['nan', 'None', 'NULL', '', ' ']:
-            return None
-        ano_str = str(ano_str).strip()
-        ano_numeros = re.sub(r'[^\d]', '', ano_str)
-        if len(ano_numeros) == 4:
-            return ano_numeros
-        elif len(ano_numeros) == 2:
-            ano = int(ano_numeros)
-            return f"20{ano:02d}" if ano < 50 else f"19{ano:02d}"
-        return None
-    
-    # Aplicar padronização
-    df_processed['Mes_Padronizado'] = df_processed['Mes'].apply(padronizar_mes)
-    df_processed['Ano_Padronizado'] = df_processed['Ano'].apply(padronizar_ano)
-    
-    # Filtrar dados válidos
-    df_valido = df_processed.dropna(subset=['Mes_Padronizado', 'Ano_Padronizado']).copy()
-    
-    if df_valido.empty:
-        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
-    
-    # Criar período ordenável
-    df_valido['Periodo'] = df_valido['Ano_Padronizado'] + '-' + df_valido['Mes_Padronizado']
+    if df_processado.empty:
+        return pd.DataFrame()
     
     # Agrupar por cliente e período
-    df_agrupado = df_valido.groupby(['Cliente', 'Periodo'])['Qtd'].sum().reset_index()
+    df_agrupado = df_processado.groupby(['Cliente', 'Periodo', 'Periodo_Label']).agg({
+        'Qtd': 'sum',
+        'V_Liquido': 'sum'
+    }).reset_index()
     
     # Ordenar períodos
     periodos_ordenados = sorted(df_agrupado['Periodo'].unique())
     
     if len(periodos_ordenados) < 2:
-        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+        return pd.DataFrame()
     
-    # Período atual e anterior
+    # Últimos 2 períodos para comparação
     periodo_atual = periodos_ordenados[-1]
     periodo_anterior = periodos_ordenados[-2]
     
-    # Dados do período atual
-    dados_atual = df_agrupado[df_agrupado['Periodo'] == periodo_atual][['Cliente', 'Qtd']].rename(
-        columns={'Qtd': 'Qtd_Atual'})
+    # Pivot table para ter clientes como linhas e períodos como colunas
+    df_pivot = df_agrupado.pivot_table(
+        index='Cliente',
+        columns='Periodo_Label',
+        values='Qtd',
+        aggfunc='sum',
+        fill_value=0
+    ).reset_index()
     
-    # Dados do período anterior
-    dados_anterior = df_agrupado[df_agrupado['Periodo'] == periodo_anterior][['Cliente', 'Qtd']].rename(
-        columns={'Qtd': 'Qtd_Anterior'})
+    # Reordenar colunas por data (mais recente primeiro)
+    colunas_ordenadas = ['Cliente'] + sorted(df_pivot.columns[1:], reverse=True)
+    df_pivot = df_pivot[colunas_ordenadas]
     
-    # Combinar dados para comparação
-    comparacao = pd.merge(dados_atual, dados_anterior, on='Cliente', how='outer').fillna(0)
-    
-    # Calcular variações
-    comparacao['Variacao_Qtd'] = comparacao['Qtd_Atual'] - comparacao['Qtd_Anterior']
-    comparacao['Variacao_Percentual'] = (comparacao['Variacao_Qtd'] / comparacao['Qtd_Anterior'].replace(0, 1)) * 100
-    
-    # Classificar alertas
-    alertas_subida = []
-    alertas_descida = []
-    alertas_inativos = []
-    
-    for _, row in comparacao.iterrows():
-        cliente = row['Cliente']
-        qtd_atual = row['Qtd_Atual']
-        qtd_anterior = row['Qtd_Anterior']
-        variacao_perc = row['Variacao_Percentual']
+    # Calcular variação entre os dois últimos períodos
+    if len(df_pivot.columns) >= 3:
+        coluna_atual = df_pivot.columns[1]  # Período mais recente
+        coluna_anterior = df_pivot.columns[2]  # Segundo período mais recente
         
-        # Clientes que deixaram de comprar (estavam ativos e agora são zero)
-        if qtd_anterior > 0 and qtd_atual == 0:
-            alertas_inativos.append({
-                'Cliente': cliente,
-                'Qtd_Anterior': qtd_anterior,
-                'Qtd_Atual': qtd_atual,
-                'Variacao_Percentual': -100,
-                'Tipo': 'Parou de Comprar'
-            })
+        df_pivot['Qtd_Atual'] = df_pivot[coluna_atual]
+        df_pivot['Qtd_Anterior'] = df_pivot[coluna_anterior]
         
-        # Subidas significativas (> 20%)
-        elif variacao_perc > 20 and qtd_anterior > 0:
-            alertas_subida.append({
-                'Cliente': cliente,
-                'Qtd_Anterior': qtd_anterior,
-                'Qtd_Atual': qtd_atual,
-                'Variacao_Percentual': variacao_perc,
-                'Tipo': 'Subida Significativa'
-            })
+        # Calcular variação percentual
+        df_pivot['Variacao_%'] = ((df_pivot['Qtd_Atual'] - df_pivot['Qtd_Anterior']) / 
+                                 df_pivot['Qtd_Anterior'].replace(0, 1)) * 100
         
-        # Descidas significativas (< -20%)
-        elif variacao_perc < -20 and qtd_anterior > 0:
-            alertas_descida.append({
-                'Cliente': cliente,
-                'Qtd_Anterior': qtd_anterior,
-                'Qtd_Atual': qtd_atual,
-                'Variacao_Percentual': variacao_perc,
-                'Tipo': 'Descida Significativa'
-            })
+        # Classificar alertas
+        def classificar_alerta(variacao, qtd_anterior, qtd_atual):
+            if qtd_anterior == 0 and qtd_atual > 0:
+                return "🟢 Novo Cliente"
+            elif qtd_anterior > 0 and qtd_atual == 0:
+                return "🔴 Parou de Comprar"
+            elif variacao > 50:
+                return "🟢 Subida Forte"
+            elif variacao > 20:
+                return "🟡 Subida Moderada"
+            elif variacao < -50:
+                return "🔴 Descida Forte"
+            elif variacao < -20:
+                return "🟠 Descida Moderada"
+            elif variacao > 0:
+                return "🔵 Subida Leve"
+            elif variacao < 0:
+                return "⚫ Descida Leve"
+            else:
+                return "⚪ Estável"
+        
+        df_pivot['Alerta'] = df_pivot.apply(
+            lambda x: classificar_alerta(x['Variacao_%'], x['Qtd_Anterior'], x['Qtd_Atual']), 
+            axis=1
+        )
+        
+        # Formatar números para exibição
+        for col in df_pivot.columns:
+            if col not in ['Cliente', 'Alerta', 'Variacao_%'] and df_pivot[col].dtype in [np.int64, np.float64]:
+                df_pivot[col] = df_pivot[col].apply(lambda x: formatar_numero_pt(x) if pd.notna(x) else '0')
+        
+        # Formatar variação percentual
+        df_pivot['Variacao_Formatada'] = df_pivot['Variacao_%'].apply(
+            lambda x: f"{x:+.1f}%" if pd.notna(x) else "N/D"
+        )
+        
+        # Reordenar colunas para exibição
+        colunas_finais = ['Cliente', 'Alerta', 'Variacao_Formatada'] + colunas_ordenadas[1:]
+        df_final = df_pivot[colunas_finais].rename(columns={'Variacao_Formatada': 'Variação %'})
+        
+        return df_final
     
-    # Converter para DataFrames
-    df_subidas = pd.DataFrame(alertas_subida)
-    df_descidas = pd.DataFrame(alertas_descida)
-    df_inativos = pd.DataFrame(alertas_inativos)
-    
-    # Ordenar por magnitude da variação
-    if not df_subidas.empty:
-        df_subidas = df_subidas.sort_values('Variacao_Percentual', ascending=False)
-    if not df_descidas.empty:
-        df_descidas = df_descidas.sort_values('Variacao_Percentual', ascending=True)
-    if not df_inativos.empty:
-        df_inativos = df_inativos.sort_values('Qtd_Anterior', ascending=False)
-    
-    return df_subidas, df_descidas, df_inativos
+    return pd.DataFrame()
 
 # -------------------------------------------------
 # 11. INTERFACE
@@ -427,436 +388,141 @@ else:
     with col4: st.metric("Artigos", f"{df_filtrado['Artigo'].nunique():,}")
 
     # -------------------------------------------------
-    # 13. ALERTAS DE COMPRAS - SUBIDAS, DESCIDAS E INATIVOS
+    # 13. TABELA GERAL DE CLIENTES - VISÃO MENSAL
     # -------------------------------------------------
-    st.markdown("<div class='section-header'>🚨 Alertas de Compras - Análise de Tendências</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-header'>📊 Tabela Geral de Clientes - Visão Mensal</div>", unsafe_allow_html=True)
     
-    # Analisar alertas
-    df_subidas, df_descidas, df_inativos = analisar_alertas_clientes(df_filtrado)
+    # Criar tabela geral
+    df_tabela_geral = criar_tabela_geral_clientes(df_filtrado)
     
-    # Criar abas para os diferentes tipos de alerta
-    tab1, tab2, tab3 = st.tabs([
-        f"📈 Subidas Significativas ({len(df_subidas)})",
-        f"📉 Descidas Significativas ({len(df_descidas)})", 
-        f"⏸️ Clientes Inativos ({len(df_inativos)})"
-    ])
-    
-    with tab1:
-        st.subheader("📈 Clientes com Subidas Significativas (> 20%)")
+    if not df_tabela_geral.empty:
+        # Estatísticas rápidas
+        col1, col2, col3, col4 = st.columns(4)
         
-        if not df_subidas.empty:
-            # Métricas resumo
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Total de Clientes", len(df_subidas))
-            with col2:
-                maior_subida = df_subidas['Variacao_Percentual'].max()
-                st.metric("Maior Subida", f"{maior_subida:.1f}%")
-            with col3:
-                media_subidas = df_subidas['Variacao_Percentual'].mean()
-                st.metric("Média de Subidas", f"{media_subidas:.1f}%")
-            
-            # Tabela de alertas
-            st.write("**Detalhes das Subidas:**")
-            
-            # Preparar dados para exibição
-            df_display = df_subidas.copy()
-            df_display['Qtd_Anterior_Formatada'] = df_display['Qtd_Anterior'].apply(formatar_numero_pt)
-            df_display['Qtd_Atual_Formatada'] = df_display['Qtd_Atual'].apply(formatar_numero_pt)
-            df_display['Variacao_Formatada'] = df_display['Variacao_Percentual'].apply(lambda x: f"+{x:.1f}%")
-            
-            # Adicionar classificação de intensidade
-            def classificar_subida(variacao):
-                if variacao > 100:
-                    return "🟢 Subida Muito Forte"
-                elif variacao > 50:
-                    return "🟡 Subida Forte"
-                else:
-                    return "🔵 Subida Moderada"
-            
-            df_display['Intensidade'] = df_display['Variacao_Percentual'].apply(classificar_subida)
-            
-            # Exibir tabela
-            st.dataframe(
-                df_display[['Cliente', 'Qtd_Anterior_Formatada', 'Qtd_Atual_Formatada', 'Variacao_Formatada', 'Intensidade']].rename(
-                    columns={
-                        'Qtd_Anterior_Formatada': 'Qtd Anterior',
-                        'Qtd_Atual_Formatada': 'Qtd Atual',
-                        'Variacao_Formatada': 'Variação %',
-                        'Intensidade': 'Intensidade'
-                    }
-                ),
-                width='stretch'
+        total_clientes = len(df_tabela_geral)
+        clientes_subida = len(df_tabela_geral[df_tabela_geral['Alerta'].str.contains('Subida')])
+        clientes_descida = len(df_tabela_geral[df_tabela_geral['Alerta'].str.contains('Descida')])
+        clientes_novos = len(df_tabela_geral[df_tabela_geral['Alerta'] == '🟢 Novo Cliente'])
+        clientes_inativos = len(df_tabela_geral[df_tabela_geral['Alerta'] == '🔴 Parou de Comprar'])
+        
+        with col1:
+            st.metric("Total Clientes", total_clientes)
+        with col2:
+            st.metric("Clientes em Subida", clientes_subida)
+        with col3:
+            st.metric("Clientes em Descida", clientes_descida)
+        with col4:
+            st.metric("Novos/Inativos", f"+{clientes_novos}/-{clientes_inativos}")
+        
+        # Filtros para a tabela
+        st.subheader("Filtros da Tabela")
+        col_filtro1, col_filtro2, col_filtro3 = st.columns(3)
+        
+        with col_filtro1:
+            filtro_alerta = st.multiselect(
+                "Filtrar por Alerta:",
+                options=sorted(df_tabela_geral['Alerta'].unique()),
+                default=sorted(df_tabela_geral['Alerta'].unique())
             )
-            
-            # Botão de exportação
-            st.download_button(
-                "📥 Exportar Subidas",
-                to_excel(df_subidas),
-                "clientes_subidas.xlsx",
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-            
-        else:
-            st.success("🎉 Nenhum cliente com subida significativa identificada!")
-    
-    with tab2:
-        st.subheader("📉 Clientes com Descidas Significativas (> 20%)")
         
-        if not df_descidas.empty:
-            # Métricas resumo
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Total de Clientes", len(df_descidas))
-            with col2:
-                maior_descida = df_descidas['Variacao_Percentual'].min()
-                st.metric("Maior Descida", f"{maior_descida:.1f}%")
-            with col3:
-                media_descidas = df_descidas['Variacao_Percentual'].mean()
-                st.metric("Média de Descidas", f"{media_descidas:.1f}%")
-            
-            # Tabela de alertas
-            st.write("**Detalhes das Descidas:**")
-            
-            # Preparar dados para exibição
-            df_display = df_descidas.copy()
-            df_display['Qtd_Anterior_Formatada'] = df_display['Qtd_Anterior'].apply(formatar_numero_pt)
-            df_display['Qtd_Atual_Formatada'] = df_display['Qtd_Atual'].apply(formatar_numero_pt)
-            df_display['Variacao_Formatada'] = df_display['Variacao_Percentual'].apply(lambda x: f"{x:.1f}%")
-            
-            # Adicionar classificação de intensidade
-            def classificar_descida(variacao):
-                if variacao < -50:
-                    return "🔴 Descida Crítica"
-                elif variacao < -30:
-                    return "🟠 Descida Severa"
-                else:
-                    return "🟡 Descida Moderada"
-            
-            df_display['Intensidade'] = df_display['Variacao_Percentual'].apply(classificar_descida)
-            
-            # Exibir tabela
-            st.dataframe(
-                df_display[['Cliente', 'Qtd_Anterior_Formatada', 'Qtd_Atual_Formatada', 'Variacao_Formatada', 'Intensidade']].rename(
-                    columns={
-                        'Qtd_Anterior_Formatada': 'Qtd Anterior',
-                        'Qtd_Atual_Formatada': 'Qtd Atual',
-                        'Variacao_Formatada': 'Variação %',
-                        'Intensidade': 'Intensidade'
-                    }
-                ),
-                width='stretch'
-            )
-            
-            # Botão de exportação
-            st.download_button(
-                "📥 Exportar Descidas",
-                to_excel(df_descidas),
-                "clientes_descidas.xlsx",
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-            
-        else:
-            st.success("✅ Nenhum cliente com descida significativa identificada!")
-    
-    with tab3:
-        st.subheader("⏸️ Clientes que Pararam de Comprar")
-        
-        if not df_inativos.empty:
-            # Métricas resumo
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Total de Clientes", len(df_inativos))
-            with col2:
-                maior_compra_anterior = df_inativos['Qtd_Anterior'].max()
-                st.metric("Maior Compra Anterior", formatar_numero_pt(maior_compra_anterior))
-            with col3:
-                media_compras_anteriores = df_inativos['Qtd_Anterior'].mean()
-                st.metric("Média Compras Anteriores", formatar_numero_pt(media_compras_anteriores))
-            
-            # Tabela de alertas
-            st.write("**Detalhes dos Clientes Inativos:**")
-            
-            # Preparar dados para exibição
-            df_display = df_inativos.copy()
-            df_display['Qtd_Anterior_Formatada'] = df_display['Qtd_Anterior'].apply(formatar_numero_pt)
-            df_display['Qtd_Atual_Formatada'] = df_display['Qtd_Atual'].apply(formatar_numero_pt)
-            df_display['Perda_Formatada'] = df_display['Qtd_Anterior'].apply(lambda x: formatar_numero_pt(x))
-            
-            # Adicionar classificação por volume anterior
-            def classificar_volume(qtd):
-                if qtd > 1000:
-                    return "🔴 Perda Crítica"
-                elif qtd > 500:
-                    return "🟠 Perda Significativa"
-                else:
-                    return "🟡 Perda Moderada"
-            
-            df_display['Impacto'] = df_display['Qtd_Anterior'].apply(classificar_volume)
-            
-            # Exibir tabela
-            st.dataframe(
-                df_display[['Cliente', 'Qtd_Anterior_Formatada', 'Perda_Formatada', 'Impacto']].rename(
-                    columns={
-                        'Qtd_Anterior_Formatada': 'Última Compra (Qtd)',
-                        'Perda_Formatada': 'Volume Perdido',
-                        'Impacto': 'Impacto da Perda'
-                    }
-                ),
-                width='stretch'
-            )
-            
-            # Botão de exportação
-            st.download_button(
-                "📥 Exportar Clientes Inativos",
-                to_excel(df_inativos),
-                "clientes_inativos.xlsx",
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-            
-        else:
-            st.success("✅ Nenhum cliente inativo identificado!")
-
-    # -------------------------------------------------
-    # 14. RESUMO EXECUTIVO DOS ALERTAS
-    # -------------------------------------------------
-    st.markdown("<div class='section-header'>📋 Resumo Executivo dos Alertas</div>", unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.metric(
-            "Clientes com Subida",
-            len(df_subidas),
-            delta=f"+{len(df_subidas)}",
-            delta_color="normal"
-        )
-    
-    with col2:
-        st.metric(
-            "Clientes com Descida", 
-            len(df_descidas),
-            delta=f"-{len(df_descidas)}",
-            delta_color="inverse"
-        )
-    
-    with col3:
-        st.metric(
-            "Clientes Inativos",
-            len(df_inativos),
-            delta=f"-{len(df_inativos)}",
-            delta_color="off"
-        )
-
-    # -------------------------------------------------
-    # 15. COMPARAÇÃO DE QTD POR MÊS ENTRE ANOS
-    # -------------------------------------------------
-    st.markdown("<div class='section-header'>Comparação de Qtd por Mês Entre Anos</div>", unsafe_allow_html=True)
-    
-    # Processar dados
-    df_comparacao, mes_validos, ano_validos = processar_datas_mes_ano(df_filtrado)
-    
-    # DEBUG: Mostrar informações detalhadas (mantido apenas para debug)
-    # st.info(f"**DEBUG INFO:** Meses válidos: {mes_validos}/{len(df_filtrado)} | Anos válidos: {ano_validos}/{len(df_filtrado)}")
-    
-    if not df_comparacao.empty:
-        st.success(f"✅ **{len(df_comparacao)} registros processados com sucesso!**")
-        
-        # REMOVIDO: Mostrar exemplos dos dados processados
-        # st.write("**Amostra dos dados processados:**")
-        # st.dataframe(df_comparacao[['Mes', 'Ano', 'Mes_Padronizado', 'Ano_Padronizado', 'Periodo_Label']].head(10))
-        
-        # Mostrar períodos disponíveis (mantido apenas o contador)
-        periodos_disponiveis = sorted(df_comparacao['Periodo_Label'].unique())
-        # REMOVIDO: st.write(f"**Períodos disponíveis para análise:** {len(periodos_disponiveis)}")
-        # REMOVIDO: st.write(periodos_disponiveis)
-        
-        # Criar abas para diferentes tipos de comparação
-        tab1, tab2 = st.tabs(["🔍 Comparação Mês a Mês", "📊 Comparação Entre Anos (Mesmo Mês)"])
-        
-        with tab1:
-            st.subheader("Comparação entre Períodos Consecutivos")
-            
-            if len(periodos_disponiveis) >= 2:
-                col1, col2 = st.columns(2)
-                with col1:
-                    periodo_1 = st.selectbox(
-                        "Selecione o primeiro período:",
-                        options=periodos_disponiveis,
-                        index=len(periodos_disponiveis)-2,
-                        key="periodo_1_tab1"
-                    )
-                with col2:
-                    periodo_2 = st.selectbox(
-                        "Selecione o segundo período:",
-                        options=periodos_disponiveis,
-                        index=len(periodos_disponiveis)-1,
-                        key="periodo_2_tab1"
-                    )
-                
-                if periodo_1 != periodo_2:
-                    # Obter códigos dos períodos selecionados
-                    periodo_1_codigo = df_comparacao[df_comparacao['Periodo_Label'] == periodo_1]['Periodo'].iloc[0]
-                    periodo_2_codigo = df_comparacao[df_comparacao['Periodo_Label'] == periodo_2]['Periodo'].iloc[0]
-                    
-                    # Calcular totais
-                    qtd_periodo_1 = df_comparacao[df_comparacao['Periodo'] == periodo_1_codigo]['Qtd'].sum()
-                    qtd_periodo_2 = df_comparacao[df_comparacao['Periodo'] == periodo_2_codigo]['Qtd'].sum()
-                    
-                    # Calcular variação
-                    if qtd_periodo_1 > 0:
-                        variacao = ((qtd_periodo_2 - qtd_periodo_1) / qtd_periodo_1) * 100
-                    else:
-                        variacao = 0
-                    
-                    # Exibir métricas
-                    col_met1, col_met2, col_met3 = st.columns(3)
-                    with col_met1:
-                        st.metric(f"Qtd {periodo_1}", formatar_numero_pt(qtd_periodo_1))
-                    with col_met2:
-                        st.metric(f"Qtd {periodo_2}", formatar_numero_pt(qtd_periodo_2), f"{variacao:+.1f}%")
-                    with col_met3:
-                        cor = "green" if variacao >= 10 else "lightgreen" if variacao > 0 else "red" if variacao <= -10 else "orange" if variacao < 0 else "gray"
-                        st.markdown(f"**Variação:** <span style='color:{cor};font-weight:bold'>{variacao:+.1f}%</span>", unsafe_allow_html=True)
-                    
-                    # Gráfico comparativo
-                    fig = px.bar(
-                        x=[periodo_1, periodo_2],
-                        y=[qtd_periodo_1, qtd_periodo_2],
-                        text=[formatar_numero_pt(qtd_periodo_1), formatar_numero_pt(qtd_periodo_2)],
-                        title=f"Comparação de Quantidades: {periodo_1} vs {periodo_2}",
-                        labels={'x': 'Período', 'y': 'Quantidade'}
-                    )
-                    fig.update_traces(textposition='outside')
-                    st.plotly_chart(fig, width='stretch')
-                    
-                else:
-                    st.warning("⚠️ Selecione períodos diferentes para comparação.")
+        with col_filtro2:
+            # Filtro por quantidade mínima no último mês
+            if 'Qtd_Atual' in df_tabela_geral.columns:
+                qtd_minima = st.number_input("Qtd mínima último mês:", min_value=0, value=0)
             else:
-                st.info(f"ℹ️ São necessários pelo menos 2 períodos para comparação. Períodos encontrados: {len(periodos_disponiveis)}")
+                qtd_minima = 0
         
-        with tab2:
-            st.subheader("Comparação do Mesmo Mês Entre Diferentes Anos")
-            
-            # Agrupar por mês e ano para análise entre anos
-            df_meses_anos = df_comparacao.groupby(['Mes_Nome', 'Ano_Padronizado']).agg({
-                'Qtd': 'sum',
-                'V_Liquido': 'sum',
-                'Cliente': 'nunique'
-            }).reset_index()
-            
-            # Obter meses disponíveis
-            meses_disponiveis = sorted(df_meses_anos['Mes_Nome'].unique())
-            anos_disponiveis = sorted(df_meses_anos['Ano_Padronizado'].unique())
-            
-            # REMOVIDO: st.write(f"**Meses disponíveis:** {len(meses_disponiveis)}")
-            # REMOVIDO: st.write(f"**Anos disponíveis:** {len(anos_disponiveis)}")
-            
-            if len(meses_disponiveis) > 0 and len(anos_disponiveis) >= 2:
-                col1, col2 = st.columns(2)
-                with col1:
-                    mes_selecionado = st.selectbox(
-                        "Selecione o mês para comparação:",
-                        options=meses_disponiveis,
-                        key="mes_comparacao"
-                    )
-                with col2:
-                    # Encontrar anos que têm dados para o mês selecionado
-                    anos_para_mes = df_meses_anos[df_meses_anos['Mes_Nome'] == mes_selecionado]['Ano_Padronizado'].unique()
-                    anos_para_mes = sorted(anos_para_mes)
-                    
-                    if len(anos_para_mes) >= 2:
-                        ano_1 = st.selectbox(
-                            "Primeiro ano:",
-                            options=anos_para_mes,
-                            index=0,
-                            key="ano_1_tab2"
-                        )
-                        ano_2 = st.selectbox(
-                            "Segundo ano:",
-                            options=anos_para_mes,
-                            index=len(anos_para_mes)-1,
-                            key="ano_2_tab2"
-                        )
-                    else:
-                        st.warning(f"Apenas {len(anos_para_mes)} ano(s) disponível para {mes_selecionado}")
-                        ano_1 = ano_2 = None
-                
-                if ano_1 and ano_2 and ano_1 != ano_2:
-                    # Buscar dados para comparação
-                    dados_ano1 = df_meses_anos[
-                        (df_meses_anos['Mes_Nome'] == mes_selecionado) & 
-                        (df_meses_anos['Ano_Padronizado'] == ano_1)
-                    ]
-                    dados_ano2 = df_meses_anos[
-                        (df_meses_anos['Mes_Nome'] == mes_selecionado) & 
-                        (df_meses_anos['Ano_Padronizado'] == ano_2)
-                    ]
-                    
-                    if not dados_ano1.empty and not dados_ano2.empty:
-                        qtd_ano1 = dados_ano1['Qtd'].iloc[0]
-                        qtd_ano2 = dados_ano2['Qtd'].iloc[0]
-                        vendas_ano1 = dados_ano1['V_Liquido'].iloc[0]
-                        vendas_ano2 = dados_ano2['V_Liquido'].iloc[0]
-                        clientes_ano1 = dados_ano1['Cliente'].iloc[0]
-                        clientes_ano2 = dados_ano2['Cliente'].iloc[0]
-                        
-                        # Calcular variações
-                        var_qtd = ((qtd_ano2 - qtd_ano1) / qtd_ano1 * 100) if qtd_ano1 > 0 else 0
-                        var_vendas = ((vendas_ano2 - vendas_ano1) / vendas_ano1 * 100) if vendas_ano1 > 0 else 0
-                        var_clientes = ((clientes_ano2 - clientes_ano1) / clientes_ano1 * 100) if clientes_ano1 > 0 else 0
-                        
-                        # Exibir métricas
-                        st.subheader(f"Comparação: {mes_selecionado} {ano_1} vs {mes_selecionado} {ano_2}")
-                        
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            st.metric(
-                                f"Quantidade {ano_1}",
-                                formatar_numero_pt(qtd_ano1),
-                                f"{var_qtd:+.1f}%"
-                            )
-                        with col2:
-                            st.metric(
-                                f"Vendas {ano_1}",
-                                formatar_numero_pt(vendas_ano1, "EUR "),
-                                f"{var_vendas:+.1f}%"
-                            )
-                        with col3:
-                            st.metric(
-                                f"Clientes {ano_1}",
-                                formatar_numero_pt(clientes_ano1),
-                                f"{var_clientes:+.1f}%"
-                            )
-                        
-                        # Gráfico de comparação
-                        fig_comparacao = px.bar(
-                            x=[f"{mes_selecionado} {ano_1}", f"{mes_selecionado} {ano_2}"],
-                            y=[qtd_ano1, qtd_ano2],
-                            text=[formatar_numero_pt(qtd_ano1), formatar_numero_pt(qtd_ano2)],
-                            title=f"Comparação de Quantidades: {mes_selecionado} {ano_1} vs {mes_selecionado} {ano_2}",
-                            labels={'x': 'Período', 'y': 'Quantidade'},
-                            color=[f"{mes_selecionado} {ano_1}", f"{mes_selecionado} {ano_2}"],
-                            color_discrete_sequence=['#1f77b4', '#ff7f0e']
-                        )
-                        fig_comparacao.update_traces(textposition='outside')
-                        st.plotly_chart(fig_comparacao, width='stretch')
-                        
-                    else:
-                        st.warning("Dados insuficientes para comparação")
-                else:
-                    st.warning("Selecione anos diferentes para comparação")
+        with col_filtro3:
+            # Ordenação
+            ordenacao = st.selectbox(
+                "Ordenar por:",
+                options=["Cliente", "Maior Subida", "Maior Descida", "Maior Qtd Atual"]
+            )
+        
+        # Aplicar filtros
+        df_filtrado_tabela = df_tabela_geral[df_tabela_geral['Alerta'].isin(filtro_alerta)].copy()
+        
+        # Aplicar ordenação
+        if ordenacao == "Maior Subida":
+            # Extrair valor numérico da variação para ordenação
+            df_filtrado_tabela['Var_Num'] = df_filtrado_tabela['Variação %'].str.replace('%', '').str.replace('+', '').astype(float)
+            df_filtrado_tabela = df_filtrado_tabela.sort_values('Var_Num', ascending=False)
+        elif ordenacao == "Maior Descida":
+            df_filtrado_tabela['Var_Num'] = df_filtrado_tabela['Variação %'].str.replace('%', '').str.replace('+', '').astype(float)
+            df_filtrado_tabela = df_filtrado_tabela.sort_values('Var_Num', ascending=True)
+        elif ordenacao == "Maior Qtd Atual":
+            if 'Qtd_Atual' in df_filtrado_tabela.columns:
+                df_filtrado_tabela['Qtd_Num'] = df_filtrado_tabela['Qtd_Atual'].str.replace(' ', '').astype(float)
+                df_filtrado_tabela = df_filtrado_tabela.sort_values('Qtd_Num', ascending=False)
             else:
-                st.info("São necessários dados de pelo menos 2 anos diferentes para comparação")
-                
+                df_filtrado_tabela = df_filtrado_tabela.sort_values('Cliente')
+        else:
+            df_filtrado_tabela = df_filtrado_tabela.sort_values('Cliente')
+        
+        # Exibir tabela
+        st.subheader(f"Visão Detalhada dos Clientes ({len(df_filtrado_tabela)} clientes)")
+        
+        # Função para colorir as células baseado no alerta
+        def colorir_linhas(row):
+            alerta = row['Alerta']
+            if '🔴' in alerta or 'Parou' in alerta:
+                return ['background-color: #ffe6e6'] * len(row)
+            elif '🟢' in alerta or 'Novo' in alerta:
+                return ['background-color: #e8f5e8'] * len(row)
+            elif '🟡' in alerta:
+                return ['background-color: #fff3e0'] * len(row)
+            elif '🟠' in alerta:
+                return ['background-color: #fbe9e7'] * len(row)
+            else:
+                return [''] * len(row)
+        
+        # Aplicar estilo à tabela
+        styled_df = df_filtrado_tabela.style.apply(colorir_linhas, axis=1)
+        
+        st.dataframe(styled_df, width='stretch', height=600)
+        
+        # Estatísticas dos alertas
+        st.subheader("📈 Estatísticas dos Alertas")
+        contagem_alertas = df_filtrado_tabela['Alerta'].value_counts()
+        
+        col_stat1, col_stat2, col_stat3 = st.columns(3)
+        
+        with col_stat1:
+            st.write("**Distribuição de Alertas:**")
+            for alerta, count in contagem_alertas.items():
+                st.write(f"{alerta}: {count} clientes")
+        
+        with col_stat2:
+            # Calcular variação média (excluindo novos clientes e inativos)
+            variacoes_numericas = df_filtrado_tabela[
+                ~df_filtrado_tabela['Alerta'].isin(['🟢 Novo Cliente', '🔴 Parou de Comprar'])
+            ]['Variação %'].str.replace('%', '').str.replace('+', '').astype(float)
+            
+            if not variacoes_numericas.empty:
+                media_variacao = variacoes_numericas.mean()
+                st.metric("Variação Média", f"{media_variacao:+.1f}%")
+        
+        with col_stat3:
+            # Clientes com maior crescimento
+            st.write("**Maiores Crescimentos:**")
+            top_crescimentos = df_filtrado_tabela.nlargest(3, 'Var_Num') if 'Var_Num' in df_filtrado_tabela.columns else pd.DataFrame()
+            for _, row in top_crescimentos.iterrows():
+                st.write(f"📈 {row['Cliente']}: {row['Variação %']}")
+        
+        # Botão de exportação
+        st.download_button(
+            "📥 Exportar Tabela Geral",
+            to_excel(df_filtrado_tabela),
+            "tabela_geral_clientes.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        
     else:
-        st.error("🚨 **Nenhum registro válido encontrado após processamento!**")
-        st.warning("""
-        **Possíveis causas:**
-        - Formato das datas não reconhecido
-        - Valores nulos ou inválidos nas colunas 'Mes' e 'Ano'
-        - Formato diferente do esperado
-        """)
+        st.warning("Não foi possível gerar a tabela geral. Verifique se há dados suficientes para análise.")
+
+    # -------------------------------------------------
+    # RESTANTE DO CÓDIGO (mantenha as outras seções existentes)
+    # -------------------------------------------------
 
 # -------------------------------------------------
 # FOOTER
