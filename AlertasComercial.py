@@ -1,129 +1,248 @@
-# pages/AlertasComercial.py
+# app.py
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import re
 from datetime import datetime
 
-st.set_page_config(page_title="Alertas de Compras", page_icon="Alert", layout="wide")
+# --- Configuração da Página ---
+st.set_page_config(page_title="Dashboard Comercial", page_icon="📊", layout="wide")
 
-# ---------- CSS ----------
-st.markdown(
-    """
+# --- CSS ---
+st.markdown("""
 <style>
-    .main-header {font-size:2.5rem; color:#1f77b4; text-align:center; margin:2rem 0; font-weight:700;}
-    .section-header {font-size:1.6rem; color:#2c3e50; margin:2rem 0 1rem; padding-bottom:0.5rem;
+    .main-header {font-size:2.8rem; color:#1f77b4; text-align:center; margin:2rem 0; font-weight:700;}
+    .section-header {font-size:1.7rem; color:#2c3e50; margin:2rem 0 1rem; padding-bottom:0.5rem;
                      border-bottom:3px solid #3498db; font-weight:600;}
+    .metric-card {background-color:#f8f9fa; padding:1rem; border-radius:10px; text-align:center;}
+    .alert-box {background-color:#fff3cd; padding:1rem; border-radius:8px; border-left:4px solid #ffc107; margin:1rem 0;}
 </style>
-""",
-    unsafe_allow_html=True,
-)
+""", unsafe_allow_html=True)
 
-st.markdown("<h1 class='main-header'>Alertas de Compras</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='main-header'>📊 Dashboard Comercial</h1>", unsafe_allow_html=True)
 
-# ---------- Voltar ----------
-if st.button("Voltar ao Dashboard Principal"):
-    st.switch_page("Dashboard_Principal.py")
+# --- Inicializar Session State ---
+if 'df' not in st.session_state:
+    st.session_state.df = None
 
-# ---------- Dados ----------
-if "df_filtrado" not in st.session_state:
-    st.error("Volte ao Dashboard Principal para carregar os dados.")
-    st.stop()
+# --- Upload de Dados ---
+with st.expander("📁 Carregar Dados (CSV/Excel)", expanded=True):
+    uploaded_file = st.file_uploader("Escolha um arquivo", type=["csv", "xlsx"])
+    
+    if uploaded_file:
+        try:
+            if uploaded_file.name.endswith('.csv'):
+                df = pd.read_csv(uploaded_file)
+            else:
+                df = pd.read_excel(uploaded_file)
+            
+            # Validar colunas obrigatórias
+            required_cols = ['Mes', 'Ano', 'Cliente', 'Qtd']
+            missing_cols = [col for col in required_cols if col not in df.columns]
+            
+            if missing_cols:
+                st.error(f"❌ Colunas obrigatórias faltando: {', '.join(missing_cols)}")
+                st.info(f"📋 Colunas esperadas: {', '.join(required_cols)}")
+                st.stop()
+            
+            st.session_state.df = df.copy()
+            st.success(f"✅ Dados carregados com sucesso: {len(df)} linhas e {len(df.columns)} colunas")
+            
+        except Exception as e:
+            st.error(f"❌ Erro ao carregar arquivo: {str(e)}")
+            st.stop()
+    else:
+        st.info("📥 Carregue um arquivo CSV ou Excel para começar.")
+        st.stop()
 
-df = st.session_state.df_filtrado
+df = st.session_state.df.copy()
 
-# ---------- Padronizar Mês/Ano ----------
-meses = {
-    "jan": 1, "fev": 2, "mar": 3, "abr": 4, "mai": 5, "jun": 6,
-    "jul": 7, "ago": 8, "set": 9, "out": 10, "nov": 11, "dez": 12,
-    "1": 1, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6,
-    "7": 7, "8": 8, "9": 9, "10": 10, "11": 11, "12": 12,
+# --- Padronização de Mês/Ano ---
+meses_map = {
+    'jan':1,'fev':2,'mar':3,'abr':4,'mai':5,'jun':6,'jul':7,'ago':8,'set':9,'out':10,'nov':11,'dez':12,
+    'janeiro':1,'fevereiro':2,'março':3,'abril':4,'maio':5,'junho':6,'julho':7,'agosto':8,
+    'setembro':9,'outubro':10,'novembro':11,'dezembro':12,
+    '1':1,'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'11':11,'12':12
 }
 
 def norm_mes(x):
-    x = re.sub(r"\D", "", str(x).lower())
-    return f"{meses.get(x, 0):02d}" if meses.get(x) else None
+    try:
+        x_str = str(x).lower().strip()
+        x_clean = re.sub(r'\D', '', x_str)
+        mes_num = meses_map.get(x_str, meses_map.get(x_clean, None))
+        return f"{mes_num:02d}" if mes_num else None
+    except:
+        return None
 
 def norm_ano(x):
-    x = re.sub(r"\D", "", str(x))
-    if len(x) == 4: return x
-    if len(x) == 2: return f"20{x}" if int(x) < 50 else f"19{x}"
-    return None
+    try:
+        x_clean = re.sub(r'\D', '', str(x).strip())
+        if len(x_clean) == 4:
+            return x_clean
+        elif len(x_clean) == 2:
+            ano_int = int(x_clean)
+            return f"20{x_clean}" if ano_int < 50 else f"19{x_clean}"
+        return None
+    except:
+        return None
 
-df["Mes"] = df["Mes"].apply(norm_mes)
-df["Ano"] = df["Ano"].apply(norm_ano)
-df = df.dropna(subset=["Mes", "Ano"]).copy()
-df["Periodo"] = df["Ano"] + "-" + df["Mes"]
+# Aplicar normalizações
+df['Mes'] = df['Mes'].apply(norm_mes)
+df['Ano'] = df['Ano'].apply(norm_ano)
+df['Qtd'] = pd.to_numeric(df['Qtd'], errors='coerce')
 
-mes_nome = {f"{i:02d}": m for i, m in enumerate("Jan Fev Mar Abr Mai Jun Jul Ago Set Out Nov Dez".split(), 1)}
-df["Mes_Nome"] = df["Mes"].map(mes_nome)
+# Remover linhas inválidas
+rows_before = len(df)
+df = df.dropna(subset=['Mes', 'Ano', 'Cliente', 'Qtd']).copy()
+df = df[df['Qtd'] > 0].copy()
 
-# ---------- Análise ----------
-if df["Periodo"].nunique() < 2:
-    st.warning("São necessários pelo menos 2 períodos.")
+if len(df) == 0:
+    st.error("❌ Nenhum dado válido após processamento")
     st.stop()
 
-agg = df.groupby(["Cliente", "Periodo"])["Qtd"].sum().reset_index()
-periodos = sorted(agg["Periodo"].unique())
-atual, anterior = periodos[-1], periodos[-2]
+if len(df) < rows_before:
+    st.warning(f"⚠️ {rows_before - len(df)} linhas removidas por dados inválidos")
 
-pivot = agg.pivot(index="Cliente", columns="Periodo", values="Qtd").fillna(0)
-pivot["Atual"] = pivot[atual]
-pivot["Anterior"] = pivot[anterior]
-pivot["Var_%"] = ((pivot["Atual"] - pivot["Anterior"]) / pivot["Anterior"].replace(0, 1)) * 100
+df['Periodo'] = df['Ano'] + '-' + df['Mes']
+df['Cliente'] = df['Cliente'].str.strip()
 
-subidas  = pivot[pivot["Var_%"] > 20].copy()
-descidas = pivot[pivot["Var_%"] < -20].copy()
-inativos = pivot[(pivot["Anterior"] > 0) & (pivot["Atual"] == 0)].copy()
+# --- Análise de Tendências ---
+has_multiple_periods = df['Periodo'].nunique() >= 2
 
-subidas  = subidas.sort_values("Var_%", ascending=False)[["Anterior", "Atual", "Var_%"]]
-descidas = descidas.sort_values("Var_%")[["Anterior", "Atual", "Var_%"]]
-inativos = inativos.sort_values("Anterior", ascending=False)[["Anterior", "Atual"]]
+if not has_multiple_periods:
+    st.warning("⚠️ São necessários pelo menos 2 períodos para análise de alertas.")
+    subidas = descidas = inativos = pd.DataFrame()
+else:
+    agg = df.groupby(['Cliente', 'Periodo'])['Qtd'].sum().reset_index()
+    periodos = sorted(agg['Periodo'].unique())
+    atual, anterior = periodos[-1], periodos[-2]
 
-subidas  = subidas.reset_index()
-descidas = descidas.reset_index()
-inativos = inativos.reset_index()
-inativos["Var_%"] = -100   # <-- correção aqui
+    pivot = agg.pivot(index='Cliente', columns='Periodo', values='Qtd').fillna(0)
+    pivot['Atual'] = pivot[atual]
+    pivot['Anterior'] = pivot[anterior]
+    pivot['Var_%'] = ((pivot['Atual'] - pivot['Anterior']) / pivot['Anterior'].replace(0, 1)) * 100
 
-# ---------- UI ----------
-st.markdown("<div class='section-header'>Análise de Tendências</div>", unsafe_allow_html=True)
+    subidas = pivot[pivot['Var_%'] > 20].copy()
+    descidas = pivot[pivot['Var_%'] < -20].copy()
+    inativos = pivot[(pivot['Anterior'] > 0) & (pivot['Atual'] == 0)].copy()
 
-c1, c2, c3 = st.columns(3)
-c1.metric("Subidas", len(subidas))
-c2.metric("Descidas", len(descidas))
-c3.metric("Inativos", len(inativos))
+    subidas = subidas.sort_values('Var_%', ascending=False)[['Anterior', 'Atual', 'Var_%']].reset_index()
+    descidas = descidas.sort_values('Var_%')[['Anterior', 'Atual', 'Var_%']].reset_index()
+    inativos = inativos.sort_values('Anterior', ascending=False)[['Anterior', 'Atual']].reset_index()
+    inativos['Var_%'] = -100
 
-t1, t2, t3 = st.tabs(
-    [f"Subidas ({len(subidas)})", f"Descidas ({len(descidas)})", f"Inativos ({len(inativos)})"]
-)
+# --- Abas ---
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "📊 Resumo",
+    "📈 Subidas",
+    "📉 Descidas",
+    "❌ Inativos",
+    "📋 Dados Brutos"
+])
 
-with t1:
-    if not subidas.empty:
-        st.dataframe(subidas, use_container_width=True)
-        fig = px.bar(subidas.head(10), x="Var_%", y="Cliente", orientation="h",
-                     title="Top 10 Subidas", color="Var_%")
-        st.plotly_chart(fig, use_container_width=True)
+# --- Aba 1: Resumo ---
+with tab1:
+    st.markdown("<div class='section-header'>Resumo Geral</div>", unsafe_allow_html=True)
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("👥 Total Clientes", df['Cliente'].nunique())
+    with col2:
+        st.metric("📅 Períodos", df['Periodo'].nunique())
+    with col3:
+        st.metric("📦 Volume Total", f"{df['Qtd'].sum():,.0f}")
+    with col4:
+        st.metric("🕐 Atualização", datetime.now().strftime("%d/%m/%Y %H:%M"))
+
+    if has_multiple_periods:
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("📈 Subidas (>20%)", len(subidas), delta="+", delta_color="normal")
+        with col2:
+            st.metric("📉 Descidas (>20%)", len(descidas), delta="-", delta_color="inverse")
+        with col3:
+            st.metric("❌ Inativos", len(inativos), delta="-", delta_color="inverse")
+        
+        # Gráfico de evolução geral
+        st.markdown("<div class='section-header'>Evolução Geral de Vendas</div>", unsafe_allow_html=True)
+        evolucao = df.groupby('Periodo')['Qtd'].sum().reset_index()
+        fig_evolucao = px.line(evolucao, x='Periodo', y='Qtd', markers=True,
+                              title="Volume Total por Período",
+                              labels={'Qtd': 'Volume', 'Periodo': 'Período'})
+        fig_evolucao.update_traces(line=dict(color='#1f77b4', width=3), marker=dict(size=8))
+        st.plotly_chart(fig_evolucao, use_container_width=True)
+
+# --- Aba 2: Subidas ---
+with tab2:
+    st.markdown("<div class='section-header'>📈 Clientes com Subida Significativa (>20%)</div>", unsafe_allow_html=True)
+    if not has_multiple_periods:
+        st.info("ℹ️ Carregue dados com pelo menos 2 períodos.")
+    elif subidas.empty:
+        st.success("✅ Nenhum cliente com subida > 20%")
     else:
-        st.success("Nenhum cliente com subida > 20%")
-
-with t2:
-    if not descidas.empty:
-        st.dataframe(descidas, use_container_width=True)
-        fig = px.bar(descidas.head(10), x="Var_%", y="Cliente", orientation="h",
-                     title="Top 10 Descidas", color="Var_%")
+        st.dataframe(subidas.style.format({'Anterior': '{:.0f}', 'Atual': '{:.0f}', 'Var_%': '{:.1f}%'}),
+                    use_container_width=True, hide_index=True)
+        
+        fig = px.bar(subidas.head(10), x='Var_%', y='Cliente', orientation='h',
+                     title="🔝 Top 10 Maiores Subidas", color='Var_%',
+                     color_continuous_scale='Greens', labels={'Var_%': 'Variação %', 'Cliente': ''})
         st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.success("Nenhum cliente com descida > 20%")
 
-with t3:
-    if not inativos.empty:
-        st.dataframe(inativos, use_container_width=True)
-        fig = px.bar(inativos.head(10), x="Anterior", y="Cliente", orientation="h",
-                     title="Top 10 Volumes Perdidos", color="Anterior")
+# --- Aba 3: Descidas ---
+with tab3:
+    st.markdown("<div class='section-header'>📉 Clientes com Descida Significativa (>20%)</div>", unsafe_allow_html=True)
+    if not has_multiple_periods:
+        st.info("ℹ️ Carregue dados com pelo menos 2 períodos.")
+    elif descidas.empty:
+        st.success("✅ Nenhum cliente com descida > 20%")
+    else:
+        st.dataframe(descidas.style.format({'Anterior': '{:.0f}', 'Atual': '{:.0f}', 'Var_%': '{:.1f}%'}),
+                    use_container_width=True, hide_index=True)
+        
+        fig = px.bar(descidas.head(10), x='Var_%', y='Cliente', orientation='h',
+                     title="🔻 Top 10 Maiores Descidas", color='Var_%',
+                     color_continuous_scale='Reds', labels={'Var_%': 'Variação %', 'Cliente': ''})
         st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.success("Nenhum cliente parou de comprar")
 
-# ---------- Footer ----------
+# --- Aba 4: Inativos ---
+with tab4:
+    st.markdown("<div class='section-header'>❌ Clientes que Pararam de Comprar</div>", unsafe_allow_html=True)
+    if not has_multiple_periods:
+        st.info("ℹ️ Carregue dados com pelo menos 2 períodos.")
+    elif inativos.empty:
+        st.success("✅ Nenhum cliente inativo")
+    else:
+        st.dataframe(inativos[['Cliente', 'Anterior', 'Var_%']].style.format({'Anterior': '{:.0f}', 'Var_%': '{:.0f}%'}),
+                    use_container_width=True, hide_index=True)
+        
+        fig = px.bar(inativos.head(10), x='Anterior', y='Cliente', orientation='h',
+                     title="💔 Top 10 Maiores Volumes Perdidos", color='Anterior',
+                     color_continuous_scale='Oranges', labels={'Anterior': 'Volume Perdido', 'Cliente': ''})
+        st.plotly_chart(fig, use_container_width=True)
+
+# --- Aba 5: Dados Brutos ---
+with tab5:
+    st.markdown("<div class='section-header'>📋 Tabela de Dados Processados</div>", unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        cliente_filter = st.multiselect("Filtrar por Cliente:", sorted(df['Cliente'].unique()), key="cliente_filter")
+    with col2:
+        periodo_filter = st.multiselect("Filtrar por Período:", sorted(df['Periodo'].unique()), key="periodo_filter")
+    
+    df_filtered = df.copy()
+    if cliente_filter:
+        df_filtered = df_filtered[df_filtered['Cliente'].isin(cliente_filter)]
+    if periodo_filter:
+        df_filtered = df_filtered[df_filtered['Periodo'].isin(periodo_filter)]
+    
+    st.dataframe(df_filtered.sort_values('Periodo', ascending=False), use_container_width=True, hide_index=True)
+    
+    # Exportar dados
+    csv = df_filtered.to_csv(index=False)
+    st.download_button(label="📥 Baixar CSV", data=csv, file_name="dados_comerciais.csv", mime="text/csv")
+
+# --- Footer ---
 st.markdown("---")
-st.caption(f"Atualizado em: {datetime.now():%d/%m/%Y %H:%M}")
+st.caption(f"Dashboard atualizado em: {datetime.now():%d/%m/%Y %H:%M} | Portugal (WET) | Versão 2.0")
