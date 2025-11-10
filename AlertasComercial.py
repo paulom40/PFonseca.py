@@ -1,336 +1,361 @@
-# app.py
 import streamlit as st
 import pandas as pd
+import json
+from pathlib import Path
+import numpy as np
 import plotly.express as px
-import plotly.graph_objects as go
-import re
 from datetime import datetime
+from io import BytesIO
+import re
 
-# --- Configuração da Página ---
-st.set_page_config(page_title="Dashboard Comercial", page_icon="📊", layout="wide")
+# -------------------------------------------------
+# CONFIGURAÇÃO DA PÁGINA
+# -------------------------------------------------
+st.set_page_config(
+    page_title="Dashboard de Vendas - BI",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# --- CSS ---
+# -------------------------------------------------
+# CSS + LOGO
+# -------------------------------------------------
 st.markdown("""
 <style>
-    .main-header {font-size:2.8rem; color:#1f77b4; text-align:center; margin:2rem 0; font-weight:700;}
-    .section-header {font-size:1.7rem; color:#2c3e50; margin:2rem 0 1rem; padding-bottom:0.5rem;
-                     border-bottom:3px solid #3498db; font-weight:600;}
-    .metric-card {background-color:#f8f9fa; padding:1rem; border-radius:10px; text-align:center;}
-    .alert-box {background-color:#fff3cd; padding:1rem; border-radius:8px; border-left:4px solid #ffc107; margin:1rem 0;}
+    .main-header {font-size:2.5rem;color:#1f77b4;text-align:center;margin-bottom:2rem;font-weight:700;}
+    .metric-card {background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:1.5rem;border-radius:15px;color:white;box-shadow:0 4px 6px rgba(0,0,0,0.1);}
+    .section-header {font-size:1.5rem;color:#2c3e50;margin:2rem 0 1rem 0;padding-bottom:0.5rem;border-bottom:3px solid #3498db;font-weight:600;}
+    .alerta-critico {color: #8B0000; font-weight: bold; background-color: #ffe6e6; padding: 2px 6px; border-radius: 4px;}
+    .alerta-alto {color: #d32f2f; font-weight: bold;}
+    .alerta-moderado {color: #f57c00; font-weight: bold;}
+    .alerta-positivo {color: #2e7d32; font-weight: bold; background-color: #e8f5e8; padding: 2px 6px; border-radius: 4px;}
+    .alerta-negativo {color: #8B0000; font-weight: bold; background-color: #ffe6e6; padding: 2px 6px; border-radius: 4px;}
+    .logo-container {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        z-index: 1000;
+        background: white;
+        padding: 5px;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .logo-container img {
+        height: 70px;
+        width: auto;
+    }
+    .nav-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        border-left: 5px solid #3498db;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: transform 0.2s;
+    }
+    .nav-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h1 class='main-header'>📊 Dashboard Comercial</h1>", unsafe_allow_html=True)
+# LOGO
+st.markdown(f"""
+<div class="logo-container">
+    <img src="https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png" alt="Bracar Logo">
+</div>
+""", unsafe_allow_html=True)
 
-# --- Inicializar Session State ---
-if 'df' not in st.session_state:
-    st.session_state.df = None
-
-# --- Funções de Carregamento ---
-def carregar_excel_com_opcoes(uploaded_file):
-    """Tenta carregar Excel com diferentes opções"""
+# -------------------------------------------------
+# FUNÇÕES GLOBAIS
+# -------------------------------------------------
+def formatar_numero_pt(valor, simbolo="", sinal_forcado=False):
+    if pd.isna(valor):
+        return "N/D"
     try:
-        # Primeiro tenta a primeira sheet
-        df = pd.read_excel(uploaded_file, sheet_name=0)
+        valor = float(valor)
+        sinal = "+" if sinal_forcado and valor >= 0 else ("-" if valor < 0 else "")
+        valor_abs = abs(valor)
+        if valor_abs == int(valor_abs):
+            return f"{sinal}{simbolo}{valor_abs:,.0f}".replace(",", " ")
+        else:
+            return f"{sinal}{simbolo}{valor_abs:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except:
+        return "N/D"
+
+def to_excel(df, sheet_name="Dados"):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name=sheet_name)
+    return output.getvalue()
+
+@st.cache_data
+def load_all_data():
+    try:
+        url = "https://github.com/paulom40/PFonseca.py/raw/main/VendasGeraisTranf.xlsx"
+        df = pd.read_excel(url, thousands=None, decimal=',')
+        
+        # Mapeamento de colunas
+        mapeamento_possivel = {
+            'Código': 'Codigo', 
+            'Cliente': 'Cliente', 
+            'Qtd.': 'Qtd', 
+            'Qtd': 'Qtd',
+            'UN': 'UN',
+            'PM': 'PM', 
+            'V. Líquido': 'V_Liquido', 
+            'V Líquido': 'V_Liquido',
+            'Artigo': 'Artigo',
+            'Comercial': 'Comercial', 
+            'Categoria': 'Categoria',
+            'Mês': 'Mes', 
+            'Mes': 'Mes',
+            'Ano': 'Ano'
+        }
+        
+        mapeamento = {}
+        for col_orig, col_novo in mapeamento_possivel.items():
+            if col_orig in df.columns:
+                mapeamento[col_orig] = col_novo
+        
+        df = df.rename(columns=mapeamento)
+        
+        # Processar colunas
+        colunas_string = ['UN', 'Artigo', 'Cliente', 'Comercial', 'Categoria', 'Mes', 'Ano']
+        for col in colunas_string:
+            if col in df.columns:
+                df[col] = df[col].astype(str).replace({'nan': 'N/D', 'None': 'N/D'})
+        
+        for col in ['V_Liquido', 'Qtd', 'PM']:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+        
         return df
-    except Exception as e1:
-        try:
-            # Se falhar, lista as sheets disponíveis
-            xls = pd.ExcelFile(uploaded_file)
-            st.warning(f"Erro na primeira sheet. Sheets disponíveis: {xls.sheet_names}")
-            sheet = st.selectbox("Escolha a sheet:", xls.sheet_names)
-            df = pd.read_excel(uploaded_file, sheet_name=sheet)
-            return df
-        except Exception as e2:
-            st.error(f"Erro ao carregar: {str(e2)}")
-            return None
-
-def mapear_colunas(df):
-    """Tenta identificar automaticamente as colunas relevantes"""
-    colunas_lower = {col.lower().strip(): col for col in df.columns}
-    
-    # Mapeamento de possíveis nomes
-    mapeamento = {
-        'mes': ['mes', 'mês', 'month', 'mês'],
-        'ano': ['ano', 'year', 'ano'],
-        'cliente': ['cliente', 'client', 'customer', 'nome_cliente'],
-        'qtd': ['qtd', 'quantidade', 'qty', 'volume', 'vendas']
-    }
-    
-    colunas_encontradas = {}
-    for chave, opcoes in mapeamento.items():
-        for opcao in opcoes:
-            if opcao in colunas_lower:
-                colunas_encontradas[chave] = colunas_lower[opcao]
-                break
-    
-    return colunas_encontradas
-
-# --- Upload de Dados ---
-with st.expander("📁 Carregar Dados (CSV/Excel)", expanded=True):
-    tab_upload, tab_url = st.tabs(["📤 Upload Local", "🔗 URL do GitHub"])
-    
-    df_loaded = False
-    
-    with tab_upload:
-        uploaded_file = st.file_uploader("Escolha um arquivo", type=["csv", "xlsx"])
-        if uploaded_file:
-            df_loaded = True
-            df = pd.read_excel(uploaded_file) if uploaded_file.name.endswith('.xlsx') else pd.read_csv(uploaded_file)
-    
-    with tab_url:
-        github_url = st.text_input("Cole o link do GitHub:", 
-                                   value="https://github.com/paulom40/PFonseca.py/blob/main/VendasGeraisTranf.xlsx")
         
-        if st.button("📥 Carregar do GitHub"):
-            try:
-                with st.spinner("Carregando ficheiro..."):
-                    # Converter link /blob/ para /raw/
-                    raw_url = github_url.replace("/blob/", "/raw/")
-                    st.write(f"🔗 URL convertida: {raw_url}")
-                    
-                    if raw_url.endswith('.xlsx'):
-                        df = pd.read_excel(raw_url)
-                    else:
-                        df = pd.read_csv(raw_url)
-                    df_loaded = True
-                    st.success("✅ Ficheiro carregado com sucesso!")
-            except Exception as e:
-                st.error(f"❌ Erro ao carregar: {str(e)}")
-                st.info("💡 O link será automaticamente convertido de /blob/ para /raw/")
-                st.write(f"URL convertida: {github_url.replace('/blob/', '/raw/')}")
+    except Exception as e:
+        st.error(f"Erro ao carregar dados: {e}")
+        return pd.DataFrame()
+
+# -------------------------------------------------
+# SIDEBAR (COMUM PARA TODAS AS PÁGINAS)
+# -------------------------------------------------
+with st.sidebar:
+    st.markdown("<div class='metric-card'>Painel de Controle</div>", unsafe_allow_html=True)
     
-    if df_loaded:
-        try:
-            st.info(f"📊 Ficheiro carregado: {len(df)} linhas, {len(df.columns)} colunas")
-            st.write("**Colunas disponíveis:**", list(df.columns))
-            
-            # Tentar mapear colunas automaticamente
-            mapa = mapear_colunas(df)
-            
-            if len(mapa) < 4:
-                st.warning("❌ Nem todas as colunas foram identificadas automaticamente")
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    mes_col = st.selectbox("Coluna Mês:", df.columns, index=list(df.columns).index(mapa.get('mes', df.columns[0])) if 'mes' in mapa else 0)
-                with col2:
-                    ano_col = st.selectbox("Coluna Ano:", df.columns, index=list(df.columns).index(mapa.get('ano', df.columns[0])) if 'ano' in mapa else 1)
-                with col3:
-                    cliente_col = st.selectbox("Coluna Cliente:", df.columns, index=list(df.columns).index(mapa.get('cliente', df.columns[0])) if 'cliente' in mapa else 2)
-                with col4:
-                    qtd_col = st.selectbox("Coluna Qtd:", df.columns, index=list(df.columns).index(mapa.get('qtd', df.columns[0])) if 'qtd' in mapa else 3)
-            else:
-                mes_col = mapa['mes']
-                ano_col = mapa['ano']
-                cliente_col = mapa['cliente']
-                qtd_col = mapa['qtd']
-                st.success("✅ Colunas identificadas automaticamente!")
-            
-            # Renomear colunas para o padrão esperado
-            df.rename(columns={
-                mes_col: 'Mes',
-                ano_col: 'Ano',
-                cliente_col: 'Cliente',
-                qtd_col: 'Qtd'
-            }, inplace=True)
-            
-            st.session_state.df = df[['Mes', 'Ano', 'Cliente', 'Qtd']].copy()
-            st.success(f"✅ Dados mapeados com sucesso!")
-            
-        except Exception as e:
-            st.error(f"❌ Erro ao processar dados: {str(e)}")
-            st.stop()
+    # Presets
+    preset_path = Path("diagnosticos/presets_filtros.json")
+    preset_path.parent.mkdir(exist_ok=True)
+    
+    def carregar_presets():
+        if preset_path.exists():
+            with open(preset_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        return {}
+    
+    def salvar_preset(nome, filtros):
+        presets = carregar_presets()
+        presets[nome] = filtros
+        with open(preset_path, "w", encoding="utf-8") as f:
+            json.dump(presets, f, indent=2)
+    
+    presets = carregar_presets()
+    preset_selecionado = st.selectbox("Configuração", [""] + list(presets.keys()))
+    filtros = presets.get(preset_selecionado, {}) if preset_selecionado else {}
+
+    st.markdown("---")
+    st.markdown("### Filtros")
+    
+    df = load_all_data()
+    
+    def criar_filtro(label, coluna, default=None):
+        if coluna not in df.columns or df.empty: 
+            return []
+        opcoes = sorted(df[coluna].dropna().astype(str).unique())
+        return st.multiselect(label, opcoes, default=default or [])
+    
+    # Criar filtros apenas para colunas que existem
+    clientes = criar_filtro("Clientes", "Cliente", filtros.get("Cliente"))
+    
+    if 'Artigo' in df.columns:
+        artigos = criar_filtro("Artigos", "Artigo", filtros.get("Artigo"))
     else:
-        st.info("📥 Carregue um arquivo ou use uma URL do GitHub para começar.")
-        st.stop()
+        artigos = []
+    
+    if 'Comercial' in df.columns:
+        comerciais = criar_filtro("Comerciais", "Comercial", filtros.get("Comercial"))
+    else:
+        comerciais = []
+    
+    if 'Categoria' in df.columns:
+        categorias = criar_filtro("Categorias", "Categoria", filtros.get("Categoria"))
+    else:
+        categorias = []
+    
+    if 'Mes' in df.columns:
+        meses = criar_filtro("Meses", "Mes", filtros.get("Mes"))
+    else:
+        meses = []
+    
+    if 'Ano' in df.columns:
+        anos = criar_filtro("Anos", "Ano", filtros.get("Ano"))
+    else:
+        anos = []
 
-df = st.session_state.df.copy()
+    st.markdown("---")
+    nome_preset = st.text_input("Nome da configuração")
+    if st.button("Salvar Configuração") and nome_preset:
+        salvar_preset(nome_preset, {"Cliente": clientes, "Artigo": artigos, "Comercial": comerciais,
+                                   "Categoria": categorias, "Mes": meses, "Ano": anos})
+        st.success(f"Salvo: {nome_preset}")
 
-# --- Padronização de Mês/Ano ---
-meses_map = {
-    'jan':1,'fev':2,'mar':3,'abr':4,'mai':5,'jun':6,'jul':7,'ago':8,'set':9,'out':10,'nov':11,'dez':12,
-    'janeiro':1,'fevereiro':2,'março':3,'abril':4,'maio':5,'junho':6,'julho':7,'agosto':8,
-    'setembro':9,'outubro':10,'novembro':11,'dezembro':12,
-    '1':1,'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'11':11,'12':12
-}
+# Aplicar filtros
+df_filtrado = df.copy()
+if clientes: df_filtrado = df_filtrado[df_filtrado['Cliente'].isin(clientes)]
+if artigos: df_filtrado = df_filtrado[df_filtrado['Artigo'].isin(artigos)]
+if comerciais: df_filtrado = df_filtrado[df_filtrado['Comercial'].isin(comerciais)]
+if categorias: df_filtrado = df_filtrado[df_filtrado['Categoria'].isin(categorias)]
+if meses: df_filtrado = df_filtrado[df_filtrado['Mes'].isin(meses)]
+if anos: df_filtrado = df_filtrado[df_filtrado['Ano'].isin(anos)]
 
-def norm_mes(x):
-    try:
-        x_str = str(x).lower().strip()
-        x_clean = re.sub(r'\D', '', x_str)
-        mes_num = meses_map.get(x_str, meses_map.get(x_clean, None))
-        return f"{mes_num:02d}" if mes_num else None
-    except:
-        return None
+# Salvar dados filtrados na sessão para outras páginas
+st.session_state.df_filtrado = df_filtrado
+st.session_state.df_original = df
 
-def norm_ano(x):
-    try:
-        x_clean = re.sub(r'\D', '', str(x).strip())
-        if len(x_clean) == 4:
-            return x_clean
-        elif len(x_clean) == 2:
-            ano_int = int(x_clean)
-            return f"20{x_clean}" if ano_int < 50 else f"19{x_clean}"
-        return None
-    except:
-        return None
+# -------------------------------------------------
+# PÁGINA PRINCIPAL
+# -------------------------------------------------
+st.markdown("<h1 class='main-header'>Dashboard de Vendas - BI Completo</h1>", unsafe_allow_html=True)
 
-# Aplicar normalizações
-df['Mes'] = df['Mes'].apply(norm_mes)
-df['Ano'] = df['Ano'].apply(norm_ano)
-df['Qtd'] = pd.to_numeric(df['Qtd'], errors='coerce')
-
-# Remover linhas inválidas
-rows_before = len(df)
-df = df.dropna(subset=['Mes', 'Ano', 'Cliente', 'Qtd']).copy()
-df = df[df['Qtd'] > 0].copy()
-
-if len(df) == 0:
-    st.error("❌ Nenhum dado válido após processamento")
-    st.stop()
-
-if len(df) < rows_before:
-    st.warning(f"⚠️ {rows_before - len(df)} linhas removidas por dados inválidos")
-
-df['Periodo'] = df['Ano'] + '-' + df['Mes']
-df['Cliente'] = df['Cliente'].str.strip()
-
-# --- Análise de Tendências ---
-has_multiple_periods = df['Periodo'].nunique() >= 2
-
-if not has_multiple_periods:
-    st.warning("⚠️ São necessários pelo menos 2 períodos para análise de alertas.")
-    subidas = descidas = inativos = pd.DataFrame()
+if df.empty:
+    st.error("Erro ao carregar dados.")
+elif df_filtrado.empty:
+    st.warning("Nenhum dado com os filtros aplicados.")
 else:
-    agg = df.groupby(['Cliente', 'Periodo'])['Qtd'].sum().reset_index()
-    periodos = sorted(agg['Periodo'].unique())
-    atual, anterior = periodos[-1], periodos[-2]
+    st.success(f"**{len(df_filtrado):,}** registos carregados com sucesso")
 
-    pivot = agg.pivot(index='Cliente', columns='Periodo', values='Qtd').fillna(0)
-    pivot['Atual'] = pivot[atual]
-    pivot['Anterior'] = pivot[anterior]
-    pivot['Var_%'] = ((pivot['Atual'] - pivot['Anterior']) / pivot['Anterior'].replace(0, 1)) * 100
-
-    subidas = pivot[pivot['Var_%'] > 20].copy()
-    descidas = pivot[pivot['Var_%'] < -20].copy()
-    inativos = pivot[(pivot['Anterior'] > 0) & (pivot['Atual'] == 0)].copy()
-
-    subidas = subidas.sort_values('Var_%', ascending=False)[['Anterior', 'Atual', 'Var_%']].reset_index()
-    descidas = descidas.sort_values('Var_%')[['Anterior', 'Atual', 'Var_%']].reset_index()
-    inativos = inativos.sort_values('Anterior', ascending=False)[['Anterior', 'Atual']].reset_index()
-    inativos['Var_%'] = -100
-
-# --- Abas ---
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📊 Resumo",
-    "📈 Subidas",
-    "📉 Descidas",
-    "❌ Inativos",
-    "📋 Dados Brutos"
-])
-
-# --- Aba 1: Resumo ---
-with tab1:
-    st.markdown("<div class='section-header'>Resumo Geral</div>", unsafe_allow_html=True)
+    # -------------------------------------------------
+    # MÉTRICAS RÁPIDAS
+    # -------------------------------------------------
+    st.markdown("<div class='section-header'>📈 Métricas Principais</div>", unsafe_allow_html=True)
     
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
     with col1:
-        st.metric("👥 Total Clientes", df['Cliente'].nunique())
+        if 'V_Liquido' in df_filtrado.columns:
+            st.metric("Vendas Totais", formatar_numero_pt(df_filtrado['V_Liquido'].sum(), "EUR "))
+        else:
+            st.metric("Vendas Totais", "N/D")
+    
     with col2:
-        st.metric("📅 Períodos", df['Periodo'].nunique())
+        st.metric("Quantidade Total", formatar_numero_pt(df_filtrado['Qtd'].sum()))
+    
     with col3:
-        st.metric("📦 Volume Total", f"{df['Qtd'].sum():,.0f}")
+        st.metric("Total Clientes", f"{df_filtrado['Cliente'].nunique():,}")
+    
     with col4:
-        st.metric("🕐 Atualização", datetime.now().strftime("%d/%m/%Y %H:%M"))
-
-    if has_multiple_periods:
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("📈 Subidas (>20%)", len(subidas), delta="+", delta_color="normal")
-        with col2:
-            st.metric("📉 Descidas (>20%)", len(descidas), delta="-", delta_color="inverse")
-        with col3:
-            st.metric("❌ Inativos", len(inativos), delta="-", delta_color="inverse")
-        
-        # Gráfico de evolução geral
-        st.markdown("<div class='section-header'>Evolução Geral de Vendas</div>", unsafe_allow_html=True)
-        evolucao = df.groupby('Periodo')['Qtd'].sum().reset_index()
-        fig_evolucao = px.line(evolucao, x='Periodo', y='Qtd', markers=True,
-                              title="Volume Total por Período",
-                              labels={'Qtd': 'Volume', 'Periodo': 'Período'})
-        fig_evolucao.update_traces(line=dict(color='#1f77b4', width=3), marker=dict(size=8))
-        st.plotly_chart(fig_evolucao, use_container_width=True)
-
-# --- Aba 2: Subidas ---
-with tab2:
-    st.markdown("<div class='section-header'>📈 Clientes com Subida Significativa (>20%)</div>", unsafe_allow_html=True)
-    if not has_multiple_periods:
-        st.info("ℹ️ Carregue dados com pelo menos 2 períodos.")
-    elif subidas.empty:
-        st.success("✅ Nenhum cliente com subida > 20%")
-    else:
-        st.dataframe(subidas.style.format({'Anterior': '{:.0f}', 'Atual': '{:.0f}', 'Var_%': '{:.1f}%'}),
-                    use_container_width=True, hide_index=True)
-        
-        fig = px.bar(subidas.head(10), x='Var_%', y='Cliente', orientation='h',
-                     title="🔝 Top 10 Maiores Subidas", color='Var_%',
-                     color_continuous_scale='Greens', labels={'Var_%': 'Variação %', 'Cliente': ''})
-        st.plotly_chart(fig, use_container_width=True)
-
-# --- Aba 3: Descidas ---
-with tab3:
-    st.markdown("<div class='section-header'>📉 Clientes com Descida Significativa (>20%)</div>", unsafe_allow_html=True)
-    if not has_multiple_periods:
-        st.info("ℹ️ Carregue dados com pelo menos 2 períodos.")
-    elif descidas.empty:
-        st.success("✅ Nenhum cliente com descida > 20%")
-    else:
-        st.dataframe(descidas.style.format({'Anterior': '{:.0f}', 'Atual': '{:.0f}', 'Var_%': '{:.1f}%'}),
-                    use_container_width=True, hide_index=True)
-        
-        fig = px.bar(descidas.head(10), x='Var_%', y='Cliente', orientation='h',
-                     title="🔻 Top 10 Maiores Descidas", color='Var_%',
-                     color_continuous_scale='Reds', labels={'Var_%': 'Variação %', 'Cliente': ''})
-        st.plotly_chart(fig, use_container_width=True)
-
-# --- Aba 4: Inativos ---
-with tab4:
-    st.markdown("<div class='section-header'>❌ Clientes que Pararam de Comprar</div>", unsafe_allow_html=True)
-    if not has_multiple_periods:
-        st.info("ℹ️ Carregue dados com pelo menos 2 períodos.")
-    elif inativos.empty:
-        st.success("✅ Nenhum cliente inativo")
-    else:
-        st.dataframe(inativos[['Cliente', 'Anterior', 'Var_%']].style.format({'Anterior': '{:.0f}', 'Var_%': '{:.0f}%'}),
-                    use_container_width=True, hide_index=True)
-        
-        fig = px.bar(inativos.head(10), x='Anterior', y='Cliente', orientation='h',
-                     title="💔 Top 10 Maiores Volumes Perdidos", color='Anterior',
-                     color_continuous_scale='Oranges', labels={'Anterior': 'Volume Perdido', 'Cliente': ''})
-        st.plotly_chart(fig, use_container_width=True)
-
-# --- Aba 5: Dados Brutos ---
-with tab5:
-    st.markdown("<div class='section-header'>📋 Tabela de Dados Processados</div>", unsafe_allow_html=True)
+        if 'Artigo' in df_filtrado.columns:
+            st.metric("Total Artigos", f"{df_filtrado['Artigo'].nunique():,}")
+        else:
+            st.metric("Total Artigos", "N/D")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        cliente_filter = st.multiselect("Filtrar por Cliente:", sorted(df['Cliente'].unique()), key="cliente_filter")
-    with col2:
-        periodo_filter = st.multiselect("Filtrar por Período:", sorted(df['Periodo'].unique()), key="periodo_filter")
-    
-    df_filtered = df.copy()
-    if cliente_filter:
-        df_filtered = df_filtered[df_filtered['Cliente'].isin(cliente_filter)]
-    if periodo_filter:
-        df_filtered = df_filtered[df_filtered['Periodo'].isin(periodo_filter)]
-    
-    st.dataframe(df_filtered.sort_values('Periodo', ascending=False), use_container_width=True, hide_index=True)
-    
-    # Exportar dados
-    csv = df_filtered.to_csv(index=False)
-    st.download_button(label="📥 Baixar CSV", data=csv, file_name="dados_comerciais.csv", mime="text/csv")
+    with col5:
+        if 'Comercial' in df_filtrado.columns:
+            st.metric("Comerciais", f"{df_filtrado['Comercial'].nunique():,}")
+        else:
+            st.metric("Comerciais", "N/D")
 
-# --- Footer ---
+    # -------------------------------------------------
+    # NAVEGAÇÃO ENTRE PÁGINAS
+    # -------------------------------------------------
+    st.markdown("<div class='section-header'>🚀 Navegação Rápida</div>", unsafe_allow_html=True)
+    
+    col_nav1, col_nav2 = st.columns(2)
+    
+    with col_nav1:
+        st.markdown("""
+        <div class='nav-card'>
+            <h3>🚨 Alertas de Compras</h3>
+            <p>• Subidas e descidas significativas<br>
+            • Clientes que pararam de comprar<br>
+            • Análise de tendências por cliente</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Acessar Alertas", key="alertas", use_container_width=True):
+            st.switch_page("pages/1_🚨_Alertas_Compras.py")
+        
+        st.markdown("""
+        <div class='nav-card'>
+            <h3>📊 Tabela Geral</h3>
+            <p>• Visão mensal completa<br>
+            • Alertas integrados na tabela<br>
+            • Filtros avançados</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Acessar Tabela", key="tabela", use_container_width=True):
+            st.switch_page("pages/2_📊_Tabela_Geral_Clientes.py")
+    
+    with col_nav2:
+        st.markdown("""
+        <div class='nav-card'>
+            <h3>📈 Comparações Mensais</h3>
+            <p>• Mês a mês<br>
+            • Entre anos diferentes<br>
+            • Análise temporal detalhada</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Acessar Comparações", key="comparacoes", use_container_width=True):
+            st.switch_page("pages/3_📈_Comparacoes_Mensais.py")
+        
+        st.markdown("""
+        <div class='nav-card'>
+            <h3>🔍 Análise Detalhada</h3>
+            <p>• Dados completos filtrados<br>
+            • Exportação para Excel<br>
+            • Análise granular</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Acessar Análise", key="analise", use_container_width=True):
+            st.switch_page("pages/4_🔍_Analise_Detalhada.py")
+
+    # -------------------------------------------------
+    # VISUALIZAÇÕES RÁPIDAS
+    # -------------------------------------------------
+    st.markdown("<div class='section-header'>📊 Visualizações Rápidas</div>", unsafe_allow_html=True)
+    
+    tab1, tab2 = st.tabs(["Top Clientes", "Top Artigos"])
+    
+    with tab1:
+        if 'V_Liquido' in df_filtrado.columns:
+            top_clientes = df_filtrado.groupby('Cliente')['V_Liquido'].sum().nlargest(10)
+            if not top_clientes.empty:
+                fig_clientes = px.bar(
+                    top_clientes.reset_index(), 
+                    x='V_Liquido', 
+                    y='Cliente', 
+                    orientation='h',
+                    title="Top 10 Clientes por Vendas",
+                    labels={'V_Liquido': 'Vendas (EUR)', 'Cliente': ''}
+                )
+                st.plotly_chart(fig_clientes, use_container_width=True)
+    
+    with tab2:
+        if 'V_Liquido' in df_filtrado.columns and 'Artigo' in df_filtrado.columns:
+            top_artigos = df_filtrado.groupby('Artigo')['V_Liquido'].sum().nlargest(10)
+            if not top_artigos.empty:
+                fig_artigos = px.bar(
+                    top_artigos.reset_index(), 
+                    x='V_Liquido', 
+                    y='Artigo', 
+                    orientation='h',
+                    title="Top 10 Artigos por Vendas",
+                    labels={'V_Liquido': 'Vendas (EUR)', 'Artigo': ''}
+                )
+                st.plotly_chart(fig_artigos, use_container_width=True)
+
+# -------------------------------------------------
+# FOOTER
+# -------------------------------------------------
 st.markdown("---")
-st.caption(f"Dashboard atualizado em: {datetime.now():%d/%m/%Y %H:%M} | Portugal (WET) | Versão 2.0")
+st.markdown(f"<div style='text-align:center;color:#7f8c8d;'>Atualizado: {datetime.now().strftime('%d/%m/%Y %H:%M')}</div>", unsafe_allow_html=True)
