@@ -39,6 +39,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Logo
 st.markdown(f"""
 <div class="logo-container">
     <img src="https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png" alt="Bracar Logo">
@@ -64,23 +65,40 @@ def to_excel(df, sheet_name="Dados"):
         df.to_excel(writer, index=False, sheet_name=sheet_name)
     return output.getvalue()
 
-# Carregamento dos dados
+# Carregamento dos dados (aba "Dados" do GitHub)
 @st.cache_data
 def load_all_data():
     try:
         url = "https://github.com/paulom40/PFonseca.py/raw/main/VendasGeraisTranf.xlsx"
-        df = pd.read_excel(url, sheet_name="Dados", thousands=None, decimal=',')  # Aba "Dados"
+        df = pd.read_excel(url, sheet_name="Dados", thousands=None, decimal=',')
         
-        mapeamento = { ... }  # igual
+        # Mapeamento de colunas (dict correto)
+        mapeamento = {
+            'Código': 'Codigo',
+            'Cliente': 'Cliente',
+            'Qtd.': 'Qtd',
+            'UN': 'UN',
+            'PM': 'PM',
+            'V. Líquido': 'V_Liquido',
+            'Artigo': 'Artigo',
+            'Comercial': 'Comercial',
+            'Categoria': 'Categoria',
+            'Mês': 'Mes',
+            'Ano': 'Ano'
+        }
         df = df.rename(columns={k: v for k, v in mapeamento.items() if k in df.columns})
         
+        # Tratamento de strings
         colunas_string = ['UN', 'Artigo', 'Cliente', 'Comercial', 'Categoria', 'Mes', 'Ano']
         for col in colunas_string:
             if col in df.columns:
-                df[col] = df[col].astype(str).replace({'nan': 'N/D', 'None': 'N/D'})
+                df[col] = df[col].astype(str).replace({'nan': 'N/D', 'None': 'N/D', '<NA>': 'N/D'})
+        
+        # Conversão numérica
         for col in ['V_Liquido', 'Qtd', 'PM']:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
+        
         return df
     except Exception as e:
         st.error(f"Erro ao carregar a aba 'Dados': {e}")
@@ -181,7 +199,6 @@ def processar_datas_mes_ano(df):
 
     if not df_valido.empty:
         df_valido['Periodo'] = df_valido['Ano_Padronizado'] + '-' + df_valido['Mes_Padronizado']
-        # Nova coluna: data real para ordenação
         df_valido['Periodo_Date'] = pd.to_datetime(df_valido['Periodo'], format='%Y-%m')
         meses_nome = {'01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Abr', '05': 'Mai', '06': 'Jun',
                       '07': 'Jul', '08': 'Ago', '09': 'Set', '10': 'Out', '11': 'Nov', '12': 'Dez'}
@@ -195,7 +212,7 @@ def criar_tabela_geral_clientes(df):
     if df_processado.empty:
         return pd.DataFrame()
 
-    df_agrupado = df_processado.groupby(['Cliente', 'Periodo', 'Periodo_Label', 'Periodo_Date']).agg({
+    df_agrupado = df_processado.groupby(['Cliente', 'Periodo_Label', 'Periodo_Date']).agg({
         'Qtd': 'sum', 'V_Liquido': 'sum'
     }).reset_index()
 
@@ -207,8 +224,13 @@ def criar_tabela_geral_clientes(df):
         index='Cliente', columns='Periodo_Label', values='Qtd', aggfunc='sum', fill_value=0
     ).reset_index()
 
-    # Ordenar colunas por Periodo_Date (mais recente à esquerda)
-    colunas_ordenadas = ['Cliente'] + [label for date in periodos_ordenados for label in df_pivot.columns if label != 'Cliente' and df_agrupado[df_agrupado['Periodo_Label'] == label]['Periodo_Date'].iloc[0] == date]
+    colunas_ordenadas = ['Cliente'] + [col for col in df_pivot.columns[1:] 
+                                      if col in df_agrupado['Periodo_Label'].values]
+    colunas_ordenadas = ['Cliente'] + sorted(
+        colunas_ordenadas[1:],
+        key=lambda x: df_agrupado[df_agrupado['Periodo_Label'] == x]['Periodo_Date'].iloc[0],
+        reverse=True
+    )
     df_pivot = df_pivot[colunas_ordenadas]
 
     if len(df_pivot.columns) >= 3:
@@ -264,7 +286,6 @@ def criar_tabela_qtd_artigo_cliente_mes(df):
         index=['Cliente', 'Artigo'], columns='Periodo_Label', values='Qtd', aggfunc='sum', fill_value=0
     ).reset_index()
 
-    # Ordenar colunas por Periodo_Date
     colunas_periodo = sorted(
         [col for col in df_pivot.columns if col not in ['Cliente', 'Artigo']],
         key=lambda x: df_agrupado[df_agrupado['Periodo_Label'] == x]['Periodo_Date'].iloc[0],
@@ -276,7 +297,7 @@ def criar_tabela_qtd_artigo_cliente_mes(df):
 st.markdown("<h1 class='main-header'>Dashboard de Vendas</h1>", unsafe_allow_html=True)
 
 if df.empty:
-    st.error("Erro ao carregar dados.")
+    st.error("Erro ao carregar a aba 'Dados' do GitHub.")
 elif df_filtrado.empty:
     st.warning("Nenhum dado com os filtros aplicados.")
 else:
@@ -355,7 +376,7 @@ else:
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-                # Gráfico de Tendência
+        # Gráfico de Tendência
         st.markdown("<div class='section-header'>Tendência de Vendas por Artigo</div>", unsafe_allow_html=True)
         artigos_unicos = sorted(df_qtd_artigo['Artigo'].unique())
         artigos_selecionados = st.multiselect("Selecione o(s) Artigo(s):", artigos_unicos, default=[], key="artigos_grafico")
@@ -379,7 +400,6 @@ else:
             if df_processado.empty:
                 st.warning("Erro ao processar datas para o gráfico.")
             else:
-                # Criar df_melt com Periodo_Label e Periodo_Date
                 df_melt = pd.melt(
                     df_grafico,
                     id_vars=['Cliente', 'Artigo'],
@@ -409,6 +429,8 @@ else:
                     markers=True
                 )
                 st.plotly_chart(fig, width="stretch")
+    else:
+        st.warning("Nenhum dado disponível para artigos por cliente mensalmente.")
 
 # Footer
 st.markdown("---")
