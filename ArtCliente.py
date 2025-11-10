@@ -11,7 +11,7 @@ import re
 # Configuração da página
 st.set_page_config(
     page_title="Dashboard de Vendas - BI",
-    page_icon="📊",
+    page_icon="chart_with_upwards_trend",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -114,28 +114,32 @@ with st.sidebar:
     presets = carregar_presets()
     preset_selecionado = st.selectbox("Configuração", [""] + list(presets.keys()))
     filtros = presets.get(preset_selecionado, {}) if preset_selecionado else {}
-
     st.markdown("---")
     st.markdown("### Filtros")
+    
     def criar_filtro(label, coluna, default=None):
-        if coluna not in df.columns or df.empty: return []
+        if coluna not in df.columns or df.empty: 
+            return []
         opcoes = sorted(df[coluna].dropna().astype(str).unique())
         return st.multiselect(label, opcoes, default=default or [])
-    clientes   = criar_filtro("Clientes", "Cliente", filtros.get("Cliente"))
-    artigos    = criar_filtro("Artigos", "Artigo", filtros.get("Artigo"))
+    
+    clientes = criar_filtro("Clientes", "Cliente", filtros.get("Cliente"))
+    artigos = criar_filtro("Artigos", "Artigo", filtros.get("Artigo"))
     comerciais = criar_filtro("Comerciais", "Comercial", filtros.get("Comercial"))
     categorias = criar_filtro("Categorias", "Categoria", filtros.get("Categoria"))
-    meses      = criar_filtro("Meses", "Mes", filtros.get("Mes"))
-    anos       = criar_filtro("Anos", "Ano", filtros.get("Ano"))
-
+    meses = criar_filtro("Meses", "Mes", filtros.get("Mes"))
+    anos = criar_filtro("Anos", "Ano", filtros.get("Ano"))
+    
     st.markdown("---")
     nome_preset = st.text_input("Nome da configuração")
     if st.button("Salvar") and nome_preset:
-        salvar_preset(nome_preset, {"Cliente": clientes, "Artigo": artigos, "Comercial": comerciais,
-                                   "Categoria": categorias, "Mes": meses, "Ano": anos})
+        salvar_preset(nome_preset, {
+            "Cliente": clientes, "Artigo": artigos, "Comercial": comerciais,
+            "Categoria": categorias, "Mes": meses, "Ano": anos
+        })
         st.success(f"Salvo: {nome_preset}")
 
-# Filtros principais
+# Aplicar filtros
 df_filtrado = df.copy()
 if clientes: df_filtrado = df_filtrado[df_filtrado['Cliente'].isin(clientes)]
 if artigos: df_filtrado = df_filtrado[df_filtrado['Artigo'].isin(artigos)]
@@ -144,10 +148,9 @@ if categorias: df_filtrado = df_filtrado[df_filtrado['Categoria'].isin(categoria
 if meses: df_filtrado = df_filtrado[df_filtrado['Mes'].isin(meses)]
 if anos: df_filtrado = df_filtrado[df_filtrado['Ano'].isin(anos)]
 
-# Função para processar datas
+# Processar datas
 def processar_datas_mes_ano(df):
     df_processed = df.copy()
-    
     meses_map = {
         'jan': '01', 'fev': '02', 'mar': '03', 'abr': '04', 'mai': '05', 'jun': '06',
         'jul': '07', 'ago': '08', 'set': '09', 'out': '10', 'nov': '11', 'dez': '12',
@@ -160,332 +163,226 @@ def processar_datas_mes_ano(df):
         '01': '01', '02': '02', '03': '03', '04': '04', '05': '05', '06': '06',
         '07': '07', '08': '08', '09': '09', '10': '10', '11': '11', '12': '12'
     }
-    
+
     def padronizar_mes(mes_str):
-        if pd.isna(mes_str) or mes_str in ['nan', 'None', 'NULL', '', ' ']:
+        if pd.isna(mes_str) or str(mes_str).strip() in ['nan', 'None', 'NULL', '', ' ']:
             return None
-        mes_str = str(mes_str).lower().strip()
-        mes_str = re.sub(r'[^a-z0-9]', '', mes_str)
-        if mes_str in meses_map:
-            return meses_map[mes_str]
-        for key, value in meses_map.items():
-            if key in mes_str:
-                return value
-        return None
-    
+        mes_str = re.sub(r'[^a-z0-9]', '', str(mes_str).lower())
+        return next((v for k, v in meses_map.items() if k in mes_str), None)
+
     def padronizar_ano(ano_str):
-        if pd.isna(ano_str) or ano_str in ['nan', 'None', 'NULL', '', ' ']:
+        if pd.isna(ano_str) or str(ano_str).strip() in ['nan', 'None', 'NULL', '', ' ']:
             return None
-        ano_str = str(ano_str).strip()
-        ano_numeros = re.sub(r'[^\d]', '', ano_str)
+        ano_numeros = re.sub(r'[^\d]', '', str(ano_str))
         if len(ano_numeros) == 4:
             return ano_numeros
         elif len(ano_numeros) == 2:
             ano = int(ano_numeros)
             return f"20{ano:02d}" if ano < 50 else f"19{ano:02d}"
-        elif len(ano_numeros) == 1:
-            ano_atual = datetime.now().year
-            return str(ano_atual)
-        return None
-    
+        return str(datetime.now().year)
+
     df_processed['Mes_Padronizado'] = df_processed['Mes'].apply(padronizar_mes)
     df_processed['Ano_Padronizado'] = df_processed['Ano'].apply(padronizar_ano)
-    
     df_valido = df_processed.dropna(subset=['Mes_Padronizado', 'Ano_Padronizado']).copy()
-    
+
     if not df_valido.empty:
         df_valido['Periodo'] = df_valido['Ano_Padronizado'] + '-' + df_valido['Mes_Padronizado']
-        meses_nome = {
-            '01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Abr', '05': 'Mai', '06': 'Jun',
-            '07': 'Jul', '08': 'Ago', '09': 'Set', '10': 'Out', '11': 'Nov', '12': 'Dez'
-        }
+        meses_nome = {'01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Abr', '05': 'Mai', '06': 'Jun',
+                      '07': 'Jul', '08': 'Ago', '09': 'Set', '10': 'Out', '11': 'Nov', '12': 'Dez'}
         df_valido['Mes_Nome'] = df_valido['Mes_Padronizado'].map(meses_nome)
         df_valido['Periodo_Label'] = df_valido['Mes_Nome'] + ' ' + df_valido['Ano_Padronizado']
-        
     return df_valido
 
-# Função para criar tabela geral de clientes
+# Tabela Geral de Clientes
 def criar_tabela_geral_clientes(df):
     df_processado = processar_datas_mes_ano(df)
-    
     if df_processado.empty:
         return pd.DataFrame()
-    
+
     df_agrupado = df_processado.groupby(['Cliente', 'Periodo', 'Periodo_Label']).agg({
-        'Qtd': 'sum',
-        'V_Liquido': 'sum'
+        'Qtd': 'sum', 'V_Liquido': 'sum'
     }).reset_index()
-    
+
     periodos_ordenados = sorted(df_agrupado['Periodo'].unique())
-    
     if len(periodos_ordenados) < 2:
         return pd.DataFrame()
-    
+
     df_pivot = df_agrupado.pivot_table(
-        index='Cliente',
-        columns='Periodo_Label',
-        values='Qtd',
-        aggfunc='sum',
-        fill_value=0
+        index='Cliente', columns='Periodo_Label', values='Qtd', aggfunc='sum', fill_value=0
     ).reset_index()
-    
     colunas_ordenadas = ['Cliente'] + sorted(df_pivot.columns[1:], reverse=True)
     df_pivot = df_pivot[colunas_ordenadas]
-    
+
     if len(df_pivot.columns) >= 3:
         coluna_atual = df_pivot.columns[1]
         coluna_anterior = df_pivot.columns[2]
-        
         df_pivot['Qtd_Atual'] = df_pivot[coluna_atual]
         df_pivot['Qtd_Anterior'] = df_pivot[coluna_anterior]
-        
-        df_pivot['Variacao_%'] = ((df_pivot['Qtd_Atual'] - df_pivot['Qtd_Anterior']) / 
+        df_pivot['Variacao_%'] = ((df_pivot['Qtd_Atual'] - df_pivot['Qtd_Anterior']) /
                                  df_pivot['Qtd_Anterior'].replace(0, 1)) * 100
-        
+
         def classificar_alerta(variacao, qtd_anterior, qtd_atual):
             if qtd_anterior == 0 and qtd_atual > 0:
-                return "🟢 Novo Cliente"
+                return "Novo Cliente"
             elif qtd_anterior > 0 and qtd_atual == 0:
-                return "🔴 Parou de Comprar"
+                return "Parou de Comprar"
             elif variacao > 50:
-                return "🟢 Subida Forte"
+                return "Subida Forte"
             elif variacao > 20:
-                return "🟡 Subida Moderada"
+                return "Subida Moderada"
             elif variacao < -50:
-                return "🔴 Descida Forte"
+                return "Descida Forte"
             elif variacao < -20:
-                return "🟠 Descida Moderada"
+                return "Descida Moderada"
             elif variacao > 0:
-                return "🔵 Subida Leve"
+                return "Subida Leve"
             elif variacao < 0:
-                return "⚫ Descida Leve"
+                return "Descida Leve"
             else:
-                return "⚪ Estável"
-        
+                return "Estável"
+
         df_pivot['Alerta'] = df_pivot.apply(
-            lambda x: classificar_alerta(x['Variacao_%'], x['Qtd_Anterior'], x['Qtd_Atual']), 
-            axis=1
+            lambda x: classificar_alerta(x['Variacao_%'], x['Qtd_Anterior'], x['Qtd_Atual']), axis=1
         )
-        
+
         for col in df_pivot.columns:
             if col not in ['Cliente', 'Alerta', 'Variacao_%'] and df_pivot[col].dtype in [np.int64, np.float64]:
                 df_pivot[col] = df_pivot[col].apply(lambda x: formatar_numero_pt(x) if pd.notna(x) else '0')
-        
-        df_pivot['Variacao_Formatada'] = df_pivot['Variacao_%'].apply(
-            lambda x: f"{x:+.1f}%" if pd.notna(x) else "N/D"
-        )
-        
-        colunas_finais = ['Cliente', 'Alerta', 'Variacao_Formatada'] + colunas_ordenadas[1:]
-        df_final = df_pivot[colunas_finais].rename(columns={'Variacao_Formatada': 'Variação %'})
-        
-        return df_final
-    
+
+        df_pivot['Variação %'] = df_pivot['Variacao_%'].apply(lambda x: f"{x:+.1f}%" if pd.notna(x) else "N/D")
+        colunas_finais = ['Cliente', 'Alerta', 'Variação %'] + colunas_ordenadas[1:]
+        return df_pivot[colunas_finais].rename(columns={'Variação %': 'Variação %'})
+
     return pd.DataFrame()
 
-# Função para tabela de Qtd por artigo, cliente e mês
+# Tabela Qtd por Artigo/Cliente/Mês
 def criar_tabela_qtd_artigo_cliente_mes(df):
     df_processado = processar_datas_mes_ano(df)
     if df_processado.empty or 'Artigo' not in df_processado.columns:
         return pd.DataFrame()
-    
-    df_agrupado = df_processado.groupby(['Cliente', 'Artigo', 'Periodo', 'Periodo_Label']).agg({
-        'Qtd': 'sum'
-    }).reset_index()
-    
-    df_pivot = df_agrupado.pivot_table(
-        index=['Cliente', 'Artigo'],
-        columns='Periodo_Label',
-        values='Qtd',
-        aggfunc='sum',
-        fill_value=0
-    ).reset_index()
-    
-    colunas_periodo = sorted(df_pivot.columns[2:], reverse=True)
-    df_pivot = df_pivot[['Cliente', 'Artigo'] + colunas_periodo]
-    
-    return df_pivot
 
-# Interface principal
+    df_agrupado = df_processado.groupby(['Cliente', 'Artigo', 'Periodo_Label']).agg({'Qtd': 'sum'}).reset_index()
+    df_pivot = df_agrupado.pivot_table(
+        index=['Cliente', 'Artigo'], columns='Periodo_Label', values='Qtd', aggfunc='sum', fill_value=0
+    ).reset_index()
+    colunas_periodo = sorted(df_pivot.columns[2:], reverse=True)
+    return df_pivot[['Cliente', 'Artigo'] + colunas_periodo]
+
+# Interface Principal
 st.markdown("<h1 class='main-header'>Dashboard de Vendas</h1>", unsafe_allow_html=True)
 
 if df.empty:
     st.error("Erro ao carregar dados.")
 elif df_filtrado.empty:
-    st.warning("Nenhum dado com os filtros.")
+    st.warning("Nenhum dado com os filtros aplicados.")
 else:
-    st.success(f"**{len(df_filtrado):,}** registos")
+    st.success(f"**{len(df_filtrado):,}** registos carregados")
 
     # Métricas
-    st.markdown("<div class='section-header'>Métricas</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-header'>Métricas Gerais</div>", unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
-    with col1: st.metric("Vendas", formatar_numero_pt(df_filtrado['V_Liquido'].sum(), "EUR "))
-    with col2: st.metric("Qtd", formatar_numero_pt(df_filtrado['Qtd'].sum()))
-    with col3: st.metric("Clientes", f"{df_filtrado['Cliente'].nunique():,}")
-    with col4: st.metric("Artigos", f"{df_filtrado['Artigo'].nunique():,}")
+    with col1: st.metric("Vendas Totais", formatar_numero_pt(df_filtrado['V_Liquido'].sum(), "EUR "))
+    with col2: st.metric("Quantidade Total", formatar_numero_pt(df_filtrado['Qtd'].sum()))
+    with col3: st.metric("Clientes Únicos", f"{df_filtrado['Cliente'].nunique():,}")
+    with col4: st.metric("Artigos Únicos", f"{df_filtrado['Artigo'].nunique():,}")
 
-    # Tabela geral de clientes
-    st.markdown("<div class='section-header'>📊 Tabela Geral de Clientes - Visão Mensal</div>", unsafe_allow_html=True)
-    
+    # Tabela Geral de Clientes
+    st.markdown("<div class='section-header'>Tabela Geral de Clientes - Visão Mensal</div>", unsafe_allow_html=True)
     df_tabela_geral = criar_tabela_geral_clientes(df_filtrado)
-    
+
     if not df_tabela_geral.empty:
         col1, col2, col3 = st.columns(3)
-        
         total_clientes = len(df_tabela_geral)
-        clientes_subida = len(df_tabela_geral[df_tabela_geral['Alerta'].str.contains('Subida')])
-        clientes_descida = len(df_tabela_geral[df_tabela_geral['Alerta'].str.contains('Descida')])
-        
-        with col1:
-            st.metric("Total Clientes", total_clientes)
-        with col2:
-            st.metric("Clientes em Subida", clientes_subida)
-        with col3:
-            st.metric("Clientes em Descida", clientes_descida)
-        
+        clientes_subida = len(df_tabela_geral[df_tabela_geral['Alerta'].str.contains('Subida|Novo')])
+        clientes_descida = len(df_tabela_geral[df_tabela_geral['Alerta'].str.contains('Descida|Parou')])
+
+        with col1: st.metric("Total Clientes", total_clientes)
+        with col2: st.metric("Clientes em Subida", clientes_subida)
+        with col3: st.metric("Clientes em Descida", clientes_descida)
+
         st.subheader("Filtros da Tabela")
         filtro_alerta = st.multiselect(
             "Filtrar por Alerta:",
             options=sorted(df_tabela_geral['Alerta'].unique()),
             default=sorted(df_tabela_geral['Alerta'].unique())
         )
-        
         df_filtrado_tabela = df_tabela_geral[df_tabela_geral['Alerta'].isin(filtro_alerta)]
-        
+
         def colorir_linhas(row):
             alerta = row['Alerta']
-            if '🔴' in alerta or 'Parou' in alerta:
+            if 'Parou' in alerta or 'Descida Forte' in alerta:
                 return ['background-color: #ffe6e6'] * len(row)
-            elif '🟢' in alerta or 'Novo' in alerta:
+            elif 'Novo' in alerta or 'Subida Forte' in alerta:
                 return ['background-color: #e8f5e8'] * len(row)
-            elif '🟡' in alerta:
+            elif 'Subida Moderada' in alerta:
                 return ['background-color: #fff3e0'] * len(row)
-            elif '🟠' in alerta:
+            elif 'Descida Moderada' in alerta:
                 return ['background-color: #fbe9e7'] * len(row)
             else:
                 return [''] * len(row)
-        
+
         styled_df = df_filtrado_tabela.style.apply(colorir_linhas, axis=1)
-        st.dataframe(styled_df, width='stretch', height=600)
-        
+        st.dataframe(styled_df, use_container_width=True, height=600)
+
         st.download_button(
-            "📥 Exportar Tabela Geral",
+            "Exportar Tabela Geral",
             to_excel(df_filtrado_tabela),
             "tabela_geral_clientes.xlsx",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-        
     else:
-        st.warning("Não foi possível gerar a tabela geral.")
+        st.warning("Não foi possível gerar a tabela geral (poucos períodos).")
 
-    # Quantidade de artigos por cliente mensalmente
-    st.markdown("<div class='section-header'>📦 Quantidade de Artigos por Cliente Mensalmente</div>", unsafe_allow_html=True)
-    
+    # Quantidade por Artigo/Cliente/Mês
+    st.markdown("<div class='section-header'>Quantidade de Artigos por Cliente Mensalmente</div>", unsafe_allow_html=True)
     df_qtd_artigo = criar_tabela_qtd_artigo_cliente_mes(df_filtrado)
-    
+
     if not df_qtd_artigo.empty:
         clientes_unicos = sorted(df_qtd_artigo['Cliente'].unique())
         cliente_selecionado = st.selectbox("Selecione o Cliente:", ["Todos"] + clientes_unicos, key="cliente_artigo")
-        
-        if cliente_selecionado != "Todos":
-            df_display = df_qtd_artigo[df_qtd_artigo['Cliente'] == cliente_selecionado]
-        else:
-            df_display = df_qtd_artigo
-        
-        st.subheader(f"Quantidade de Artigos Vendidos por Mês" if cliente_selecionado == "Todos" else f"Quantidade de Artigos para {cliente_selecionado}")
-        st.dataframe(df_display, width='stretch', height=600)
-        
+
+        df_display = df_qtd_artigo if cliente_selecionado == "Todos" else df_qtd_artigo[df_qtd_artigo['Cliente'] == cliente_selecionado]
+        st.dataframe(df_display, use_container_width=True, height=600)
+
         st.download_button(
-            "📥 Exportar Detalhes de Artigos",
+            "Exportar Detalhes de Artigos",
             to_excel(df_display),
             "detalhes_artigos_clientes.xlsx",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-        
-        # Gráfico de tendência
-        st.markdown("<div class='section-header'>📈 Tendência de Vendas por Artigo</div>", unsafe_allow_html=True)
-        
-        # Filtro para múltiplos artigos
+
+        # Gráfico de Tendência
+        st.markdown("<div class='section-header'>Tendência de Vendas por Artigo</div>", unsafe_allow_html=True)
         artigos_unicos = sorted(df_qtd_artigo['Artigo'].unique())
-        artigos_selecionados = st.multiselect(
-            "Selecione o(s) Artigo(s):", 
-            artigos_unicos, 
-            default=[],
-            key="artigos_grafico"
-        )
-        
-        # Filtro para cliente
-        if cliente_selecionado == "Todos":
-            opcoes_cliente_grafico = ["Todos"] + clientes_unicos
-        else:
-            opcoes_cliente_grafico = [cliente_selecionado]
-        cliente_grafico = st.selectbox("Selecione o Cliente:", opcoes_cliente_grafico, key="cliente_grafico")
-        
-        # Filtrar dados
+        artigos_selecionados = st.multiselect("Selecione o(s) Artigo(s):", artigos_unicos, default=[], key="artigos_grafico")
+
+        opcoes_cliente_grafico = ["Todos"] + clientes_unicos if cliente_selecionado == "Todos" else [cliente_selecionado]
+        cliente_grafico = st.selectbox("Cliente no Gráfico:", opcoes_cliente_grafico, key="cliente_grafico")
+
         df_grafico = df_qtd_artigo.copy()
-        
         if artigos_selecionados:
             df_grafico = df_grafico[df_grafico['Artigo'].isin(artigos_selecionados)]
-        
         if cliente_grafico != "Todos":
             df_grafico = df_grafico[df_grafico['Cliente'] == cliente_grafico]
-        
-        # Preparar dados para o gráfico
+
         colunas_periodo = [col for col in df_grafico.columns if col not in ['Cliente', 'Artigo']]
-        
-        if not df_grafico.empty and len(colunas_periodo) > 0:
-            df_melt = df_grafico.melt(
-                id_vars=['Cliente', 'Artigo'], 
-                value_vars=colunas_periodo, 
-                var_name='Mês', 
-                value_name='Qtd'
-            )
-            
-            # Configurar parâmetros do gráfico
-            if len(artigos_selecionados) > 0:
-                color_param = 'Artigo'
-                title = f"Quantidade Vendida - {', '.join(artigos_selecionados)}"
-            else:
-                color_param = None
-                title = "Quantidade Vendida"
-            
-            if cliente_grafico == "Todos" and len(df_grafico['Cliente'].unique()) > 1:
-                line_group_param = 'Cliente'
-            else:
-                line_group_param = None
-            
-            # Criar o gráfico
+
+        if df_grafico.empty or len(colunas_periodo) == 0:
+            st.warning("Sem dados suficientes para o gráfico.")
+        else:
+            df_melt = df_grafico.melt(id_vars=['Cliente', 'Artigo'], value_vars=colunas_periodo, var_name='Mês', value_name='Qtd')
+            color_param = 'Artigo' if len(artigos_selecionados) > 0 else None
+            title = f"Quantidade Vendida - {', '.join(artigos_selecionados)}" if artigos_selecionados else "Quantidade Vendida"
+            line_group_param = 'Cliente' if cliente_grafico == "Todos" and len(df_grafico['Cliente'].unique()) > 1 else None
+
             fig = px.line(
-                df_melt, 
-                x="Mês", 
-                y="Qtd", 
-                color=color_param,
-                line_group=line_group_param,
-                title=title,
-                labels={'Qtd': 'Quantidade', 'Mês': 'Mês'},
-                markers=True
+                df_melt, x="Mês", y="Qtd", color=color_param, line_group=line_group_param,
+                title=title, labels={'Qtd': 'Quantidade'}, markers=True
             )
             st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("Selecione pelo menos um artigo para visualizar o gráfico.")
-        
     else:
-        st.warning("Nenhum dado disponível para a visualização de artigos por cliente mensalmente.")
+        st.warning("Nenhum dado disponível para artigos por cliente mensalmente.")
 
 # Footer
 st.markdown("---")
-st.markdown(f"<div style='text-align:center;color:#7f8c8d;'>Atualizado: {datetime.now().strftime('%d/%m/%Y %H:%M')}</div>", unsafe_allow_html=True)
-```
-
-### Principais características desta versão:
-
-1. **Código Limpo**: Removido qualquer caractere especial que possa causar problemas de sintaxe
-2. **Filtro Múltiplo de Artigos**: Permite selecionar vários artigos para análise
-3. **Gráfico Dinâmico**: Adapta-se aos filtros selecionados
-4. **Funcionalidades Mantidas**: 
-   - Métricas principais
-   - Tabela geral de clientes com alertas
-   - Tabela de quantidade por artigo/cliente/mês
-   - Exportação para Excel
-   - Presets de filtros
-
-Este código deve funcionar corretamente sem erros de sintaxe.
+st.markdown(f"<div style='text-align:center;color:#7f8c8d;'>Atualizado em: {datetime.now().strftime('%d/%m/%Y %H:%M')}</div>", unsafe_allow_html=True)
