@@ -358,7 +358,7 @@ else:
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-        # Gráfico de Tendência
+                # Gráfico de Tendência
         st.markdown("<div class='section-header'>Tendência de Vendas por Artigo</div>", unsafe_allow_html=True)
         artigos_unicos = sorted(df_qtd_artigo['Artigo'].unique())
         artigos_selecionados = st.multiselect("Selecione o(s) Artigo(s):", artigos_unicos, default=[], key="artigos_grafico")
@@ -377,26 +377,41 @@ else:
         if df_grafico.empty or len(colunas_periodo) == 0:
             st.warning("Sem dados suficientes para o gráfico.")
         else:
-            # Criar df_melt com Periodo_Date
-            df_melt = pd.melt(df_grafico, id_vars=['Cliente', 'Artigo'], value_vars=colunas_periodo,
-                              var_name='Periodo_Label', value_name='Qtd')
-            df_melt = df_melt.merge(
-                df_processado[['Periodo_Label', 'Periodo_Date']].drop_duplicates(),
-                on='Periodo_Label', how='left'
-            )
-            df_melt = df_melt.sort_values('Periodo_Date')
+            # RECRIAR df_processado localmente
+            df_processado = processar_datas_mes_ano(df_filtrado)
+            if df_processado.empty:
+                st.warning("Erro ao processar datas para o gráfico.")
+            else:
+                # Criar df_melt com Periodo_Label e Periodo_Date
+                df_melt = pd.melt(
+                    df_grafico,
+                    id_vars=['Cliente', 'Artigo'],
+                    value_vars=colunas_periodo,
+                    var_name='Periodo_Label',
+                    value_name='Qtd'
+                )
+                df_melt = df_melt.merge(
+                    df_processado[['Periodo_Label', 'Periodo_Date']].drop_duplicates(),
+                    on='Periodo_Label',
+                    how='left'
+                )
+                df_melt = df_melt.dropna(subset=['Periodo_Date']).sort_values('Periodo_Date')
 
-            color_param = 'Artigo' if len(artigos_selecionados) > 0 else None
-            title = f"Quantidade Vendida - {', '.join(artigos_selecionados)}" if artigos_selecionados else "Quantidade Vendida"
-            line_group_param = 'Cliente' if cliente_grafico == "Todos" and len(df_grafico['Cliente'].unique()) > 1 else None
+                color_param = 'Artigo' if len(artigos_selecionados) > 0 else None
+                title = f"Quantidade Vendida - {', '.join(artigos_selecionados)}" if artigos_selecionados else "Quantidade Vendida"
+                line_group_param = 'Cliente' if cliente_grafico == "Todos" and len(df_grafico['Cliente'].unique()) > 1 else None
 
-            fig = px.line(
-                df_melt, x="Periodo_Label", y="Qtd", color=color_param, line_group=line_group_param,
-                title=title, labels={'Qtd': 'Quantidade', 'Periodo_Label': 'Mês'}, markers=True
-            )
-            st.plotly_chart(fig, width="stretch")
-    else:
-        st.warning("Nenhum dado disponível para artigos por cliente mensalmente.")
+                fig = px.line(
+                    df_melt,
+                    x="Periodo_Label",
+                    y="Qtd",
+                    color=color_param,
+                    line_group=line_group_param,
+                    title=title,
+                    labels={'Qtd': 'Quantidade', 'Periodo_Label': 'Mês'},
+                    markers=True
+                )
+                st.plotly_chart(fig, width="stretch")
 
 # Footer
 st.markdown("---")
