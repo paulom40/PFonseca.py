@@ -69,14 +69,11 @@ def to_excel(df, sheet_name="Dados"):
 def load_all_data():
     try:
         url = "https://github.com/paulom40/PFonseca.py/raw/main/VendasGeraisTranf.xlsx"
-        df = pd.read_excel(url, thousands=None, decimal=',')
-        mapeamento = {
-            'Código': 'Codigo', 'Cliente': 'Cliente', 'Qtd.': 'Qtd', 'UN': 'UN',
-            'PM': 'PM', 'V. Líquido': 'V_Liquido', 'Artigo': 'Artigo',
-            'Comercial': 'Comercial', 'Categoria': 'Categoria',
-            'Mês': 'Mes', 'Ano': 'Ano'
-        }
+        df = pd.read_excel(url, sheet_name="Dados", thousands=None, decimal=',')  # Aba "Dados"
+        
+        mapeamento = { ... }  # igual
         df = df.rename(columns={k: v for k, v in mapeamento.items() if k in df.columns})
+        
         colunas_string = ['UN', 'Artigo', 'Cliente', 'Comercial', 'Categoria', 'Mes', 'Ano']
         for col in colunas_string:
             if col in df.columns:
@@ -86,7 +83,7 @@ def load_all_data():
                 df[col] = pd.to_numeric(df[col], errors='coerce')
         return df
     except Exception as e:
-        st.error(f"Erro ao carregar dados: {e}")
+        st.error(f"Erro ao carregar a aba 'Dados': {e}")
         return pd.DataFrame()
 
 df = load_all_data()
