@@ -322,172 +322,108 @@ else:
     with col3: st.metric("Clientes Únicos", f"{df_filtrado['Cliente'].nunique():,}")
     with col4: st.metric("Artigos Únicos", f"{df_filtrado['Artigo'].nunique():,}")
 
-    # Tabela Geral de Clientes
-    st.markdown("<div class='section-header'>Tabela Geral de Clientes - Visão Mensal</div>", unsafe_allow_html=True)
-    df_tabela_geral = criar_tabela_geral_clientes(df_filtrado)
+    # TABELA GERAL DE CLIENTES - VARIAÇÃO MENSAL CONSECUTIVA
+def criar_tabela_geral_clientes(df):
+    df_processado = processar_datas_mes_ano(df)
+    if df_processado.empty:
+        return pd.DataFrame()
 
-    if not df_tabela_geral.empty:
-        col1, col2, col3 = st.columns(3)
-        total_clientes = len(df_tabela_geral)
-        clientes_subida = len(df_tabela_geral[df_tabela_geral['Alerta'].str.contains('Subida|Novo')])
-        clientes_descida = len(df_tabela_geral[df_tabela_geral['Alerta'].str.contains('Descida|Parou')])
+    # Agrupar por Cliente e Período
+    df_agrupado = df_processado.groupby(['Cliente', 'Periodo_Label', 'Periodo_Date']).agg({
+        'Qtd': 'sum'
+    }).reset_index()
 
-        with col1: st.metric("Total Clientes", total_clientes)
-        with col2: st.metric("Clientes em Subida", clientes_subida)
-        with col3: st.metric("Clientes em Descida", clientes_descida)
+    # Ordenar períodos cronologicamente (antigo → recente)
+    periodos_ordenados = df_agrupado['Periodo_Date'].drop_duplicates().sort_values(ascending=True)
+    if len(periodos_ordenados) < 2:
+        return pd.DataFrame()
 
-        st.subheader("Filtros da Tabela")
-        filtro_alerta = st.multiselect(
-            "Filtrar por Alerta:",
-            options=sorted(df_tabela_geral['Alerta'].unique()),
-            default=sorted(df_tabela_geral['Alerta'].unique())
-        )
-        df_filtrado_tabela = df_tabela_geral[df_tabela_geral['Alerta'].isin(filtro_alerta)]
+    # Pivot: Cliente x Mês
+    df_pivot = df_agrupado.pivot_table(
+        index='Cliente',
+        columns='Periodo_Label',
+        values='Qtd',
+        aggfunc='sum',
+        fill_value=0
+    ).reset_index()
 
-        def colorir_linhas(row):
-            alerta = row['Alerta']
-            if 'Parou' in alerta or 'Descida Forte' in alerta:
-                return ['background-color: #ffe6e6'] * len(row)
-            elif 'Novo' in alerta or 'Subida Forte' in alerta:
-                return ['background-color: #e8f5e8'] * len(row)
-            elif 'Subida Moderada' in alerta:
-                return ['background-color: #fff3e0'] * len(row)
-            elif 'Descida Moderada' in alerta:
-                return ['background-color: #fbe9e7'] * len(row)
+    # Mapear Label → Date
+    label_to_date = dict(zip(df_agrupado['Periodo_Label'], df_agrupado['Periodo_Date']))
+    colunas_mes = [col for col in df_pivot.columns if col in label_to_date]
+
+    # Ordenar colunas por data (antigo → recente)
+    colunas_mes = sorted(colunas_mes, key=lambda x: label_to_date[x])
+
+    # Reordenar pivot: mais antigo à esquerda → mais recente à direita
+    df_pivot = df_pivot[['Cliente'] + colunas_mes]
+
+    # === CALCULAR VARIAÇÃO ENTRE MESES CONSECUTIVOS ===
+    variacao_cols = []
+    for i in range(1, len(colunas_mes)):
+        mes_atual = colunas_mes[i]
+        mes_anterior = colunas_mes[i-1]
+        col_variacao = f"Var.% {mes_atual}"
+        df_pivot[col_variacao] = ((df_pivot[mes_atual] - df_pivot[mes_anterior]) /
+                                  df_pivot[mes_anterior].replace(0, 1)) * 100
+        variacao_cols.append(col_variacao)
+
+    # === ALERTA BASEADO NA ÚLTIMA VARIAÇÃO ===
+    ultima_variacao = variacao_cols[-1] if variacao_cols else None
+    if ultima_variacao:
+        df_pivot['Variacao_%'] = df_pivot[ultima_variacao]
+
+        def classificar_alerta(variacao, qtd_anterior, qtd_atual):
+            if qtd_anterior == 0 and qtd_atual > 0:
+                return "Novo Cliente"
+            elif qtd_anterior > 0 and qtd_atual == 0:
+                return "Parou de Comprar"
+            elif variacao > 50:
+                return "Subida Forte"
+            elif variacao > 20:
+                return "Subida Moderada"
+            elif variacao < -50:
+                return "Descida Forte"
+            elif variacao < -20:
+                return "Descida Moderada"
+            elif variacao > 0:
+                return "Subida Leve"
+            elif variacao < 0:
+                return "Descida Leve"
             else:
-                return [''] * len(row)
+                return "Estável"
 
-        styled_df = df_filtrado_tabela.style.apply(colorir_linhas, axis=1)
-        st.dataframe(styled_df, width="stretch", height=600)
-
-        st.download_button(
-            "Exportar Tabela Geral",
-            to_excel(df_filtrado_tabela),
-            "tabela_geral_clientes.xlsx",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        df_pivot['Alerta'] = df_pivot.apply(
+            lambda x: classificar_alerta(
+                x['Variacao_%'],
+                x[colunas_mes[-2]] if len(colunas_mes) > 1 else 0,
+                x[colunas_mes[-1]]
+            ), axis=1
         )
     else:
-        st.warning("Não foi possível gerar a tabela geral (poucos períodos).")
+        df_pivot['Alerta'] = "Estável"
+        df_pivot['Variacao_%'] = 0
 
-    # Quantidade por Artigo/Cliente/Mês
-    st.markdown("<div class='section-header'>Quantidade de Artigos por Cliente Mensalmente</div>", unsafe_allow_html=True)
-    df_qtd_artigo = criar_tabela_qtd_artigo_cliente_mes(df_filtrado)
+    # === FORMATAR COLUNAS ===
+    # Meses: formato PT-PT
+    for col in colunas_mes:
+        df_pivot[col] = df_pivot[col].apply(lambda x: formatar_numero_pt(x) if pd.notna(x) else '0')
 
-    if not df_qtd_artigo.empty:
-        clientes_unicos = sorted(df_qtd_artigo['Cliente'].unique())
-        cliente_selecionado = st.selectbox("Selecione o Cliente:", ["Todos"] + clientes_unicos, key="cliente_artigo")
+    # Variações: +XX.X%
+    for col in variacao_cols:
+        df_pivot[col] = df_pivot[col].apply(lambda x: f"{x:+.1f}%" if pd.notna(x) else "N/D")
 
-        df_display = df_qtd_artigo if cliente_selecionado == "Todos" else df_qtd_artigo[df_qtd_artigo['Cliente'] == cliente_selecionado]
-        st.dataframe(df_display, width="stretch", height=600)
+    # === COLUNAS FINAIS (mais recente à esquerda) ===
+    colunas_mes_invertidas = colunas_mes[::-1]
+    variacao_invertidas = [f"Var.% {m}" for m in colunas_mes_invertidas]
 
-        st.download_button(
-            "Exportar Detalhes de Artigos",
-            to_excel(df_display),
-            "detalhes_artigos_clientes.xlsx",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+    colunas_finais = (
+        ['Cliente', 'Alerta'] +
+        [item for pair in zip(variacao_invertidas, colunas_mes_invertidas) for item in pair]
+    )
+    # Remover excesso se houver menos variações
+    colunas_finais = [c for c in colunas_finais if c in df_pivot.columns]
 
-               # Gráfico de Tendência com Rótulos
-        st.markdown("<div class='section-header'>Tendência de Vendas por Artigo</div>", unsafe_allow_html=True)
-        artigos_unicos = sorted(df_qtd_artigo['Artigo'].unique())
-        artigos_selecionados = st.multiselect("Selecione o(s) Artigo(s):", artigos_unicos, default=[], key="artigos_grafico")
-
-        opcoes_cliente_grafico = ["Todos"] + clientes_unicos if cliente_selecionado == "Todos" else [cliente_selecionado]
-        cliente_grafico = st.selectbox("Cliente no Gráfico:", opcoes_cliente_grafico, key="cliente_grafico")
-
-        df_grafico = df_qtd_artigo.copy()
-        if artigos_selecionados:
-            df_grafico = df_grafico[df_grafico['Artigo'].isin(artigos_selecionados)]
-        if cliente_grafico != "Todos":
-            df_grafico = df_grafico[df_grafico['Cliente'] == cliente_grafico]
-
-        colunas_periodo = [col for col in df_grafico.columns if col not in ['Cliente', 'Artigo']]
-
-        if df_grafico.empty or len(colunas_periodo) == 0:
-            st.warning("Sem dados suficientes para o gráfico.")
-        else:
-            # Processar datas
-            df_processado = processar_datas_mes_ano(df_filtrado)
-            if df_processado.empty:
-                st.warning("Erro ao processar datas para o gráfico.")
-            else:
-                df_melt = pd.melt(
-                    df_grafico,
-                    id_vars=['Cliente', 'Artigo'],
-                    value_vars=colunas_periodo,
-                    var_name='Periodo_Label',
-                    value_name='Qtd'
-                )
-                df_melt = df_melt.merge(
-                    df_processado[['Periodo_Label', 'Periodo_Date']].drop_duplicates(),
-                    on='Periodo_Label',
-                    how='left'
-                )
-                df_melt = df_melt.dropna(subset=['Periodo_Date']).sort_values('Periodo_Date')
-
-                # Preparar rótulos
-                df_melt['Qtd_Label'] = df_melt['Qtd'].apply(lambda x: f"{x:,.0f}".replace(",", " ") if pd.notna(x) and x > 0 else "")
-                df_melt['Cliente_Label'] = df_melt['Cliente']
-                if cliente_grafico != "Todos":
-                    df_melt['Cliente_Label'] = df_melt['Cliente']  # Já filtrado
-                else:
-                    df_melt['Cliente_Label'] = df_melt['Cliente']
-
-                # Criar figura
-                color_param = 'Artigo' if len(artigos_selecionados) > 0 else 'Cliente'
-                line_group_param = 'Cliente' if cliente_grafico == "Todos" and len(df_grafico['Cliente'].unique()) > 1 else None
-
-                fig = px.line(
-                    df_melt,
-                    x="Periodo_Label",
-                    y="Qtd",
-                    color=color_param,
-                    line_group=line_group_param,
-                    title="Tendência de Quantidade Vendida",
-                    labels={'Qtd': 'Quantidade', 'Periodo_Label': 'Mês'},
-                    markers=True,
-                    hover_data={'Cliente': True, 'Artigo': True}
-                )
-
-                # Adicionar rótulos de Qtd em cada ponto
-                fig.update_traces(
-                    text=df_melt['Qtd_Label'],
-                    textposition='top center',
-                    textfont=dict(size=10, color='black'),
-                    mode='lines+markers+text'
-                )
-
-                # Adicionar nome do cliente no final da linha (apenas se houver múltiplos)
-                if line_group_param is not None:
-                    ultimo_ponto = df_melt.groupby(['Cliente', 'Artigo']).apply(lambda x: x.iloc[-1]).reset_index(drop=True)
-                    for _, row in ultimo_ponto.iterrows():
-                        fig.add_annotation(
-                            x=row['Periodo_Label'],
-                            y=row['Qtd'],
-                            text=row['Cliente_Label'],
-                            showarrow=True,
-                            arrowhead=1,
-                            arrowsize=1,
-                            arrowwidth=1,
-                            arrowcolor="black",
-                            ax=30,
-                            ay=-30,
-                            font=dict(size=11, color="darkblue"),
-                            bgcolor="rgba(255,255,255,0.8)",
-                            bordercolor="gray",
-                            borderwidth=1
-                        )
-
-                # Ajustar layout
-                fig.update_layout(
-                    legend_title="Legenda",
-                    xaxis_title="Mês",
-                    yaxis_title="Quantidade",
-                    hovermode="x unified",
-                    height=600
-                )
-
-                st.plotly_chart(fig, width="stretch")
+    return df_pivot[colunas_finais]
 
 # Footer
 st.markdown("---")
