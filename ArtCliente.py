@@ -206,7 +206,7 @@ def processar_datas_mes_ano(df):
         df_valido['Periodo_Label'] = df_valido['Mes_Nome'] + ' ' + df_valido['Ano_Padronizado']
     return df_valido
 
-# Tabela Geral de Clientes
+# Tabela Geral de Clientes (ORDENADA POR DATA)
 def criar_tabela_geral_clientes(df):
     df_processado = processar_datas_mes_ano(df)
     if df_processado.empty:
@@ -216,23 +216,33 @@ def criar_tabela_geral_clientes(df):
         'Qtd': 'sum', 'V_Liquido': 'sum'
     }).reset_index()
 
+    # Ordenar períodos por data (mais recente à esquerda)
     periodos_ordenados = df_agrupado['Periodo_Date'].drop_duplicates().sort_values(ascending=False)
     if len(periodos_ordenados) < 2:
         return pd.DataFrame()
 
+    # Pivot com colunas em ordem cronológica reversa
     df_pivot = df_agrupado.pivot_table(
-        index='Cliente', columns='Periodo_Label', values='Qtd', aggfunc='sum', fill_value=0
+        index='Cliente',
+        columns='Periodo_Label',
+        values='Qtd',
+        aggfunc='sum',
+        fill_value=0
     ).reset_index()
 
-    colunas_ordenadas = ['Cliente'] + [col for col in df_pivot.columns[1:] 
-                                      if col in df_agrupado['Periodo_Label'].values]
+    # Mapear Periodo_Label → Periodo_Date
+    label_to_date = dict(zip(df_agrupado['Periodo_Label'], df_agrupado['Periodo_Date']))
+    colunas_existentes = [col for col in df_pivot.columns if col in label_to_date]
+    
+    # Ordenar colunas por data (mais recente primeiro)
     colunas_ordenadas = ['Cliente'] + sorted(
-        colunas_ordenadas[1:],
-        key=lambda x: df_agrupado[df_agrupado['Periodo_Label'] == x]['Periodo_Date'].iloc[0],
+        colunas_existentes[1:],
+        key=lambda x: label_to_date[x],
         reverse=True
     )
     df_pivot = df_pivot[colunas_ordenadas]
 
+    # Cálculo de variação
     if len(df_pivot.columns) >= 3:
         coluna_atual = df_pivot.columns[1]
         coluna_anterior = df_pivot.columns[2]
@@ -265,8 +275,9 @@ def criar_tabela_geral_clientes(df):
             lambda x: classificar_alerta(x['Variacao_%'], x['Qtd_Anterior'], x['Qtd_Atual']), axis=1
         )
 
+        # Formatação PT-PT
         for col in df_pivot.columns:
-            if col not in ['Cliente', 'Alerta', 'Variacao_%'] and df_pivot[col].dtype in [np.int64, np.float64]:
+            if col not in ['Cliente', 'Alerta', 'Variacao_%', 'Qtd_Atual', 'Qtd_Anterior'] and df_pivot[col].dtype in [np.int64, np.float64]:
                 df_pivot[col] = df_pivot[col].apply(lambda x: formatar_numero_pt(x) if pd.notna(x) else '0')
 
         df_pivot['Variação %'] = df_pivot['Variacao_%'].apply(lambda x: f"{x:+.1f}%" if pd.notna(x) else "N/D")
