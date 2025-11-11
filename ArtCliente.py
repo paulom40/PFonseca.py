@@ -376,7 +376,7 @@ else:
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-        # Gráfico de Tendência
+               # Gráfico de Tendência com Rótulos
         st.markdown("<div class='section-header'>Tendência de Vendas por Artigo</div>", unsafe_allow_html=True)
         artigos_unicos = sorted(df_qtd_artigo['Artigo'].unique())
         artigos_selecionados = st.multiselect("Selecione o(s) Artigo(s):", artigos_unicos, default=[], key="artigos_grafico")
@@ -395,7 +395,7 @@ else:
         if df_grafico.empty or len(colunas_periodo) == 0:
             st.warning("Sem dados suficientes para o gráfico.")
         else:
-            # RECRIAR df_processado localmente
+            # Processar datas
             df_processado = processar_datas_mes_ano(df_filtrado)
             if df_processado.empty:
                 st.warning("Erro ao processar datas para o gráfico.")
@@ -414,8 +414,16 @@ else:
                 )
                 df_melt = df_melt.dropna(subset=['Periodo_Date']).sort_values('Periodo_Date')
 
-                color_param = 'Artigo' if len(artigos_selecionados) > 0 else None
-                title = f"Quantidade Vendida - {', '.join(artigos_selecionados)}" if artigos_selecionados else "Quantidade Vendida"
+                # Preparar rótulos
+                df_melt['Qtd_Label'] = df_melt['Qtd'].apply(lambda x: f"{x:,.0f}".replace(",", " ") if pd.notna(x) and x > 0 else "")
+                df_melt['Cliente_Label'] = df_melt['Cliente']
+                if cliente_grafico != "Todos":
+                    df_melt['Cliente_Label'] = df_melt['Cliente']  # Já filtrado
+                else:
+                    df_melt['Cliente_Label'] = df_melt['Cliente']
+
+                # Criar figura
+                color_param = 'Artigo' if len(artigos_selecionados) > 0 else 'Cliente'
                 line_group_param = 'Cliente' if cliente_grafico == "Todos" and len(df_grafico['Cliente'].unique()) > 1 else None
 
                 fig = px.line(
@@ -424,13 +432,51 @@ else:
                     y="Qtd",
                     color=color_param,
                     line_group=line_group_param,
-                    title=title,
+                    title="Tendência de Quantidade Vendida",
                     labels={'Qtd': 'Quantidade', 'Periodo_Label': 'Mês'},
-                    markers=True
+                    markers=True,
+                    hover_data={'Cliente': True, 'Artigo': True}
                 )
+
+                # Adicionar rótulos de Qtd em cada ponto
+                fig.update_traces(
+                    text=df_melt['Qtd_Label'],
+                    textposition='top center',
+                    textfont=dict(size=10, color='black'),
+                    mode='lines+markers+text'
+                )
+
+                # Adicionar nome do cliente no final da linha (apenas se houver múltiplos)
+                if line_group_param is not None:
+                    ultimo_ponto = df_melt.groupby(['Cliente', 'Artigo']).apply(lambda x: x.iloc[-1]).reset_index(drop=True)
+                    for _, row in ultimo_ponto.iterrows():
+                        fig.add_annotation(
+                            x=row['Periodo_Label'],
+                            y=row['Qtd'],
+                            text=row['Cliente_Label'],
+                            showarrow=True,
+                            arrowhead=1,
+                            arrowsize=1,
+                            arrowwidth=1,
+                            arrowcolor="black",
+                            ax=30,
+                            ay=-30,
+                            font=dict(size=11, color="darkblue"),
+                            bgcolor="rgba(255,255,255,0.8)",
+                            bordercolor="gray",
+                            borderwidth=1
+                        )
+
+                # Ajustar layout
+                fig.update_layout(
+                    legend_title="Legenda",
+                    xaxis_title="Mês",
+                    yaxis_title="Quantidade",
+                    hovermode="x unified",
+                    height=600
+                )
+
                 st.plotly_chart(fig, width="stretch")
-    else:
-        st.warning("Nenhum dado disponível para artigos por cliente mensalmente.")
 
 # Footer
 st.markdown("---")
