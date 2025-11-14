@@ -3,7 +3,6 @@ import pandas as pd
 import altair as alt
 import base64
 from io import BytesIO
-import pdfkit
 from datetime import datetime
 
 # Configuração da página
@@ -83,32 +82,38 @@ st.markdown("""
         border-radius: 10px;
     }
     
-    .stButton > button {
+    .export-button {
+        display: inline-block;
+        padding: 12px 24px;
+        margin: 5px;
         border-radius: 10px;
-        padding: 10px 20px;
         font-weight: 600;
-        border: none;
+        text-decoration: none;
+        text-align: center;
         transition: all 0.3s ease;
+        border: none;
+        cursor: pointer;
+        color: white !important;
+        width: 90%;
     }
     
-    .stButton > button:hover {
+    .export-button:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        text-decoration: none;
+        color: white !important;
     }
     
     .export-excel {
         background: linear-gradient(135deg, #217346 0%, #28a745 100%);
-        color: white;
     }
     
-    .export-pdf {
-        background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%);
-        color: white;
+    .export-csv {
+        background: linear-gradient(135deg, #fd7e14 0%, #e44d26 100%);
     }
     
     .export-html {
         background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-        color: white;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -117,11 +122,27 @@ st.markdown("""
 def to_excel(df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        # Sheet com dados completos
         df.to_excel(writer, index=False, sheet_name='Dados_ViaVerde')
-        workbook = writer.book
-        worksheet = writer.sheets['Dados_ViaVerde']
         
-        # Formatar cabeçalho
+        # Sheet com resumo
+        summary_data = {
+            'Métrica': ['Total de Registos', 'Valor Total', 'Valor Médio', 'Valor Máximo', 'Valor Mínimo'],
+            'Valor': [
+                len(df),
+                f"€{df['Value'].sum():,.2f}",
+                f"€{df['Value'].mean():.2f}",
+                f"€{df['Value'].max():.2f}",
+                f"€{df['Value'].min():.2f}"
+            ]
+        }
+        summary_df = pd.DataFrame(summary_data)
+        summary_df.to_excel(writer, index=False, sheet_name='Resumo')
+        
+        workbook = writer.book
+        
+        # Formatar sheet de dados
+        worksheet_data = writer.sheets['Dados_ViaVerde']
         header_format = workbook.add_format({
             'bold': True,
             'text_wrap': True,
@@ -132,9 +153,14 @@ def to_excel(df):
         })
         
         for col_num, value in enumerate(df.columns.values):
-            worksheet.write(0, col_num, value, header_format)
+            worksheet_data.write(0, col_num, value, header_format)
             
-        worksheet.autofilter(0, 0, 0, len(df.columns) - 1)
+        worksheet_data.autofilter(0, 0, 0, len(df.columns) - 1)
+        
+        # Formatar sheet de resumo
+        worksheet_summary = writer.sheets['Resumo']
+        for col_num, value in enumerate(summary_df.columns.values):
+            worksheet_summary.write(0, col_num, value, header_format)
         
     processed_data = output.getvalue()
     return processed_data
@@ -142,41 +168,15 @@ def to_excel(df):
 def get_table_download_link_excel(df, filename="dados_viaverde.xlsx"):
     excel_data = to_excel(df)
     b64 = base64.b64encode(excel_data).decode()
-    href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}" class="export-excel">📊 Baixar Excel</a>'
-    return href
+    return f'<a class="export-button export-excel" href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}">📊 Excel (.xlsx)</a>'
 
-def get_table_download_link_html(df, filename="dados_viaverde.html"):
-    html = df.to_html(classes='table table-striped', index=False, border=0)
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Via Verde - Exportação de Dados</title>
-        <style>
-            body {{ font-family: Arial, sans-serif; margin: 20px; }}
-            .table {{ width: 100%; border-collapse: collapse; }}
-            .table-striped tbody tr:nth-of-type(odd) {{ background-color: #f8f9fa; }}
-            th {{ background-color: #667eea; color: white; padding: 12px; text-align: left; }}
-            td {{ padding: 10px; border-bottom: 1px solid #ddd; }}
-            .header {{ text-align: center; color: #667eea; margin-bottom: 30px; }}
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <h1>🚗 Via Verde - Dados Exportados</h1>
-            <p>Exportado em: {datetime.now().strftime("%d/%m/%Y %H:%M")}</p>
-            <p>Total de registos: {len(df)}</p>
-        </div>
-        {html}
-    </body>
-    </html>
-    """
-    b64 = base64.b64encode(html_content.encode()).decode()
-    href = f'<a href="data:text/html;base64,{b64}" download="{filename}" class="export-html">🌐 Baixar HTML</a>'
-    return href
+def get_table_download_link_csv(df, filename="dados_viaverde.csv"):
+    csv = df.to_csv(index=False)
+    b64 = base64.b64encode(csv.encode()).decode()
+    return f'<a class="export-button export-csv" href="data:file/csv;base64,{b64}" download="{filename}">📝 CSV (.csv)</a>'
 
-def create_pdf_report(df, filename="relatorio_viaverde.pdf"):
-    # Criar relatório HTML para PDF
+def get_table_download_link_html(df, filename="relatorio_viaverde.html"):
+    # Criar relatório HTML completo
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -184,49 +184,123 @@ def create_pdf_report(df, filename="relatorio_viaverde.pdf"):
         <meta charset="UTF-8">
         <title>Relatório Via Verde</title>
         <style>
-            body {{ font-family: Arial, sans-serif; margin: 30px; }}
-            .header {{ text-align: center; color: #667eea; border-bottom: 2px solid #667eea; padding-bottom: 20px; margin-bottom: 30px; }}
-            .summary {{ background-color: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 30px; }}
-            .table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
-            th {{ background-color: #667eea; color: white; padding: 12px; text-align: left; }}
-            td {{ padding: 10px; border-bottom: 1px solid #ddd; }}
-            .total {{ font-weight: bold; background-color: #e9ecef; }}
+            body {{ 
+                font-family: 'Segoe UI', Arial, sans-serif; 
+                margin: 0; 
+                padding: 20px; 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+            }}
+            .container {{
+                background: white;
+                border-radius: 15px;
+                padding: 30px;
+                box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+                margin: 0 auto;
+                max-width: 1200px;
+            }}
+            .header {{ 
+                text-align: center; 
+                color: #667eea; 
+                border-bottom: 2px solid #667eea; 
+                padding-bottom: 20px; 
+                margin-bottom: 30px; 
+            }}
+            .summary {{ 
+                background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+                padding: 25px; 
+                border-radius: 10px; 
+                margin-bottom: 30px;
+                border-left: 4px solid #667eea;
+            }}
+            .metrics {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 15px;
+                margin: 20px 0;
+            }}
+            .metric-card {{
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 20px;
+                border-radius: 10px;
+                text-align: center;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            }}
+            .table {{ 
+                width: 100%; 
+                border-collapse: collapse; 
+                margin-top: 20px;
+                border-radius: 10px;
+                overflow: hidden;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            }}
+            th {{ 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white; 
+                padding: 15px; 
+                text-align: left; 
+                font-weight: 600;
+            }}
+            td {{ 
+                padding: 12px; 
+                border-bottom: 1px solid #ddd; 
+            }}
+            tr:nth-child(even) {{ 
+                background-color: #f8f9fa; 
+            }}
+            tr:hover {{
+                background-color: #e3f2fd;
+            }}
+            .footer {{
+                text-align: center;
+                margin-top: 30px;
+                color: #666;
+                font-size: 0.9em;
+            }}
         </style>
     </head>
     <body>
-        <div class="header">
-            <h1>🚗 Via Verde - Relatório de Portagens</h1>
-            <p>Exportado em: {datetime.now().strftime("%d/%m/%Y %H:%M")}</p>
-        </div>
-        
-        <div class="summary">
-            <h3>Resumo</h3>
-            <p><strong>Total de Registos:</strong> {len(df):,}</p>
-            <p><strong>Valor Total:</strong> €{df['Value'].sum():,.2f}</p>
-            <p><strong>Valor Médio:</strong> €{df['Value'].mean():.2f}</p>
-            <p><strong>Período:</strong> {df['Ano'].min()} - {df['Ano'].max()}</p>
-        </div>
-        
-        <h3>Dados Detalhados</h3>
-        {df.to_html(classes='table', index=False, border=0)}
-        
-        <div style="margin-top: 30px; text-align: center; color: #666;">
-            <p>Relatório gerado automaticamente pelo Via Verde Dashboard</p>
+        <div class="container">
+            <div class="header">
+                <h1>🚗 Via Verde - Relatório Completo</h1>
+                <p>Relatório gerado em: {datetime.now().strftime("%d/%m/%Y às %H:%M")}</p>
+            </div>
+            
+            <div class="summary">
+                <h3>📊 Resumo Executivo</h3>
+                <div class="metrics">
+                    <div class="metric-card">
+                        <h4>Total de Registos</h4>
+                        <h2>{len(df):,}</h2>
+                    </div>
+                    <div class="metric-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+                        <h4>Valor Total</h4>
+                        <h2>€{df['Value'].sum():,.2f}</h2>
+                    </div>
+                    <div class="metric-card" style="background: linear-gradient(135deg, #fc466b 0%, #3f5efb 100%);">
+                        <h4>Valor Médio</h4>
+                        <h2>€{df['Value'].mean():.2f}</h2>
+                    </div>
+                    <div class="metric-card" style="background: linear-gradient(135deg, #fdbb2d 0%, #22c1c3 100%);">
+                        <h4>Valor Máximo</h4>
+                        <h2>€{df['Value'].max():.2f}</h2>
+                    </div>
+                </div>
+            </div>
+            
+            <h3>📋 Dados Detalhados</h3>
+            {df.to_html(classes='table', index=False, border=0, escape=False)}
+            
+            <div class="footer">
+                <p>© 2024 Via Verde Dashboard - Relatório gerado automaticamente</p>
+            </div>
         </div>
     </body>
     </html>
     """
-    
-    try:
-        # Tentar gerar PDF com pdfkit (requer wkhtmltopdf instalado)
-        pdf = pdfkit.from_string(html_content, False)
-        b64 = base64.b64encode(pdf).decode()
-        href = f'<a href="data:application/pdf;base64,{b64}" download="{filename}" class="export-pdf">📄 Baixar PDF</a>'
-        return href
-    except:
-        # Fallback: oferecer download do HTML se PDF não funcionar
-        st.warning("⚠️ PDF não disponível. Use a opção HTML como alternativa.")
-        return get_table_download_link_html(df, "relatorio_viaverde.html")
+    b64 = base64.b64encode(html_content.encode()).decode()
+    return f'<a class="export-button export-html" href="data:text/html;base64,{b64}" download="{filename}">🌐 Relatório HTML</a>'
 
 # 📂 Carregar Excel do GitHub
 file_url = "https://github.com/paulom40/PFonseca.py/raw/main/ViaVerde_streamlit.xlsx"
@@ -323,10 +397,19 @@ if not filtered_df.empty:
         st.markdown(get_table_download_link_excel(filtered_df), unsafe_allow_html=True)
     
     with col2:
-        st.markdown(get_table_download_link_html(filtered_df), unsafe_allow_html=True)
+        st.markdown(get_table_download_link_csv(filtered_df), unsafe_allow_html=True)
     
     with col3:
-        st.markdown(create_pdf_report(filtered_df), unsafe_allow_html=True)
+        st.markdown(get_table_download_link_html(filtered_df), unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div style="margin-top: 15px; font-size: 0.9em; color: #666;">
+        <strong>Formatos disponíveis:</strong><br>
+        • <strong>Excel:</strong> Ideal para análise em planilhas<br>
+        • <strong>CSV:</strong> Formato universal para dados<br>
+        • <strong>HTML:</strong> Relatório completo formatado
+    </div>
+    """, unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
 
