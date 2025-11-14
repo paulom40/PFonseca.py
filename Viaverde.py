@@ -2,35 +2,107 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 
-# Ocultar menu, header e footer
+# Configuração da página
+st.set_page_config(
+    page_title="Via Verde Dashboard",
+    page_icon="🚗",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
+
+# CSS personalizado para aparência moderna
 st.markdown("""
-    <style>
+<style>
+    /* Ocultar menu, header e footer */
     #MainMenu {visibility: hidden;}
     header {visibility: hidden;}
     footer {visibility: hidden;}
-    </style>
+    
+    /* Estilos modernos */
+    .main {
+        background-color: #f8f9fa;
+    }
+    
+    .stApp {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .card {
+        background: white;
+        padding: 20px;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+        border-left: 5px solid #667eea;
+    }
+    
+    .metric-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 15px;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+    
+    .filter-section {
+        background: white;
+        padding: 25px;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 25px;
+    }
+    
+    .stSelectbox, .stMultiselect {
+        border-radius: 10px;
+    }
+    
+    .stDataFrame {
+        border-radius: 10px;
+    }
+    
+    h1, h2, h3 {
+        color: white !important;
+        font-weight: 600 !important;
+    }
+    
+    .stExpander {
+        border-radius: 10px !important;
+    }
+    
+    .stExpander > div {
+        border-radius: 10px !important;
+    }
+</style>
 """, unsafe_allow_html=True)
-
-# Configuração da página
-st.set_page_config(layout="wide")
 
 # 📂 Carregar Excel do GitHub
 file_url = "https://github.com/paulom40/PFonseca.py/raw/main/ViaVerde_streamlit.xlsx"
 
-# 🔷 Cabeçalho
-col1, col2 = st.columns([1, 5])
-with col1:
-    st.image("https://github.com/paulom40/PFonseca.py/raw/main/Bracar.png", width=100)
+# 🔷 Header moderno
+col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
-    st.title("Via Verde Dashboard")
+    st.markdown("""
+    <div style='text-align: center; padding: 20px;'>
+        <h1 style='color: white; font-size: 2.5em; margin-bottom: 10px;'>🚗 Via Verde Dashboard</h1>
+        <p style='color: white; font-size: 1.2em;'>Análise Inteligente de Portagens</p>
+    </div>
+    """, unsafe_allow_html=True)
 
 # 📊 Carregar e validar dados
-try:
-    df = pd.read_excel(file_url)
-    df = df.drop(columns=['Mês'], errors='ignore')
-    st.success("✅ Dados carregados com sucesso!")
-except Exception as e:
-    st.error(f"❌ Erro ao carregar o arquivo: {e}")
+@st.cache_data
+def load_data():
+    try:
+        df = pd.read_excel(file_url)
+        df = df.drop(columns=['Mês'], errors='ignore')
+        return df, True
+    except Exception as e:
+        st.error(f"❌ Erro ao carregar o arquivo: {e}")
+        return None, False
+
+df, success = load_data()
+
+if not success:
     st.stop()
 
 required_cols = ['Matricula', 'Date', 'Ano', 'Month', 'Dia', 'Value']
@@ -47,86 +119,143 @@ month_mapping = {
 }
 df['Month'] = df['Month'].str.lower().map(month_mapping).fillna(df['Month'])
 
-# 🔍 Filtros
-st.header("🔍 Filtros")
+# 🔍 Seção de Filtros
+st.markdown('<div class="filter-section">', unsafe_allow_html=True)
 
-col1, col2, col3, col4 = st.columns(4)
+st.markdown("### 🔍 Filtros Avançados")
+st.markdown("Selecione os critérios para análise dos dados:")
+
+col1, col2, col3, col4 = st.columns([2, 2, 3, 2])
 
 with col1:
     matriculas = sorted(df['Matricula'].unique())
-    selected_matricula = st.selectbox("Matricula", ["Todas"] + matriculas)
+    selected_matricula = st.selectbox(
+        "**Matrícula**", 
+        ["Todas"] + matriculas,
+        help="Selecione uma matrícula específica ou 'Todas'"
+    )
 
 with col2:
     anos = sorted(df['Ano'].unique())
-    selected_ano = st.selectbox("Ano", ["Todos"] + anos)
+    selected_ano = st.selectbox(
+        "**Ano**", 
+        ["Todos"] + anos,
+        help="Filtrar por ano específico"
+    )
 
 with col3:
-    months_available = sorted(df['Month'].unique())
-    selected_months = st.multiselect("Mês", months_available, default=months_available)
+    months_available = sorted(df['Month'].unique(), key=lambda x: [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ].index(x))
+    selected_months = st.multiselect(
+        "**Mês**", 
+        months_available, 
+        default=months_available,
+        help="Selecione um ou mais meses"
+    )
     
 with col4:
     dias = sorted(df['Dia'].unique())
-    selected_dias = st.multiselect("Dia", ["Todos"] + dias, default=["Todos"])
+    selected_dias = st.multiselect(
+        "**Dia**", 
+        ["Todos"] + dias, 
+        default=["Todos"],
+        help="Filtrar por dias específicos do mês"
+    )
+
+st.markdown('</div>', unsafe_allow_html=True)
 
 # Aplicar filtros
 filtered_df = df.copy()
 
-# Filtro Matricula
 if selected_matricula != "Todas":
     filtered_df = filtered_df[filtered_df['Matricula'] == selected_matricula]
 
-# Filtro Ano
 if selected_ano != "Todos":
     filtered_df = filtered_df[filtered_df['Ano'].astype(str) == str(selected_ano)]
 
-# Filtro Mês
 if selected_months:
     filtered_df = filtered_df[filtered_df['Month'].isin(selected_months)]
 
-# Filtro Dia
 if "Todos" not in selected_dias:
     filtered_df = filtered_df[filtered_df['Dia'].isin(selected_dias)]
 
-# 📊 Dados Filtrados
-st.header("📊 Dados Filtrados")
-st.dataframe(filtered_df, use_container_width=True)
-
-# 📈 Gráficos
+# 📊 Métricas em tempo real
 if not filtered_df.empty:
-    st.header("📈 Análise de Valores")
+    total_value = filtered_df['Value'].sum()
+    total_records = len(filtered_df)
+    avg_value = filtered_df['Value'].mean()
+    max_value = filtered_df['Value'].max()
     
-    # Ordem dos meses
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown(f"""
+        <div class='metric-card'>
+            <h3>💰 Total Gasto</h3>
+            <h2>€{total_value:,.2f}</h2>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class='metric-card' style='background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);'>
+            <h3>📊 Total de Registos</h3>
+            <h2>{total_records:,}</h2>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown(f"""
+        <div class='metric-card' style='background: linear-gradient(135deg, #fc466b 0%, #3f5efb 100%);'>
+            <h3>📈 Média por Registo</h3>
+            <h2>€{avg_value:.2f}</h2>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        st.markdown(f"""
+        <div class='metric-card' style='background: linear-gradient(135deg, #fdbb2d 0%, #22c1c3 100%);'>
+            <h3>🎯 Valor Máximo</h3>
+            <h2>€{max_value:.2f}</h2>
+        </div>
+        """, unsafe_allow_html=True)
+
+# 📈 Visualizações
+if not filtered_df.empty:
+    st.markdown("---")
+    
+    # Gráfico 1: Valor Total por Mês
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown("### 📅 Valor Total por Mês")
+    
     month_order = [
         'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
         'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
     ]
     
-    # Gráfico 1: Valor Total por Mês
-    st.subheader("Valor Total por Mês")
-    
-    # Agrupar por mês
     chart_df_month = filtered_df.groupby("Month")["Value"].sum().reset_index()
-    
-    # Garantir que todos os meses estejam presentes
     all_months_df = pd.DataFrame({'Month': month_order})
     chart_df_month = all_months_df.merge(chart_df_month, on='Month', how='left').fillna(0)
     
-    # Criar gráfico de barras
-    bar_chart = alt.Chart(chart_df_month).mark_bar(color='steelblue').encode(
-        x=alt.X('Month:O', title='Mês', sort=month_order),
+    bar_chart = alt.Chart(chart_df_month).mark_bar(
+        color='linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        cornerRadiusTop=5,
+        cornerRadiusBottom=5
+    ).encode(
+        x=alt.X('Month:O', title='Mês', sort=month_order, axis=alt.Axis(labelAngle=0)),
         y=alt.Y('Value:Q', title='Valor Total (€)'),
         tooltip=['Month', alt.Tooltip('Value:Q', title='Valor (€)', format='.2f')]
-    ).properties(
-        height=400
-    )
+    ).properties(height=400)
     
-    # Adicionar labels
     bar_labels = alt.Chart(chart_df_month[chart_df_month['Value'] > 0]).mark_text(
         align='center', 
         baseline='bottom', 
         fontWeight='bold', 
-        color='red', 
-        dy=-5
+        color='#2c3e50',
+        dy=-8,
+        fontSize=12
     ).encode(
         x=alt.X('Month:O', sort=month_order),
         y='Value:Q',
@@ -134,60 +263,92 @@ if not filtered_df.empty:
     )
     
     st.altair_chart(bar_chart + bar_labels, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
     
-    # Gráfico 2: Valor Total por Dia (opcional)
-    st.subheader("Valor Total por Dia")
-    
-    # Agrupar por dia
-    chart_df_day = filtered_df.groupby("Dia")["Value"].sum().reset_index().sort_values("Dia")
-    
-    line_chart = alt.Chart(chart_df_day).mark_line(point=True, color='green').encode(
-        x=alt.X('Dia:O', title='Dia do Mês'),
-        y=alt.Y('Value:Q', title='Valor Total (€)'),
-        tooltip=['Dia', alt.Tooltip('Value:Q', title='Valor (€)', format='.2f')]
-    ).properties(
-        height=300
-    )
-    
-    st.altair_chart(line_chart, use_container_width=True)
-    
-    # 📊 Métricas Resumidas
-    st.header("📊 Métricas Resumidas")
-    
-    col1, col2, col3, col4 = st.columns(4)
+    # Gráfico 2 e Tabela
+    col1, col2 = st.columns([2, 1])
     
     with col1:
-        total_value = filtered_df['Value'].sum()
-        st.metric("Total Geral", f"€{total_value:.2f}")
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown("### 📈 Tendência por Dia")
+        
+        chart_df_day = filtered_df.groupby("Dia")["Value"].sum().reset_index().sort_values("Dia")
+        
+        area_chart = alt.Chart(chart_df_day).mark_area(
+            color='linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+            opacity=0.7
+        ).encode(
+            x=alt.X('Dia:O', title='Dia do Mês'),
+            y=alt.Y('Value:Q', title='Valor Total (€)'),
+            tooltip=['Dia', alt.Tooltip('Value:Q', title='Valor (€)', format='.2f')]
+        ).properties(height=300)
+        
+        st.altair_chart(area_chart, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
-        st.metric("Número de Registos", len(filtered_df))
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown("### 📋 Dados Filtrados")
+        
+        # Mostrar apenas as colunas principais
+        display_df = filtered_df[['Matricula', 'Date', 'Month', 'Dia', 'Value']].copy()
+        display_df['Value'] = display_df['Value'].map('€{:.2f}'.format)
+        
+        st.dataframe(
+            display_df,
+            use_container_width=True,
+            height=350
+        )
+        
+        st.markdown(f"**Total de registos:** {len(filtered_df)}")
+        st.markdown('</div>', unsafe_allow_html=True)
     
-    with col3:
-        avg_value = filtered_df['Value'].mean()
-        st.metric("Média por Registo", f"€{avg_value:.2f}")
-    
-    with col4:
-        max_value = filtered_df['Value'].max()
-        st.metric("Valor Máximo", f"€{max_value:.2f}")
-    
-    # Detalhes por Matrícula (se houver múltiplas)
+    # Detalhes por Matrícula
     if selected_matricula == "Todas" and len(matriculas) > 1:
-        st.subheader("📋 Detalhes por Matrícula")
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown("### 🚗 Análise por Matrícula")
         
         matricula_summary = filtered_df.groupby('Matricula').agg({
-            'Value': ['sum', 'count', 'mean']
+            'Value': ['sum', 'count', 'mean', 'max']
         }).round(2)
         
-        matricula_summary.columns = ['Total', 'Nº Registos', 'Média']
-        st.dataframe(matricula_summary)
+        matricula_summary.columns = ['Total (€)', 'Nº Registos', 'Média (€)', 'Máximo (€)']
+        matricula_summary['Total (€)'] = matricula_summary['Total (€)'].map('€{:.2f}'.format)
+        matricula_summary['Média (€)'] = matricula_summary['Média (€)'].map('€{:.2f}'.format)
+        matricula_summary['Máximo (€)'] = matricula_summary['Máximo (€)'].map('€{:.2f}'.format)
         
-else:
-    st.warning("⚠️ Nenhum dado encontrado com os filtros selecionados.")
+        st.dataframe(matricula_summary, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-# ℹ️ Informações sobre os dados
-with st.expander("ℹ️ Informações sobre os dados"):
-    st.write(f"**Período total dos dados:** {df['Ano'].min()} - {df['Ano'].max()}")
-    st.write(f"**Matrículas disponíveis:** {', '.join(map(str, matriculas))}")
-    st.write(f"**Total de registos no dataset:** {len(df)}")
-    st.write(f"**Período coberto:** {df['Month'].nunique()} meses")
+else:
+    st.warning("""
+    <div style='background: #fff3cd; color: #856404; padding: 20px; border-radius: 10px; border-left: 5px solid #ffc107;'>
+        <h4 style='margin: 0;'>⚠️ Nenhum dado encontrado</h4>
+        <p style='margin: 10px 0 0 0;'>Tente ajustar os filtros para visualizar os dados.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# 📊 Informações do Dataset
+with st.expander("📊 Informações do Dataset", expanded=False):
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Período Total", f"{df['Ano'].min()} - {df['Ano'].max()}")
+    
+    with col2:
+        st.metric("Matrículas Únicas", len(matriculas))
+    
+    with col3:
+        st.metric("Total de Registos", f"{len(df):,}")
+    
+    st.write(f"**Meses cobertos:** {', '.join(sorted(df['Month'].unique()))}")
+    st.write(f"**Faixa de dias:** {df['Dia'].min()} a {df['Dia'].max()}")
+    st.write(f"**Valor total no dataset:** €{df['Value'].sum():,.2f}")
+
+# Footer
+st.markdown("---")
+st.markdown("""
+<div style='text-align: center; color: white; padding: 20px;'>
+    <p>🚗 <strong>Via Verde Dashboard</strong> - Desenvolvido para análise inteligente de portagens</p>
+</div>
+""", unsafe_allow_html=True)
