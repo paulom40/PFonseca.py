@@ -19,12 +19,9 @@ st.markdown("""
     footer {visibility: hidden;}
     
     /* Estilos modernos */
-    .main {
-        background-color: #f8f9fa;
-    }
-    
     .stApp {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
     
     .card {
@@ -34,11 +31,6 @@ st.markdown("""
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
         margin-bottom: 25px;
         border-left: 4px solid #667eea;
-        transition: transform 0.3s ease;
-    }
-    
-    .card:hover {
-        transform: translateY(-5px);
     }
     
     .metric-card {
@@ -48,65 +40,35 @@ st.markdown("""
         border-radius: 15px;
         text-align: center;
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-        transition: transform 0.3s ease;
     }
     
-    .metric-card:hover {
-        transform: translateY(-5px);
+    .metric-card.green {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    }
+    
+    .metric-card.pink {
+        background: linear-gradient(135deg, #fc466b 0%, #3f5efb 100%);
+    }
+    
+    .metric-card.orange {
+        background: linear-gradient(135deg, #fdbb2d 0%, #22c1c3 100%);
     }
     
     .filter-section {
         background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(10px);
         padding: 25px;
         border-radius: 15px;
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
         margin-bottom: 25px;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-    }
-    
-    .stSelectbox > div > div {
-        border-radius: 10px;
-        border: 2px solid #e0e0e0;
-    }
-    
-    .stMultiselect > div > div {
-        border-radius: 10px;
-        border: 2px solid #e0e0e0;
     }
     
     h1, h2, h3 {
         color: white !important;
         font-weight: 700 !important;
-        margin-bottom: 1rem !important;
     }
     
-    .stExpander {
-        border-radius: 10px !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    }
-    
-    .stDataFrame {
+    .stSelectbox > div > div, .stMultiselect > div > div {
         border-radius: 10px;
-    }
-    
-    /* Custom scrollbar */
-    ::-webkit-scrollbar {
-        width: 8px;
-    }
-    
-    ::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 10px;
-    }
-    
-    ::-webkit-scrollbar-thumb {
-        background: #667eea;
-        border-radius: 10px;
-    }
-    
-    ::-webkit-scrollbar-thumb:hover {
-        background: #764ba2;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -115,14 +77,12 @@ st.markdown("""
 file_url = "https://github.com/paulom40/PFonseca.py/raw/main/ViaVerde_streamlit.xlsx"
 
 # 🔷 Header moderno
-col1, col2, col3 = st.columns([1, 2, 1])
-with col2:
-    st.markdown("""
-    <div style='text-align: center; padding: 30px 0;'>
-        <h1 style='color: white; font-size: 3em; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);'>🚗 Via Verde Dashboard</h1>
-        <p style='color: white; font-size: 1.3em; opacity: 0.9;'>Análise Inteligente de Portagens</p>
-    </div>
-    """, unsafe_allow_html=True)
+st.markdown("""
+<div style='text-align: center; padding: 30px 0;'>
+    <h1 style='color: white; font-size: 3em; margin-bottom: 10px;'>🚗 Via Verde Dashboard</h1>
+    <p style='color: white; font-size: 1.3em; opacity: 0.9;'>Análise Inteligente de Portagens</p>
+</div>
+""", unsafe_allow_html=True)
 
 # 📊 Carregar e validar dados
 @st.cache_data
@@ -156,9 +116,7 @@ df['Month'] = df['Month'].str.lower().map(month_mapping).fillna(df['Month'])
 
 # 🔍 Seção de Filtros
 st.markdown('<div class="filter-section">', unsafe_allow_html=True)
-
 st.markdown("### 🔍 Filtros Avançados")
-st.markdown("Selecione os critérios para análise dos dados:")
 
 col1, col2, col3, col4 = st.columns([2, 2, 3, 2])
 
@@ -166,17 +124,12 @@ with col1:
     matriculas = sorted(df['Matricula'].unique())
     selected_matricula = st.selectbox(
         "**Matrícula**", 
-        ["Todas"] + matriculas,
-        help="Selecione uma matrícula específica ou 'Todas'"
+        ["Todas"] + matriculas
     )
 
 with col2:
     anos = sorted(df['Ano'].unique())
-    selected_ano = st.selectbox(
-        "**Ano**", 
-        ["Todos"] + anos,
-        help="Filtrar por ano específico"
-    )
+    selected_ano = st.selectbox("**Ano**", ["Todos"] + anos)
 
 with col3:
     months_available = sorted(df['Month'].unique(), key=lambda x: [
@@ -186,8 +139,7 @@ with col3:
     selected_months = st.multiselect(
         "**Mês**", 
         months_available, 
-        default=months_available,
-        help="Selecione um ou mais meses"
+        default=months_available
     )
     
 with col4:
@@ -195,8 +147,7 @@ with col4:
     selected_dias = st.multiselect(
         "**Dia**", 
         ["Todos"] + dias, 
-        default=["Todos"],
-        help="Filtrar por dias específicos do mês"
+        default=["Todos"]
     )
 
 st.markdown('</div>', unsafe_allow_html=True)
@@ -236,7 +187,7 @@ if not filtered_df.empty:
     
     with col2:
         st.markdown(f"""
-        <div class='metric-card' style='background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);'>
+        <div class='metric-card green'>
             <h3 style='color: white; margin: 0; font-size: 1.1em;'>📊 Total de Registos</h3>
             <h2 style='color: white; margin: 10px 0; font-size: 2em;'>{total_records:,}</h2>
             <p style='color: rgba(255,255,255,0.8); margin: 0;'>Transações totais</p>
@@ -245,7 +196,7 @@ if not filtered_df.empty:
     
     with col3:
         st.markdown(f"""
-        <div class='metric-card' style='background: linear-gradient(135deg, #fc466b 0%, #3f5efb 100%);'>
+        <div class='metric-card pink'>
             <h3 style='color: white; margin: 0; font-size: 1.1em;'>📈 Média por Registo</h3>
             <h2 style='color: white; margin: 10px 0; font-size: 2em;'>€{avg_value:.2f}</h2>
             <p style='color: rgba(255,255,255,0.8); margin: 0;'>Valor médio</p>
@@ -254,7 +205,7 @@ if not filtered_df.empty:
     
     with col4:
         st.markdown(f"""
-        <div class='metric-card' style='background: linear-gradient(135deg, #fdbb2d 0%, #22c1c3 100%);'>
+        <div class='metric-card orange'>
             <h3 style='color: white; margin: 0; font-size: 1.1em;'>🎯 Valor Máximo</h3>
             <h2 style='color: white; margin: 10px 0; font-size: 2em;'>€{max_value:.2f}</h2>
             <p style='color: rgba(255,255,255,0.8); margin: 0;'>Maior transação</p>
@@ -278,18 +229,15 @@ if not filtered_df.empty:
     all_months_df = pd.DataFrame({'Month': month_order})
     chart_df_month = all_months_df.merge(chart_df_month, on='Month', how='left').fillna(0)
     
-    # CORREÇÃO: Usar cor sólida em vez de gradiente no mark_bar
+    # CORREÇÃO: mark_bar simplificado sem parâmetros inválidos
     bar_chart = alt.Chart(chart_df_month).mark_bar(
-        color='#667eea',  # Cor sólida
-        cornerRadiusTop=5,
-        cornerRadiusBottom=5
+        color='#667eea'
     ).encode(
         x=alt.X('Month:O', title='Mês', sort=month_order, axis=alt.Axis(labelAngle=0)),
         y=alt.Y('Value:Q', title='Valor Total (€)'),
         tooltip=['Month', alt.Tooltip('Value:Q', title='Valor (€)', format='.2f')]
     ).properties(
-        height=400,
-        title='Distribuição Mensal de Gastos'
+        height=400
     )
     
     bar_labels = alt.Chart(chart_df_month[chart_df_month['Value'] > 0]).mark_text(
@@ -297,8 +245,7 @@ if not filtered_df.empty:
         baseline='bottom', 
         fontWeight='bold', 
         color='#2c3e50',
-        dy=-8,
-        fontSize=12
+        dy=-8
     ).encode(
         x=alt.X('Month:O', sort=month_order),
         y='Value:Q',
@@ -319,16 +266,12 @@ if not filtered_df.empty:
         
         area_chart = alt.Chart(chart_df_day).mark_area(
             color='#11998e',
-            opacity=0.7,
-            line=True
+            opacity=0.7
         ).encode(
             x=alt.X('Dia:O', title='Dia do Mês'),
             y=alt.Y('Value:Q', title='Valor Total (€)'),
             tooltip=['Dia', alt.Tooltip('Value:Q', title='Valor (€)', format='.2f')]
-        ).properties(
-            height=300,
-            title='Distribuição Diária de Gastos'
-        )
+        ).properties(height=300)
         
         st.altair_chart(area_chart, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
@@ -337,34 +280,11 @@ if not filtered_df.empty:
         st.markdown('<div class="card">', unsafe_allow_html=True)
         st.markdown("### 📋 Dados Filtrados")
         
-        # Mostrar apenas as colunas principais
         display_df = filtered_df[['Matricula', 'Date', 'Month', 'Dia', 'Value']].copy()
         display_df['Value'] = display_df['Value'].map('€{:.2f}'.format)
         
-        st.dataframe(
-            display_df,
-            use_container_width=True,
-            height=350
-        )
-        
+        st.dataframe(display_df, use_container_width=True, height=350)
         st.markdown(f"**Total de registos:** {len(filtered_df)}")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Detalhes por Matrícula
-    if selected_matricula == "Todas" and len(matriculas) > 1:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown("### 🚗 Análise por Matrícula")
-        
-        matricula_summary = filtered_df.groupby('Matricula').agg({
-            'Value': ['sum', 'count', 'mean', 'max']
-        }).round(2)
-        
-        matricula_summary.columns = ['Total (€)', 'Nº Registos', 'Média (€)', 'Máximo (€)']
-        matricula_summary['Total (€)'] = matricula_summary['Total (€)'].map('€{:.2f}'.format)
-        matricula_summary['Média (€)'] = matricula_summary['Média (€)'].map('€{:.2f}'.format)
-        matricula_summary['Máximo (€)'] = matricula_summary['Máximo (€)'].map('€{:.2f}'.format)
-        
-        st.dataframe(matricula_summary, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
 else:
@@ -388,15 +308,12 @@ with st.expander("📊 Informações do Dataset", expanded=False):
     with col3:
         st.metric("Total de Registos", f"{len(df):,}")
     
-    st.write(f"**Meses cobertos:** {', '.join(sorted(df['Month'].unique()))}")
-    st.write(f"**Faixa de dias:** {df['Dia'].min()} a {df['Dia'].max()}")
     st.write(f"**Valor total no dataset:** €{df['Value'].sum():,.2f}")
 
 # Footer
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: white; padding: 30px; opacity: 0.8;'>
-    <p style='margin: 0; font-size: 1.1em;'>🚗 <strong>Via Verde Dashboard</strong> - Desenvolvido para análise inteligente de portagens</p>
-    <p style='margin: 10px 0 0 0; font-size: 0.9em;'>© 2024 - Todos os direitos reservados</p>
+    <p style='margin: 0; font-size: 1.1em;'>🚗 <strong>Via Verde Dashboard</strong> - Análise de Portagens</p>
 </div>
 """, unsafe_allow_html=True)
