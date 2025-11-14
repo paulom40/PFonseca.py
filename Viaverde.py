@@ -29,49 +29,84 @@ st.markdown("""
     
     .card {
         background: white;
-        padding: 20px;
+        padding: 25px;
         border-radius: 15px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        margin-bottom: 20px;
-        border-left: 5px solid #667eea;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        margin-bottom: 25px;
+        border-left: 4px solid #667eea;
+        transition: transform 0.3s ease;
+    }
+    
+    .card:hover {
+        transform: translateY(-5px);
     }
     
     .metric-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
-        padding: 20px;
+        padding: 25px;
         border-radius: 15px;
         text-align: center;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        transition: transform 0.3s ease;
+    }
+    
+    .metric-card:hover {
+        transform: translateY(-5px);
     }
     
     .filter-section {
-        background: white;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
         padding: 25px;
         border-radius: 15px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
         margin-bottom: 25px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
     }
     
-    .stSelectbox, .stMultiselect {
+    .stSelectbox > div > div {
         border-radius: 10px;
+        border: 2px solid #e0e0e0;
+    }
+    
+    .stMultiselect > div > div {
+        border-radius: 10px;
+        border: 2px solid #e0e0e0;
+    }
+    
+    h1, h2, h3 {
+        color: white !important;
+        font-weight: 700 !important;
+        margin-bottom: 1rem !important;
+    }
+    
+    .stExpander {
+        border-radius: 10px !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
     }
     
     .stDataFrame {
         border-radius: 10px;
     }
     
-    h1, h2, h3 {
-        color: white !important;
-        font-weight: 600 !important;
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+        width: 8px;
     }
     
-    .stExpander {
-        border-radius: 10px !important;
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
     }
     
-    .stExpander > div {
-        border-radius: 10px !important;
+    ::-webkit-scrollbar-thumb {
+        background: #667eea;
+        border-radius: 10px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: #764ba2;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -83,9 +118,9 @@ file_url = "https://github.com/paulom40/PFonseca.py/raw/main/ViaVerde_streamlit.
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
     st.markdown("""
-    <div style='text-align: center; padding: 20px;'>
-        <h1 style='color: white; font-size: 2.5em; margin-bottom: 10px;'>🚗 Via Verde Dashboard</h1>
-        <p style='color: white; font-size: 1.2em;'>Análise Inteligente de Portagens</p>
+    <div style='text-align: center; padding: 30px 0;'>
+        <h1 style='color: white; font-size: 3em; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);'>🚗 Via Verde Dashboard</h1>
+        <p style='color: white; font-size: 1.3em; opacity: 0.9;'>Análise Inteligente de Portagens</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -193,32 +228,36 @@ if not filtered_df.empty:
     with col1:
         st.markdown(f"""
         <div class='metric-card'>
-            <h3>💰 Total Gasto</h3>
-            <h2>€{total_value:,.2f}</h2>
+            <h3 style='color: white; margin: 0; font-size: 1.1em;'>💰 Total Gasto</h3>
+            <h2 style='color: white; margin: 10px 0; font-size: 2em;'>€{total_value:,.2f}</h2>
+            <p style='color: rgba(255,255,255,0.8); margin: 0;'>Valor acumulado</p>
         </div>
         """, unsafe_allow_html=True)
     
     with col2:
         st.markdown(f"""
         <div class='metric-card' style='background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);'>
-            <h3>📊 Total de Registos</h3>
-            <h2>{total_records:,}</h2>
+            <h3 style='color: white; margin: 0; font-size: 1.1em;'>📊 Total de Registos</h3>
+            <h2 style='color: white; margin: 10px 0; font-size: 2em;'>{total_records:,}</h2>
+            <p style='color: rgba(255,255,255,0.8); margin: 0;'>Transações totais</p>
         </div>
         """, unsafe_allow_html=True)
     
     with col3:
         st.markdown(f"""
         <div class='metric-card' style='background: linear-gradient(135deg, #fc466b 0%, #3f5efb 100%);'>
-            <h3>📈 Média por Registo</h3>
-            <h2>€{avg_value:.2f}</h2>
+            <h3 style='color: white; margin: 0; font-size: 1.1em;'>📈 Média por Registo</h3>
+            <h2 style='color: white; margin: 10px 0; font-size: 2em;'>€{avg_value:.2f}</h2>
+            <p style='color: rgba(255,255,255,0.8); margin: 0;'>Valor médio</p>
         </div>
         """, unsafe_allow_html=True)
     
     with col4:
         st.markdown(f"""
         <div class='metric-card' style='background: linear-gradient(135deg, #fdbb2d 0%, #22c1c3 100%);'>
-            <h3>🎯 Valor Máximo</h3>
-            <h2>€{max_value:.2f}</h2>
+            <h3 style='color: white; margin: 0; font-size: 1.1em;'>🎯 Valor Máximo</h3>
+            <h2 style='color: white; margin: 10px 0; font-size: 2em;'>€{max_value:.2f}</h2>
+            <p style='color: rgba(255,255,255,0.8); margin: 0;'>Maior transação</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -239,15 +278,19 @@ if not filtered_df.empty:
     all_months_df = pd.DataFrame({'Month': month_order})
     chart_df_month = all_months_df.merge(chart_df_month, on='Month', how='left').fillna(0)
     
+    # CORREÇÃO: Usar cor sólida em vez de gradiente no mark_bar
     bar_chart = alt.Chart(chart_df_month).mark_bar(
-        color='linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        color='#667eea',  # Cor sólida
         cornerRadiusTop=5,
         cornerRadiusBottom=5
     ).encode(
         x=alt.X('Month:O', title='Mês', sort=month_order, axis=alt.Axis(labelAngle=0)),
         y=alt.Y('Value:Q', title='Valor Total (€)'),
         tooltip=['Month', alt.Tooltip('Value:Q', title='Valor (€)', format='.2f')]
-    ).properties(height=400)
+    ).properties(
+        height=400,
+        title='Distribuição Mensal de Gastos'
+    )
     
     bar_labels = alt.Chart(chart_df_month[chart_df_month['Value'] > 0]).mark_text(
         align='center', 
@@ -275,13 +318,17 @@ if not filtered_df.empty:
         chart_df_day = filtered_df.groupby("Dia")["Value"].sum().reset_index().sort_values("Dia")
         
         area_chart = alt.Chart(chart_df_day).mark_area(
-            color='linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
-            opacity=0.7
+            color='#11998e',
+            opacity=0.7,
+            line=True
         ).encode(
             x=alt.X('Dia:O', title='Dia do Mês'),
             y=alt.Y('Value:Q', title='Valor Total (€)'),
             tooltip=['Dia', alt.Tooltip('Value:Q', title='Valor (€)', format='.2f')]
-        ).properties(height=300)
+        ).properties(
+            height=300,
+            title='Distribuição Diária de Gastos'
+        )
         
         st.altair_chart(area_chart, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
@@ -322,7 +369,7 @@ if not filtered_df.empty:
 
 else:
     st.warning("""
-    <div style='background: #fff3cd; color: #856404; padding: 20px; border-radius: 10px; border-left: 5px solid #ffc107;'>
+    <div style='background: #fff3cd; color: #856404; padding: 20px; border-radius: 10px; border-left: 5px solid #ffc107; margin: 20px 0;'>
         <h4 style='margin: 0;'>⚠️ Nenhum dado encontrado</h4>
         <p style='margin: 10px 0 0 0;'>Tente ajustar os filtros para visualizar os dados.</p>
     </div>
@@ -348,7 +395,8 @@ with st.expander("📊 Informações do Dataset", expanded=False):
 # Footer
 st.markdown("---")
 st.markdown("""
-<div style='text-align: center; color: white; padding: 20px;'>
-    <p>🚗 <strong>Via Verde Dashboard</strong> - Desenvolvido para análise inteligente de portagens</p>
+<div style='text-align: center; color: white; padding: 30px; opacity: 0.8;'>
+    <p style='margin: 0; font-size: 1.1em;'>🚗 <strong>Via Verde Dashboard</strong> - Desenvolvido para análise inteligente de portagens</p>
+    <p style='margin: 10px 0 0 0; font-size: 0.9em;'>© 2024 - Todos os direitos reservados</p>
 </div>
 """, unsafe_allow_html=True)
