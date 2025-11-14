@@ -593,7 +593,7 @@ file_url = "https://github.com/paulom40/PFonseca.py/raw/main/ViaVerde_streamlit.
 st.markdown("""
 <div style='text-align: center; padding: 30px 0;'>
     <h1 style='color: white; font-size: 3em; margin-bottom: 10px;'>🚗 Via Verde Dashboard</h1>
-    <p style='color: white; font-size: 1.3em; opacity: 0.9;'>Análise Inteligente de Portagens</p>
+    <p style='color: white; font-size: 1.3em; opacity: 0.9;'>Análise de Portagens</p>
 </div>
 """, unsafe_allow_html=True)
 
