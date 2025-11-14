@@ -47,205 +47,147 @@ month_mapping = {
 }
 df['Month'] = df['Month'].str.lower().map(month_mapping).fillna(df['Month'])
 
-# 📱🖥️ Separadores para versão mobile e desktop
-tab_mobile, tab_desktop = st.tabs(["📱 Versão Mobile", "🖥️ Versão Desktop"])
+# 🔍 Filtros
+st.header("🔍 Filtros")
 
-# 📱 Versão Mobile
-with tab_mobile:
-    st.header("📱 Dashboard Mobile")
+col1, col2, col3, col4 = st.columns(4)
 
-    with st.expander("🔍 Filtros", expanded=False):
-        matriculas = sorted(df['Matricula'].unique())
-        selected_matricula = st.selectbox("Matricula", ["Todas"] + matriculas, key="mobile_matricula")
-
-        anos = sorted(df['Ano'].unique())
-        selected_ano = st.selectbox("Ano", ["Todos"] + anos, key="mobile_ano")
-
-        months_available = sorted(df['Month'].unique())
-        selected_months = st.multiselect("Month", months_available, default=months_available, key="mobile_month")
-        
-        dias = sorted(df['Dia'].unique())
-        selected_dias = st.multiselect("Dia", ["Todos"] + dias, default=["Todos"], key="mobile_dia")
-
-    # Aplicar filtros para mobile - CORREÇÃO: garantir que todos os filtros são aplicados
-    filtered_df_mobile = df.copy()
-    
-    # Debug: mostrar contagem inicial
-    st.write(f"📊 Dados iniciais: {len(filtered_df_mobile)} registos")
-    
-    # Aplicar filtro de Matricula
-    if selected_matricula != "Todas":
-        filtered_df_mobile = filtered_df_mobile[filtered_df_mobile['Matricula'] == selected_matricula]
-        st.write(f"📊 Após filtro Matricula ({selected_matricula}): {len(filtered_df_mobile)} registos")
-    
-    # Aplicar filtro de Ano
-    if selected_ano != "Todos":
-        # Converter para o mesmo tipo de dados (ambos int ou ambos str)
-        filtered_df_mobile = filtered_df_mobile[filtered_df_mobile['Ano'].astype(str) == str(selected_ano)]
-        st.write(f"📊 Após filtro Ano ({selected_ano}): {len(filtered_df_mobile)} registos")
-    
-    # Aplicar filtro de Month
-    if selected_months:
-        filtered_df_mobile = filtered_df_mobile[filtered_df_mobile['Month'].isin(selected_months)]
-        st.write(f"📊 Após filtro Month ({len(selected_months)} meses): {len(filtered_df_mobile)} registos")
-    
-    # Aplicar filtro de Dia
-    if "Todos" not in selected_dias:
-        filtered_df_mobile = filtered_df_mobile[filtered_df_mobile['Dia'].isin(selected_dias)]
-        st.write(f"📊 Após filtro Dia ({len(selected_dias)} dias): {len(filtered_df_mobile)} registos")
-
-    st.subheader("📊 Dados Filtrados")
-    st.dataframe(filtered_df_mobile, use_container_width=True)
-
-    # Gráfico de barras para mobile - CORREÇÃO: usar o dataframe filtrado corretamente
-    if not filtered_df_mobile.empty:
-        st.subheader("📈 Valor Total por Mês")
-        
-        # Agrupar por mês e somar os valores - CORREÇÃO: usar filtered_df_mobile
-        chart_df_mobile = filtered_df_mobile.groupby("Month")["Value"].sum().reset_index()
-        st.write(f"📈 Dados para gráfico: {len(chart_df_mobile)} meses")
-        
-        # Ordem dos meses
-        month_order = [
-            'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-            'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-        ]
-        
-        # Garantir que todos os meses estejam presentes (mesmo com valor 0)
-        all_months_df = pd.DataFrame({'Month': month_order})
-        chart_df_mobile = all_months_df.merge(chart_df_mobile, on='Month', how='left').fillna(0)
-        
-        # Criar gráfico Altair para mobile
-        bar_chart_mobile = alt.Chart(chart_df_mobile).mark_bar(color='steelblue').encode(
-            x=alt.X('Month:O', title='Mês', sort=month_order),
-            y=alt.Y('Value:Q', title='Valor Total (€)'),
-            tooltip=['Month', alt.Tooltip('Value:Q', title='Valor (€)', format='.2f')]
-        ).properties(
-            title='Valor Total por Mês (Mobile)',
-            width=600,
-            height=400
-        )
-        
-        # Adicionar labels nos valores (apenas se valor > 0)
-        bar_labels_mobile = alt.Chart(chart_df_mobile[chart_df_mobile['Value'] > 0]).mark_text(
-            align='center', 
-            baseline='bottom', 
-            fontWeight='bold', 
-            color='red', 
-            dy=-5
-        ).encode(
-            x=alt.X('Month:O', sort=month_order),
-            y='Value:Q',
-            text=alt.Text('Value:Q', format='.2f')
-        )
-        
-        st.altair_chart(bar_chart_mobile + bar_labels_mobile, use_container_width=True)
-        
-        # Métricas resumidas
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            total_value = filtered_df_mobile['Value'].sum()
-            st.metric("Total Geral", f"€{total_value:.2f}")
-        with col2:
-            st.metric("Número de Registos", len(filtered_df_mobile))
-        with col3:
-            avg_value = filtered_df_mobile['Value'].mean() if len(filtered_df_mobile) > 0 else 0
-            st.metric("Média por Registo", f"€{avg_value:.2f}")
-            
-    else:
-        st.warning("⚠️ Nenhum dado encontrado com os filtros selecionados.")
-
-# 🖥️ Versão Desktop
-with tab_desktop:
-    st.header("🖥️ Dashboard Desktop")
-
-    st.sidebar.header("Filtros Desktop")
+with col1:
     matriculas = sorted(df['Matricula'].unique())
-    selected_matricula_desktop = st.sidebar.selectbox("Matricula", ["Todas"] + matriculas, key="desktop_matricula")
+    selected_matricula = st.selectbox("Matricula", ["Todas"] + matriculas)
 
+with col2:
     anos = sorted(df['Ano'].unique())
-    selected_ano_desktop = st.sidebar.selectbox("Ano", ["Todos"] + anos, key="desktop_ano")
+    selected_ano = st.selectbox("Ano", ["Todos"] + anos)
 
-    months_available_desktop = sorted(df['Month'].unique())
-    selected_months_desktop = st.sidebar.multiselect("Month", months_available_desktop, default=months_available_desktop, key="desktop_month")
+with col3:
+    months_available = sorted(df['Month'].unique())
+    selected_months = st.multiselect("Mês", months_available, default=months_available)
     
+with col4:
     dias = sorted(df['Dia'].unique())
-    selected_dias_desktop = st.sidebar.multiselect("Dia", ["Todos"] + dias, default=["Todos"], key="desktop_dia")
+    selected_dias = st.multiselect("Dia", ["Todos"] + dias, default=["Todos"])
 
-    # Aplicar filtros para desktop
-    filtered_df_desktop = df.copy()
-    
-    # Aplicar filtro de Matricula
-    if selected_matricula_desktop != "Todas":
-        filtered_df_desktop = filtered_df_desktop[filtered_df_desktop['Matricula'] == selected_matricula_desktop]
-    
-    # Aplicar filtro de Ano
-    if selected_ano_desktop != "Todos":
-        filtered_df_desktop = filtered_df_desktop[filtered_df_desktop['Ano'].astype(str) == str(selected_ano_desktop)]
-    
-    # Aplicar filtro de Month
-    if selected_months_desktop:
-        filtered_df_desktop = filtered_df_desktop[filtered_df_desktop['Month'].isin(selected_months_desktop)]
-    
-    # Aplicar filtro de Dia
-    if "Todos" not in selected_dias_desktop:
-        filtered_df_desktop = filtered_df_desktop[filtered_df_desktop['Dia'].isin(selected_dias_desktop)]
+# Aplicar filtros
+filtered_df = df.copy()
 
-    st.subheader("📊 Dados Filtrados")
-    st.dataframe(filtered_df_desktop, use_container_width=True)
+# Filtro Matricula
+if selected_matricula != "Todas":
+    filtered_df = filtered_df[filtered_df['Matricula'] == selected_matricula]
 
+# Filtro Ano
+if selected_ano != "Todos":
+    filtered_df = filtered_df[filtered_df['Ano'].astype(str) == str(selected_ano)]
+
+# Filtro Mês
+if selected_months:
+    filtered_df = filtered_df[filtered_df['Month'].isin(selected_months)]
+
+# Filtro Dia
+if "Todos" not in selected_dias:
+    filtered_df = filtered_df[filtered_df['Dia'].isin(selected_dias)]
+
+# 📊 Dados Filtrados
+st.header("📊 Dados Filtrados")
+st.dataframe(filtered_df, use_container_width=True)
+
+# 📈 Gráficos
+if not filtered_df.empty:
+    st.header("📈 Análise de Valores")
+    
+    # Ordem dos meses
     month_order = [
         'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
         'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
     ]
-
-    if not filtered_df_desktop.empty:
-        st.subheader("📈 Valor Total por Mês")
+    
+    # Gráfico 1: Valor Total por Mês
+    st.subheader("Valor Total por Mês")
+    
+    # Agrupar por mês
+    chart_df_month = filtered_df.groupby("Month")["Value"].sum().reset_index()
+    
+    # Garantir que todos os meses estejam presentes
+    all_months_df = pd.DataFrame({'Month': month_order})
+    chart_df_month = all_months_df.merge(chart_df_month, on='Month', how='left').fillna(0)
+    
+    # Criar gráfico de barras
+    bar_chart = alt.Chart(chart_df_month).mark_bar(color='steelblue').encode(
+        x=alt.X('Month:O', title='Mês', sort=month_order),
+        y=alt.Y('Value:Q', title='Valor Total (€)'),
+        tooltip=['Month', alt.Tooltip('Value:Q', title='Valor (€)', format='.2f')]
+    ).properties(
+        height=400
+    )
+    
+    # Adicionar labels
+    bar_labels = alt.Chart(chart_df_month[chart_df_month['Value'] > 0]).mark_text(
+        align='center', 
+        baseline='bottom', 
+        fontWeight='bold', 
+        color='red', 
+        dy=-5
+    ).encode(
+        x=alt.X('Month:O', sort=month_order),
+        y='Value:Q',
+        text=alt.Text('Value:Q', format='.2f')
+    )
+    
+    st.altair_chart(bar_chart + bar_labels, use_container_width=True)
+    
+    # Gráfico 2: Valor Total por Dia (opcional)
+    st.subheader("Valor Total por Dia")
+    
+    # Agrupar por dia
+    chart_df_day = filtered_df.groupby("Dia")["Value"].sum().reset_index().sort_values("Dia")
+    
+    line_chart = alt.Chart(chart_df_day).mark_line(point=True, color='green').encode(
+        x=alt.X('Dia:O', title='Dia do Mês'),
+        y=alt.Y('Value:Q', title='Valor Total (€)'),
+        tooltip=['Dia', alt.Tooltip('Value:Q', title='Valor (€)', format='.2f')]
+    ).properties(
+        height=300
+    )
+    
+    st.altair_chart(line_chart, use_container_width=True)
+    
+    # 📊 Métricas Resumidas
+    st.header("📊 Métricas Resumidas")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        total_value = filtered_df['Value'].sum()
+        st.metric("Total Geral", f"€{total_value:.2f}")
+    
+    with col2:
+        st.metric("Número de Registos", len(filtered_df))
+    
+    with col3:
+        avg_value = filtered_df['Value'].mean()
+        st.metric("Média por Registo", f"€{avg_value:.2f}")
+    
+    with col4:
+        max_value = filtered_df['Value'].max()
+        st.metric("Valor Máximo", f"€{max_value:.2f}")
+    
+    # Detalhes por Matrícula (se houver múltiplas)
+    if selected_matricula == "Todas" and len(matriculas) > 1:
+        st.subheader("📋 Detalhes por Matrícula")
         
-        chart_df_desktop = filtered_df_desktop.groupby("Month")["Value"].sum().reset_index()
+        matricula_summary = filtered_df.groupby('Matricula').agg({
+            'Value': ['sum', 'count', 'mean']
+        }).round(2)
         
-        # Garantir que todos os meses estejam presentes (mesmo com valor 0)
-        all_months_df = pd.DataFrame({'Month': month_order})
-        chart_df_desktop = all_months_df.merge(chart_df_desktop, on='Month', how='left').fillna(0)
-
-        # Gráfico de linha para desktop
-        line_chart = alt.Chart(chart_df_desktop).mark_line(point=True, color='green').encode(
-            x=alt.X('Month:O', title='Mês', sort=month_order),
-            y=alt.Y('Value:Q', title='Valor Total (€)'),
-            tooltip=['Month', alt.Tooltip('Value:Q', title='Valor (€)', format='.2f')]
-        ).properties(
-            title='Valor Total por Mês (Desktop)',
-            width=800,
-            height=400
-        )
-
-        line_labels = alt.Chart(chart_df_desktop[chart_df_desktop['Value'] > 0]).mark_text(
-            align='center', 
-            baseline='bottom', 
-            fontWeight='bold', 
-            color='red', 
-            dy=-5
-        ).encode(
-            x=alt.X('Month:O', sort=month_order),
-            y='Value:Q',
-            text=alt.Text('Value:Q', format='.2f')
-        )
-
-        st.altair_chart(line_chart + line_labels, use_container_width=True)
+        matricula_summary.columns = ['Total', 'Nº Registos', 'Média']
+        st.dataframe(matricula_summary)
         
-        # Métricas resumidas para desktop
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            total_value_desktop = filtered_df_desktop['Value'].sum()
-            st.metric("Total Geral", f"€{total_value_desktop:.2f}")
-        with col2:
-            st.metric("Número de Registos", len(filtered_df_desktop))
-        with col3:
-            avg_value_desktop = filtered_df_desktop['Value'].mean() if len(filtered_df_desktop) > 0 else 0
-            st.metric("Média por Registo", f"€{avg_value_desktop:.2f}")
-        with col4:
-            max_month_value = chart_df_desktop['Value'].max()
-            st.metric("Valor Máximo Mensal", f"€{max_month_value:.2f}")
-            
-    else:
-        st.warning("⚠️ Nenhum dado encontrado com os filtros selecionados.")
+else:
+    st.warning("⚠️ Nenhum dado encontrado com os filtros selecionados.")
+
+# ℹ️ Informações sobre os dados
+with st.expander("ℹ️ Informações sobre os dados"):
+    st.write(f"**Período total dos dados:** {df['Ano'].min()} - {df['Ano'].max()}")
+    st.write(f"**Matrículas disponíveis:** {', '.join(map(str, matriculas))}")
+    st.write(f"**Total de registos no dataset:** {len(df)}")
+    st.write(f"**Período coberto:** {df['Month'].nunique()} meses")
