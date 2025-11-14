@@ -4,6 +4,7 @@ import altair as alt
 import base64
 from io import BytesIO
 from datetime import datetime
+import json
 
 # Configuração da página
 st.set_page_config(
@@ -175,132 +176,415 @@ def get_table_download_link_csv(df, filename="dados_viaverde.csv"):
     b64 = base64.b64encode(csv.encode()).decode()
     return f'<a class="export-button export-csv" href="data:file/csv;base64,{b64}" download="{filename}">📝 CSV (.csv)</a>'
 
-def get_table_download_link_html(df, filename="relatorio_viaverde.html"):
-    # Criar relatório HTML completo
+def create_complete_html_report(df, filtered_df, filters, charts_data, filename="relatorio_completo_viaverde.html"):
+    """Cria um relatório HTML completo com toda a página"""
+    
+    # Preparar dados para os gráficos
+    month_order = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+    
+    # Dados para gráfico de meses
+    chart_df_month = filtered_df.groupby("Month")["Value"].sum().reset_index()
+    all_months_df = pd.DataFrame({'Month': month_order})
+    chart_df_month = all_months_df.merge(chart_df_month, on='Month', how='left').fillna(0)
+    
+    # Dados para gráfico de dias
+    chart_df_day = filtered_df.groupby("Dia")["Value"].sum().reset_index().sort_values("Dia")
+    
+    # Criar HTML completo
     html_content = f"""
     <!DOCTYPE html>
-    <html>
+    <html lang="pt">
     <head>
         <meta charset="UTF-8">
-        <title>Relatório Via Verde</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Relatório Completo - Via Verde Dashboard</title>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <style>
-            body {{ 
-                font-family: 'Segoe UI', Arial, sans-serif; 
-                margin: 0; 
-                padding: 20px; 
+            * {{
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }}
+            
+            body {{
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 min-height: 100vh;
+                color: #333;
             }}
+            
             .container {{
+                max-width: 1400px;
+                margin: 0 auto;
+                padding: 20px;
+            }}
+            
+            .header {{
+                text-align: center;
+                color: white;
+                padding: 40px 0;
+                margin-bottom: 30px;
+            }}
+            
+            .header h1 {{
+                font-size: 3em;
+                margin-bottom: 10px;
+                text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            }}
+            
+            .header p {{
+                font-size: 1.3em;
+                opacity: 0.9;
+            }}
+            
+            .report-section {{
                 background: white;
                 border-radius: 15px;
                 padding: 30px;
-                box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-                margin: 0 auto;
-                max-width: 1200px;
-            }}
-            .header {{ 
-                text-align: center; 
-                color: #667eea; 
-                border-bottom: 2px solid #667eea; 
-                padding-bottom: 20px; 
-                margin-bottom: 30px; 
-            }}
-            .summary {{ 
-                background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-                padding: 25px; 
-                border-radius: 10px; 
                 margin-bottom: 30px;
+                box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            }}
+            
+            .filters-info {{
+                background: rgba(255, 255, 255, 0.95);
+                padding: 25px;
+                border-radius: 15px;
+                margin-bottom: 25px;
                 border-left: 4px solid #667eea;
             }}
-            .metrics {{
+            
+            .metrics-grid {{
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                gap: 15px;
-                margin: 20px 0;
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                gap: 20px;
+                margin: 25px 0;
             }}
+            
             .metric-card {{
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 color: white;
-                padding: 20px;
-                border-radius: 10px;
+                padding: 25px;
+                border-radius: 15px;
                 text-align: center;
+                box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            }}
+            
+            .metric-card.green {{
+                background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            }}
+            
+            .metric-card.pink {{
+                background: linear-gradient(135deg, #fc466b 0%, #3f5efb 100%);
+            }}
+            
+            .metric-card.orange {{
+                background: linear-gradient(135deg, #fdbb2d 0%, #22c1c3 100%);
+            }}
+            
+            .metric-card h3 {{
+                font-size: 1.1em;
+                margin-bottom: 10px;
+                opacity: 0.9;
+            }}
+            
+            .metric-card h2 {{
+                font-size: 2em;
+                margin: 10px 0;
+            }}
+            
+            .metric-card p {{
+                opacity: 0.8;
+                font-size: 0.9em;
+            }}
+            
+            .charts-container {{
+                display: grid;
+                grid-template-columns: 2fr 1fr;
+                gap: 30px;
+                margin: 30px 0;
+            }}
+            
+            .chart-card {{
+                background: white;
+                padding: 25px;
+                border-radius: 15px;
                 box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             }}
-            .table {{ 
-                width: 100%; 
-                border-collapse: collapse; 
+            
+            .chart-placeholder {{
+                background: #f8f9fa;
+                border: 2px dashed #dee2e6;
+                border-radius: 10px;
+                padding: 60px 20px;
+                text-align: center;
+                color: #6c757d;
+                margin: 20px 0;
+            }}
+            
+            .data-table {{
+                width: 100%;
+                border-collapse: collapse;
                 margin-top: 20px;
                 border-radius: 10px;
                 overflow: hidden;
                 box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             }}
-            th {{ 
+            
+            .data-table th {{
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white; 
-                padding: 15px; 
-                text-align: left; 
+                color: white;
+                padding: 15px;
+                text-align: left;
                 font-weight: 600;
             }}
-            td {{ 
-                padding: 12px; 
-                border-bottom: 1px solid #ddd; 
+            
+            .data-table td {{
+                padding: 12px;
+                border-bottom: 1px solid #dee2e6;
             }}
-            tr:nth-child(even) {{ 
-                background-color: #f8f9fa; 
+            
+            .data-table tr:nth-child(even) {{
+                background-color: #f8f9fa;
             }}
-            tr:hover {{
+            
+            .data-table tr:hover {{
                 background-color: #e3f2fd;
             }}
+            
             .footer {{
                 text-align: center;
-                margin-top: 30px;
-                color: #666;
-                font-size: 0.9em;
+                margin-top: 40px;
+                padding: 20px;
+                color: white;
+                opacity: 0.8;
+            }}
+            
+            .summary-stats {{
+                background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+                padding: 25px;
+                border-radius: 10px;
+                margin: 20px 0;
+                border-left: 4px solid #667eea;
+            }}
+            
+            @media (max-width: 768px) {{
+                .charts-container {{
+                    grid-template-columns: 1fr;
+                }}
+                
+                .metrics-grid {{
+                    grid-template-columns: 1fr;
+                }}
+                
+                .header h1 {{
+                    font-size: 2em;
+                }}
             }}
         </style>
     </head>
     <body>
         <div class="container">
+            <!-- Cabeçalho -->
             <div class="header">
-                <h1>🚗 Via Verde - Relatório Completo</h1>
-                <p>Relatório gerado em: {datetime.now().strftime("%d/%m/%Y às %H:%M")}</p>
+                <h1>🚗 Via Verde Dashboard</h1>
+                <p>Relatório Completo - Análise de Portagens</p>
+                <p style="margin-top: 10px; font-size: 1em;">Gerado em: {datetime.now().strftime("%d/%m/%Y às %H:%M")}</p>
             </div>
             
-            <div class="summary">
-                <h3>📊 Resumo Executivo</h3>
-                <div class="metrics">
+            <!-- Informações dos Filtros -->
+            <div class="filters-info">
+                <h2>🔍 Filtros Aplicados</h2>
+                <div style="margin-top: 15px;">
+                    <p><strong>Matrícula:</strong> {filters['matricula']}</p>
+                    <p><strong>Ano:</strong> {filters['ano']}</p>
+                    <p><strong>Meses:</strong> {filters['meses']}</p>
+                    <p><strong>Dias:</strong> {filters['dias']}</p>
+                </div>
+            </div>
+            
+            <!-- Métricas Principais -->
+            <div class="report-section">
+                <h2>📊 Métricas Principais</h2>
+                <div class="metrics-grid">
                     <div class="metric-card">
-                        <h4>Total de Registos</h4>
-                        <h2>{len(df):,}</h2>
+                        <h3>💰 Total Gasto</h3>
+                        <h2>€{filtered_df['Value'].sum():,.2f}</h2>
+                        <p>Valor acumulado</p>
                     </div>
-                    <div class="metric-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
-                        <h4>Valor Total</h4>
-                        <h2>€{df['Value'].sum():,.2f}</h2>
+                    <div class="metric-card green">
+                        <h3>📊 Total de Registos</h3>
+                        <h2>{len(filtered_df):,}</h2>
+                        <p>Transações totais</p>
                     </div>
-                    <div class="metric-card" style="background: linear-gradient(135deg, #fc466b 0%, #3f5efb 100%);">
-                        <h4>Valor Médio</h4>
-                        <h2>€{df['Value'].mean():.2f}</h2>
+                    <div class="metric-card pink">
+                        <h3>📈 Média por Registo</h3>
+                        <h2>€{filtered_df['Value'].mean():.2f}</h2>
+                        <p>Valor médio</p>
                     </div>
-                    <div class="metric-card" style="background: linear-gradient(135deg, #fdbb2d 0%, #22c1c3 100%);">
-                        <h4>Valor Máximo</h4>
-                        <h2>€{df['Value'].max():.2f}</h2>
+                    <div class="metric-card orange">
+                        <h3>🎯 Valor Máximo</h3>
+                        <h2>€{filtered_df['Value'].max():.2f}</h2>
+                        <p>Maior transação</p>
                     </div>
                 </div>
             </div>
             
-            <h3>📋 Dados Detalhados</h3>
-            {df.to_html(classes='table', index=False, border=0, escape=False)}
+            <!-- Gráficos -->
+            <div class="report-section">
+                <h2>📈 Visualizações</h2>
+                
+                <div class="charts-container">
+                    <!-- Gráfico de Barras - Mensal -->
+                    <div class="chart-card">
+                        <h3>📅 Valor Total por Mês</h3>
+                        <canvas id="monthlyChart" width="400" height="200"></canvas>
+                    </div>
+                    
+                    <!-- Gráfico de Área - Diário -->
+                    <div class="chart-card">
+                        <h3>📈 Tendência por Dia</h3>
+                        <canvas id="dailyChart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
             
+            <!-- Dados Detalhados -->
+            <div class="report-section">
+                <h2>📋 Dados Detalhados</h2>
+                <p><strong>Total de registos exibidos:</strong> {len(filtered_df)}</p>
+                {filtered_df[['Matricula', 'Date', 'Month', 'Dia', 'Value']].to_html(classes='data-table', index=False, border=0, escape=False)}
+            </div>
+            
+            <!-- Resumo do Dataset -->
+            <div class="report-section">
+                <h2>📊 Informações do Dataset</h2>
+                <div class="summary-stats">
+                    <p><strong>Período Total:</strong> {df['Ano'].min()} - {df['Ano'].max()}</p>
+                    <p><strong>Matrículas Únicas:</strong> {len(df['Matricula'].unique())}</p>
+                    <p><strong>Total de Registos no Dataset:</strong> {len(df):,}</p>
+                    <p><strong>Valor Total no Dataset:</strong> €{df['Value'].sum():,.2f}</p>
+                </div>
+            </div>
+            
+            <!-- Footer -->
             <div class="footer">
-                <p>© 2024 Via Verde Dashboard - Relatório gerado automaticamente</p>
+                <p>🚗 <strong>Via Verde Dashboard</strong> - Relatório gerado automaticamente</p>
+                <p>© 2024 - Todos os direitos reservados</p>
             </div>
         </div>
+        
+        <script>
+            // Dados para os gráficos
+            const monthlyData = {{
+                labels: {json.dumps(chart_df_month['Month'].tolist())},
+                values: {json.dumps(chart_df_month['Value'].tolist())}
+            }};
+            
+            const dailyData = {{
+                labels: {json.dumps(chart_df_day['Dia'].astype(str).tolist())},
+                values: {json.dumps(chart_df_day['Value'].tolist())}
+            }};
+            
+            // Gráfico Mensal
+            const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
+            new Chart(monthlyCtx, {{
+                type: 'bar',
+                data: {{
+                    labels: monthlyData.labels,
+                    datasets: [{{
+                        label: 'Valor (€)',
+                        data: monthlyData.values,
+                        backgroundColor: '#667eea',
+                        borderColor: '#764ba2',
+                        borderWidth: 1
+                    }}]
+                }},
+                options: {{
+                    responsive: true,
+                    plugins: {{
+                        title: {{
+                            display: true,
+                            text: 'Distribuição Mensal de Gastos'
+                        }},
+                        tooltip: {{
+                            callbacks: {{
+                                label: function(context) {{
+                                    return '€' + context.parsed.y.toFixed(2);
+                                }}
+                            }}
+                        }}
+                    }},
+                    scales: {{
+                        y: {{
+                            beginAtZero: true,
+                            title: {{
+                                display: true,
+                                text: 'Valor (€)'
+                            }}
+                        }}
+                    }}
+                }}
+            }});
+            
+            // Gráfico Diário
+            const dailyCtx = document.getElementById('dailyChart').getContext('2d');
+            new Chart(dailyCtx, {{
+                type: 'line',
+                data: {{
+                    labels: dailyData.labels,
+                    datasets: [{{
+                        label: 'Valor (€)',
+                        data: dailyData.values,
+                        backgroundColor: 'rgba(17, 153, 142, 0.2)',
+                        borderColor: '#11998e',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    }}]
+                }},
+                options: {{
+                    responsive: true,
+                    plugins: {{
+                        title: {{
+                            display: true,
+                            text: 'Distribuição Diária de Gastos'
+                        }},
+                        tooltip: {{
+                            callbacks: {{
+                                label: function(context) {{
+                                    return '€' + context.parsed.y.toFixed(2);
+                                }}
+                            }}
+                        }}
+                    }},
+                    scales: {{
+                        y: {{
+                            beginAtZero: true,
+                            title: {{
+                                display: true,
+                                text: 'Valor (€)'
+                            }}
+                        }},
+                        x: {{
+                            title: {{
+                                display: true,
+                                text: 'Dia do Mês'
+                            }}
+                        }}
+                    }}
+                }}
+            }});
+        </script>
     </body>
     </html>
     """
+    
     b64 = base64.b64encode(html_content.encode()).decode()
-    return f'<a class="export-button export-html" href="data:text/html;base64,{b64}" download="{filename}">🌐 Relatório HTML</a>'
+    return f'<a class="export-button export-html" href="data:text/html;base64,{b64}" download="{filename}">🌐 Relatório Completo HTML</a>'
+
+def get_table_download_link_html(df, filtered_df, filters, filename="relatorio_completo_viaverde.html"):
+    return create_complete_html_report(df, filtered_df, filters, {}, filename)
 
 # 📂 Carregar Excel do GitHub
 file_url = "https://github.com/paulom40/PFonseca.py/raw/main/ViaVerde_streamlit.xlsx"
@@ -385,6 +669,14 @@ if selected_months:
 if "Todos" not in selected_dias:
     filtered_df = filtered_df[filtered_df['Dia'].isin(selected_dias)]
 
+# Preparar informações dos filtros para o relatório
+filters_info = {
+    'matricula': selected_matricula,
+    'ano': selected_ano,
+    'meses': ', '.join(selected_months) if selected_months else 'Todos',
+    'dias': ', '.join(map(str, selected_dias)) if "Todos" not in selected_dias else 'Todos'
+}
+
 # 📤 Seção de Exportação
 if not filtered_df.empty:
     st.markdown('<div class="export-buttons">', unsafe_allow_html=True)
@@ -400,14 +692,14 @@ if not filtered_df.empty:
         st.markdown(get_table_download_link_csv(filtered_df), unsafe_allow_html=True)
     
     with col3:
-        st.markdown(get_table_download_link_html(filtered_df), unsafe_allow_html=True)
+        st.markdown(get_table_download_link_html(df, filtered_df, filters_info), unsafe_allow_html=True)
     
     st.markdown("""
     <div style="margin-top: 15px; font-size: 0.9em; color: #666;">
         <strong>Formatos disponíveis:</strong><br>
         • <strong>Excel:</strong> Ideal para análise em planilhas<br>
         • <strong>CSV:</strong> Formato universal para dados<br>
-        • <strong>HTML:</strong> Relatório completo formatado
+        • <strong>HTML:</strong> Relatório completo com gráficos interativos
     </div>
     """, unsafe_allow_html=True)
     
