@@ -122,67 +122,93 @@ if not chart_df.empty:
 else:
     st.info("ℹ️ Não há dados de KGS válidos para gerar o gráfico.")
 
-# Top e Bottom 15 Artigos por Quantidade (KGS) - Filtrado (ALWAYS ALL YEARS)
-st.write("### 📦 Top e Bottom 15 Artigos por Quantidade (KGS) - Todos os Anos")
+# Top e Bottom 15 Artigos por Quantidade (KGS) - Relatórios Anuais
+st.write("### 📦 Top e Bottom 15 Artigos por Quantidade (KGS) - Relatórios Anuais")
 
-# Create a separate filtered dataset for Top/Bottom analysis that always includes all years
-top_bottom_filtered_df = df[
-    (df['PRODUTO'].isin(selected_produto)) &
-    (df['MES'].isin(selected_mes))
-    # Removed the year filter here to always include all years
-].copy()
+# Define the years we want to analyze
+target_years = [2023, 2024, 2025]
 
-if 'KGS' in top_bottom_filtered_df.columns and top_bottom_filtered_df['KGS'].notnull().any():
-    kgs_data = top_bottom_filtered_df[top_bottom_filtered_df['KGS'].notnull()].copy()
+for year in target_years:
+    # Filter data for the specific year, but keep product and month filters
+    year_filtered_df = df[
+        (df['PRODUTO'].isin(selected_produto)) &
+        (df['MES'].isin(selected_mes)) &
+        (df['ANO'] == year)
+    ].copy()
     
-    if not kgs_data.empty:
-        # Group by product to get total KGS across all filtered data (all years)
-        kgs_agg = kgs_data.groupby('PRODUTO')['KGS'].sum().reset_index()
+    if 'KGS' in year_filtered_df.columns and year_filtered_df['KGS'].notnull().any():
+        kgs_data = year_filtered_df[year_filtered_df['KGS'].notnull()].copy()
         
-        # Calculate average KGS for the filtered data
-        avg_kgs_filtered = kgs_agg['KGS'].mean()
-        
-        # Get top 15 and bottom 15 articles from the filtered data
-        top_15 = kgs_agg.nlargest(15, 'KGS')[['PRODUTO', 'KGS']].round(2)
-        bottom_15 = kgs_agg.nsmallest(15, 'KGS')[['PRODUTO', 'KGS']].round(2)
-        
-        # Display metrics and dataframes
-        st.metric("📦 Quantidade Média (KGS) nos Filtros Selecionados", f"{avg_kgs_filtered:,.2f}")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.write("**Top 15 Artigos (Maior KGS)**")
-            if not top_15.empty:
-                st.dataframe(
-                    top_15.rename(columns={'PRODUTO': 'Artigo', 'KGS': 'Quantidade (KGS)'}),
-                    width='stretch'
-                )
-            else:
-                st.info("ℹ️ Não há dados suficientes para os top 15 artigos.")
-        
-        with col2:
-            st.write("**Bottom 15 Artigos (Menor KGS)**")
-            if not bottom_15.empty:
-                st.dataframe(
-                    bottom_15.rename(columns={'PRODUTO': 'Artigo', 'KGS': 'Quantidade (KGS)'}),
-                    width='stretch'
-                )
-            else:
-                st.info("ℹ️ Não há dados suficientes para os bottom 15 artigos.")
-        
-        # Show filter summary
-        st.write("**Resumo dos Filtros Aplicados:**")
-        st.write(f"- **Produtos selecionados:** {len(selected_produto)}")
-        st.write(f"- **Meses selecionados:** {len(selected_mes)}")
-        st.write(f"- **Anos analisados:** Todos os anos (análise histórica)")
-        st.write(f"- **Total de artigos únicos:** {len(kgs_agg)}")
-        
-        # Show years included in the analysis
-        years_included = sorted(kgs_data['ANO'].unique())
-        st.write(f"- **Anos incluídos na análise:** {', '.join(map(str, years_included))}")
-        
+        if not kgs_data.empty:
+            # Group by product to get total KGS for the year
+            kgs_agg = kgs_data.groupby('PRODUTO')['KGS'].sum().reset_index()
+            
+            # Calculate average KGS for the year
+            avg_kgs_year = kgs_agg['KGS'].mean()
+            
+            # Get top 15 and bottom 15 articles for the year
+            top_15 = kgs_agg.nlargest(15, 'KGS')[['PRODUTO', 'KGS']].round(2)
+            bottom_15 = kgs_agg.nsmallest(15, 'KGS')[['PRODUTO', 'KGS']].round(2)
+            
+            # Display year section in an expander
+            with st.expander(f"📊 Ano {year}", expanded=True):
+                st.metric(f"📦 Quantidade Média (KGS) {year}", f"{avg_kgs_year:,.2f}")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.write(f"**Top 15 Artigos {year} (Maior KGS)**")
+                    if not top_15.empty:
+                        st.dataframe(
+                            top_15.rename(columns={'PRODUTO': 'Artigo', 'KGS': 'Quantidade (KGS)'}),
+                            width='stretch'
+                        )
+                    else:
+                        st.info("ℹ️ Não há dados suficientes para os top 15 artigos.")
+                
+                with col2:
+                    st.write(f"**Bottom 15 Artigos {year} (Menor KGS)**")
+                    if not bottom_15.empty:
+                        st.dataframe(
+                            bottom_15.rename(columns={'PRODUTO': 'Artigo', 'KGS': 'Quantidade (KGS)'}),
+                            width='stretch'
+                        )
+                    else:
+                        st.info("ℹ️ Não há dados suficientes para os bottom 15 artigos.")
+                
+                # Show year summary
+                st.write("**Resumo do Ano:**")
+                st.write(f"- **Total de artigos únicos:** {len(kgs_agg)}")
+                st.write(f"- **Total KGS do ano:** {kgs_agg['KGS'].sum():,.2f}")
+                st.write(f"- **Meses com dados:** {len(kgs_data['MES'].unique())}")
+                
+        else:
+            st.info(f"ℹ️ Não há dados de KGS válidos para o ano {year} com os filtros aplicados.")
     else:
-        st.info("ℹ️ Não há dados de KGS válidos após aplicar os filtros.")
+        st.info(f"ℹ️ Não há dados de KGS válidos para o ano {year}.")
+
+# Overall summary across all target years
+st.write("### 📊 Resumo Geral dos Anos 2023-2025")
+
+# Create a summary dataframe for all target years
+summary_data = []
+for year in target_years:
+    year_data = df[
+        (df['PRODUTO'].isin(selected_produto)) &
+        (df['MES'].isin(selected_mes)) &
+        (df['ANO'] == year)
+    ]
+    if not year_data.empty and 'KGS' in year_data.columns:
+        total_kgs_year = year_data['KGS'].sum()
+        unique_products = year_data['PRODUTO'].nunique()
+        summary_data.append({
+            'Ano': year,
+            'Total KGS': total_kgs_year,
+            'Artigos Únicos': unique_products
+        })
+
+if summary_data:
+    summary_df = pd.DataFrame(summary_data)
+    st.dataframe(summary_df, width='stretch')
 else:
-    st.info("ℹ️ Não há dados de KGS válidos para gerar os indicadores.")
+    st.info("ℹ️ Não há dados para gerar o resumo geral.")
