@@ -207,6 +207,28 @@ for year in target_years:
 # Overall summary across all target years with download button
 st.write("### 📊 Resumo Geral dos Anos 2023-2025")
 
+# Display the selected filters
+st.write("**Filtros Aplicados:**")
+col1, col2 = st.columns(2)
+
+with col1:
+    st.write(f"**Produtos Selecionados:**")
+    if selected_produto:
+        for produto in selected_produto[:10]:  # Show first 10 products
+            st.write(f"- {produto}")
+        if len(selected_produto) > 10:
+            st.write(f"- ... e mais {len(selected_produto) - 10} produtos")
+    else:
+        st.write("Todos os produtos")
+
+with col2:
+    st.write(f"**Meses Selecionados:**")
+    if selected_mes:
+        for mes in selected_mes:
+            st.write(f"- {mes}")
+    else:
+        st.write("Todos os meses")
+
 # Create a summary dataframe for all target years
 summary_data = []
 for year in target_years:
@@ -219,21 +241,38 @@ for year in target_years:
         total_kgs_year = year_data['KGS'].sum()
         unique_products = year_data['PRODUTO'].nunique()
         avg_kgs_year = year_data['KGS'].mean()
+        months_with_data = year_data['MES'].nunique()
         summary_data.append({
             'Ano': year,
             'Total KGS': total_kgs_year,
             'Artigos Únicos': unique_products,
-            'Média KGS': avg_kgs_year
+            'Média KGS': avg_kgs_year,
+            'Meses com Dados': months_with_data
         })
 
 if summary_data:
     summary_df = pd.DataFrame(summary_data)
-    st.dataframe(summary_df, width='stretch')
+    
+    # Format the numbers for better display
+    display_df = summary_df.copy()
+    display_df['Total KGS'] = display_df['Total KGS'].apply(lambda x: f"{x:,.2f}")
+    display_df['Média KGS'] = display_df['Média KGS'].apply(lambda x: f"{x:,.2f}")
+    
+    st.dataframe(display_df, width='stretch')
     
     # Download button for overall summary
     summary_excel_buffer = io.BytesIO()
     with pd.ExcelWriter(summary_excel_buffer, engine='openpyxl') as writer:
+        # Summary sheet
         summary_df.to_excel(writer, sheet_name='Resumo_Geral', index=False)
+        
+        # Filter information sheet
+        filter_info = pd.DataFrame({
+            'Tipo': ['Produtos', 'Meses'],
+            'Selecionados': [', '.join(selected_produto) if selected_produto else 'Todos', 
+                           ', '.join(selected_mes) if selected_mes else 'Todos']
+        })
+        filter_info.to_excel(writer, sheet_name='Filtros_Aplicados', index=False)
         
         # Also include detailed data for each year in separate sheets
         for year in target_years:
