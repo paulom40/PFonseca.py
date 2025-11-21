@@ -11,7 +11,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-
 # Page configuration
 st.set_page_config(layout="wide")
 st.image("https://raw.githubusercontent.com/paulom40/PFonseca.py/main/Bracar.png", width=100)
@@ -64,7 +63,7 @@ filtered_df = df[
 
 # Display filtered data
 st.write("### 📋 Dados Filtrados")
-st.dataframe(filtered_df, width='stretch')  # FIXED: Replaced use_container_width
+st.dataframe(filtered_df, width='stretch')
 
 # Metrics
 st.write("### 🔢 Indicadores")
@@ -93,7 +92,7 @@ chart_df = filtered_df[filtered_df['KGS'].notnull()].copy()
 chart_df['MES'] = pd.Categorical(chart_df['MES'], categories=ordered_months, ordered=True)
 
 if not chart_df.empty:
-    # FIXED: Added observed=False to suppress the warning
+    # Fixed: Added observed=False to suppress the warning
     pivot_data = chart_df.groupby(['MES', 'ANO'], observed=False)['KGS'].sum().reset_index()
     line_chart = alt.Chart(pivot_data).mark_line(point=True).encode(
         x=alt.X('MES:N', title='Mês', sort=ordered_months),
@@ -149,7 +148,7 @@ if 'KGS' in filtered_df.columns and filtered_df['KGS'].notnull().any():
             if not top_15.empty:
                 st.dataframe(
                     top_15.rename(columns={'PRODUTO': 'Artigo', 'KGS': 'Quantidade (KGS)'}),
-                    width='stretch'  # FIXED: Replaced use_container_width=True
+                    width='stretch'
                 )
             else:
                 st.info("ℹ️ Não há dados suficientes para os top 15 artigos.")
@@ -159,7 +158,7 @@ if 'KGS' in filtered_df.columns and filtered_df['KGS'].notnull().any():
             if not bottom_15.empty:
                 st.dataframe(
                     bottom_15.rename(columns={'PRODUTO': 'Artigo', 'KGS': 'Quantidade (KGS)'}),
-                    width='stretch'  # FIXED: Replaced use_container_width=True
+                    width='stretch'
                 )
             else:
                 st.info("ℹ️ Não há dados suficientes para os bottom 15 artigos.")
