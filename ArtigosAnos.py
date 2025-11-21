@@ -207,29 +207,7 @@ for year in target_years:
 # Overall summary across all target years with download button
 st.write("### 📊 Resumo Geral dos Anos 2023-2025")
 
-# Display the selected filters
-st.write("**Filtros Aplicados:**")
-col1, col2 = st.columns(2)
-
-with col1:
-    st.write(f"**Produtos Selecionados:**")
-    if selected_produto:
-        for produto in selected_produto[:10]:  # Show first 10 products
-            st.write(f"- {produto}")
-        if len(selected_produto) > 10:
-            st.write(f"- ... e mais {len(selected_produto) - 10} produtos")
-    else:
-        st.write("Todos os produtos")
-
-with col2:
-    st.write(f"**Meses Selecionados:**")
-    if selected_mes:
-        for mes in selected_mes:
-            st.write(f"- {mes}")
-    else:
-        st.write("Todos os meses")
-
-# Create a summary dataframe for all target years
+# Create a summary dataframe for all target years with filter information
 summary_data = []
 for year in target_years:
     year_data = df[
@@ -242,8 +220,15 @@ for year in target_years:
         unique_products = year_data['PRODUTO'].nunique()
         avg_kgs_year = year_data['KGS'].mean()
         months_with_data = year_data['MES'].nunique()
+        
+        # Get product and month names for display
+        produtos_str = ", ".join(selected_produto) if selected_produto else "Todos os Produtos"
+        meses_str = ", ".join(selected_mes) if selected_mes else "Todos os Meses"
+        
         summary_data.append({
             'Ano': year,
+            'Produtos': produtos_str,
+            'Meses': meses_str,
             'Total KGS': total_kgs_year,
             'Artigos Únicos': unique_products,
             'Média KGS': avg_kgs_year,
@@ -263,16 +248,8 @@ if summary_data:
     # Download button for overall summary
     summary_excel_buffer = io.BytesIO()
     with pd.ExcelWriter(summary_excel_buffer, engine='openpyxl') as writer:
-        # Summary sheet
+        # Summary sheet with all columns
         summary_df.to_excel(writer, sheet_name='Resumo_Geral', index=False)
-        
-        # Filter information sheet
-        filter_info = pd.DataFrame({
-            'Tipo': ['Produtos', 'Meses'],
-            'Selecionados': [', '.join(selected_produto) if selected_produto else 'Todos', 
-                           ', '.join(selected_mes) if selected_mes else 'Todos']
-        })
-        filter_info.to_excel(writer, sheet_name='Filtros_Aplicados', index=False)
         
         # Also include detailed data for each year in separate sheets
         for year in target_years:
