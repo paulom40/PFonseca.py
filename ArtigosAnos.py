@@ -176,6 +176,23 @@ for year in target_years:
                     else:
                         st.info("ℹ️ Não há dados suficientes para os bottom 15 artigos.")
                 
+                # Create Excel download for this year's data
+                year_excel_buffer = io.BytesIO()
+                with pd.ExcelWriter(year_excel_buffer, engine='openpyxl') as writer:
+                    # Create sheets for top and bottom data
+                    top_15.to_excel(writer, sheet_name=f'Top15_{year}', index=False)
+                    bottom_15.to_excel(writer, sheet_name=f'Bottom15_{year}', index=False)
+                    kgs_agg.to_excel(writer, sheet_name=f'Todos_Artigos_{year}', index=False)
+                
+                # Download button for this year
+                st.download_button(
+                    label=f"📥 Baixar Relatório {year} em Excel",
+                    data=year_excel_buffer.getvalue(),
+                    file_name=f"relatorio_artigos_{year}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key=f"download_{year}"  # Unique key for each button
+                )
+                
                 # Show year summary
                 st.write("**Resumo do Ano:**")
                 st.write(f"- **Total de artigos únicos:** {len(kgs_agg)}")
@@ -187,7 +204,7 @@ for year in target_years:
     else:
         st.info(f"ℹ️ Não há dados de KGS válidos para o ano {year}.")
 
-# Overall summary across all target years
+# Overall summary across all target years with download button
 st.write("### 📊 Resumo Geral dos Anos 2023-2025")
 
 # Create a summary dataframe for all target years
@@ -201,14 +218,38 @@ for year in target_years:
     if not year_data.empty and 'KGS' in year_data.columns:
         total_kgs_year = year_data['KGS'].sum()
         unique_products = year_data['PRODUTO'].nunique()
+        avg_kgs_year = year_data['KGS'].mean()
         summary_data.append({
             'Ano': year,
             'Total KGS': total_kgs_year,
-            'Artigos Únicos': unique_products
+            'Artigos Únicos': unique_products,
+            'Média KGS': avg_kgs_year
         })
 
 if summary_data:
     summary_df = pd.DataFrame(summary_data)
     st.dataframe(summary_df, width='stretch')
+    
+    # Download button for overall summary
+    summary_excel_buffer = io.BytesIO()
+    with pd.ExcelWriter(summary_excel_buffer, engine='openpyxl') as writer:
+        summary_df.to_excel(writer, sheet_name='Resumo_Geral', index=False)
+        
+        # Also include detailed data for each year in separate sheets
+        for year in target_years:
+            year_data = df[
+                (df['PRODUTO'].isin(selected_produto)) &
+                (df['MES'].isin(selected_mes)) &
+                (df['ANO'] == year)
+            ]
+            if not year_data.empty:
+                year_data.to_excel(writer, sheet_name=f'Detalhes_{year}', index=False)
+    
+    st.download_button(
+        label="📥 Baixar Resumo Geral em Excel",
+        data=summary_excel_buffer.getvalue(),
+        file_name="resumo_geral_2023_2025.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 else:
     st.info("ℹ️ Não há dados para gerar o resumo geral.")
