@@ -54,7 +54,7 @@ if st.sidebar.button("🔄 Atualizar Dados"):
     df = load_data()  # Reload the data
     st.sidebar.success("Dados atualizados com sucesso!")
 
-# Filter data
+# Filter data for main display and charts
 filtered_df = df[
     (df['PRODUTO'].isin(selected_produto)) &
     (df['MES'].isin(selected_mes)) &
@@ -122,14 +122,21 @@ if not chart_df.empty:
 else:
     st.info("ℹ️ Não há dados de KGS válidos para gerar o gráfico.")
 
-# Top e Bottom 15 Artigos por Quantidade (KGS) com base nos filtros
-st.write("### 📦 Top e Bottom 15 Artigos por Quantidade (KGS) - Filtrado")
+# Top e Bottom 15 Artigos por Quantidade (KGS) - Filtrado (ALWAYS ALL YEARS)
+st.write("### 📦 Top e Bottom 15 Artigos por Quantidade (KGS) - Todos os Anos")
 
-if 'KGS' in filtered_df.columns and filtered_df['KGS'].notnull().any():
-    kgs_data = filtered_df[filtered_df['KGS'].notnull()].copy()
+# Create a separate filtered dataset for Top/Bottom analysis that always includes all years
+top_bottom_filtered_df = df[
+    (df['PRODUTO'].isin(selected_produto)) &
+    (df['MES'].isin(selected_mes))
+    # Removed the year filter here to always include all years
+].copy()
+
+if 'KGS' in top_bottom_filtered_df.columns and top_bottom_filtered_df['KGS'].notnull().any():
+    kgs_data = top_bottom_filtered_df[top_bottom_filtered_df['KGS'].notnull()].copy()
     
     if not kgs_data.empty:
-        # Group by product to get total KGS across all filtered data
+        # Group by product to get total KGS across all filtered data (all years)
         kgs_agg = kgs_data.groupby('PRODUTO')['KGS'].sum().reset_index()
         
         # Calculate average KGS for the filtered data
@@ -168,8 +175,12 @@ if 'KGS' in filtered_df.columns and filtered_df['KGS'].notnull().any():
         st.write("**Resumo dos Filtros Aplicados:**")
         st.write(f"- **Produtos selecionados:** {len(selected_produto)}")
         st.write(f"- **Meses selecionados:** {len(selected_mes)}")
-        st.write(f"- **Anos selecionados:** {len(selected_ano)}")
+        st.write(f"- **Anos analisados:** Todos os anos (análise histórica)")
         st.write(f"- **Total de artigos únicos:** {len(kgs_agg)}")
+        
+        # Show years included in the analysis
+        years_included = sorted(kgs_data['ANO'].unique())
+        st.write(f"- **Anos incluídos na análise:** {', '.join(map(str, years_included))}")
         
     else:
         st.info("ℹ️ Não há dados de KGS válidos após aplicar os filtros.")
