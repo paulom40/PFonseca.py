@@ -121,49 +121,56 @@ if not chart_df.empty:
 else:
     st.info("ℹ️ Não há dados de KGS válidos para gerar o gráfico.")
 
-# KPI: Top 15 and Bottom 15 Articles by KGS per Year
-st.write("### 📦 Top e Bottom 15 Artigos por Quantidade (KGS) por Ano")
+# REPLACED SECTION: Top e Bottom 15 Artigos por Quantidade (KGS) com base nos filtros
+st.write("### 📦 Top e Bottom 15 Artigos por Quantidade (KGS) - Filtrado")
+
 if 'KGS' in filtered_df.columns and filtered_df['KGS'].notnull().any():
     kgs_data = filtered_df[filtered_df['KGS'].notnull()].copy()
     
-    # Group by year and product to get total KGS
-    kgs_agg = kgs_data.groupby(['ANO', 'PRODUTO'])['KGS'].sum().reset_index()
-    
-    # For each year, get top 15 and bottom 15 articles
-    for year in sorted(kgs_agg['ANO'].dropna().unique()):
-        year_data = kgs_agg[kgs_agg['ANO'] == year].copy()
-        if not year_data.empty:
-            # Calculate average KGS for the year (total KGS / number of articles)
-            avg_kgs_year = year_data['KGS'].mean()
-            
-            # Get top 15 and bottom 15 articles
-            top_15 = year_data.nlargest(15, 'KGS')[['PRODUTO', 'KGS']].round(2)
-            bottom_15 = year_data.nsmallest(15, 'KGS')[['PRODUTO', 'KGS']].round(2)
-            
-            # Display in an expander for each year
-            with st.expander(f"📊 Ano {year}"):
-                st.metric(f"📦 Quantidade Média (KGS) ({year})", f"{avg_kgs_year:,.2f}")
-                
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.write("**Top 15 Artigos (Maior KGS)**")
-                    if not top_15.empty:
-                        st.dataframe(
-                            top_15.rename(columns={'PRODUTO': 'Artigo', 'KGS': 'Quantidade (KGS)'}),
-                            use_container_width=True
-                        )
-                    else:
-                        st.info("ℹ️ Não há dados suficientes para os top 15 artigos.")
-                
-                with col2:
-                    st.write("**Bottom 15 Artigos (Menor KGS)**")
-                    if not bottom_15.empty:
-                        st.dataframe(
-                            bottom_15.rename(columns={'PRODUTO': 'Artigo', 'KGS': 'Quantidade (KGS)'}),
-                            use_container_width=True
-                        )
-                    else:
-                        st.info("ℹ️ Não há dados suficientes para os bottom 15 artigos.")
+    if not kgs_data.empty:
+        # Group by product to get total KGS across all filtered data
+        kgs_agg = kgs_data.groupby('PRODUTO')['KGS'].sum().reset_index()
+        
+        # Calculate average KGS for the filtered data
+        avg_kgs_filtered = kgs_agg['KGS'].mean()
+        
+        # Get top 15 and bottom 15 articles from the filtered data
+        top_15 = kgs_agg.nlargest(15, 'KGS')[['PRODUTO', 'KGS']].round(2)
+        bottom_15 = kgs_agg.nsmallest(15, 'KGS')[['PRODUTO', 'KGS']].round(2)
+        
+        # Display metrics and dataframes
+        st.metric("📦 Quantidade Média (KGS) nos Filtros Selecionados", f"{avg_kgs_filtered:,.2f}")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**Top 15 Artigos (Maior KGS)**")
+            if not top_15.empty:
+                st.dataframe(
+                    top_15.rename(columns={'PRODUTO': 'Artigo', 'KGS': 'Quantidade (KGS)'}),
+                    use_container_width=True
+                )
+            else:
+                st.info("ℹ️ Não há dados suficientes para os top 15 artigos.")
+        
+        with col2:
+            st.write("**Bottom 15 Artigos (Menor KGS)**")
+            if not bottom_15.empty:
+                st.dataframe(
+                    bottom_15.rename(columns={'PRODUTO': 'Artigo', 'KGS': 'Quantidade (KGS)'}),
+                    use_container_width=True
+                )
+            else:
+                st.info("ℹ️ Não há dados suficientes para os bottom 15 artigos.")
+        
+        # Show filter summary
+        st.write("**Resumo dos Filtros Aplicados:**")
+        st.write(f"- **Produtos selecionados:** {len(selected_produto)}")
+        st.write(f"- **Meses selecionados:** {len(selected_mes)}")
+        st.write(f"- **Anos selecionados:** {len(selected_ano)}")
+        st.write(f"- **Total de artigos únicos:** {len(kgs_agg)}")
+        
+    else:
+        st.info("ℹ️ Não há dados de KGS válidos após aplicar os filtros.")
 else:
     st.info("ℹ️ Não há dados de KGS válidos para gerar os indicadores.")
