@@ -117,7 +117,8 @@ if not chart_df.empty:
         detail='ANO:N',
         text=alt.Text('KGS:Q', format=".0f")
     )
-    st.altair_chart(line_chart + labels, use_container_width=True)
+    # FIXED: Replaced use_container_width with width='stretch'
+    st.altair_chart(line_chart + labels, width='stretch')
 else:
     st.info("ℹ️ Não há dados de KGS válidos para gerar o gráfico.")
 
