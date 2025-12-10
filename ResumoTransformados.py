@@ -160,4 +160,34 @@ st.subheader("📊 KPI 1 – Total de Quantidade Comprada por Cliente")
 st.dataframe(kpi_cliente.style.format({"Quantidade":"{:.0f}"}))
 
 fig1, ax1 = plt.subplots(figsize=(8,4))
-ax1.bar(kpi_cliente["Nome"], kpi_cliente["Quantidade"], color="
+ax1.bar(kpi_cliente["Nome"], kpi_cliente["Quantidade"], color="steelblue")
+ax1.set_title("Total Quantidade por Cliente")
+ax1.set_ylabel("Quantidade")
+ax1.set_xticklabels(kpi_cliente["Nome"], rotation=45, ha="right")
+st.pyplot(fig1)
+# === KPI 2 – Percentagem de quantidade por artigo dentro de cada cliente ===
+total_por_cliente = df.groupby("Nome")["Quantidade"].sum()
+
+df["Perc_Artigo"] = df.apply(
+    lambda row: (row["Quantidade"] / total_por_cliente[row["Nome"]] * 100)
+    if total_por_cliente[row["Nome"]] != 0 else 0,
+    axis=1
+)
+
+kpi_artigo_cliente = (
+    df.groupby(["Nome","Artigo"], as_index=False)["Perc_Artigo"]
+      .sum()
+      .sort_values(["Nome","Perc_Artigo"], ascending=[True, False])
+)
+
+st.subheader("📊 KPI 2 – Percentagem de Quantidade por Artigo e Cliente")
+st.dataframe(kpi_artigo_cliente.style.format({"Perc_Artigo": "{:.2f}%"}))
+
+pivot_perc = kpi_artigo_cliente.pivot(index="Nome", columns="Artigo", values="Perc_Artigo").fillna(0)
+
+fig2, ax2 = plt.subplots(figsize=(10,6))
+pivot_perc.plot(kind="bar", stacked=True, ax=ax2, colormap="tab20")
+ax2.set_title("Distribuição Percentual por Artigo e Cliente")
+ax2.set_ylabel("%")
+ax2.legend(ncol=2, bbox_to_anchor=(1.02, 1), borderaxespad=0)
+st.pyplot(fig2)
