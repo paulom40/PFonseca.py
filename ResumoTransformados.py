@@ -162,10 +162,16 @@ else:
     
     pv = kpi_agg.pivot_table(index=["Comercial","Nome","Artigo","Mes"], columns="Ano", values="Quantidade", aggfunc="sum", fill_value=0)
     
-    # Garantir que os anos existem
+    # Resetar index para ter acesso às colunas
+    pv = pv.reset_index()
+    
+    # Garantir que os anos existem como colunas
     for a in [ano_base, ano_comp]:
         if a not in pv.columns:
             pv[a] = 0
+    
+    # Adicionar nome do mês ANTES de reordenar
+    pv["Mês"] = pv["Mes"].apply(lambda m: meses_nomes[int(m)-1] if 1<=int(m)<=12 else str(m))
     
     # Calcular variação
     pv["Variação_%"] = pv.apply(
@@ -173,14 +179,12 @@ else:
         axis=1
     )
     
-    pv = pv.reset_index()
+    # Ordenar usando a coluna Mes (numérica) que ainda existe
+    pv = pv.sort_values(["Comercial","Nome","Artigo","Mes"]).reset_index(drop=True)
     
-    # Adicionar nome do mês
-    pv["Mês"] = pv["Mes"].apply(lambda m: meses_nomes[m-1] if 1<=m<=12 else str(m))
-    
-    # Reordenar colunas
+    # Reordenar colunas - remover Mes da ordem final
     cols_order = ["Comercial","Nome","Artigo","Mês",ano_base,ano_comp,"Variação_%"]
-    pv = pv[cols_order].sort_values(["Comercial","Nome","Artigo","Mes"]).reset_index(drop=True)
+    pv = pv[cols_order]
 
 # === Mostrar tabela ===
 st.subheader("Tabela comparativa YoY por Comercial, Cliente, Artigo e Mês")
