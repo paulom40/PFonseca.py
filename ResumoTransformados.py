@@ -157,17 +157,30 @@ if len(kpi_view) == 0:
     st.warning("⚠️ Nenhum dado disponível para os filtros selecionados.")
     pv = pd.DataFrame()
 else:
-    pv = kpi_view.pivot_table(index=["Comercial","Nome","Artigo","Mes"], columns="Ano", values="Quantidade", aggfunc="sum")
+    # Garantir agregação antes do pivot para evitar duplicados
+    kpi_agg = kpi_view.groupby(["Comercial","Nome","Artigo","Ano","Mes"], as_index=False)["Quantidade"].sum()
+    
+    pv = kpi_agg.pivot_table(index=["Comercial","Nome","Artigo","Mes"], columns="Ano", values="Quantidade", aggfunc="sum", fill_value=0)
     
     # Garantir que os anos existem
     for a in [ano_base, ano_comp]:
         if a not in pv.columns:
             pv[a] = 0
     
-    pv["Variação_%"] = ((pv[ano_comp] - pv[ano_base]) / pv[ano_base].replace(0, pd.NA)) * 100
-    pv = pv.reset_index().sort_values(["Comercial","Nome","Artigo","Mes"])
+    # Calcular variação
+    pv["Variação_%"] = pv.apply(
+        lambda row: ((row[ano_comp] - row[ano_base]) / row[ano_base] * 100) if row[ano_base] != 0 else (100 if row[ano_comp] > 0 else 0),
+        axis=1
+    )
+    
+    pv = pv.reset_index()
+    
+    # Adicionar nome do mês
     pv["Mês"] = pv["Mes"].apply(lambda m: meses_nomes[m-1] if 1<=m<=12 else str(m))
-    pv = pv[["Comercial","Nome","Artigo","Mês",ano_base,ano_comp,"Variação_%"]]
+    
+    # Reordenar colunas
+    cols_order = ["Comercial","Nome","Artigo","Mês",ano_base,ano_comp,"Variação_%"]
+    pv = pv[cols_order].sort_values(["Comercial","Nome","Artigo","Mes"]).reset_index(drop=True)
 
 # === Mostrar tabela ===
 st.subheader("Tabela comparativa YoY por Comercial, Cliente, Artigo e Mês")
@@ -175,75 +188,84 @@ st.subheader("Tabela comparativa YoY por Comercial, Cliente, Artigo e Mês")
 if len(pv) == 0:
     st.info("Sem dados para apresentar. Ajuste os filtros.")
 else:
-    pv = pv.rename(columns=lambda c: str(c).strip())
+    # Criar uma cópia limpa para exibição
+    pv_display = pv.copy()
     
-    # Verificar se as colunas existem antes de formatar
+    # Verificar se as colunas de ano existem
     format_dict = {}
-    if ano_base in pv.columns:
-        format_dict[ano_base] = "{:.0f}"
-    if ano_comp in pv.columns:
-        format_dict[ano_comp] = "{:.0f}"
-    if "Variação_%" in pv.columns:
-        format_dict["Variação_%"] = "{:.2f}"
+    gradient_cols = []
     
-    # Aplicar estilo apenas se houver colunas para formatar
+    if ano_base in pv_display.columns:
+        format_dict[ano_base] = "{:.0f}"
+    if ano_comp in pv_display.columns:
+        format_dict[ano_comp] = "{:.0f}"
+    if "Variação_%" in pv_display.columns:
+        format_dict["Variação_%"] = "{:.2f}"
+        gradient_cols = ["Variação_%"]
+    
+    # Aplicar estilo
     if format_dict:
-        styled = pv.style.format(format_dict)
-        if "Variação_%" in pv.columns:
-            styled = styled.background_gradient(cmap="RdYlGn", subset=["Variação_%"])
+        styled = pv_display.style.format(format_dict)
+        if gradient_cols:
+            styled = styled.background_gradient(cmap="RdYlGn", subset=gradient_cols)
         st.dataframe(styled, use_container_width=True)
     else:
-        st.dataframe(pv, use_container_width=True)
+        st.dataframe(pv_display, use_container_width=True)
 
 # === Exportar para Excel ===
 st.subheader("Exportar resultados filtrados")
 
-xls_buf = io.BytesIO()
-with pd.ExcelWriter(xls_buf, engine="xlsxwriter") as writer:
-    pv.to_excel(writer, sheet_name="KPI_YoY", index=False)
-    ws = writer.sheets["KPI_YoY"]
+if len(pv) > 0:
+    xls_buf = io.BytesIO()
+    with pd.ExcelWriter(xls_buf, engine="xlsxwriter") as writer:
+        pv.to_excel(writer, sheet_name="KPI_YoY", index=False)
+        ws = writer.sheets["KPI_YoY"]
 
-    # Ajuste automático da largura das colunas
-    for i, col in enumerate(pv.columns):
-        width = max(12, min(30, int(pv[col].astype(str).str.len().mean()) + 4))
-        ws.set_column(i, i, width)
+        # Ajuste automático da largura das colunas
+        for i, col in enumerate(pv.columns):
+            width = max(12, min(30, int(pv[col].astype(str).str.len().mean()) + 4))
+            ws.set_column(i, i, width)
 
-    # Formatação condicional
-    last_col = len(pv.columns) - 1
-    ws.conditional_format(1, last_col, len(pv), last_col, {
-        'type': 'cell','criteria': '>', 'value': 0,
-        'format': writer.book.add_format({'bg_color': '#C6EFCE','font_color': '#006100'})
-    })
-    ws.conditional_format(1, last_col, len(pv), last_col, {
-        'type': 'cell','criteria': '<', 'value': 0,
-        'format': writer.book.add_format({'bg_color': '#FFC7CE','font_color': '#9C0006'})
-    })
+        # Formatação condicional (apenas se a coluna Variação_% existir)
+        if "Variação_%" in pv.columns:
+            last_col = len(pv.columns) - 1
+            ws.conditional_format(1, last_col, len(pv), last_col, {
+                'type': 'cell','criteria': '>', 'value': 0,
+                'format': writer.book.add_format({'bg_color': '#C6EFCE','font_color': '#006100'})
+            })
+            ws.conditional_format(1, last_col, len(pv), last_col, {
+                'type': 'cell','criteria': '<', 'value': 0,
+                'format': writer.book.add_format({'bg_color': '#FFC7CE','font_color': '#9C0006'})
+            })
 
-    # Gráfico automático global
-    chart = writer.book.add_chart({'type': 'line'})
-    chart.add_series({
-        'name': f"Ano {ano_base}",
-        'categories': ['KPI_YoY', 1, 3, len(pv), 3],
-        'values':     ['KPI_YoY', 1, 4, len(pv), 4],
-    })
-    chart.add_series({
-        'name': f"Ano {ano_comp}",
-        'categories': ['KPI_YoY', 1, 3, len(pv), 3],
-        'values':     ['KPI_YoY', 1, 5, len(pv), 5],
-    })
-    chart.set_title({'name': 'Evolução Mensal Global'})
-    chart.set_x_axis({'name': 'Mês'})
-    chart.set_y_axis({'name': 'Quantidade'})
-    chart.set_style(10)
-    ws.insert_chart('H2', chart, {'x_scale': 1.5, 'y_scale': 1.5})
+        # Gráfico automático global (apenas se houver dados suficientes)
+        if len(pv) > 1 and ano_base in pv.columns and ano_comp in pv.columns:
+            chart = writer.book.add_chart({'type': 'line'})
+            chart.add_series({
+                'name': f"Ano {ano_base}",
+                'categories': ['KPI_YoY', 1, 3, len(pv), 3],
+                'values':     ['KPI_YoY', 1, 4, len(pv), 4],
+            })
+            chart.add_series({
+                'name': f"Ano {ano_comp}",
+                'categories': ['KPI_YoY', 1, 3, len(pv), 3],
+                'values':     ['KPI_YoY', 1, 5, len(pv), 5],
+            })
+            chart.set_title({'name': 'Evolução Mensal Global'})
+            chart.set_x_axis({'name': 'Mês'})
+            chart.set_y_axis({'name': 'Quantidade'})
+            chart.set_style(10)
+            ws.insert_chart('H2', chart, {'x_scale': 1.5, 'y_scale': 1.5})
 
-st.download_button(
-    label="📥 Exportar para Excel",
-    data=xls_buf.getvalue(),
-    file_name=f"KPI_YoY_{ano_base}_vs_{ano_comp}.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    use_container_width=True
-)
+    st.download_button(
+        label="📥 Exportar para Excel",
+        data=xls_buf.getvalue(),
+        file_name=f"KPI_YoY_{ano_base}_vs_{ano_comp}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
+else:
+    st.info("Sem dados para exportar. Ajuste os filtros.")
 
 # Aplicar os mesmos filtros ao df original para os KPIs
 df_filtered = df.copy()
