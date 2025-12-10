@@ -92,10 +92,23 @@ with st.sidebar:
     # === FILTRO 1: COMERCIAIS ===
     st.subheader("👔 Comerciais")
     comerciais_opts = sorted([c for c in df["Comercial"].unique() if c and str(c).strip()])
+    
+    # Inicializar no session_state se não existir
+    if "comerciais_sel" not in st.session_state:
+        st.session_state.comerciais_sel = comerciais_opts
+    
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        if st.button("✓ Todos", key="btn_todos_comerciais", use_container_width=True):
+            st.session_state.comerciais_sel = comerciais_opts
+    with col_btn2:
+        if st.button("✗ Nenhum", key="btn_nenhum_comerciais", use_container_width=True):
+            st.session_state.comerciais_sel = []
+    
     comerciais_sel = st.multiselect(
         "Escolher comerciais",
         comerciais_opts,
-        default=comerciais_opts,
+        default=st.session_state.comerciais_sel,
         key="multi_comerciais"
     )
     st.caption(f"{len(comerciais_sel)} de {len(comerciais_opts)} selecionados")
@@ -105,10 +118,22 @@ with st.sidebar:
     # === FILTRO 2: CLIENTES ===
     st.subheader("🏢 Clientes")
     clientes_opts = sorted([c for c in df["Nome"].unique() if c and str(c).strip()])
+    
+    if "clientes_sel" not in st.session_state:
+        st.session_state.clientes_sel = clientes_opts
+    
+    col_btn3, col_btn4 = st.columns(2)
+    with col_btn3:
+        if st.button("✓ Todos", key="btn_todos_clientes", use_container_width=True):
+            st.session_state.clientes_sel = clientes_opts
+    with col_btn4:
+        if st.button("✗ Nenhum", key="btn_nenhum_clientes", use_container_width=True):
+            st.session_state.clientes_sel = []
+    
     clientes_sel = st.multiselect(
         "Escolher clientes",
         clientes_opts,
-        default=clientes_opts,
+        default=st.session_state.clientes_sel,
         key="multi_clientes"
     )
     st.caption(f"{len(clientes_sel)} de {len(clientes_opts)} selecionados")
@@ -118,10 +143,22 @@ with st.sidebar:
     # === FILTRO 3: ARTIGOS ===
     st.subheader("📦 Artigos")
     artigos_opts = sorted([c for c in df["Artigo"].unique() if c and str(c).strip()])
+    
+    if "artigos_sel" not in st.session_state:
+        st.session_state.artigos_sel = artigos_opts
+    
+    col_btn5, col_btn6 = st.columns(2)
+    with col_btn5:
+        if st.button("✓ Todos", key="btn_todos_artigos", use_container_width=True):
+            st.session_state.artigos_sel = artigos_opts
+    with col_btn6:
+        if st.button("✗ Nenhum", key="btn_nenhum_artigos", use_container_width=True):
+            st.session_state.artigos_sel = []
+    
     artigos_sel = st.multiselect(
         "Escolher artigos",
         artigos_opts,
-        default=artigos_opts,
+        default=st.session_state.artigos_sel,
         key="multi_artigos"
     )
     st.caption(f"{len(artigos_sel)} de {len(artigos_opts)} selecionados")
@@ -129,7 +166,10 @@ with st.sidebar:
     st.divider()
     
     # Botão limpar filtros
-    if st.button("🔄 Limpar todos os filtros", use_container_width=True):
+    if st.button("🔄 Resetar para todos os filtros", use_container_width=True):
+        st.session_state.comerciais_sel = comerciais_opts
+        st.session_state.clientes_sel = clientes_opts
+        st.session_state.artigos_sel = artigos_opts
         st.rerun()
 
 # Converter meses selecionados para números
