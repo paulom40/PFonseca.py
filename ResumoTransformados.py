@@ -27,6 +27,7 @@ df = pd.DataFrame({
     "Data":      df_raw.iloc[:, COL_DATA],
     "Quantidade":df_raw.iloc[:, COL_QTD],
 })
+
 # === 3. Normalização ===
 df["Data"] = pd.to_datetime(df["Data"], errors="coerce")
 df = df.dropna(subset=["Data"])
@@ -39,34 +40,83 @@ df["Quantidade"] = pd.to_numeric(df["Quantidade"], errors="coerce").fillna(0)
 
 # === 4. Base KPI ===
 kpi = df.groupby(["Comercial","Nome","Artigo","Ano","Mes"], as_index=False)["Quantidade"].sum()
+
 # === Sidebar com filtros dinâmicos ===
 with st.sidebar:
-    st.header("Filtros")
-
+    st.header("🔍 Filtros")
+    
+    # Filtros de Ano
+    st.subheader("📅 Período")
     anos_disponiveis = sorted(kpi["Ano"].unique())
     ano_base = st.selectbox("Ano base", anos_disponiveis, index=max(0,len(anos_disponiveis)-2))
     ano_comp = st.selectbox("Ano comparação", anos_disponiveis, index=len(anos_disponiveis)-1)
 
+    # Filtro de Meses
     meses_nomes = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]
     meses_sel = st.multiselect("Selecionar meses", meses_nomes, default=meses_nomes)
-
-    # Comerciais (Coluna I)
+    
+    st.divider()
+    
+    # === FILTRO 1: COMERCIAIS ===
+    st.subheader("👔 Comerciais")
     comerciais_opts = sorted(df["Comercial"].dropna().unique())
-    select_all_comerciais = st.checkbox("Selecionar todos os comerciais", value=True)
-    comerciais_sel = comerciais_opts if select_all_comerciais else st.multiselect("Selecionar comerciais", comerciais_opts)
-
-    # Clientes (Coluna B)
+    select_all_comerciais = st.checkbox("Todos os comerciais", value=True, key="chk_comerciais")
+    
+    if select_all_comerciais:
+        comerciais_sel = comerciais_opts
+        st.info(f"✓ {len(comerciais_opts)} comerciais selecionados")
+    else:
+        comerciais_sel = st.multiselect(
+            "Escolher comerciais",
+            comerciais_opts,
+            default=[],
+            key="multi_comerciais"
+        )
+        st.caption(f"{len(comerciais_sel)} de {len(comerciais_opts)} selecionados")
+    
+    st.divider()
+    
+    # === FILTRO 2: CLIENTES ===
+    st.subheader("🏢 Clientes")
     clientes_opts = sorted(df["Nome"].dropna().unique())
-    select_all_clientes = st.checkbox("Selecionar todos os clientes", value=True)
-    clientes_sel = clientes_opts if select_all_clientes else st.multiselect("Selecionar clientes", clientes_opts)
-
-    # Artigos (Coluna C)
+    select_all_clientes = st.checkbox("Todos os clientes", value=True, key="chk_clientes")
+    
+    if select_all_clientes:
+        clientes_sel = clientes_opts
+        st.info(f"✓ {len(clientes_opts)} clientes selecionados")
+    else:
+        clientes_sel = st.multiselect(
+            "Escolher clientes",
+            clientes_opts,
+            default=[],
+            key="multi_clientes"
+        )
+        st.caption(f"{len(clientes_sel)} de {len(clientes_opts)} selecionados")
+    
+    st.divider()
+    
+    # === FILTRO 3: ARTIGOS ===
+    st.subheader("📦 Artigos")
     artigos_opts = sorted(df["Artigo"].dropna().unique())
-    select_all_artigos = st.checkbox("Selecionar todos os artigos", value=True)
-    artigos_sel = artigos_opts if select_all_artigos else st.multiselect("Selecionar artigos", artigos_opts)
-
-    if st.button("🔄 Limpar filtros"):
-        st.experimental_rerun()
+    select_all_artigos = st.checkbox("Todos os artigos", value=True, key="chk_artigos")
+    
+    if select_all_artigos:
+        artigos_sel = artigos_opts
+        st.info(f"✓ {len(artigos_opts)} artigos selecionados")
+    else:
+        artigos_sel = st.multiselect(
+            "Escolher artigos",
+            artigos_opts,
+            default=[],
+            key="multi_artigos"
+        )
+        st.caption(f"{len(artigos_sel)} de {len(artigos_opts)} selecionados")
+    
+    st.divider()
+    
+    # Botão limpar filtros
+    if st.button("🔄 Limpar todos os filtros", use_container_width=True):
+        st.rerun()
 
 # Converter meses selecionados para números
 meses_map = dict(zip(meses_nomes, range(1,13)))
@@ -74,14 +124,34 @@ meses_sel_num = [meses_map[m] for m in meses_sel]
 
 # Aplicar filtros
 kpi_view = kpi.copy()
+
 if comerciais_sel:
     kpi_view = kpi_view[kpi_view["Comercial"].isin(comerciais_sel)]
+else:
+    st.warning("⚠️ Nenhum comercial selecionado")
+    
 if clientes_sel:
     kpi_view = kpi_view[kpi_view["Nome"].isin(clientes_sel)]
+else:
+    st.warning("⚠️ Nenhum cliente selecionado")
+    
 if artigos_sel:
     kpi_view = kpi_view[kpi_view["Artigo"].isin(artigos_sel)]
+else:
+    st.warning("⚠️ Nenhum artigo selecionado")
+    
 if meses_sel_num:
     kpi_view = kpi_view[kpi_view["Mes"].isin(meses_sel_num)]
+
+# Mostrar resumo dos filtros aplicados
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.metric("Comerciais", len(comerciais_sel))
+with col2:
+    st.metric("Clientes", len(clientes_sel))
+with col3:
+    st.metric("Artigos", len(artigos_sel))
+
 # === Pivot comparativo ===
 pv = kpi_view.pivot_table(index=["Comercial","Nome","Artigo","Mes"], columns="Ano", values="Quantidade", aggfunc="sum")
 for a in [ano_base, ano_comp]:
@@ -105,7 +175,8 @@ if "Variação_%" in pv.columns:
 else:
     styled = pv.style.format({ano_base:"{:.0f}", ano_comp:"{:.0f}"})
 
-st.dataframe(styled)
+st.dataframe(styled, use_container_width=True)
+
 # === Exportar para Excel ===
 st.subheader("Exportar resultados filtrados")
 
@@ -152,50 +223,62 @@ st.download_button(
     label="📥 Exportar para Excel",
     data=xls_buf.getvalue(),
     file_name=f"KPI_YoY_{ano_base}_vs_{ano_comp}.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    use_container_width=True
 )
+
+# Aplicar os mesmos filtros ao df original para os KPIs
+df_filtered = df.copy()
+if comerciais_sel:
+    df_filtered = df_filtered[df_filtered["Comercial"].isin(comerciais_sel)]
+if clientes_sel:
+    df_filtered = df_filtered[df_filtered["Nome"].isin(clientes_sel)]
+if artigos_sel:
+    df_filtered = df_filtered[df_filtered["Artigo"].isin(artigos_sel)]
+
 # === KPI 1 – Total de quantidade por cliente ===
 kpi_cliente = (
-    df.groupby("Nome")["Quantidade"]
+    df_filtered.groupby("Nome")["Quantidade"]
       .sum()
       .reset_index()
       .sort_values("Quantidade", ascending=False)
 )
 
 st.subheader("📊 KPI 1 – Total de Quantidade Comprada por Cliente")
-st.dataframe(kpi_cliente.style.format({"Quantidade":"{:.0f}"}))
+st.dataframe(kpi_cliente.style.format({"Quantidade":"{:.0f}"}), use_container_width=True)
 
-fig1, ax1 = plt.subplots(figsize=(8,4))
+fig1, ax1 = plt.subplots(figsize=(10,5))
 ax1.bar(kpi_cliente["Nome"], kpi_cliente["Quantidade"], color="steelblue")
 ax1.set_title("Total Quantidade por Cliente")
 ax1.set_ylabel("Quantidade")
 ax1.set_xticklabels(kpi_cliente["Nome"], rotation=45, ha="right")
+plt.tight_layout()
 st.pyplot(fig1)
 
-
 # === KPI 2 – Percentagem de quantidade por artigo dentro de cada cliente ===
-total_por_cliente = df.groupby("Nome")["Quantidade"].sum()
+total_por_cliente = df_filtered.groupby("Nome")["Quantidade"].sum()
 
-df["Perc_Artigo"] = df.apply(
+df_filtered["Perc_Artigo"] = df_filtered.apply(
     lambda row: (row["Quantidade"] / total_por_cliente[row["Nome"]] * 100)
     if total_por_cliente[row["Nome"]] != 0 else 0,
     axis=1
 )
 
 kpi_artigo_cliente = (
-    df.groupby(["Nome","Artigo"], as_index=False)["Perc_Artigo"]
+    df_filtered.groupby(["Nome","Artigo"], as_index=False)["Perc_Artigo"]
       .sum()
       .sort_values(["Nome","Perc_Artigo"], ascending=[True, False])
 )
 
 st.subheader("📊 KPI 2 – Percentagem de Quantidade por Artigo e Cliente")
-st.dataframe(kpi_artigo_cliente.style.format({"Perc_Artigo": "{:.2f}%"}))
+st.dataframe(kpi_artigo_cliente.style.format({"Perc_Artigo": "{:.2f}%"}), use_container_width=True)
 
 pivot_perc = kpi_artigo_cliente.pivot(index="Nome", columns="Artigo", values="Perc_Artigo").fillna(0)
 
-fig2, ax2 = plt.subplots(figsize=(10,6))
+fig2, ax2 = plt.subplots(figsize=(12,6))
 pivot_perc.plot(kind="bar", stacked=True, ax=ax2, colormap="tab20")
 ax2.set_title("Distribuição Percentual por Artigo e Cliente")
 ax2.set_ylabel("%")
 ax2.legend(ncol=2, bbox_to_anchor=(1.02, 1), borderaxespad=0)
+plt.tight_layout()
 st.pyplot(fig2)
