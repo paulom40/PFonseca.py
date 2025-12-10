@@ -272,8 +272,7 @@ def create_all_multiselect_filters(df):
                     "**📅 Ano**",
                     options=anos_disponiveis,
                     default=anos_disponiveis if len(anos_disponiveis) <= 3 else anos_disponiveis[:3],
-                    help="Selecione um ou mais anos",
-                    key="filtro_ano"
+                    help="Selecione um ou mais anos"
                 )
                 filtros['anos'] = anos_selecionados if anos_selecionados else anos_disponiveis
                 st.caption(f"{len(anos_selecionados) if anos_selecionados else len(anos_disponiveis)} ano(s) selecionado(s)")
@@ -288,8 +287,7 @@ def create_all_multiselect_filters(df):
                     "**📆 Mês**",
                     options=meses_disponiveis,
                     default=meses_disponiveis,
-                    help="Selecione um ou mais meses",
-                    key="filtro_mes"
+                    help="Selecione um ou mais meses"
                 )
                 filtros['meses'] = meses_selecionados if meses_selecionados else meses_disponiveis
                 st.caption(f"{len(meses_selecionados) if meses_selecionados else len(meses_disponiveis)} mês(es) selecionado(s)")
@@ -303,8 +301,7 @@ def create_all_multiselect_filters(df):
                     "**👨‍💼 Comercial**",
                     options=comerciais_disponiveis,
                     default=comerciais_disponiveis,
-                    help="Selecione um ou mais comerciais",
-                    key="filtro_comercial"
+                    help="Selecione um ou mais comerciais"
                 )
                 filtros['comerciais'] = comerciais_selecionados if comerciais_selecionados else comerciais_disponiveis
                 st.caption(f"{len(comerciais_selecionados) if comerciais_selecionados else len(comerciais_disponiveis)} comercial(is) selecionado(s)")
@@ -318,8 +315,7 @@ def create_all_multiselect_filters(df):
                     "**🏢 Entidade (Nome)**",
                     options=entidades_disponiveis,
                     default=[],
-                    help="Selecione uma ou mais entidades (deixe vazio para todas)",
-                    key="filtro_entidade"
+                    help="Selecione uma ou mais entidades (deixe vazio para todas)"
                 )
                 filtros['entidades'] = entidades_selecionadas
                 st.caption(f"{len(entidades_selecionadas)} entidade(s) selecionada(s)" if entidades_selecionadas else "Todas as entidades selecionadas")
@@ -339,8 +335,7 @@ def create_all_multiselect_filters(df):
                     "**🛒 Artigo**",
                     options=artigos_disponiveis,
                     default=[],
-                    help="Selecione um ou mais artigos (deixe vazio para todos)",
-                    key="filtro_artigo"
+                    help="Selecione um ou mais artigos (deixe vazio para todos)"
                 )
                 filtros['artigos'] = artigos_selecionados
                 st.caption(f"{len(artigos_selecionados)} artigo(s) selecionado(s)" if artigos_selecionados else "Todos os artigos selecionados")
@@ -352,14 +347,11 @@ def create_all_multiselect_filters(df):
             col1, col2 = st.columns(2)
             
             with col1:
-                if st.button("🔄 Resetar Todos", use_container_width=True, type="secondary", key="btn_reset"):
-                    for key in st.session_state.keys():
-                        if key.startswith('filtro_'):
-                            st.session_state[key] = []
+                if st.button("🔄 Resetar Todos", width='stretch', type="secondary"):
                     st.rerun()
             
             with col2:
-                if st.button("✅ Aplicar Filtros", use_container_width=True, type="primary", key="btn_aplicar"):
+                if st.button("✅ Aplicar Filtros", width='stretch', type="primary"):
                     st.rerun()
     
     return filtros
@@ -538,7 +530,7 @@ def main():
         st.markdown("---")
         st.subheader("📥 Exportar Dados")
         
-        if st.button("📊 Baixar Relatório Completo (Excel)", use_container_width=True, type="primary", key="btn_excel_sidebar"):
+        if st.button("📊 Baixar Relatório Completo (Excel)", width='stretch', type="primary"):
             try:
                 excel_data = create_excel_with_sheets(
                     df_filtrado, 
@@ -554,7 +546,7 @@ def main():
                     data=excel_data.getvalue(),
                     file_name=f"relatorio_vendas_completo_{timestamp}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
+                    width='stretch'
                 )
                 st.success("✅ Relatório gerado com sucesso!")
                 st.balloons()
@@ -630,7 +622,7 @@ def main():
                     showlegend=False,
                     height=400
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
         
         with col2:
             # Distribuição por Comercial
@@ -646,7 +638,7 @@ def main():
                     hole=0.3
                 )
                 fig.update_layout(height=400)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
     
     with tab2:
         col1, col2 = st.columns(2)
@@ -663,7 +655,7 @@ def main():
                 
                 st.dataframe(
                     top_entidades_display,
-                    use_container_width=True,
+                    width='stretch',
                     height=400
                 )
         
@@ -688,7 +680,7 @@ def main():
                     xaxis_tickangle=45,
                     height=400
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
     
     with tab3:
         st.markdown("### 📦 Análise por Artigo")
@@ -715,7 +707,7 @@ def main():
                     xaxis_tickangle=45,
                     height=400
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
             
             with col2:
                 # Top artigos por valor
@@ -736,7 +728,7 @@ def main():
                     xaxis_tickangle=45,
                     height=400
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
             
             # Tabela detalhada de artigos
             st.markdown("### 📋 Detalhes dos Artigos")
@@ -747,7 +739,7 @@ def main():
             
             st.dataframe(
                 artigos_detalhes,
-                use_container_width=True,
+                width='stretch',
                 height=300
             )
     
@@ -766,7 +758,7 @@ def main():
                 
                 st.dataframe(
                     perf_display,
-                    use_container_width=True,
+                    width='stretch',
                     height=400
                 )
             
@@ -785,7 +777,7 @@ def main():
                     yaxis_title="Valor",
                     height=400
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width='stretch')
     
     with tab5:
         # ANÁLISE TEMPORAL - VERSÃO CORRIGIDA E SEGURA
@@ -823,7 +815,7 @@ def main():
                         markers=True
                     )
                     fig_simple.update_layout(height=300)
-                    st.plotly_chart(fig_simple, use_container_width=True)
+                    st.plotly_chart(fig_simple, width='stretch')
                     
                     # Gráfico com eixo secundário - COM TRY-EXCEPT
                     st.markdown("#### Vendas vs Quantidade (Eixo Duplo)")
@@ -870,7 +862,7 @@ def main():
                             height=400
                         )
                         
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, width='stretch')
                         
                     except Exception as e:
                         st.error(f"Erro no gráfico de eixo duplo: {str(e)}")
@@ -884,7 +876,7 @@ def main():
                             markers=True
                         )
                         fig_fallback.update_layout(height=400)
-                        st.plotly_chart(fig_fallback, use_container_width=True)
+                        st.plotly_chart(fig_fallback, width='stretch')
             
             except Exception as e:
                 st.error(f"Erro na análise temporal: {str(e)}")
@@ -925,7 +917,7 @@ def main():
         
         with col_controls3:
             # Botão para download Excel completo
-            if st.button("📊 Baixar Relatório Completo Excel", type="primary", use_container_width=True):
+            if st.button("📊 Baixar Relatório Completo Excel", type="primary", width='stretch'):
                 try:
                     excel_data = create_excel_with_sheets(
                         df_filtrado, 
@@ -942,7 +934,7 @@ def main():
                         data=excel_data.getvalue(),
                         file_name=f"relatorio_vendas_completo_{timestamp}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True
+                        width='stretch'
                     )
                     
                     st.success("✅ Relatório Excel gerado com sucesso!")
@@ -968,7 +960,7 @@ def main():
             
             st.dataframe(
                 df_display.head(num_records),
-                use_container_width=True,
+                width='stretch',
                 height=400
             )
         else:
@@ -981,7 +973,7 @@ def main():
             
             st.dataframe(
                 df_full_display,
-                use_container_width=True,
+                width='stretch',
                 height=500
             )
         
@@ -1026,7 +1018,7 @@ def main():
             data=csv_data,
             file_name=f"dados_filtrados_{timestamp}.csv",
             mime="text/csv",
-            use_container_width=True
+            width='stretch'
         )
     
     with col_dl2:
@@ -1039,12 +1031,12 @@ def main():
                 data=resumo_data,
                 file_name=f"resumo_entidades_{timestamp}.csv",
                 mime="text/csv",
-                use_container_width=True
+                width='stretch'
             )
     
     with col_dl3:
         # Download Excel completo (botão secundário)
-        if st.button("📁 Gerar Relatório Excel Completo", use_container_width=True, type="secondary"):
+        if st.button("📁 Gerar Relatório Excel Completo", width='stretch', type="secondary"):
             try:
                 excel_data = create_excel_with_sheets(
                     df_filtrado, 
@@ -1059,7 +1051,7 @@ def main():
                     data=excel_data.getvalue(),
                     file_name=f"relatorio_completo_{timestamp}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
+                    width='stretch'
                 )
             except Exception as e:
                 st.error(f"❌ Erro ao gerar Excel: {str(e)}")
