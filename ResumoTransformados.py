@@ -157,4 +157,5 @@ st.pyplot(fig1)
 
 # === 10. KPI 2 – Percentagem de quantidade por artigo dentro de cada cliente ===
 total_por_cliente = df.groupby("Nome")["Quantidade"].sum()
-df["Perc_Artigo"] = df.apply(lambda row: (row["Quantidade"] / total_por_cliente[row["Nome"]] * 100
+
+df["
