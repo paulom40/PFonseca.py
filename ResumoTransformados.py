@@ -153,29 +153,47 @@ with col3:
     st.metric("Artigos", len(artigos_sel))
 
 # === Pivot comparativo ===
-pv = kpi_view.pivot_table(index=["Comercial","Nome","Artigo","Mes"], columns="Ano", values="Quantidade", aggfunc="sum")
-for a in [ano_base, ano_comp]:
-    if a not in pv.columns:
-        pv[a] = 0
-pv["Variação_%"] = ((pv[ano_comp] - pv[ano_base]) / pv[ano_base].replace(0, pd.NA)) * 100
-pv = pv.reset_index().sort_values(["Comercial","Nome","Artigo","Mes"])
-pv["Mês"] = pv["Mes"].apply(lambda m: meses_nomes[m-1] if 1<=m<=12 else str(m))
-pv = pv[["Comercial","Nome","Artigo","Mês",ano_base,ano_comp,"Variação_%"]]
+if len(kpi_view) == 0:
+    st.warning("⚠️ Nenhum dado disponível para os filtros selecionados.")
+    pv = pd.DataFrame()
+else:
+    pv = kpi_view.pivot_table(index=["Comercial","Nome","Artigo","Mes"], columns="Ano", values="Quantidade", aggfunc="sum")
+    
+    # Garantir que os anos existem
+    for a in [ano_base, ano_comp]:
+        if a not in pv.columns:
+            pv[a] = 0
+    
+    pv["Variação_%"] = ((pv[ano_comp] - pv[ano_base]) / pv[ano_base].replace(0, pd.NA)) * 100
+    pv = pv.reset_index().sort_values(["Comercial","Nome","Artigo","Mes"])
+    pv["Mês"] = pv["Mes"].apply(lambda m: meses_nomes[m-1] if 1<=m<=12 else str(m))
+    pv = pv[["Comercial","Nome","Artigo","Mês",ano_base,ano_comp,"Variação_%"]]
 
 # === Mostrar tabela ===
 st.subheader("Tabela comparativa YoY por Comercial, Cliente, Artigo e Mês")
 
-pv = pv.rename(columns=lambda c: str(c).strip())
-if "Variação_%" in pv.columns:
-    styled = (
-        pv.style
-        .format({ano_base:"{:.0f}", ano_comp:"{:.0f}", "Variação_%":"{:.2f}"})
-        .background_gradient(cmap="RdYlGn", subset=["Variação_%"])
-    )
+if len(pv) == 0:
+    st.info("Sem dados para apresentar. Ajuste os filtros.")
 else:
-    styled = pv.style.format({ano_base:"{:.0f}", ano_comp:"{:.0f}"})
-
-st.dataframe(styled, use_container_width=True)
+    pv = pv.rename(columns=lambda c: str(c).strip())
+    
+    # Verificar se as colunas existem antes de formatar
+    format_dict = {}
+    if ano_base in pv.columns:
+        format_dict[ano_base] = "{:.0f}"
+    if ano_comp in pv.columns:
+        format_dict[ano_comp] = "{:.0f}"
+    if "Variação_%" in pv.columns:
+        format_dict["Variação_%"] = "{:.2f}"
+    
+    # Aplicar estilo apenas se houver colunas para formatar
+    if format_dict:
+        styled = pv.style.format(format_dict)
+        if "Variação_%" in pv.columns:
+            styled = styled.background_gradient(cmap="RdYlGn", subset=["Variação_%"])
+        st.dataframe(styled, use_container_width=True)
+    else:
+        st.dataframe(pv, use_container_width=True)
 
 # === Exportar para Excel ===
 st.subheader("Exportar resultados filtrados")
