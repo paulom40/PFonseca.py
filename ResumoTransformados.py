@@ -27,7 +27,6 @@ df = pd.DataFrame({
     "Data":      df_raw.iloc[:, COL_DATA],
     "Quantidade":df_raw.iloc[:, COL_QTD],
 })
-
 # === 3. Normalização ===
 df["Data"] = pd.to_datetime(df["Data"], errors="coerce")
 df = df.dropna(subset=["Data"])
@@ -52,17 +51,17 @@ with st.sidebar:
     meses_sel = st.multiselect("Selecionar meses", meses_nomes, default=meses_nomes)
 
     # Comerciais (Coluna I)
-    comerciais_opts = sorted(kpi["Comercial"].dropna().unique())
+    comerciais_opts = sorted(df["Comercial"].dropna().unique())
     select_all_comerciais = st.checkbox("Selecionar todos os comerciais", value=True)
     comerciais_sel = comerciais_opts if select_all_comerciais else st.multiselect("Selecionar comerciais", comerciais_opts)
 
     # Clientes (Coluna B)
-    clientes_opts = sorted(kpi["Nome"].dropna().unique())
+    clientes_opts = sorted(df["Nome"].dropna().unique())
     select_all_clientes = st.checkbox("Selecionar todos os clientes", value=True)
     clientes_sel = clientes_opts if select_all_clientes else st.multiselect("Selecionar clientes", clientes_opts)
 
     # Artigos (Coluna C)
-    artigos_opts = sorted(kpi["Artigo"].dropna().unique())
+    artigos_opts = sorted(df["Artigo"].dropna().unique())
     select_all_artigos = st.checkbox("Selecionar todos os artigos", value=True)
     artigos_sel = artigos_opts if select_all_artigos else st.multiselect("Selecionar artigos", artigos_opts)
 
@@ -95,11 +94,18 @@ pv = pv[["Comercial","Nome","Artigo","Mês",ano_base,ano_comp,"Variação_%"]]
 
 # === Mostrar tabela ===
 st.subheader("Tabela comparativa YoY por Comercial, Cliente, Artigo e Mês")
-st.dataframe(
-    pv.style
-    .format({ano_base:"{:.0f}", ano_comp:"{:.0f}", "Variação_%":"{:.2f}"})
-    .background_gradient(cmap="RdYlGn", subset=["Variação_%"])
-)
+
+pv = pv.rename(columns=lambda c: str(c).strip())
+if "Variação_%" in pv.columns:
+    styled = (
+        pv.style
+        .format({ano_base:"{:.0f}", ano_comp:"{:.0f}", "Variação_%":"{:.2f}"})
+        .background_gradient(cmap="RdYlGn", subset=["Variação_%"])
+    )
+else:
+    styled = pv.style.format({ano_base:"{:.0f}", ano_comp:"{:.0f}"})
+
+st.dataframe(styled)
 # === Exportar para Excel ===
 st.subheader("Exportar resultados filtrados")
 
@@ -165,6 +171,8 @@ ax1.set_title("Total Quantidade por Cliente")
 ax1.set_ylabel("Quantidade")
 ax1.set_xticklabels(kpi_cliente["Nome"], rotation=45, ha="right")
 st.pyplot(fig1)
+
+
 # === KPI 2 – Percentagem de quantidade por artigo dentro de cada cliente ===
 total_por_cliente = df.groupby("Nome")["Quantidade"].sum()
 
