@@ -1,39 +1,10 @@
 import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
+import io
 
-# === Configuração da página ===
 st.set_page_config(page_title="KPI Compras Clientes (YoY)", layout="wide")
-
-# === CSS customizado ===
-st.markdown("""
-    <style>
-    /* Sidebar styling */
-    [data-testid="stSidebar"] {
-        background-color: #f0f2f6;
-        padding: 20px;
-        border-right: 2px solid #ccc;
-    }
-    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
-        color: #2c3e50;
-    }
-    /* Dataframe styling */
-    .stDataFrame {
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        overflow: hidden;
-    }
-    /* Title styling */
-    h1 {
-        color: #1a5276;
-    }
-    h2 {
-        color: #21618c;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-st.title("📊 KPI de Compras por Cliente e Artigo (YoY)")
+st.title("📊 Dashboard de Compras – Clientes & Artigos")
 
 # --- URL raw do ficheiro no GitHub ---
 RAW_URL = "https://github.com/paulom40/PFonseca.py/raw/refs/heads/main/ResumoTR.xlsx"
@@ -51,12 +22,13 @@ df["Nome"] = df["Nome"].astype(str).str.strip()
 df["Artigo"] = df["Artigo"].astype(str).str.strip()
 df["Quantidade"] = pd.to_numeric(df["Quantidade"], errors="coerce").fillna(0)
 
-# === 3. Agrupar KPI ===
+# === 3. Agrupar KPI base ===
 kpi = df.groupby(["Nome","Artigo","Ano","Mes"], as_index=False)["Quantidade"].sum()
 
 # === 4. Sidebar com filtros dinâmicos ===
 with st.sidebar:
     st.header("Filtros")
+
     anos_disponiveis = sorted(kpi["Ano"].unique())
     ano_base = st.selectbox("Ano base", anos_disponiveis, index=max(0,len(anos_disponiveis)-2))
     ano_comp = st.selectbox("Ano comparação", anos_disponiveis, index=len(anos_disponiveis)-1)
@@ -65,10 +37,15 @@ with st.sidebar:
     meses_sel = st.multiselect("Selecionar meses", meses_nomes, default=meses_nomes)
 
     clientes_opts = sorted(kpi["Nome"].unique())
-    clientes_sel = st.multiselect("Selecionar clientes", clientes_opts)
+    select_all_clientes = st.checkbox("Selecionar todos os clientes", value=True)
+    clientes_sel = clientes_opts if select_all_clientes else st.multiselect("Selecionar clientes", clientes_opts)
 
     artigos_opts = sorted(kpi["Artigo"].unique())
-    artigos_sel = st.multiselect("Selecionar artigos", artigos_opts)
+    select_all_artigos = st.checkbox("Selecionar todos os artigos", value=True)
+    artigos_sel = artigos_opts if select_all_artigos else st.multiselect("Selecionar artigos", artigos_opts)
+
+    if st.button("🔄 Limpar filtros"):
+        st.experimental_rerun()
 
 # Converter meses selecionados para números
 meses_map = dict(zip(meses_nomes, range(1,13)))
@@ -101,24 +78,78 @@ st.dataframe(
     .background_gradient(cmap="RdYlGn", subset=["Variação_%"])
 )
 
-# === 8. Gráfico por cliente/artigo ===
-st.subheader("Evolução mensal por Cliente e Artigo")
-clientes = sorted(pv["Nome"].unique())
-artigos = sorted(pv["Artigo"].unique())
-cliente_sel = st.selectbox("Selecionar cliente", clientes)
-artigo_sel = st.selectbox("Selecionar artigo", artigos)
+# === 8. Exportar para Excel com formatação condicional e gráfico ===
+st.subheader("Exportar resultados filtrados")
 
-if cliente_sel and artigo_sel:
-    base = kpi_view[(kpi_view["Nome"]==cliente_sel) & (kpi_view["Artigo"]==artigo_sel) & (kpi_view["Ano"]==ano_base)].sort_values("Mes")
-    comp = kpi_view[(kpi_view["Nome"]==cliente_sel) & (kpi_view["Artigo"]==artigo_sel) & (kpi_view["Ano"]==ano_comp)].sort_values("Mes")
+xls_buf = io.BytesIO()
+with pd.ExcelWriter(xls_buf, engine="xlsxwriter") as writer:
+    pv.to_excel(writer, sheet_name="KPI_YoY", index=False)
+    ws = writer.sheets["KPI_YoY"]
 
-    fig, ax = plt.subplots(figsize=(10,4))
-    ax.plot(base["Mes"], base["Quantidade"], marker="o", label=str(ano_base))
-    ax.plot(comp["Mes"], comp["Quantidade"], marker="o", label=str(ano_comp))
-    ax.set_xticks(range(1,13))
-    ax.set_xticklabels(meses_nomes)
-    ax.set_xlabel("Mês")
-    ax.set_ylabel("Quantidade")
-    ax.set_title(f"Evolução mensal – {cliente_sel} / {artigo_sel}")
-    ax.legend()
-    st.pyplot(fig)
+    # Ajuste automático da largura das colunas
+    for i, col in enumerate(pv.columns):
+        width = max(12, min(30, int(pv[col].astype(str).str.len().mean()) + 4))
+        ws.set_column(i, i, width)
+
+    # Formatação condicional na coluna de Variação_%
+    last_col = len(pv.columns) - 1
+    ws.conditional_format(1, last_col, len(pv), last_col, {
+        'type': 'cell',
+        'criteria': '>',
+        'value': 0,
+        'format': writer.book.add_format({'bg_color': '#C6EFCE', 'font_color': '#006100'})
+    })
+    ws.conditional_format(1, last_col, len(pv), last_col, {
+        'type': 'cell',
+        'criteria': '<',
+        'value': 0,
+        'format': writer.book.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006'})
+    })
+
+    # Gráfico automático global
+    chart = writer.book.add_chart({'type': 'line'})
+    chart.add_series({
+        'name': f"Ano {ano_base}",
+        'categories': ['KPI_YoY', 1, 2, len(pv), 2],
+        'values':     ['KPI_YoY', 1, 3, len(pv), 3],
+    })
+    chart.add_series({
+        'name': f"Ano {ano_comp}",
+        'categories': ['KPI_YoY', 1, 2, len(pv), 2],
+        'values':     ['KPI_YoY', 1, 4, len(pv), 4],
+    })
+    chart.set_title({'name': 'Evolução Mensal Global'})
+    chart.set_x_axis({'name': 'Mês'})
+    chart.set_y_axis({'name': 'Quantidade'})
+    chart.set_style(10)
+    ws.insert_chart('H2', chart, {'x_scale': 1.5, 'y_scale': 1.5})
+
+st.download_button(
+    label="📥 Exportar para Excel",
+    data=xls_buf.getvalue(),
+    file_name=f"KPI_YoY_{ano_base}_vs_{ano_comp}.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+
+# === 9. KPI 1 – Total de quantidade por cliente ===
+kpi_cliente = df.groupby("Nome")["Quantidade"].sum().reset_index().sort_values("Quantidade", ascending=False)
+st.subheader("📊 KPI 1 – Total de Quantidade Comprada por Cliente")
+st.dataframe(kpi_cliente.style.format({"Quantidade":"{:.0f}"}))
+
+fig1, ax1 = plt.subplots(figsize=(8,4))
+ax1.bar(kpi_cliente["Nome"], kpi_cliente["Quantidade"], color="steelblue")
+ax1.set_title("Total Quantidade por Cliente")
+ax1.set_ylabel("Quantidade")
+st.pyplot(fig1)
+
+# === 10. KPI 2 – Percentagem de quantidade por artigo dentro de cada cliente ===
+total_por_cliente = df.groupby("Nome")["Quantidade"].sum()
+df["Perc_Artigo"] = df.apply(lambda row: row["Quantidade"] / total_por_cliente[row["Nome"]] * 100, axis=1)
+kpi_artigo_cliente = df.groupby(["Nome","Artigo"])["Perc_Artigo"].sum().reset_index()
+kpi_artigo_cliente = kpi_artigo_cliente.sort_values(["Nome","Perc_Artigo"], ascending=[True,False])
+
+st.subheader("📊 KPI 2 – Percentagem de Quantidade por Artigo e Cliente")
+st.dataframe(kpi_artigo_cliente.style.format({"Perc_Artigo":"{:.2f}%"}))
+
+pivot_perc = kpi_artigo_cliente.pivot(index="Nome", columns="Artigo", values="Perc_Artigo").fillna(0)
+fig2, ax2
