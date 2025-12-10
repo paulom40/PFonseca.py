@@ -68,14 +68,6 @@ df = load_data()
 # === 4. Base KPI ===
 kpi = df.groupby(["Comercial","Nome","Artigo","Ano","Mes"], as_index=False)["Quantidade"].sum()
 
-# === Inicializar session_state ===
-if "comerciais_sel" not in st.session_state:
-    st.session_state.comerciais_sel = sorted([c for c in df["Comercial"].unique() if c and str(c).strip()])
-if "clientes_sel" not in st.session_state:
-    st.session_state.clientes_sel = sorted([c for c in df["Nome"].unique() if c and str(c).strip()])
-if "artigos_sel" not in st.session_state:
-    st.session_state.artigos_sel = sorted([c for c in df["Artigo"].unique() if c and str(c).strip()])
-
 # === Sidebar com filtros dinâmicos ===
 with st.sidebar:
     st.header("🔍 Filtros")
@@ -101,30 +93,32 @@ with st.sidebar:
     st.subheader("👔 Comerciais")
     comerciais_opts = sorted([c for c in df["Comercial"].unique() if c and str(c).strip()])
     
+    # Botões para selecionar todos/nenhum
     col_btn1, col_btn2 = st.columns(2)
     with col_btn1:
         if st.button("✓ Todos", key="btn_todos_comerciais", use_container_width=True):
+            # Cria um novo widget com todos selecionados
             st.session_state.comerciais_sel = comerciais_opts
-            st.rerun()
     with col_btn2:
         if st.button("✗ Nenhum", key="btn_nenhum_comerciais", use_container_width=True):
             st.session_state.comerciais_sel = []
-            st.rerun()
     
-    # Atualizar session_state quando o usuário muda a seleção
-    comerciais_temp = st.multiselect(
+    # Inicializar se não existir
+    if "comerciais_sel" not in st.session_state:
+        st.session_state.comerciais_sel = comerciais_opts
+    
+    # Widget multiselect
+    comerciais_selecionados = st.multiselect(
         "Escolher comerciais",
         comerciais_opts,
         default=st.session_state.comerciais_sel,
-        key="multi_comerciais"
+        key="comerciais_multiselect"
     )
     
-    # Atualizar session_state se houver mudança
-    if comerciais_temp != st.session_state.comerciais_sel:
-        st.session_state.comerciais_sel = comerciais_temp
-        st.rerun()
+    # Atualizar session state
+    st.session_state.comerciais_sel = comerciais_selecionados
     
-    st.caption(f"{len(st.session_state.comerciais_sel)} de {len(comerciais_opts)} selecionados")
+    st.caption(f"{len(comerciais_selecionados)} de {len(comerciais_opts)} selecionados")
     
     st.divider()
     
@@ -136,24 +130,23 @@ with st.sidebar:
     with col_btn3:
         if st.button("✓ Todos", key="btn_todos_clientes", use_container_width=True):
             st.session_state.clientes_sel = clientes_opts
-            st.rerun()
     with col_btn4:
         if st.button("✗ Nenhum", key="btn_nenhum_clientes", use_container_width=True):
             st.session_state.clientes_sel = []
-            st.rerun()
     
-    clientes_temp = st.multiselect(
+    if "clientes_sel" not in st.session_state:
+        st.session_state.clientes_sel = clientes_opts
+    
+    clientes_selecionados = st.multiselect(
         "Escolher clientes",
         clientes_opts,
         default=st.session_state.clientes_sel,
-        key="multi_clientes"
+        key="clientes_multiselect"
     )
     
-    if clientes_temp != st.session_state.clientes_sel:
-        st.session_state.clientes_sel = clientes_temp
-        st.rerun()
+    st.session_state.clientes_sel = clientes_selecionados
     
-    st.caption(f"{len(st.session_state.clientes_sel)} de {len(clientes_opts)} selecionados")
+    st.caption(f"{len(clientes_selecionados)} de {len(clientes_opts)} selecionados")
     
     st.divider()
     
@@ -165,29 +158,28 @@ with st.sidebar:
     with col_btn5:
         if st.button("✓ Todos", key="btn_todos_artigos", use_container_width=True):
             st.session_state.artigos_sel = artigos_opts
-            st.rerun()
     with col_btn6:
         if st.button("✗ Nenhum", key="btn_nenhum_artigos", use_container_width=True):
             st.session_state.artigos_sel = []
-            st.rerun()
     
-    artigos_temp = st.multiselect(
+    if "artigos_sel" not in st.session_state:
+        st.session_state.artigos_sel = artigos_opts
+    
+    artigos_selecionados = st.multiselect(
         "Escolher artigos",
         artigos_opts,
         default=st.session_state.artigos_sel,
-        key="multi_artigos"
+        key="artigos_multiselect"
     )
     
-    if artigos_temp != st.session_state.artigos_sel:
-        st.session_state.artigos_sel = artigos_temp
-        st.rerun()
+    st.session_state.artigos_sel = artigos_selecionados
     
-    st.caption(f"{len(st.session_state.artigos_sel)} de {len(artigos_opts)} selecionados")
+    st.caption(f"{len(artigos_selecionados)} de {len(artigos_opts)} selecionados")
     
     st.divider()
     
-    # Botão limpar filtros
-    if st.button("🔄 Resetar para todos os filtros", use_container_width=True):
+    # Botão para resetar todos os filtros
+    if st.button("🔄 Resetar todos os filtros", use_container_width=True):
         st.session_state.comerciais_sel = comerciais_opts
         st.session_state.clientes_sel = clientes_opts
         st.session_state.artigos_sel = artigos_opts
@@ -197,17 +189,22 @@ with st.sidebar:
 meses_map = dict(zip(meses_nomes, range(1,13)))
 meses_sel_num = [meses_map[m] for m in meses_sel] if meses_sel else []
 
-# Aplicar filtros usando os valores do session_state
+# Aplicar filtros DINAMICAMENTE
 kpi_view = kpi.copy()
 
-if st.session_state.comerciais_sel:
-    kpi_view = kpi_view[kpi_view["Comercial"].isin(st.session_state.comerciais_sel)]
+# Usar valores atuais dos filtros
+comerciais_ativos = st.session_state.comerciais_sel if hasattr(st.session_state, 'comerciais_sel') else []
+clientes_ativos = st.session_state.clientes_sel if hasattr(st.session_state, 'clientes_sel') else []
+artigos_ativos = st.session_state.artigos_sel if hasattr(st.session_state, 'artigos_sel') else []
+
+if comerciais_ativos:
+    kpi_view = kpi_view[kpi_view["Comercial"].isin(comerciais_ativos)]
     
-if st.session_state.clientes_sel:
-    kpi_view = kpi_view[kpi_view["Nome"].isin(st.session_state.clientes_sel)]
+if clientes_ativos:
+    kpi_view = kpi_view[kpi_view["Nome"].isin(clientes_ativos)]
     
-if st.session_state.artigos_sel:
-    kpi_view = kpi_view[kpi_view["Artigo"].isin(st.session_state.artigos_sel)]
+if artigos_ativos:
+    kpi_view = kpi_view[kpi_view["Artigo"].isin(artigos_ativos)]
     
 if meses_sel_num:
     kpi_view = kpi_view[kpi_view["Mes"].isin(meses_sel_num)]
@@ -215,11 +212,11 @@ if meses_sel_num:
 # Mostrar resumo dos filtros aplicados
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    st.metric("Comerciais", len(st.session_state.comerciais_sel))
+    st.metric("Comerciais", len(comerciais_ativos))
 with col2:
-    st.metric("Clientes", len(st.session_state.clientes_sel))
+    st.metric("Clientes", len(clientes_ativos))
 with col3:
-    st.metric("Artigos", len(st.session_state.artigos_sel))
+    st.metric("Artigos", len(artigos_ativos))
 with col4:
     st.metric("Registos", len(kpi_view))
 
@@ -334,12 +331,12 @@ else:
 
 # Aplicar os mesmos filtros ao df original para os KPIs
 df_filtered = df.copy()
-if st.session_state.comerciais_sel:
-    df_filtered = df_filtered[df_filtered["Comercial"].isin(st.session_state.comerciais_sel)]
-if st.session_state.clientes_sel:
-    df_filtered = df_filtered[df_filtered["Nome"].isin(st.session_state.clientes_sel)]
-if st.session_state.artigos_sel:
-    df_filtered = df_filtered[df_filtered["Artigo"].isin(st.session_state.artigos_sel)]
+if comerciais_ativos:
+    df_filtered = df_filtered[df_filtered["Comercial"].isin(comerciais_ativos)]
+if clientes_ativos:
+    df_filtered = df_filtered[df_filtered["Nome"].isin(clientes_ativos)]
+if artigos_ativos:
+    df_filtered = df_filtered[df_filtered["Artigo"].isin(artigos_ativos)]
 
 # === KPI 1 – Total de quantidade por cliente ===
 kpi_cliente = (
