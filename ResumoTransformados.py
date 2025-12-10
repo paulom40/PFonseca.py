@@ -100,7 +100,6 @@ st.dataframe(
     .format({ano_base:"{:.0f}", ano_comp:"{:.0f}", "Variação_%":"{:.2f}"})
     .background_gradient(cmap="RdYlGn", subset=["Variação_%"])
 )
-
 # === Exportar para Excel ===
 st.subheader("Exportar resultados filtrados")
 
@@ -150,9 +149,15 @@ st.download_button(
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 # === KPI 1 – Total de quantidade por cliente ===
-kpi_cliente = df.groupby("Nome")["Quantidade"].sum().reset_index().sort_values("Quantidade", ascending=False)
+kpi_cliente = (
+    df.groupby("Nome")["Quantidade"]
+      .sum()
+      .reset_index()
+      .sort_values("Quantidade", ascending=False)
+)
+
 st.subheader("📊 KPI 1 – Total de Quantidade Comprada por Cliente")
 st.dataframe(kpi_cliente.style.format({"Quantidade":"{:.0f}"}))
 
 fig1, ax1 = plt.subplots(figsize=(8,4))
-ax1.bar(kpi_cliente["Nome"], kpi_cliente["Quantidade"], color
+ax1.bar(kpi_cliente["Nome"], kpi_cliente["Quantidade"], color="
