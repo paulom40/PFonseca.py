@@ -23,22 +23,39 @@ df["Quantidade"] = pd.to_numeric(df["Quantidade"], errors="coerce").fillna(0)
 # === 3. Agrupar KPI ===
 kpi = df.groupby(["Nome","Ano","Mes"], as_index=False)["Quantidade"].sum()
 
-# === 4. Seleção de anos ===
-anos_disponiveis = sorted(kpi["Ano"].unique())
-ano_base = st.selectbox("Ano base", anos_disponiveis, index=max(0,len(anos_disponiveis)-2))
-ano_comp = st.selectbox("Ano comparação", anos_disponiveis, index=len(anos_disponiveis)-1)
+# === 4. Sidebar com filtros dinâmicos ===
+with st.sidebar:
+    st.header("Filtros")
+    anos_disponiveis = sorted(kpi["Ano"].unique())
+    ano_base = st.selectbox("Ano base", anos_disponiveis, index=max(0,len(anos_disponiveis)-2))
+    ano_comp = st.selectbox("Ano comparação", anos_disponiveis, index=len(anos_disponiveis)-1)
 
-# === 5. Pivot comparativo ===
-pv = kpi.pivot_table(index=["Nome","Mes"], columns="Ano", values="Quantidade", aggfunc="sum")
+    meses_disponiveis = list(range(1,13))
+    meses_nomes = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]
+    meses_sel = st.multiselect("Selecionar meses", meses_nomes, default=meses_nomes)
+
+    clientes_opts = sorted(kpi["Nome"].unique())
+    clientes_sel = st.multiselect("Selecionar clientes", clientes_opts)
+
+# Converter meses selecionados para números
+meses_map = dict(zip(meses_nomes, meses_disponiveis))
+meses_sel_num = [meses_map[m] for m in meses_sel]
+
+# === 5. Aplicar filtros ===
+kpi_view = kpi.copy()
+if clientes_sel:
+    kpi_view = kpi_view[kpi_view["Nome"].isin(clientes_sel)]
+if meses_sel_num:
+    kpi_view = kpi_view[kpi_view["Mes"].isin(meses_sel_num)]
+
+# === 6. Pivot comparativo ===
+pv = kpi_view.pivot_table(index=["Nome","Mes"], columns="Ano", values="Quantidade", aggfunc="sum")
 for a in [ano_base, ano_comp]:
     if a not in pv.columns:
         pv[a] = 0
 pv["Variação_%"] = ((pv[ano_comp] - pv[ano_base]) / pv[ano_base].replace(0, pd.NA)) * 100
 pv = pv.reset_index().sort_values(["Nome","Mes"])
-
-# === 6. Nome dos meses ===
-meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]
-pv["Mês"] = pv["Mes"].apply(lambda m: meses[m-1] if 1<=m<=12 else str(m))
+pv["Mês"] = pv["Mes"].apply(lambda m: meses_nomes[m-1] if 1<=m<=12 else str(m))
 pv = pv[["Nome","Mês",ano_base,ano_comp,"Variação_%"]]
 
 # === 7. Mostrar tabela ===
@@ -54,14 +71,14 @@ st.subheader("Evolução mensal por cliente")
 clientes = sorted(pv["Nome"].unique())
 cliente_sel = st.selectbox("Selecionar cliente", clientes)
 if cliente_sel:
-    base = kpi[(kpi["Nome"]==cliente_sel) & (kpi["Ano"]==ano_base)].sort_values("Mes")
-    comp = kpi[(kpi["Nome"]==cliente_sel) & (kpi["Ano"]==ano_comp)].sort_values("Mes")
+    base = kpi_view[(kpi_view["Nome"]==cliente_sel) & (kpi_view["Ano"]==ano_base)].sort_values("Mes")
+    comp = kpi_view[(kpi_view["Nome"]==cliente_sel) & (kpi_view["Ano"]==ano_comp)].sort_values("Mes")
 
     fig, ax = plt.subplots(figsize=(10,4))
     ax.plot(base["Mes"], base["Quantidade"], marker="o", label=str(ano_base))
     ax.plot(comp["Mes"], comp["Quantidade"], marker="o", label=str(ano_comp))
     ax.set_xticks(range(1,13))
-    ax.set_xticklabels(meses)
+    ax.set_xticklabels(meses_nomes)
     ax.set_xlabel("Mês")
     ax.set_ylabel("Quantidade")
     ax.set_title(f"Evolução mensal – {cliente_sel}")
