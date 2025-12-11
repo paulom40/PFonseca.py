@@ -70,35 +70,27 @@ df["Ano"] = pd.to_numeric(df["Ano"], errors="coerce").fillna(0).astype(int)
 # Resetar índice para evitar problemas
 df = df.reset_index(drop=True)
 
-# Inicializar session state para filtros
-if 'filtros_aplicados' not in st.session_state:
-    st.session_state.filtros_aplicados = False
-
-# === Sidebar com filtros interativos ===
+# === Sidebar com filtros interativos SIMPLES ===
 with st.sidebar:
     st.header("🔍 Filtros Interativos")
     
     # Botão para recarregar dados
-    if st.button("🔄 Atualizar dados do ficheiro"):
+    if st.button("🔄 Atualizar dados do ficheiro", type="secondary"):
         st.cache_data.clear()
         st.rerun()
     
     # === Filtro por ANO ===
     anos_disponiveis = sorted(df["Ano"].unique())
-    if anos_disponiveis:
+    if len(anos_disponiveis) > 0:
         anos_selecionados = st.multiselect(
             "📅 Selecionar Ano(s)", 
             options=anos_disponiveis,
-            default=anos_disponiveis[-1:] if anos_disponiveis else [],
+            default=anos_disponiveis,
             key="filtro_anos"
         )
     else:
         anos_selecionados = []
-        st.warning("Não há anos disponíveis nos dados")
-    
-    # Se nenhum ano selecionado, usar todos
-    if not anos_selecionados and anos_disponiveis:
-        anos_selecionados = anos_disponiveis
+        st.warning("Não há anos disponíveis")
     
     # === Filtro por MÊS ===
     meses_nomes = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
@@ -110,13 +102,9 @@ with st.sidebar:
         key="filtro_meses"
     )
     
-    # Se nenhum mês selecionado, usar todos
-    if not meses_selecionados:
-        meses_selecionados = meses_nomes
-    
     # === Filtro por COMERCIAL ===
     comerciais_disponiveis = sorted(df["Comercial"].dropna().unique())
-    if comerciais_disponiveis:
+    if len(comerciais_disponiveis) > 0:
         comerciais_selecionados = st.multiselect(
             "👤 Selecionar Comercial(ais)", 
             options=comerciais_disponiveis,
@@ -125,15 +113,10 @@ with st.sidebar:
         )
     else:
         comerciais_selecionados = []
-        st.warning("Não há comerciais disponíveis nos dados")
-    
-    # Se nenhum comercial selecionado, usar todos
-    if not comerciais_selecionados and comerciais_disponiveis:
-        comerciais_selecionados = comerciais_disponiveis
     
     # === Filtro por CLIENTE ===
     clientes_disponiveis = sorted(df["Nome"].dropna().unique())
-    if clientes_disponiveis:
+    if len(clientes_disponiveis) > 0:
         clientes_selecionados = st.multiselect(
             "🏢 Selecionar Cliente(s)", 
             options=clientes_disponiveis,
@@ -142,15 +125,10 @@ with st.sidebar:
         )
     else:
         clientes_selecionados = []
-        st.warning("Não há clientes disponíveis nos dados")
-    
-    # Se nenhum cliente selecionado, usar todos
-    if not clientes_selecionados and clientes_disponiveis:
-        clientes_selecionados = clientes_disponiveis
     
     # === Filtro por ARTIGO ===
     artigos_disponiveis = sorted(df["Artigo"].dropna().unique())
-    if artigos_disponiveis:
+    if len(artigos_disponiveis) > 0:
         artigos_selecionados = st.multiselect(
             "📦 Selecionar Artigo(s)", 
             options=artigos_disponiveis,
@@ -159,30 +137,14 @@ with st.sidebar:
         )
     else:
         artigos_selecionados = []
-        st.warning("Não há artigos disponíveis nos dados")
-    
-    # Se nenhum artigo selecionado, usar todos
-    if not artigos_selecionados and artigos_disponiveis:
-        artigos_selecionados = artigos_disponiveis
-    
-    # Botão para aplicar filtros
-    if st.button("✅ Aplicar Filtros", type="primary"):
-        st.session_state.filtros_aplicados = True
-        st.rerun()
     
     # Botão para limpar filtros
-    if st.button("🗑️ Limpar Filtros"):
-        st.session_state.filtros_aplicados = False
+    if st.button("🗑️ Limpar Filtros", type="secondary"):
+        # Não precisamos fazer nada especial, o rerun vai resetar
         st.rerun()
 
 # === Aplicar filtros ao dataframe ===
 df_filtrado = df.copy()
-
-# Mostrar status dos filtros
-if st.session_state.filtros_aplicados:
-    st.success("✅ Filtros aplicados!")
-else:
-    st.info("ℹ️ Configure os filtros na sidebar e clique em 'Aplicar Filtros'")
 
 # 1. Filtrar por ANO
 if anos_selecionados:
@@ -207,54 +169,47 @@ if artigos_selecionados:
     df_filtrado = df_filtrado[df_filtrado["Artigo"].isin(artigos_selecionados)]
 
 # === Mostrar informações sobre os filtros aplicados ===
-st.subheader("📋 Resumo dos Filtros Aplicados")
+st.subheader("📋 Filtros Aplicados")
 
-if st.session_state.filtros_aplicados:
-    col1, col2, col3, col4, col5 = st.columns(5)
-    
-    with col1:
-        st.metric("Anos", len(anos_selecionados) if anos_selecionados else "Todos")
-    
-    with col2:
-        st.metric("Meses", len(meses_selecionados) if meses_selecionados else "Todos")
-    
-    with col3:
-        st.metric("Comerciais", len(comerciais_selecionados) if comerciais_selecionados else "Todos")
-    
-    with col4:
-        st.metric("Clientes", len(clientes_selecionados) if clientes_selecionados else "Todos")
-    
-    with col5:
-        st.metric("Artigos", len(artigos_selecionados) if artigos_selecionados else "Todos")
-    
-    # Mostrar valores selecionados
-    with st.expander("📝 Ver valores selecionados"):
-        if anos_selecionados:
-            st.write(f"**Anos:** {', '.join(map(str, anos_selecionados))}")
-        if meses_selecionados:
-            st.write(f"**Meses:** {', '.join(meses_selecionados)}")
-        if comerciais_selecionados:
-            st.write(f"**Comerciais:** {', '.join(comerciais_selecionados[:10])}" + 
-                    ("..." if len(comerciais_selecionados) > 10 else ""))
-        if clientes_selecionados:
-            st.write(f"**Clientes:** {', '.join(clientes_selecionados[:10])}" + 
-                    ("..." if len(clientes_selecionados) > 10 else ""))
-        if artigos_selecionados:
-            st.write(f"**Artigos:** {', '.join(artigos_selecionados[:10])}" + 
-                    ("..." if len(artigos_selecionados) > 10 else ""))
+col1, col2, col3, col4, col5 = st.columns(5)
+
+with col1:
+    st.metric("Anos", len(anos_selecionados) if anos_selecionados else 0)
+
+with col2:
+    st.metric("Meses", len(meses_selecionados))
+
+with col3:
+    st.metric("Comerciais", len(comerciais_selecionados) if comerciais_selecionados else 0)
+
+with col4:
+    st.metric("Clientes", len(clientes_selecionados) if clientes_selecionados else 0)
+
+with col5:
+    st.metric("Artigos", len(artigos_selecionados) if artigos_selecionados else 0)
 
 # === Verificação de dados filtrados ===
 if df_filtrado.empty:
     st.warning("⚠️ Nenhum dado encontrado com os filtros aplicados. Tente ajustar os filtros.")
     
-    # Mostrar estatísticas dos dados originais
+    # Mostrar estatísticas dos dados originais de forma segura
     with st.expander("📊 Estatísticas dos dados originais"):
         st.write(f"**Total de registos:** {len(df):,}")
         st.write(f"**Anos disponíveis:** {sorted(df['Ano'].unique())}")
         st.write(f"**Número de clientes:** {df['Nome'].nunique():,}")
         st.write(f"**Número de artigos:** {df['Artigo'].nunique():,}")
         st.write(f"**Número de comerciais:** {df['Comercial'].nunique():,}")
-        st.write(f"**Período dos dados:** {df['Data'].min().strftime('%d/%m/%Y')} a {df['Data'].max().strftime('%d/%m/%Y')}")
+        
+        # Verificar se temos datas válidas antes de formatar
+        if not df['Data'].empty and df['Data'].notna().any():
+            data_min = df['Data'].min()
+            data_max = df['Data'].max()
+            if pd.notna(data_min) and pd.notna(data_max):
+                st.write(f"**Período dos dados:** {data_min.strftime('%d/%m/%Y')} a {data_max.strftime('%d/%m/%Y')}")
+            else:
+                st.write("**Período dos dados:** Datas não disponíveis")
+        else:
+            st.write("**Período dos dados:** Sem datas disponíveis")
     
     st.stop()
 
@@ -270,8 +225,8 @@ if not df_filtrado.empty:
         .sort_values("Quantidade", ascending=False)
     )
     
-    # Mostrar top 10
-    top_n = min(10, len(kpi_cliente))
+    # Mostrar top 15
+    top_n = min(15, len(kpi_cliente))
     kpi_cliente_top = kpi_cliente.head(top_n)
     
     col1, col2 = st.columns([2, 1])
@@ -289,49 +244,58 @@ if not df_filtrado.empty:
             ax1.invert_yaxis()  # Maior no topo
             
             # Adicionar valores nas barras
-            max_val = kpi_cliente_top["Quantidade"].max()
-            for bar in bars:
-                width = bar.get_width()
-                ax1.text(width + max_val * 0.01, 
-                        bar.get_y() + bar.get_height()/2,
-                        f'{int(width):,}', 
-                        ha='left', va='center',
-                        fontweight='bold', fontsize=10)
+            if len(kpi_cliente_top) > 0:
+                max_val = kpi_cliente_top["Quantidade"].max()
+                for bar in bars:
+                    width = bar.get_width()
+                    ax1.text(width + max_val * 0.01, 
+                            bar.get_y() + bar.get_height()/2,
+                            f'{int(width):,}', 
+                            ha='left', va='center',
+                            fontweight='bold', fontsize=10)
             
             plt.tight_layout()
             st.pyplot(fig1)
+        else:
+            st.info("Não há dados para mostrar o gráfico de clientes")
     
     with col2:
-        st.dataframe(
-            kpi_cliente_top.style.format({"Quantidade": "{:,.0f}"})
-            .background_gradient(subset=["Quantidade"], cmap="Blues"),
-            height=400,
-            use_container_width=True
-        )
+        if not kpi_cliente_top.empty:
+            st.dataframe(
+                kpi_cliente_top.style.format({"Quantidade": "{:,.0f}"})
+                .background_gradient(subset=["Quantidade"], cmap="Blues"),
+                height=500,
+                use_container_width=True
+            )
+        else:
+            st.info("Não há dados para mostrar a tabela de clientes")
     
     # Estatísticas dos clientes
-    st.subheader("📈 Estatísticas de Clientes")
-    col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
-    
-    total_clientes = len(kpi_cliente)
-    quantidade_total = kpi_cliente["Quantidade"].sum()
-    media_por_cliente = kpi_cliente["Quantidade"].mean() if total_clientes > 0 else 0
-    
-    with col_stat1:
-        st.metric("Total Clientes", f"{total_clientes:,}")
-    
-    with col_stat2:
-        st.metric("Média por Cliente", f"{media_por_cliente:,.0f}")
-    
-    with col_stat3:
-        if total_clientes > 10:
-            top_10_percent = kpi_cliente.head(max(1, int(total_clientes * 0.1)))["Quantidade"].sum() / quantidade_total * 100
-            st.metric("Top 10% Clientes", f"{top_10_percent:.1f}%")
-        else:
-            st.metric("Top Cliente", f"{kpi_cliente_top.iloc[0]['Quantidade']:,.0f}")
-    
-    with col_stat4:
-        st.metric("Quantidade Total", f"{quantidade_total:,.0f}")
+    if not kpi_cliente.empty:
+        st.subheader("📈 Estatísticas de Clientes")
+        col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
+        
+        total_clientes = len(kpi_cliente)
+        quantidade_total = kpi_cliente["Quantidade"].sum()
+        media_por_cliente = kpi_cliente["Quantidade"].mean() if total_clientes > 0 else 0
+        
+        with col_stat1:
+            st.metric("Total Clientes", f"{total_clientes:,}")
+        
+        with col_stat2:
+            st.metric("Média por Cliente", f"{media_por_cliente:,.0f}")
+        
+        with col_stat3:
+            if total_clientes > 10 and quantidade_total > 0:
+                top_10_percent = kpi_cliente.head(max(1, int(total_clientes * 0.1)))["Quantidade"].sum() / quantidade_total * 100
+                st.metric("Top 10% Clientes", f"{top_10_percent:.1f}%")
+            elif not kpi_cliente_top.empty:
+                st.metric("Top Cliente", f"{kpi_cliente_top.iloc[0]['Quantidade']:,.0f}")
+            else:
+                st.metric("Top Cliente", "0")
+        
+        with col_stat4:
+            st.metric("Quantidade Total", f"{quantidade_total:,.0f}")
 
 # === KPI 2 – Percentagem de quantidade por artigo dentro de cada cliente ===
 st.subheader("📊 KPI 2 – Distribuição Percentual por Artigo")
@@ -349,7 +313,10 @@ if not df_filtrado.empty and len(df_filtrado) > 0:
             cliente = row["Nome"]
             quantidade = row["Quantidade"]
             total_cliente = total_por_cliente.get(cliente, 0)
-            return (quantidade / total_cliente * 100) if total_cliente > 0 else 0
+            if total_cliente > 0:
+                return (quantidade / total_cliente * 100)
+            else:
+                return 0
         except:
             return 0
     
@@ -363,47 +330,58 @@ if not df_filtrado.empty and len(df_filtrado) > 0:
         .sort_values(["Nome", "Percentagem"], ascending=[True, False])
     )
     
-    # Top artigos por cliente (máximo 3 artigos por cliente para melhor visualização)
-    kpi_artigo_cliente_top = kpi_artigo_cliente.groupby("Nome").head(3)
-    
-    # Exibir tabela
-    st.dataframe(
-        kpi_artigo_cliente_top.style.format({
-            "Quantidade": "{:,.0f}",
-            "Percentagem": "{:.1f}%"
-        }).background_gradient(subset=["Percentagem"], cmap="YlOrRd"),
-        height=400,
-        use_container_width=True
-    )
-    
-    # Gráfico de barras para top clientes
-    if len(kpi_artigo_cliente_top["Nome"].unique()) > 0:
-        # Selecionar top 5 clientes para visualização
-        top_clientes = kpi_cliente.head(5)["Nome"].tolist()
-        dados_top = kpi_artigo_cliente_top[kpi_artigo_cliente_top["Nome"].isin(top_clientes)]
+    if not kpi_artigo_cliente.empty:
+        # Top artigos por cliente (máximo 5 artigos por cliente)
+        kpi_artigo_cliente_top = kpi_artigo_cliente.groupby("Nome").head(5)
         
-        if not dados_top.empty:
-            # Criar pivot para gráfico
-            pivot_artigos = dados_top.pivot_table(
-                index="Nome",
-                columns="Artigo",
-                values="Percentagem",
-                aggfunc="sum",
-                fill_value=0
-            )
+        # Exibir tabela
+        st.dataframe(
+            kpi_artigo_cliente_top.style.format({
+                "Quantidade": "{:,.0f}",
+                "Percentagem": "{:.1f}%"
+            }).background_gradient(subset=["Percentagem"], cmap="YlOrRd"),
+            height=400,
+            use_container_width=True
+        )
+        
+        # Gráfico de barras para top clientes
+        if len(kpi_artigo_cliente_top["Nome"].unique()) > 0:
+            # Usar os mesmos top clientes do KPI 1 se existirem
+            if 'kpi_cliente_top' in locals() and not kpi_cliente_top.empty:
+                top_clientes = kpi_cliente_top.head(5)["Nome"].tolist()
+            else:
+                # Ou pegar os primeiros 5 clientes únicos
+                top_clientes = kpi_artigo_cliente_top["Nome"].unique()[:5]
             
-            # Criar gráfico de barras agrupadas
-            fig_artigos, ax_artigos = plt.subplots(figsize=(12, 6))
-            pivot_artigos.plot(kind='bar', ax=ax_artigos, width=0.8)
+            dados_top = kpi_artigo_cliente_top[kpi_artigo_cliente_top["Nome"].isin(top_clientes)]
             
-            ax_artigos.set_title("Top Artigos por Cliente (Top 5 Clientes)", fontsize=14, fontweight='bold')
-            ax_artigos.set_xlabel("Cliente", fontsize=12)
-            ax_artigos.set_ylabel("Percentagem (%)", fontsize=12)
-            ax_artigos.legend(title="Artigo", bbox_to_anchor=(1.05, 1), loc='upper left')
-            ax_artigos.grid(axis='y', alpha=0.3)
-            
-            plt.tight_layout()
-            st.pyplot(fig_artigos)
+            if not dados_top.empty and len(dados_top) > 0:
+                # Criar pivot para gráfico
+                pivot_artigos = dados_top.pivot_table(
+                    index="Nome",
+                    columns="Artigo",
+                    values="Percentagem",
+                    aggfunc="sum",
+                    fill_value=0
+                )
+                
+                # Criar gráfico de barras agrupadas
+                if not pivot_artigos.empty:
+                    fig_artigos, ax_artigos = plt.subplots(figsize=(12, 6))
+                    pivot_artigos.plot(kind='bar', ax=ax_artigos, width=0.8)
+                    
+                    ax_artigos.set_title("Top Artigos por Cliente", fontsize=14, fontweight='bold')
+                    ax_artigos.set_xlabel("Cliente", fontsize=12)
+                    ax_artigos.set_ylabel("Percentagem (%)", fontsize=12)
+                    ax_artigos.legend(title="Artigo", bbox_to_anchor=(1.05, 1), loc='upper left')
+                    ax_artigos.grid(axis='y', alpha=0.3)
+                    
+                    plt.tight_layout()
+                    st.pyplot(fig_artigos)
+    else:
+        st.info("Não há dados para mostrar a distribuição por artigo")
+else:
+    st.info("Não há dados filtrados para análise de artigos")
 
 # === KPI 3 – Análise por Comercial ===
 st.subheader("👤 KPI 3 – Desempenho por Comercial")
@@ -425,21 +403,21 @@ if not df_filtrado.empty:
         .sort_values("Quantidade", ascending=False)
     )
     
-    col_kpi1, col_kpi2 = st.columns(2)
-    
-    with col_kpi1:
-        st.dataframe(
-            kpi_comercial.style.format({
-                "Quantidade": "{:,.0f}",
-                "Clientes_Unicos": "{:,.0f}",
-                "Artigos_Unicos": "{:,.0f}"
-            }).background_gradient(subset=["Quantidade"], cmap="Greens"),
-            height=300,
-            use_container_width=True
-        )
-    
-    with col_kpi2:
-        if not kpi_comercial.empty:
+    if not kpi_comercial.empty:
+        col_kpi1, col_kpi2 = st.columns(2)
+        
+        with col_kpi1:
+            st.dataframe(
+                kpi_comercial.style.format({
+                    "Quantidade": "{:,.0f}",
+                    "Clientes_Unicos": "{:,.0f}",
+                    "Artigos_Unicos": "{:,.0f}"
+                }).background_gradient(subset=["Quantidade"], cmap="Greens"),
+                height=300,
+                use_container_width=True
+            )
+        
+        with col_kpi2:
             fig_comercial, ax_comercial = plt.subplots(figsize=(10, 5))
             
             # Criar gráfico de barras
@@ -460,6 +438,10 @@ if not df_filtrado.empty:
             
             plt.tight_layout()
             st.pyplot(fig_comercial)
+    else:
+        st.info("Não há dados para análise por comercial")
+else:
+    st.info("Não há dados filtrados para análise por comercial")
 
 # === Exportar para Excel ===
 st.subheader("📥 Exportar Resultados")
@@ -476,8 +458,8 @@ if not df_filtrado.empty:
             kpi_cliente.to_excel(writer, sheet_name='KPI_Clientes', index=False)
         
         # Aba 3: Distribuição por Artigo
-        if 'kpi_artigo_cliente_top' in locals() and not kpi_artigo_cliente_top.empty:
-            kpi_artigo_cliente_top.to_excel(writer, sheet_name='Distrib_Artigo', index=False)
+        if 'kpi_artigo_cliente' in locals() and not kpi_artigo_cliente.empty:
+            kpi_artigo_cliente.to_excel(writer, sheet_name='Distrib_Artigo', index=False)
         
         # Aba 4: KPI Comercial
         if 'kpi_comercial' in locals() and not kpi_comercial.empty:
@@ -523,36 +505,39 @@ if not df_filtrado.empty:
         st.metric("Artigos Únicos", f"{artigos_unicos:,}")
     
     # Distribuição por ano
-    st.subheader("📅 Distribuição por Ano")
-    distribuicao_ano = df_filtrado.groupby("Ano")["Quantidade"].sum().reset_index()
-    
-    if not distribuicao_ano.empty:
-        col_dist1, col_dist2 = st.columns([1, 2])
+    if not df_filtrado.empty and 'Ano' in df_filtrado.columns:
+        st.subheader("📅 Distribuição por Ano")
+        distribuicao_ano = df_filtrado.groupby("Ano")["Quantidade"].sum().reset_index()
         
-        with col_dist1:
-            st.dataframe(
-                distribuicao_ano.style.format({"Quantidade": "{:,.0f}"})
-                .background_gradient(subset=["Quantidade"], cmap="Purples"),
-                height=200,
-                use_container_width=True
-            )
-        
-        with col_dist2:
-            fig_dist, ax_dist = plt.subplots(figsize=(10, 4))
-            ax_dist.bar(distribuicao_ano["Ano"].astype(str), 
-                       distribuicao_ano["Quantidade"], 
-                       color='#9b59b6')
-            ax_dist.set_title("Distribuição por Ano", fontsize=14, fontweight='bold')
-            ax_dist.set_xlabel("Ano", fontsize=12)
-            ax_dist.set_ylabel("Quantidade", fontsize=12)
+        if not distribuicao_ano.empty:
+            col_dist1, col_dist2 = st.columns([1, 2])
             
-            # Adicionar valores no topo das barras
-            for i, (ano, qtd) in enumerate(zip(distribuicao_ano["Ano"], distribuicao_ano["Quantidade"])):
-                ax_dist.text(i, qtd + max(distribuicao_ano["Quantidade"]) * 0.01, 
-                           f'{int(qtd):,}', ha='center', va='bottom', fontweight='bold')
+            with col_dist1:
+                st.dataframe(
+                    distribuicao_ano.style.format({"Quantidade": "{:,.0f}"})
+                    .background_gradient(subset=["Quantidade"], cmap="Purples"),
+                    height=200,
+                    use_container_width=True
+                )
             
-            plt.tight_layout()
-            st.pyplot(fig_dist)
+            with col_dist2:
+                fig_dist, ax_dist = plt.subplots(figsize=(10, 4))
+                ax_dist.bar(distribuicao_ano["Ano"].astype(str), 
+                           distribuicao_ano["Quantidade"], 
+                           color='#9b59b6')
+                ax_dist.set_title("Distribuição por Ano", fontsize=14, fontweight='bold')
+                ax_dist.set_xlabel("Ano", fontsize=12)
+                ax_dist.set_ylabel("Quantidade", fontsize=12)
+                
+                # Adicionar valores no topo das barras
+                if len(distribuicao_ano) > 0:
+                    max_qtd = distribuicao_ano["Quantidade"].max()
+                    for i, (ano, qtd) in enumerate(zip(distribuicao_ano["Ano"], distribuicao_ano["Quantidade"])):
+                        ax_dist.text(i, qtd + max_qtd * 0.01, 
+                                   f'{int(qtd):,}', ha='center', va='bottom', fontweight='bold')
+                
+                plt.tight_layout()
+                st.pyplot(fig_dist)
 
 # === Instruções ===
 with st.expander("📖 Instruções de Uso"):
@@ -560,8 +545,8 @@ with st.expander("📖 Instruções de Uso"):
     ## 🎯 Como usar este dashboard
     
     ### 🔍 **Configurar Filtros (Sidebar)**
-    1. **Selecione os valores** em cada filtro (todos são multiselect)
-    2. Clique em **✅ Aplicar Filtros** para atualizar o dashboard
+    1. **Selecione os valores** em cada filtro multiselect
+    2. **Os filtros são aplicados automaticamente**
     3. Use **🗑️ Limpar Filtros** para recomeçar
     
     ### 📊 **KPIs Disponíveis**
@@ -577,7 +562,7 @@ with st.expander("📖 Instruções de Uso"):
     - **Ctrl+Click** para selecionar múltiplos valores
     - **Clique no ❌** para remover itens selecionados
     - **🔄 Atualizar dados** recarrega do ficheiro original
-    - Configure os filtros e clique em **Aplicar Filtros** para ver resultados
+    - Filtros vazios mostram todos os valores disponíveis
     
     ### 🔧 **Solução de Problemas**
     - Se não vir dados: verifique os filtros aplicados
@@ -587,9 +572,13 @@ with st.expander("📖 Instruções de Uso"):
 
 # === Debug (apenas para desenvolvimento) ===
 with st.expander("🔧 Debug - Ver dados brutos"):
-    st.write("**Primeiras 10 linhas dos dados originais:**")
-    st.dataframe(df.head(10))
+    st.write("**Primeiras 5 linhas dos dados originais:**")
+    st.dataframe(df.head(5))
     st.write(f"**Total de registos:** {len(df)}")
     st.write(f"**Colunas disponíveis:** {list(df.columns)}")
     st.write(f"**Anos disponíveis:** {sorted(df['Ano'].unique())}")
+    st.write(f"**Exemplo de valores únicos:**")
+    st.write(f"- Comerciais: {df['Comercial'].nunique()}")
+    st.write(f"- Clientes: {df['Nome'].nunique()}")
+    st.write(f"- Artigos: {df['Artigo'].nunique()}")
     st.write(f"**Dados filtrados:** {len(df_filtrado)} registos")
