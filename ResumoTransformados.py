@@ -30,7 +30,8 @@ df = pd.DataFrame({
 # === 3. Normalização ===
 df["Data"] = pd.to_datetime(df["Data"], errors="coerce")
 
-# Remover datas inválidas (1970, 1900, NaT)
+# Remover datas inválidas (NaT ou anos estranhos, como 1970/1900)
+df = df[df["Data"].notna()]
 df = df[df["Data"].dt.year >= 2000]
 
 df["Ano"] = df["Data"].dt.year
@@ -42,10 +43,11 @@ df["Quantidade"] = pd.to_numeric(df["Quantidade"], errors="coerce").fillna(0)
 
 # === 4. Base KPI ===
 kpi = df.groupby(["Comercial","Nome","Artigo","Ano","Mes"], as_index=False)["Quantidade"].sum()
+# === Sidebar com filtros dinâmicos ===
 with st.sidebar:
     st.header("Filtros")
 
-    # ✅ Botão para atualizar dados
+    # Botão para recarregar tudo
     if st.button("🔄 Atualizar dados"):
         st.experimental_rerun()
 
@@ -78,7 +80,7 @@ with st.sidebar:
 meses_map = dict(zip(meses_nomes, range(1,13)))
 meses_sel_num = [meses_map[m] for m in meses_sel]
 
-# Aplicar filtros
+# Aplicar filtros ao kpi_view
 kpi_view = kpi.copy()
 if comerciais_sel:
     kpi_view = kpi_view[kpi_view["Comercial"].isin(comerciais_sel)]
@@ -88,6 +90,7 @@ if artigos_sel:
     kpi_view = kpi_view[kpi_view["Artigo"].isin(artigos_sel)]
 if meses_sel_num:
     kpi_view = kpi_view[kpi_view["Mes"].isin(meses_sel_num)]
+# === Pivot comparativo ===
 pv = kpi_view.pivot_table(
     index=["Comercial","Nome","Artigo","Mes"],
     columns="Ano",
@@ -95,20 +98,30 @@ pv = kpi_view.pivot_table(
     aggfunc="sum"
 )
 
-for a in [ano_base, ano_comp]:
-    if a not in pv.columns:
-        pv[a] = 0
+# Garantir colunas para os dois anos
+for col in [ano_base, ano_comp]:
+    if col not in pv.columns:
+        pv[col] = 0
 
-pv["Variação_%"] = ((pv[ano_comp] - pv[ano_base]) / pv[ano_base].replace(0, pd.NA)) * 100
+# Se o pivot estiver vazio, evitar erro
+if len(pv) > 0:
+    pv["Variação_%"] = (
+        (pv[ano_comp] - pv[ano_base]) /
+        pv[ano_base].replace(0, pd.NA)
+    ) * 100
+else:
+    pv["Variação_%"] = []
+
 pv = pv.reset_index().sort_values(["Comercial","Nome","Artigo","Mes"])
-pv["Mês"] = pv["Mes"].apply(lambda m: meses_nomes[m-1])
+meses_nomes = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]
+pv["Mês"] = pv["Mes"].apply(lambda m: meses_nomes[m-1] if 1 <= m <= 12 else str(m))
 pv = pv[["Comercial","Nome","Artigo","Mês",ano_base,ano_comp,"Variação_%"]]
 
+# === Mostrar tabela ===
 st.subheader("Tabela comparativa YoY por Comercial, Cliente, Artigo e Mês")
 
 pv = pv.rename(columns=lambda c: str(c).strip())
-cols_fmt = {ano_base:"{:.0f}", ano_comp:"{:.0f}"}
-
+cols_fmt = {ano_base: "{:.0f}", ano_comp: "{:.0f}"}
 if "Variação_%" in pv.columns:
     cols_fmt["Variação_%"] = "{:.2f}"
     styled = pv.style.format(cols_fmt).background_gradient(cmap="RdYlGn", subset=["Variação_%"])
@@ -116,6 +129,7 @@ else:
     styled = pv.style.format(cols_fmt)
 
 st.dataframe(styled)
+# === Exportar para Excel ===
 st.subheader("Exportar resultados filtrados")
 
 xls_buf = io.BytesIO()
@@ -123,19 +137,23 @@ with pd.ExcelWriter(xls_buf, engine="xlsxwriter") as writer:
     pv.to_excel(writer, sheet_name="KPI_YoY", index=False)
     ws = writer.sheets["KPI_YoY"]
 
+    # Largura das colunas
     for i, col in enumerate(pv.columns):
         ws.set_column(i, i, 18)
 
-    last_col = len(pv.columns) - 1
-    ws.conditional_format(1, last_col, len(pv), last_col, {
-        'type': 'cell','criteria': '>', 'value': 0,
-        'format': writer.book.add_format({'bg_color': '#C6EFCE','font_color': '#006100'})
-    })
-    ws.conditional_format(1, last_col, len(pv), last_col, {
-        'type': 'cell','criteria': '<', 'value': 0,
-        'format': writer.book.add_format({'bg_color': '#FFC7CE','font_color': '#9C0006'})
-    })
+    # Formatação condicional na Variação_%
+    if "Variação_%" in pv.columns:
+        last_col = len(pv.columns) - 1
+        ws.conditional_format(1, last_col, len(pv), last_col, {
+            'type': 'cell','criteria': '>', 'value': 0,
+            'format': writer.book.add_format({'bg_color': '#C6EFCE','font_color': '#006100'})
+        })
+        ws.conditional_format(1, last_col, len(pv), last_col, {
+            'type': 'cell','criteria': '<', 'value': 0,
+            'format': writer.book.add_format({'bg_color': '#FFC7CE','font_color': '#9C0006'})
+        })
 
+    # Gráfico automático global
     chart = writer.book.add_chart({'type': 'line'})
     chart.add_series({
         'name': f"Ano {ano_base}",
@@ -147,8 +165,11 @@ with pd.ExcelWriter(xls_buf, engine="xlsxwriter") as writer:
         'categories': ['KPI_YoY', 1, 3, len(pv), 3],
         'values':     ['KPI_YoY', 1, 5, len(pv), 5],
     })
-
-    ws.insert_chart('H2', chart)
+    chart.set_title({'name': 'Evolução Mensal Global'})
+    chart.set_x_axis({'name': 'Mês'})
+    chart.set_y_axis({'name': 'Quantidade'})
+    chart.set_style(10)
+    ws.insert_chart('H2', chart, {'x_scale': 1.3, 'y_scale': 1.3})
 
 st.download_button(
     label="📥 Exportar para Excel",
@@ -165,15 +186,14 @@ kpi_cliente = (
 )
 
 st.subheader("📊 KPI 1 – Total de Quantidade Comprada por Cliente")
-st.dataframe(kpi_cliente.style.format({"Quantidade":"{:.0f}"}))
+st.dataframe(kpi_cliente.style.format({"Quantidade": "{:.0f}"}))
 
-fig1, ax1 = plt.subplots(figsize=(8,4))
+fig1, ax1 = plt.subplots(figsize=(8, 4))
 ax1.bar(kpi_cliente["Nome"], kpi_cliente["Quantidade"], color="steelblue")
 ax1.set_title("Total Quantidade por Cliente")
 ax1.set_ylabel("Quantidade")
 ax1.set_xticklabels(kpi_cliente["Nome"], rotation=45, ha="right")
 st.pyplot(fig1)
-
 
 # === KPI 2 – Percentagem de quantidade por artigo dentro de cada cliente ===
 total_por_cliente = df.groupby("Nome")["Quantidade"].sum()
@@ -185,9 +205,9 @@ df["Perc_Artigo"] = df.apply(
 )
 
 kpi_artigo_cliente = (
-    df.groupby(["Nome","Artigo"], as_index=False)["Perc_Artigo"]
+    df.groupby(["Nome", "Artigo"], as_index=False)["Perc_Artigo"]
       .sum()
-      .sort_values(["Nome","Perc_Artigo"], ascending=[True, False])
+      .sort_values(["Nome", "Perc_Artigo"], ascending=[True, False])
 )
 
 st.subheader("📊 KPI 2 – Percentagem de Quantidade por Artigo e Cliente")
@@ -195,7 +215,7 @@ st.dataframe(kpi_artigo_cliente.style.format({"Perc_Artigo": "{:.2f}%"}))
 
 pivot_perc = kpi_artigo_cliente.pivot(index="Nome", columns="Artigo", values="Perc_Artigo").fillna(0)
 
-fig2, ax2 = plt.subplots(figsize=(10,6))
+fig2, ax2 = plt.subplots(figsize=(10, 6))
 pivot_perc.plot(kind="bar", stacked=True, ax=ax2, colormap="tab20")
 ax2.set_title("Distribuição Percentual por Artigo e Cliente")
 ax2.set_ylabel("%")
