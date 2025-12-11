@@ -29,7 +29,10 @@ df = pd.DataFrame({
 })
 # === 3. Normalização ===
 df["Data"] = pd.to_datetime(df["Data"], errors="coerce")
-df = df.dropna(subset=["Data"])
+
+# Remover datas inválidas (1970, 1900, NaT)
+df = df[df["Data"].dt.year >= 2000]
+
 df["Ano"] = df["Data"].dt.year
 df["Mes"] = df["Data"].dt.month
 df["Nome"] = df["Nome"].astype(str).str.strip()
@@ -39,7 +42,6 @@ df["Quantidade"] = pd.to_numeric(df["Quantidade"], errors="coerce").fillna(0)
 
 # === 4. Base KPI ===
 kpi = df.groupby(["Comercial","Nome","Artigo","Ano","Mes"], as_index=False)["Quantidade"].sum()
-# === Sidebar com filtros dinâmicos ===
 with st.sidebar:
     st.header("Filtros")
 
@@ -48,23 +50,23 @@ with st.sidebar:
         st.experimental_rerun()
 
     anos_disponiveis = sorted(kpi["Ano"].unique())
-    ano_base = st.selectbox("Ano base", anos_disponiveis, index=max(0,len(anos_disponiveis)-2))
-    ano_comp = st.selectbox("Ano comparação", anos_disponiveis, index=len(anos_disponiveis)-1)
+    ano_base = st.selectbox("Ano base", anos_disponiveis)
+    ano_comp = st.selectbox("Ano comparação", anos_disponiveis)
 
     meses_nomes = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]
     meses_sel = st.multiselect("Selecionar meses", meses_nomes, default=meses_nomes)
 
-    # Comerciais (Coluna I)
+    # Comerciais
     comerciais_opts = sorted(df["Comercial"].dropna().unique())
     select_all_comerciais = st.checkbox("Selecionar todos os comerciais", value=True)
     comerciais_sel = comerciais_opts if select_all_comerciais else st.multiselect("Selecionar comerciais", comerciais_opts)
 
-    # Clientes (Coluna B)
+    # Clientes
     clientes_opts = sorted(df["Nome"].dropna().unique())
     select_all_clientes = st.checkbox("Selecionar todos os clientes", value=True)
     clientes_sel = clientes_opts if select_all_clientes else st.multiselect("Selecionar clientes", clientes_opts)
 
-    # Artigos (Coluna C)
+    # Artigos
     artigos_opts = sorted(df["Artigo"].dropna().unique())
     select_all_artigos = st.checkbox("Selecionar todos os artigos", value=True)
     artigos_sel = artigos_opts if select_all_artigos else st.multiselect("Selecionar artigos", artigos_opts)
@@ -86,18 +88,22 @@ if artigos_sel:
     kpi_view = kpi_view[kpi_view["Artigo"].isin(artigos_sel)]
 if meses_sel_num:
     kpi_view = kpi_view[kpi_view["Mes"].isin(meses_sel_num)]
-# === Pivot comparativo ===
-pv = kpi_view.pivot_table(index=["Comercial","Nome","Artigo","Mes"], columns="Ano", values="Quantidade", aggfunc="sum")
+pv = kpi_view.pivot_table(
+    index=["Comercial","Nome","Artigo","Mes"],
+    columns="Ano",
+    values="Quantidade",
+    aggfunc="sum"
+)
+
 for a in [ano_base, ano_comp]:
     if a not in pv.columns:
         pv[a] = 0
 
 pv["Variação_%"] = ((pv[ano_comp] - pv[ano_base]) / pv[ano_base].replace(0, pd.NA)) * 100
 pv = pv.reset_index().sort_values(["Comercial","Nome","Artigo","Mes"])
-pv["Mês"] = pv["Mes"].apply(lambda m: meses_nomes[m-1] if 1<=m<=12 else str(m))
+pv["Mês"] = pv["Mes"].apply(lambda m: meses_nomes[m-1])
 pv = pv[["Comercial","Nome","Artigo","Mês",ano_base,ano_comp,"Variação_%"]]
 
-# === Mostrar tabela ===
 st.subheader("Tabela comparativa YoY por Comercial, Cliente, Artigo e Mês")
 
 pv = pv.rename(columns=lambda c: str(c).strip())
@@ -105,16 +111,11 @@ cols_fmt = {ano_base:"{:.0f}", ano_comp:"{:.0f}"}
 
 if "Variação_%" in pv.columns:
     cols_fmt["Variação_%"] = "{:.2f}"
-    styled = (
-        pv.style
-        .format(cols_fmt)
-        .background_gradient(cmap="RdYlGn", subset=["Variação_%"])
-    )
+    styled = pv.style.format(cols_fmt).background_gradient(cmap="RdYlGn", subset=["Variação_%"])
 else:
     styled = pv.style.format(cols_fmt)
 
 st.dataframe(styled)
-# === Exportar para Excel ===
 st.subheader("Exportar resultados filtrados")
 
 xls_buf = io.BytesIO()
@@ -122,12 +123,9 @@ with pd.ExcelWriter(xls_buf, engine="xlsxwriter") as writer:
     pv.to_excel(writer, sheet_name="KPI_YoY", index=False)
     ws = writer.sheets["KPI_YoY"]
 
-    # Ajuste automático da largura das colunas
     for i, col in enumerate(pv.columns):
-        width = max(12, min(30, int(pv[col].astype(str).str.len().mean()) + 4))
-        ws.set_column(i, i, width)
+        ws.set_column(i, i, 18)
 
-    # Formatação condicional
     last_col = len(pv.columns) - 1
     ws.conditional_format(1, last_col, len(pv), last_col, {
         'type': 'cell','criteria': '>', 'value': 0,
@@ -138,7 +136,6 @@ with pd.ExcelWriter(xls_buf, engine="xlsxwriter") as writer:
         'format': writer.book.add_format({'bg_color': '#FFC7CE','font_color': '#9C0006'})
     })
 
-    # Gráfico automático global
     chart = writer.book.add_chart({'type': 'line'})
     chart.add_series({
         'name': f"Ano {ano_base}",
@@ -150,11 +147,48 @@ with pd.ExcelWriter(xls_buf, engine="xlsxwriter") as writer:
         'categories': ['KPI_YoY', 1, 3, len(pv), 3],
         'values':     ['KPI_YoY', 1, 5, len(pv), 5],
     })
-    chart.set_title({'name': 'Evolução Mensal Global'})
-    chart.set_x_axis({'name': 'Mês'})
-    chart.set_y_axis({'name': 'Quantidade'})
-    chart.set_style(10)
-    ws.insert_chart('H2', chart, {'x_scale': 1.5, 'y_scale': 1.5})
+
+    ws.insert_chart('H2', chart)
+
+st.download_button(
+    label="📥 Exportar para Excel",
+    data=xls_buf.getvalue(),
+    file_name=f"KPI_YoY_{ano_base}_vs_{ano_comp}.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+st.subheader("Exportar resultados filtrados")
+
+xls_buf = io.BytesIO()
+with pd.ExcelWriter(xls_buf, engine="xlsxwriter") as writer:
+    pv.to_excel(writer, sheet_name="KPI_YoY", index=False)
+    ws = writer.sheets["KPI_YoY"]
+
+    for i, col in enumerate(pv.columns):
+        ws.set_column(i, i, 18)
+
+    last_col = len(pv.columns) - 1
+    ws.conditional_format(1, last_col, len(pv), last_col, {
+        'type': 'cell','criteria': '>', 'value': 0,
+        'format': writer.book.add_format({'bg_color': '#C6EFCE','font_color': '#006100'})
+    })
+    ws.conditional_format(1, last_col, len(pv), last_col, {
+        'type': 'cell','criteria': '<', 'value': 0,
+        'format': writer.book.add_format({'bg_color': '#FFC7CE','font_color': '#9C0006'})
+    })
+
+    chart = writer.book.add_chart({'type': 'line'})
+    chart.add_series({
+        'name': f"Ano {ano_base}",
+        'categories': ['KPI_YoY', 1, 3, len(pv), 3],
+        'values':     ['KPI_YoY', 1, 4, len(pv), 4],
+    })
+    chart.add_series({
+        'name': f"Ano {ano_comp}",
+        'categories': ['KPI_YoY', 1, 3, len(pv), 3],
+        'values':     ['KPI_YoY', 1, 5, len(pv), 5],
+    })
+
+    ws.insert_chart('H2', chart)
 
 st.download_button(
     label="📥 Exportar para Excel",
