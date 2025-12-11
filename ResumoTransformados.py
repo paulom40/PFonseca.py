@@ -18,7 +18,6 @@ def load_data():
         st.sidebar.write(f"📊 Dados carregados: {len(df_raw)} registros")
         
         # Criar DataFrame com mapeamento direto das colunas
-        # Baseado na estrutura conhecida do arquivo
         df = pd.DataFrame()
         
         # COLUNA 0: DATA
@@ -486,7 +485,10 @@ if not df_filtrado.empty:
     
     # Mostrar amostra dos dados
     with st.expander("🔍 Ver amostra dos dados filtrados"):
-        st.write(df_filtrado[["Data", "Cliente", "Artigo", "Quantidade", "Valor", "Comercial"]].head(10))
+        st.dataframe(
+            df_filtrado[["Data", "Cliente", "Artigo", "Quantidade", "Valor", "Comercial"]].head(10),
+            width='stretch'
+        )
     
     # 1. Evolução mensal de vendas
     if len(df_filtrado) > 0:
@@ -642,29 +644,40 @@ if not df_filtrado.empty:
             vendas_mensais_display = vendas_mensais.copy()
             vendas_mensais_display["Valor"] = vendas_mensais_display["Valor"].apply(lambda x: f"€{x:,.2f}")
             vendas_mensais_display["Quantidade"] = vendas_mensais_display["Quantidade"].apply(lambda x: f"{x:,.0f}")
-            st.dataframe(vendas_mensais_display[["Periodo", "Valor", "Quantidade"]], 
-                        use_container_width=True)
+            st.dataframe(
+                vendas_mensais_display[["Periodo", "Valor", "Quantidade"]], 
+                width='stretch'
+            )
     
     with tab2:
         if 'top_clientes' in locals() and not top_clientes.empty:
             top_clientes_display = top_clientes.copy()
             top_clientes_display["Total Vendas (€)"] = top_clientes_display["Total Vendas (€)"].apply(lambda x: f"€{x:,.2f}")
             top_clientes_display["Total Quantidade"] = top_clientes_display["Total Quantidade"].apply(lambda x: f"{x:,.0f}")
-            st.dataframe(top_clientes_display, use_container_width=True)
+            st.dataframe(
+                top_clientes_display, 
+                width='stretch'
+            )
     
     with tab3:
         if 'top_artigos' in locals() and not top_artigos.empty:
             top_artigos_display = top_artigos.copy()
             top_artigos_display["Valor"] = top_artigos_display["Valor"].apply(lambda x: f"€{x:,.2f}")
             top_artigos_display["Quantidade"] = top_artigos_display["Quantidade"].apply(lambda x: f"{x:,.0f}")
-            st.dataframe(top_artigos_display, use_container_width=True)
+            st.dataframe(
+                top_artigos_display, 
+                width='stretch'
+            )
     
     with tab4:
         if 'desempenho_comercial' in locals() and not desempenho_comercial.empty:
             desempenho_comercial_display = desempenho_comercial.copy()
             desempenho_comercial_display["Total Vendas (€)"] = desempenho_comercial_display["Total Vendas (€)"].apply(lambda x: f"€{x:,.2f}")
             desempenho_comercial_display["Ticket Médio (€)"] = desempenho_comercial_display["Ticket Médio (€)"].apply(lambda x: f"€{x:,.2f}")
-            st.dataframe(desempenho_comercial_display, use_container_width=True)
+            st.dataframe(
+                desempenho_comercial_display, 
+                width='stretch'
+            )
     
 else:
     st.warning("⚠️ Não há dados disponíveis com os filtros atuais!")
