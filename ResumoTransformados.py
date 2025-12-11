@@ -8,102 +8,145 @@ import numpy as np
 st.set_page_config(page_title="Dashboard Compras - KPIs + Análise Detalhada", layout="wide")
 st.title("Dashboard de Compras – KPIs + Análise Detalhada")
 
-# === CARREGAR DADOS ===
+# === CARREGAR DADOS SIMPLIFICADO ===
 @st.cache_data
 def load_data():
     try:
         url = "https://github.com/paulom40/PFonseca.py/raw/refs/heads/main/ResumoTR.xlsx"
         df_raw = pd.read_excel(url)
         
-        # Verificar se há coluna de preço/valor
-        has_price_column = len(df_raw.columns) > 4
+        # Verificar estrutura dos dados
+        st.sidebar.write(f"📊 Arquivo carregado: {len(df_raw)} linhas x {len(df_raw.columns)} colunas")
         
-        # Criar dataframe
+        # Mostrar primeiras linhas para debug
+        with st.sidebar.expander("🔍 Ver estrutura do arquivo"):
+            st.write("**Colunas disponíveis:**")
+            st.write(df_raw.columns.tolist())
+            st.write("**Primeiras 5 linhas:**")
+            st.write(df_raw.head())
+        
+        # Criar DataFrame com colunas padrão
         df = pd.DataFrame()
         
-        # Processar data
-        date_col = df_raw.iloc[:, 0]
-        try:
-            df["Data"] = pd.to_datetime(date_col, errors='coerce')
-        except:
-            df["Data"] = pd.NaT
+        # Mapear colunas - ajuste conforme necessário
+        if len(df_raw.columns) >= 1:
+            df["Data"] = pd.to_datetime(df_raw.iloc[:, 0], errors='coerce')
         
-        # Se todas as datas forem 1970, criar datas sequenciais
-        if len(df) > 0 and df["Data"].dt.year.nunique() == 1 and df["Data"].dt.year.iloc[0] == 1970:
-            base_date = datetime.now()
-            df["Data"] = pd.date_range(end=base_date, periods=len(df), freq='D')
-        
-        # Processar outras colunas
-        df["Cliente"] = df_raw.iloc[:, 1].fillna("").astype(str).str.strip()
-        df["Artigo"] = df_raw.iloc[:, 2].fillna("").astype(str).str.strip()
-        
-        # Quantidade - coluna 3
-        if len(df_raw.columns) > 3:
-            df["Quantidade"] = pd.to_numeric(df_raw.iloc[:, 3], errors='coerce').fillna(0)
+        if len(df_raw.columns) >= 2:
+            df["Cliente"] = df_raw.iloc[:, 1].fillna("").astype(str).str.strip()
         else:
-            df["Quantidade"] = 0
-        
-        # Valor/Preço - coluna 4 (se existir)
-        if has_price_column and len(df_raw.columns) > 4:
-            df["Valor"] = pd.to_numeric(df_raw.iloc[:, 4], errors='coerce').fillna(0)
+            df["Cliente"] = "Cliente Desconhecido"
+            
+        if len(df_raw.columns) >= 3:
+            df["Artigo"] = df_raw.iloc[:, 2].fillna("").astype(str).str.strip()
         else:
-            # Se não houver coluna de valor, criar baseado em quantidade
+            df["Artigo"] = "Artigo Desconhecido"
+            
+        if len(df_raw.columns) >= 4:
+            df["Quantidade"] = pd.to_numeric(df_raw.iloc[:, 3], errors='coerce').fillna(1)
+        else:
+            df["Quantidade"] = 1
+            
+        # Valor - tentar encontrar coluna de valor
+        if len(df_raw.columns) >= 5:
+            # Tentar várias colunas para encontrar valores
+            for col_idx in range(4, min(7, len(df_raw.columns))):
+                temp_val = pd.to_numeric(df_raw.iloc[:, col_idx], errors='coerce')
+                if temp_val.notna().sum() > 0:
+                    df["Valor"] = temp_val.fillna(0)
+                    break
+            else:
+                # Se não encontrar, criar valores aleatórios
+                df["Valor"] = df["Quantidade"] * np.random.uniform(10, 100, len(df))
+        else:
             df["Valor"] = df["Quantidade"] * np.random.uniform(10, 100, len(df))
         
-        # Comercial - coluna 8
-        if len(df_raw.columns) > 8:
+        # Comercial
+        if len(df_raw.columns) >= 9:
             df["Comercial"] = df_raw.iloc[:, 8].fillna("").astype(str).str.strip()
         else:
-            df["Comercial"] = "Desconhecido"
+            df["Comercial"] = "Comercial Desconhecido"
         
-        # Calcular preço unitário
-        df["Preco_Unitario"] = np.where(df["Quantidade"] > 0, df["Valor"] / df["Quantidade"], 0)
-        
-        # Remover linhas sem data válida
+        # Remover datas inválidas
+        initial_count = len(df)
         df = df[df["Data"].notna()].copy()
         
-        # Adicionar colunas temporais
+        # Se não há datas válidas, criar datas
+        if df.empty:
+            st.sidebar.warning("⚠️ Nenhuma data válida encontrada. Criando datas...")
+            df["Data"] = pd.date_range(start='2023-01-01', periods=initial_count, freq='D')
+        
+        # Verificar se datas são 1970
+        unique_years = df["Data"].dt.year.unique()
+        if len(unique_years) == 1 and 1970 in unique_years:
+            st.sidebar.warning("⚠️ Datas estão em 1970. Ajustando...")
+            df["Data"] = pd.date_range(start='2023-01-01', periods=len(df), freq='D')
+        
+        # Adicionar colunas de tempo
         df["Ano"] = df["Data"].dt.year
         df["Mes"] = df["Data"].dt.month
         df["MesNumero"] = df["Data"].dt.month
         df["MesNome"] = df["Data"].dt.strftime("%b")
-        df["MesNomeCompleto"] = df["Data"].dt.strftime("%B")
         df["Dia"] = df["Data"].dt.day
-        df["DiaSemana"] = df["Data"].dt.day_name()
-        df["Semana"] = df["Data"].dt.isocalendar().week
         df["Data_Str"] = df["Data"].dt.strftime("%Y-%m-%d")
         
         # Filtrar dados inválidos
-        df = df[(df["Cliente"] != "") & (df["Cliente"] != "nan")]
-        df = df[(df["Comercial"] != "") & (df["Comercial"] != "nan")]
-        df = df[(df["Artigo"] != "") & (df["Artigo"] != "nan")]
-        df = df[df["Quantidade"] > 0]
+        df = df[(df["Cliente"].str.strip() != "") & 
+                (df["Cliente"].str.strip() != "nan") &
+                (df["Cliente"].notna())]
+        
+        df = df[(df["Quantidade"] > 0) & (df["Valor"] > 0)]
+        
+        st.sidebar.success(f"✅ Dados processados: {len(df)} registros válidos")
         
         return df
         
     except Exception as e:
-        st.error(f"❌ Erro ao carregar dados: {str(e)}")
-        st.stop()
+        st.error(f"❌ Erro crítico ao carregar dados: {str(e)}")
+        # Criar dados de exemplo
+        st.info("📊 Criando dados de exemplo...")
+        
+        np.random.seed(42)
+        n = 1000
+        dates = pd.date_range(start='2023-01-01', end='2024-06-30', periods=n)
+        
+        df = pd.DataFrame({
+            "Data": dates,
+            "Cliente": np.random.choice([f"Cliente {chr(65+i)}" for i in range(20)], n),
+            "Artigo": np.random.choice([f"Artigo {i+1}" for i in range(50)], n),
+            "Quantidade": np.random.randint(1, 100, n),
+            "Valor": np.random.uniform(10, 1000, n),
+            "Comercial": np.random.choice(["João", "Maria", "Carlos", "Ana", "Pedro", "Sofia"], n)
+        })
+        
+        df["Ano"] = df["Data"].dt.year
+        df["Mes"] = df["Data"].dt.month
+        df["MesNumero"] = df["Data"].dt.month
+        df["MesNome"] = df["Data"].dt.strftime("%b")
+        df["Dia"] = df["Data"].dt.day
+        df["Data_Str"] = df["Data"].dt.strftime("%Y-%m-%d")
+        
+        return df
 
 df = load_data()
 
-# === SIDEBAR – FILTROS DINÂMICOS ===
+# === SIDEBAR – FILTROS ===
 st.sidebar.header("🎛️ Filtros")
 
-# 1. FILTRO DE ANO (multiselect)
+# 1. FILTRO DE ANO
 st.sidebar.subheader("📅 Ano")
 anos_disponiveis = sorted(df["Ano"].unique(), reverse=True)
 anos_selecionados = st.sidebar.multiselect(
     "Selecionar anos:",
     options=anos_disponiveis,
-    default=anos_disponiveis[:2] if len(anos_disponiveis) >= 2 else anos_disponiveis,
+    default=anos_disponiveis[:1],  # Apenas o mais recente por padrão
     help="Selecione um ou mais anos"
 )
 
 if not anos_selecionados:
     anos_selecionados = anos_disponiveis
 
-# 2. FILTRO DE MÊS (multiselect)
+# 2. FILTRO DE MÊS
 st.sidebar.subheader("📆 Mês")
 
 meses_nomes = {
@@ -112,19 +155,25 @@ meses_nomes = {
     9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
 }
 
-# Obter meses disponíveis
+meses_abreviados = {
+    1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "May", 6: "Jun",
+    7: "Jul", 8: "Aug", 9: "Sep", 10: "Oct", 11: "Nov", 12: "Dec"
+}
+
+# Obter meses disponíveis para os anos selecionados
 if len(anos_selecionados) > 0:
-    meses_disponiveis_numeros = sorted(df[df["Ano"].isin(anos_selecionados)]["MesNumero"].unique())
-    opcoes_meses = [meses_nomes[mes] for mes in meses_disponiveis_numeros if mes in meses_nomes]
+    mask = df["Ano"].isin(anos_selecionados)
+    meses_disponiveis_numeros = sorted(df[mask]["MesNumero"].unique())
 else:
     meses_disponiveis_numeros = sorted(df["MesNumero"].unique())
-    opcoes_meses = [meses_nomes[mes] for mes in meses_disponiveis_numeros if mes in meses_nomes]
+
+opcoes_meses = [meses_nomes[mes] for mes in meses_disponiveis_numeros if mes in meses_nomes]
 
 if opcoes_meses:
     meses_selecionados_nomes = st.sidebar.multiselect(
         "Selecionar meses:",
         options=opcoes_meses,
-        default=opcoes_meses,
+        default=opcoes_meses,  # Todos por padrão
         help="Selecione um ou mais meses"
     )
     
@@ -135,17 +184,14 @@ if opcoes_meses:
     else:
         meses_selecionados = meses_disponiveis_numeros
 else:
-    meses_selecionados = []
+    meses_selecionados = meses_disponiveis_numeros
 
-# 3. FILTRO DE COMERCIAL (multiselect)
+# 3. FILTRO DE COMERCIAL
 st.sidebar.subheader("👨‍💼 Comercial")
 
-# Filtrar comerciais disponíveis
-if len(anos_selecionados) > 0 and len(meses_selecionados) > 0:
-    mask = (df["Ano"].isin(anos_selecionados)) & (df["MesNumero"].isin(meses_selecionados))
-    comerciais_disponiveis = sorted(df[mask]["Comercial"].unique())
-else:
-    comerciais_disponiveis = sorted(df["Comercial"].unique())
+# Comerciais disponíveis
+mask = df["Ano"].isin(anos_selecionados) & df["MesNumero"].isin(meses_selecionados)
+comerciais_disponiveis = sorted(df[mask]["Comercial"].unique())
 
 todos_comerciais = st.sidebar.checkbox("Todos os comerciais", value=True, key="todos_comerciais")
 
@@ -155,24 +201,21 @@ else:
     comerciais_selecionados = st.sidebar.multiselect(
         "Selecionar comerciais:",
         options=comerciais_disponiveis,
-        default=comerciais_disponiveis[:min(5, len(comerciais_disponiveis))] if comerciais_disponiveis else [],
+        default=comerciais_disponiveis[:min(3, len(comerciais_disponiveis))],
         help="Selecione um ou mais comerciais"
     )
     
     if not comerciais_selecionados:
         comerciais_selecionados = comerciais_disponiveis
 
-# 4. FILTRO DE CLIENTE (multiselect)
+# 4. FILTRO DE CLIENTE
 st.sidebar.subheader("🏢 Cliente")
 
-# Filtrar clientes disponíveis
-if (len(anos_selecionados) > 0 and len(meses_selecionados) > 0 and len(comerciais_selecionados) > 0):
-    mask = (df["Ano"].isin(anos_selecionados)) & \
-           (df["MesNumero"].isin(meses_selecionados)) & \
-           (df["Comercial"].isin(comerciais_selecionados))
-    clientes_disponiveis = sorted(df[mask]["Cliente"].unique())
-else:
-    clientes_disponiveis = sorted(df["Cliente"].unique())
+mask = (df["Ano"].isin(anos_selecionados) & 
+        df["MesNumero"].isin(meses_selecionados) & 
+        df["Comercial"].isin(comerciais_selecionados))
+
+clientes_disponiveis = sorted(df[mask]["Cliente"].unique())
 
 todos_clientes = st.sidebar.checkbox("Todos os clientes", value=True, key="todos_clientes")
 
@@ -182,86 +225,73 @@ else:
     clientes_selecionados = st.sidebar.multiselect(
         "Selecionar clientes:",
         options=clientes_disponiveis,
-        default=clientes_disponiveis[:min(5, len(clientes_disponiveis))] if clientes_disponiveis else [],
+        default=clientes_disponiveis[:min(5, len(clientes_disponiveis))],
         help="Selecione um ou mais clientes"
     )
     
     if not clientes_selecionados:
         clientes_selecionados = clientes_disponiveis
 
-# 5. FILTRO DE ARTIGO (multiselect)
-st.sidebar.subheader("📦 Artigo")
-
-# Filtrar artigos disponíveis
-if (len(anos_selecionados) > 0 and len(meses_selecionados) > 0 and 
-    len(comerciais_selecionados) > 0 and len(clientes_selecionados) > 0):
-    mask = (df["Ano"].isin(anos_selecionados)) & \
-           (df["MesNumero"].isin(meses_selecionados)) & \
-           (df["Comercial"].isin(comerciais_selecionados)) & \
-           (df["Cliente"].isin(clientes_selecionados))
-    artigos_disponiveis = sorted(df[mask]["Artigo"].unique())
-else:
-    artigos_disponiveis = sorted(df["Artigo"].unique())
-
-todos_artigos = st.sidebar.checkbox("Todos os artigos", value=True, key="todos_artigos")
-
-if todos_artigos:
-    artigos_selecionados = artigos_disponiveis
-else:
-    artigos_selecionados = st.sidebar.multiselect(
-        "Selecionar artigos:",
-        options=artigos_disponiveis,
-        default=artigos_disponiveis[:min(5, len(artigos_disponiveis))] if artigos_disponiveis else [],
-        help="Selecione um ou mais artigos"
-    )
-    
-    if not artigos_selecionados:
-        artigos_selecionados = artigos_disponiveis
-
-# Botão para resetar filtros
-if st.sidebar.button("🔄 Resetar Filtros", type="secondary"):
-    st.rerun()
-
-# === APLICAR FILTROS ===
+# APLICAR FILTROS
 df_filtrado = df[
-    (df["Ano"].isin(anos_selecionados)) &
-    (df["MesNumero"].isin(meses_selecionados)) &
-    (df["Comercial"].isin(comerciais_selecionados)) &
-    (df["Cliente"].isin(clientes_selecionados)) &
-    (df["Artigo"].isin(artigos_selecionados))
+    df["Ano"].isin(anos_selecionados) &
+    df["MesNumero"].isin(meses_selecionados) &
+    df["Comercial"].isin(comerciais_selecionados) &
+    df["Cliente"].isin(clientes_selecionados)
 ].copy()
 
-if df_filtrado.empty:
-    st.warning("⚠️ Nenhum dado encontrado com os filtros atuais!")
-    st.stop()
+# Botão para resetar filtros
+if st.sidebar.button("🔄 Resetar Filtros"):
+    st.rerun()
+
+# Mostrar estatísticas dos filtros
+st.sidebar.divider()
+st.sidebar.subheader("📋 Estatísticas Filtradas")
+st.sidebar.write(f"**Registros:** {len(df_filtrado):,}")
+st.sidebar.write(f"**Período:** {anos_selecionados[0] if len(anos_selecionados) == 1 else 'Múltiplos'}")
+st.sidebar.write(f"**Meses:** {len(meses_selecionados)}")
 
 # === CÁLCULO DOS KPIs ===
-# KPIs Básicos
-total_vendas_eur = df_filtrado["Valor"].sum()
-total_quantidade = df_filtrado["Quantidade"].sum()
-num_entidades = df_filtrado["Cliente"].nunique()
-num_comerciais = df_filtrado["Comercial"].nunique()
-num_artigos = df_filtrado["Artigo"].nunique()
-
-# KPIs de Ticket/Preço
-num_transacoes = len(df_filtrado)
-ticket_medio_eur = total_vendas_eur / num_transacoes if num_transacoes > 0 else 0
-preco_medio_unitario = total_vendas_eur / total_quantidade if total_quantidade > 0 else 0
-venda_media_transacao = total_vendas_eur / num_transacoes if num_transacoes > 0 else 0
-quantidade_media_transacao = total_quantidade / num_transacoes if num_transacoes > 0 else 0
-
-# KPIs Temporais
-dias_com_vendas = df_filtrado["Data_Str"].nunique()
-venda_media_dia = total_vendas_eur / dias_com_vendas if dias_com_vendas > 0 else 0
-
-# Ticket Médio Mensal
 if not df_filtrado.empty:
-    ticket_mensal = df_filtrado.groupby(["Ano", "MesNumero"])["Valor"].sum()
-    if not ticket_mensal.empty:
-        ticket_medio_mes = ticket_mensal.mean()
+    # KPIs Básicos
+    total_vendas_eur = df_filtrado["Valor"].sum()
+    total_quantidade = df_filtrado["Quantidade"].sum()
+    num_entidades = df_filtrado["Cliente"].nunique()
+    num_comerciais = df_filtrado["Comercial"].nunique()
+    num_artigos = df_filtrado["Artigo"].nunique()
+    num_transacoes = len(df_filtrado)
+    dias_com_vendas = df_filtrado["Data_Str"].nunique()
+    
+    # KPIs Calculados
+    ticket_medio_eur = total_vendas_eur / num_transacoes if num_transacoes > 0 else 0
+    preco_medio_unitario = total_vendas_eur / total_quantidade if total_quantidade > 0 else 0
+    venda_media_transacao = total_vendas_eur / num_transacoes if num_transacoes > 0 else 0
+    quantidade_media_transacao = total_quantidade / num_transacoes if num_transacoes > 0 else 0
+    venda_media_dia = total_vendas_eur / dias_com_vendas if dias_com_vendas > 0 else 0
+    
+    # Ticket Médio Mensal
+    if not df_filtrado.empty:
+        vendas_mensais_group = df_filtrado.groupby(["Ano", "MesNumero"])["Valor"].sum()
+        if not vendas_mensais_group.empty:
+            ticket_medio_mes = vendas_mensais_group.mean()
+        else:
+            ticket_medio_mes = 0
     else:
         ticket_medio_mes = 0
 else:
+    # Valores padrão se não houver dados
+    total_vendas_eur = 0
+    total_quantidade = 0
+    num_entidades = 0
+    num_comerciais = 0
+    num_artigos = 0
+    num_transacoes = 0
+    dias_com_vendas = 0
+    ticket_medio_eur = 0
+    preco_medio_unitario = 0
+    venda_media_transacao = 0
+    quantidade_media_transacao = 0
+    venda_media_dia = 0
     ticket_medio_mes = 0
 
 # === DISPLAY DOS KPIs ===
@@ -273,7 +303,7 @@ col1, col2, col3, col4 = st.columns(4)
 with col1:
     st.metric(
         "💰 Total Vendas (€)",
-        f"€{total_vendas_eur:,.0f}",
+        f"€{total_vendas_eur:,.0f}" if total_vendas_eur >= 1000 else f"€{total_vendas_eur:,.2f}",
         delta=None,
         help="Soma total do valor das vendas"
     )
@@ -374,388 +404,280 @@ with col12:
 
 st.divider()
 
-# === ANÁLISE TEMPORAL ===
-st.subheader("📈 Análise Temporal")
-
-# Gráfico de evolução de vendas
-fig1, ax1 = plt.subplots(figsize=(14, 6))
-
-# Agrupar por mês
-vendas_mensais = df_filtrado.groupby(["Ano", "MesNumero"])[["Valor", "Quantidade"]].sum().reset_index()
-
-# Ordenar por data
-vendas_mensais = vendas_mensais.sort_values(["Ano", "MesNumero"])
-
-# Adicionar nome do mês
-meses_abreviados = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", 
-                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-vendas_mensais["MesNome"] = vendas_mensais["MesNumero"].apply(lambda x: meses_abreviados[x-1] if 1 <= x <= 12 else f"M{x}")
-
-# Criar label para o eixo X - CORREÇÃO AQUI
-vendas_mensais["Periodo"] = vendas_mensais["Ano"].astype(str) + "-" + vendas_mensais["MesNome"].astype(str)
-
-# Gráfico de barras para valor
-x = range(len(vendas_mensais))
-width = 0.35
-
-ax1.bar([i - width/2 for i in x], vendas_mensais["Valor"], width, 
-        label='Valor (€)', color='#2E86AB', alpha=0.7)
-
-ax1.set_xlabel("Período")
-ax1.set_ylabel("Valor (€)", color='#2E86AB')
-ax1.tick_params(axis='y', labelcolor='#2E86AB')
-ax1.set_title("Evolução Mensal de Vendas", fontsize=14, fontweight='bold')
-ax1.set_xticks(x)
-ax1.set_xticklabels(vendas_mensais["Periodo"], rotation=45, ha='right')
-
-# Segundo eixo Y para quantidade
-ax2 = ax1.twinx()
-ax2.plot(x, vendas_mensais["Quantidade"], 'o-', color='#A23B72', linewidth=2, 
-         markersize=6, label='Quantidade')
-ax2.set_ylabel('Quantidade', color='#A23B72')
-ax2.tick_params(axis='y', labelcolor='#A23B72')
-
-# Legendas
-lines1, labels1 = ax1.get_legend_handles_labels()
-lines2, labels2 = ax2.get_legend_handles_labels()
-ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
-
-ax1.grid(True, alpha=0.3)
-plt.tight_layout()
-st.pyplot(fig1)
-
-st.divider()
-
-# === ANÁLISE POR DIMENSÕES ===
-st.subheader("📊 Análise por Dimensões")
-
-tab1, tab2, tab3 = st.tabs(["👨‍💼 Por Comercial", "🏢 Por Cliente", "📦 Por Artigo"])
-
-with tab1:
-    st.write("**Top 10 Comerciais por Performance**")
+# === GRÁFICOS ===
+if not df_filtrado.empty:
+    st.subheader("📈 Análise Gráfica")
     
-    if not df_filtrado.empty and len(df_filtrado["Comercial"].unique()) > 0:
-        performance_comercial = df_filtrado.groupby("Comercial").agg({
-            "Valor": ["sum", "mean", "count"],
-            "Quantidade": "sum",
-            "Cliente": "nunique",
-            "Artigo": "nunique"
-        }).round(2)
+    # Preparar dados para gráficos
+    # 1. Evolução mensal de vendas
+    vendas_mensais = df_filtrado.groupby(["Ano", "MesNumero"]).agg({
+        "Valor": "sum",
+        "Quantidade": "sum"
+    }).reset_index()
+    
+    # Ordenar por ano e mês
+    vendas_mensais = vendas_mensais.sort_values(["Ano", "MesNumero"])
+    
+    # Criar rótulos para o eixo X
+    vendas_mensais["MesNome"] = vendas_mensais["MesNumero"].map(meses_abreviados)
+    vendas_mensais["Periodo"] = vendas_mensais["Ano"].astype(str) + "-" + vendas_mensais["MesNome"]
+    
+    # Gráfico 1: Evolução de vendas
+    fig1, ax1 = plt.subplots(figsize=(14, 6))
+    
+    x = range(len(vendas_mensais))
+    width = 0.35
+    
+    # Barras para valor
+    bars = ax1.bar([i - width/2 for i in x], vendas_mensais["Valor"], width, 
+                   label='Valor (€)', color='#2E86AB', alpha=0.7)
+    
+    ax1.set_xlabel("Período")
+    ax1.set_ylabel("Valor (€)", color='#2E86AB')
+    ax1.tick_params(axis='y', labelcolor='#2E86AB')
+    ax1.set_title("Evolução Mensal de Vendas", fontsize=14, fontweight='bold')
+    ax1.set_xticks(x)
+    
+    # Rotacionar labels se muitos períodos
+    if len(vendas_mensais) > 6:
+        ax1.set_xticklabels(vendas_mensais["Periodo"], rotation=45, ha='right', fontsize=9)
+    else:
+        ax1.set_xticklabels(vendas_mensais["Periodo"])
+    
+    # Segundo eixo Y para quantidade
+    ax2 = ax1.twinx()
+    line = ax2.plot(x, vendas_mensais["Quantidade"], 'o-', color='#A23B72', 
+                    linewidth=2, markersize=6, label='Quantidade')
+    ax2.set_ylabel('Quantidade', color='#A23B72')
+    ax2.tick_params(axis='y', labelcolor='#A23B72')
+    
+    # Legendas
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
+    
+    ax1.grid(True, alpha=0.3, axis='y')
+    plt.tight_layout()
+    st.pyplot(fig1)
+    
+    # 2. Top 10 Clientes
+    st.subheader("🏆 Top 10 Clientes")
+    
+    top_clientes = df_filtrado.groupby("Cliente").agg({
+        "Valor": "sum",
+        "Quantidade": "sum",
+        "Data": "count"
+    }).nlargest(10, "Valor")
+    
+    top_clientes.columns = ["Total Vendas (€)", "Total Quantidade", "Nº Transações"]
+    
+    fig2, (ax2_1, ax2_2) = plt.subplots(1, 2, figsize=(16, 6))
+    
+    # Gráfico de barras horizontais
+    ax2_1.barh(range(len(top_clientes)), top_clientes["Total Vendas (€)"], 
+               color='#A23B72', alpha=0.7)
+    ax2_1.set_yticks(range(len(top_clientes)))
+    ax2_1.set_yticklabels(top_clientes.index)
+    ax2_1.invert_yaxis()
+    ax2_1.set_xlabel("Total Vendas (€)")
+    ax2_1.set_title("Top 10 Clientes por Valor", fontsize=12, fontweight='bold')
+    ax2_1.grid(True, alpha=0.3, axis='x')
+    
+    # Adicionar valores nas barras
+    for i, v in enumerate(top_clientes["Total Vendas (€)"]):
+        ax2_1.text(v, i, f' €{v:,.0f}', va='center', fontsize=9)
+    
+    # Gráfico de pizza para participação
+    if top_clientes["Total Vendas (€)"].sum() > 0:
+        ax2_2.pie(top_clientes["Total Vendas (€)"], labels=top_clientes.index, 
+                 autopct='%1.1f%%', startangle=90, colors=plt.cm.Set3(np.linspace(0, 1, len(top_clientes))))
+        ax2_2.set_title("Participação no Total de Vendas", fontsize=12, fontweight='bold')
+    
+    plt.tight_layout()
+    st.pyplot(fig2)
+    
+    # 3. Top 10 Artigos
+    st.subheader("📦 Top 10 Artigos")
+    
+    top_artigos = df_filtrado.groupby("Artigo").agg({
+        "Valor": "sum",
+        "Quantidade": "sum"
+    }).nlargest(10, "Valor")
+    
+    fig3, ax3 = plt.subplots(figsize=(14, 6))
+    
+    x = range(len(top_artigos))
+    width = 0.35
+    
+    ax3.bar([i - width/2 for i in x], top_artigos["Valor"], width, 
+            label='Valor (€)', color='#F18F01', alpha=0.7)
+    ax3.bar([i + width/2 for i in x], top_artigos["Quantidade"], width, 
+            label='Quantidade', color='#73AB84', alpha=0.7)
+    
+    ax3.set_xlabel("Artigo")
+    ax3.set_ylabel("Valor/Quantidade")
+    ax3.set_title("Top 10 Artigos por Performance", fontsize=14, fontweight='bold')
+    ax3.set_xticks(x)
+    ax3.set_xticklabels(top_artigos.index, rotation=45, ha='right', fontsize=9)
+    ax3.legend()
+    ax3.grid(True, alpha=0.3, axis='y')
+    
+    plt.tight_layout()
+    st.pyplot(fig3)
+    
+    # 4. Distribuição por Comercial
+    st.subheader("👨‍💼 Desempenho por Comercial")
+    
+    desempenho_comercial = df_filtrado.groupby("Comercial").agg({
+        "Valor": ["sum", "mean", "count"],
+        "Cliente": "nunique"
+    }).round(2)
+    
+    if len(desempenho_comercial) > 0:
+        # Ajustar nomes das colunas
+        desempenho_comercial.columns = ["Total Vendas (€)", "Ticket Médio (€)", 
+                                        "Nº Transações", "Clientes Únicos"]
         
-        performance_comercial.columns = ["Total Vendas (€)", "Ticket Médio (€)", "Nº Transações", 
-                                         "Total Quantidade", "Clientes Únicos", "Artigos Vendidos"]
+        fig4, ax4 = plt.subplots(figsize=(12, 6))
         
-        performance_comercial = performance_comercial.sort_values("Total Vendas (€)", ascending=False)
+        comerciais = desempenho_comercial.index.tolist()
+        x = range(len(comerciais))
         
-        # Gráfico
-        fig, ax = plt.subplots(figsize=(12, 6))
-        top_n = min(10, len(performance_comercial))
-        top_comerciais = performance_comercial.head(top_n)
+        ax4.bar(x, desempenho_comercial["Total Vendas (€)"], color='#2E86AB', alpha=0.7)
         
-        x = range(top_n)
-        ax.bar(x, top_comerciais["Total Vendas (€)"], color='#2E86AB', alpha=0.7)
-        
-        ax.set_xlabel("Comercial")
-        ax.set_ylabel("Total Vendas (€)")
-        ax.set_title(f"Top {top_n} Comerciais por Volume de Vendas", fontsize=14, fontweight='bold')
-        ax.set_xticks(x)
-        ax.set_xticklabels(top_comerciais.index, rotation=45, ha='right')
-        ax.grid(True, alpha=0.3, axis='y')
+        ax4.set_xlabel("Comercial")
+        ax4.set_ylabel("Total Vendas (€)")
+        ax4.set_title("Desempenho por Comercial", fontsize=14, fontweight='bold')
+        ax4.set_xticks(x)
+        ax4.set_xticklabels(comerciais, rotation=45, ha='right')
+        ax4.grid(True, alpha=0.3, axis='y')
         
         # Adicionar valores nas barras
-        for i, v in enumerate(top_comerciais["Total Vendas (€)"]):
-            ax.text(i, v, f'€{v:,.0f}', ha='center', va='bottom', fontsize=9)
+        for i, v in enumerate(desempenho_comercial["Total Vendas (€)"]):
+            ax4.text(i, v, f'€{v:,.0f}', ha='center', va='bottom', fontsize=9)
         
         plt.tight_layout()
-        st.pyplot(fig)
-        
-        # Tabela detalhada
-        with st.expander("📋 Ver detalhes dos comerciais"):
-            tabela_formatada = performance_comercial.copy()
-            for col in tabela_formatada.columns:
-                if "(€)" in col:
-                    tabela_formatada[col] = tabela_formatada[col].apply(lambda x: f"€{x:,.2f}")
-                else:
-                    tabela_formatada[col] = tabela_formatada[col].apply(lambda x: f"{x:,.0f}")
-            st.dataframe(tabela_formatada, use_container_width=True)
-    else:
-        st.info("ℹ️ Não há dados de comerciais disponíveis.")
-
-with tab2:
-    st.write("**Top 10 Clientes por Valor**")
+        st.pyplot(fig4)
     
-    if not df_filtrado.empty and len(df_filtrado["Cliente"].unique()) > 0:
-        performance_cliente = df_filtrado.groupby("Cliente").agg({
-            "Valor": ["sum", "mean", "count"],
-            "Quantidade": "sum",
-            "Comercial": "nunique",
-            "Artigo": "nunique"
-        }).round(2)
-        
-        performance_cliente.columns = ["Total Vendas (€)", "Ticket Médio (€)", "Nº Compras", 
-                                       "Total Quantidade", "Comerciais", "Artigos Comprados"]
-        
-        performance_cliente = performance_cliente.sort_values("Total Vendas (€)", ascending=False)
-        
-        # Gráfico
-        fig, ax = plt.subplots(figsize=(12, 6))
-        top_n = min(10, len(performance_cliente))
-        top_clientes = performance_cliente.head(top_n)
-        
-        ax.barh(range(top_n), top_clientes["Total Vendas (€)"], color='#A23B72', alpha=0.7)
-        ax.set_yticks(range(top_n))
-        ax.set_yticklabels(top_clientes.index)
-        ax.invert_yaxis()
-        ax.set_xlabel("Total Vendas (€)")
-        ax.set_title(f"Top {top_n} Clientes por Valor", fontsize=14, fontweight='bold')
-        ax.grid(True, alpha=0.3, axis='x')
-        
-        plt.tight_layout()
-        st.pyplot(fig)
-        
-        # Tabela detalhada
-        with st.expander("📋 Ver detalhes dos clientes"):
-            tabela_formatada = performance_cliente.head(20).copy()
-            for col in tabela_formatada.columns:
-                if "(€)" in col:
-                    tabela_formatada[col] = tabela_formatada[col].apply(lambda x: f"€{x:,.2f}")
-                else:
-                    tabela_formatada[col] = tabela_formatada[col].apply(lambda x: f"{x:,.0f}")
-            st.dataframe(tabela_formatada, use_container_width=True)
-    else:
-        st.info("ℹ️ Não há dados de clientes disponíveis.")
-
-with tab3:
-    st.write("**Top 10 Artigos por Vendas**")
+    # 5. Tabelas de dados
+    st.subheader("📋 Tabelas de Dados Detalhadas")
     
-    if not df_filtrado.empty and len(df_filtrado["Artigo"].unique()) > 0:
-        performance_artigo = df_filtrado.groupby("Artigo").agg({
-            "Valor": ["sum", "mean"],
-            "Quantidade": ["sum", "mean"],
-            "Cliente": "nunique",
-            "Comercial": "nunique"
-        }).round(2)
-        
-        performance_artigo.columns = ["Total Vendas (€)", "Preço Médio (€)", 
-                                      "Total Quantidade", "Quantidade Média", 
-                                      "Clientes", "Comerciais"]
-        
-        performance_artigo = performance_artigo.sort_values("Total Vendas (€)", ascending=False)
-        
-        # Gráfico
-        fig, ax = plt.subplots(figsize=(12, 6))
-        top_n = min(10, len(performance_artigo))
-        top_artigos = performance_artigo.head(top_n)
-        
-        x = range(top_n)
-        width = 0.35
-        
-        ax.bar([i - width/2 for i in x], top_artigos["Total Vendas (€)"], width, 
-               label='Vendas (€)', color='#F18F01', alpha=0.7)
-        ax.bar([i + width/2 for i in x], top_artigos["Total Quantidade"], width, 
-               label='Quantidade', color='#73AB84', alpha=0.7)
-        
-        ax.set_xlabel("Artigo")
-        ax.set_ylabel("Valor")
-        ax.set_title(f"Top {top_n} Artigos por Performance", fontsize=14, fontweight='bold')
-        ax.set_xticks(x)
-        ax.set_xticklabels(top_artigos.index, rotation=45, ha='right')
-        ax.legend()
-        ax.grid(True, alpha=0.3, axis='y')
-        
-        plt.tight_layout()
-        st.pyplot(fig)
-        
-        # Tabela detalhada
-        with st.expander("📋 Ver detalhes dos artigos"):
-            tabela_formatada = performance_artigo.head(20).copy()
-            for col in tabela_formatada.columns:
-                if "(€)" in col:
-                    tabela_formatada[col] = tabela_formatada[col].apply(lambda x: f"€{x:,.2f}")
-                else:
-                    tabela_formatada[col] = tabela_formatada[col].apply(lambda x: f"{x:,.0f}")
-            st.dataframe(tabela_formatada, use_container_width=True)
-    else:
-        st.info("ℹ️ Não há dados de artigos disponíveis.")
-
-st.divider()
-
-# === ANÁLISE DE TICKET ===
-st.subheader("🎫 Análise de Ticket")
-
-if not df_filtrado.empty and len(df_filtrado) > 1:
-    col1, col2 = st.columns(2)
-
-    with col1:
-        # Distribuição de valores das transações
-        st.write("**Distribuição do Valor das Transações**")
-        
-        fig, ax = plt.subplots(figsize=(10, 6))
-        ax.hist(df_filtrado["Valor"], bins=30, color='#2E86AB', alpha=0.7, edgecolor='black')
-        ax.axvline(df_filtrado["Valor"].mean(), color='red', linestyle='--', linewidth=2, 
-                   label=f'Média: €{df_filtrado["Valor"].mean():,.2f}')
-        ax.axvline(df_filtrado["Valor"].median(), color='green', linestyle='--', linewidth=2, 
-                   label=f'Mediana: €{df_filtrado["Valor"].median():,.2f}')
-        
-        ax.set_xlabel("Valor da Transação (€)")
-        ax.set_ylabel("Frequência")
-        ax.set_title("Distribuição do Valor das Transações", fontsize=14, fontweight='bold')
-        ax.legend()
-        ax.grid(True, alpha=0.3)
-        
-        plt.tight_layout()
-        st.pyplot(fig)
-
-    with col2:
-        # Relação entre quantidade e valor
-        st.write("**Relação Quantidade vs Valor**")
-        
-        fig, ax = plt.subplots(figsize=(10, 6))
-        
-        scatter = ax.scatter(df_filtrado["Quantidade"], df_filtrado["Valor"], 
-                            alpha=0.6, color='#A23B72', s=30)
-        
-        # Calcular linha de tendência
-        if len(df_filtrado) > 1:
-            try:
-                z = np.polyfit(df_filtrado["Quantidade"], df_filtrado["Valor"], 1)
-                p = np.poly1d(z)
-                ax.plot(df_filtrado["Quantidade"], p(df_filtrado["Quantidade"]), 
-                        color='#2E86AB', linewidth=2, linestyle='--', 
-                        label=f'Tendência: y = {z[0]:.2f}x + {z[1]:.2f}')
-            except:
-                pass
-        
-        ax.set_xlabel("Quantidade")
-        ax.set_ylabel("Valor (€)")
-        ax.set_title("Relação entre Quantidade e Valor", fontsize=14, fontweight='bold')
-        ax.legend()
-        ax.grid(True, alpha=0.3)
-        
-        plt.tight_layout()
-        st.pyplot(fig)
-
-    # Estatísticas de ticket
-    with st.expander("📊 Estatísticas Detalhadas do Ticket"):
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Ticket Mínimo", f"€{df_filtrado['Valor'].min():,.2f}")
-        with col2:
-            st.metric("Ticket Máximo", f"€{df_filtrado['Valor'].max():,.2f}")
-        with col3:
-            st.metric("Ticket Médio", f"€{df_filtrado['Valor'].mean():,.2f}")
-        with col4:
-            st.metric("Mediana do Ticket", f"€{df_filtrado['Valor'].median():,.2f}")
+    tab1, tab2, tab3 = st.tabs(["📊 Vendas Mensais", "🏆 Top Clientes", "📦 Top Artigos"])
+    
+    with tab1:
+        # Formatar tabela de vendas mensais
+        vendas_mensais_display = vendas_mensais.copy()
+        vendas_mensais_display["Valor"] = vendas_mensais_display["Valor"].apply(lambda x: f"€{x:,.2f}")
+        vendas_mensais_display["Quantidade"] = vendas_mensais_display["Quantidade"].apply(lambda x: f"{x:,.0f}")
+        st.dataframe(vendas_mensais_display[["Periodo", "Valor", "Quantidade"]], 
+                    use_container_width=True)
+    
+    with tab2:
+        # Formatar tabela de top clientes
+        top_clientes_display = top_clientes.copy()
+        top_clientes_display["Total Vendas (€)"] = top_clientes_display["Total Vendas (€)"].apply(lambda x: f"€{x:,.2f}")
+        top_clientes_display["Total Quantidade"] = top_clientes_display["Total Quantidade"].apply(lambda x: f"{x:,.0f}")
+        st.dataframe(top_clientes_display, use_container_width=True)
+    
+    with tab3:
+        # Formatar tabela de top artigos
+        top_artigos_display = top_artigos.copy()
+        top_artigos_display["Valor"] = top_artigos_display["Valor"].apply(lambda x: f"€{x:,.2f}")
+        top_artigos_display["Quantidade"] = top_artigos_display["Quantidade"].apply(lambda x: f"{x:,.0f}")
+        st.dataframe(top_artigos_display, use_container_width=True)
+    
 else:
-    st.info("ℹ️ Não há dados suficientes para análise de ticket.")
+    st.warning("⚠️ Não há dados disponíveis com os filtros selecionados.")
+    st.info("💡 Tente ajustar os filtros na sidebar para ver os dados.")
 
 st.divider()
 
 # === EXPORTAR DADOS ===
-st.subheader("📤 Exportar Dados")
-
-# Preparar dados para exportação
-resumo_kpis = pd.DataFrame({
-    "KPI": [
-        "Total Vendas (€)", "Total Quantidade", "Nº Entidades", "Ticket Médio (€)",
-        "Nº Comerciais", "Nº Artigos", "Preço Médio Unitário (€)", "Venda Média/Transação (€)",
-        "Quantidade Média/Transação", "Dias com Vendas", "Venda Média/Dia (€)", "Ticket Médio (€) Mês"
-    ],
-    "Valor": [
-        total_vendas_eur, total_quantidade, num_entidades, ticket_medio_eur,
-        num_comerciais, num_artigos, preco_medio_unitario, venda_media_transacao,
-        quantidade_media_transacao, dias_com_vendas, venda_media_dia, ticket_medio_mes
-    ]
-})
-
-col1, col2 = st.columns(2)
-
-with col1:
-    # Exportar KPIs em CSV
-    csv_kpis = resumo_kpis.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="📥 Download KPIs (CSV)",
-        data=csv_kpis,
-        file_name=f"kpis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-        mime="text/csv"
-    )
-
-with col2:
-    # Exportar dados completos em Excel
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        # KPIs
-        resumo_kpis.to_excel(writer, sheet_name='KPIs', index=False)
-        
-        # Dados filtrados
-        df_filtrado.to_excel(writer, sheet_name='Dados Filtrados', index=False)
-        
-        # Vendas mensais
-        vendas_mensais.to_excel(writer, sheet_name='Vendas Mensais', index=False)
-        
-        # Performance por comercial (se disponível)
-        if not df_filtrado.empty and len(df_filtrado["Comercial"].unique()) > 0:
-            performance_comercial = df_filtrado.groupby("Comercial")["Valor"].sum().sort_values(ascending=False)
-            performance_comercial.to_excel(writer, sheet_name='Comerciais')
-        
-        # Performance por cliente (se disponível)
-        if not df_filtrado.empty and len(df_filtrado["Cliente"].unique()) > 0:
-            performance_cliente = df_filtrado.groupby("Cliente")["Valor"].sum().sort_values(ascending=False).head(50)
-            performance_cliente.to_excel(writer, sheet_name='Clientes')
+if not df_filtrado.empty:
+    st.subheader("📤 Exportar Dados")
     
-    excel_data = output.getvalue()
+    # Preparar dados para exportação
+    resumo_kpis = pd.DataFrame({
+        "KPI": [
+            "Total Vendas (€)", "Total Quantidade", "Nº Entidades", "Ticket Médio (€)",
+            "Nº Comerciais", "Nº Artigos", "Preço Médio Unitário (€)", "Venda Média/Transação (€)",
+            "Quantidade Média/Transação", "Dias com Vendas", "Venda Média/Dia (€)", "Ticket Médio (€) Mês"
+        ],
+        "Valor": [
+            total_vendas_eur, total_quantidade, num_entidades, ticket_medio_eur,
+            num_comerciais, num_artigos, preco_medio_unitario, venda_media_transacao,
+            quantidade_media_transacao, dias_com_vendas, venda_media_dia, ticket_medio_mes
+        ]
+    })
     
-    st.download_button(
-        label="📊 Download Relatório Completo (Excel)",
-        data=excel_data,
-        file_name=f"relatorio_completo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-
-# === INFORMAÇÕES FINAIS ===
-st.divider()
-st.success("✅ Dashboard carregado com sucesso!")
-
-# Resumo rápido
-with st.expander("📋 Resumo do Período Selecionado"):
     col1, col2 = st.columns(2)
     
     with col1:
-        st.write("**Período:**")
-        if len(anos_selecionados) == 1:
-            st.write(f"- Ano: {anos_selecionados[0]}")
-        else:
-            st.write(f"- Anos: {', '.join(map(str, anos_selecionados))}")
-        
-        meses_selecionados_nomes = [meses_nomes[m] for m in meses_selecionados if m in meses_nomes]
-        if len(meses_selecionados_nomes) <= 6:
-            st.write(f"- Meses: {', '.join(meses_selecionados_nomes)}")
-        else:
-            st.write(f"- Meses: {len(meses_selecionados)} meses selecionados")
-        
-        st.write(f"- Dias com vendas: {dias_com_vendas}")
+        # Exportar CSV
+        csv_data = df_filtrado.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Download Dados Filtrados (CSV)",
+            data=csv_data,
+            file_name=f"dados_filtrados_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv",
+            help="Baixe os dados filtrados em formato CSV"
+        )
     
     with col2:
-        st.write("**Eficiência:**")
-        st.write(f"- Vendas por dia: €{venda_media_dia:,.2f}")
-        if dias_com_vendas > 0:
-            st.write(f"- Transações por dia: {num_transacoes/dias_com_vendas:,.1f}")
-        else:
-            st.write("- Transações por dia: 0")
-        if num_comerciais > 0:
-            st.write(f"- Clientes por comercial: {num_entidades/num_comerciais:,.1f}")
-        else:
-            st.write("- Clientes por comercial: 0")
-        if num_entidades > 0:
-            st.write(f"- Artigos por cliente: {num_artigos/num_entidades:,.1f}")
-        else:
-            st.write("- Artigos por cliente: 0")
+        # Exportar Excel
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            # KPIs
+            resumo_kpis.to_excel(writer, sheet_name='KPIs', index=False)
+            
+            # Dados filtrados
+            df_filtrado.to_excel(writer, sheet_name='Dados', index=False)
+            
+            # Vendas mensais
+            vendas_mensais.to_excel(writer, sheet_name='Vendas_Mensais', index=False)
+            
+            # Top clientes
+            top_clientes.to_excel(writer, sheet_name='Top_Clientes')
+            
+            # Top artigos
+            top_artigos.to_excel(writer, sheet_name='Top_Artigos')
+        
+        excel_data = output.getvalue()
+        
+        st.download_button(
+            label="📊 Download Relatório Completo (Excel)",
+            data=excel_data,
+            file_name=f"relatorio_completo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            help="Baixe um relatório completo em Excel"
+        )
+
+# === RODAPÉ ===
+st.divider()
+st.success("✅ Dashboard carregado com sucesso!")
+
+# Mostrar informações de debug
+with st.expander("🔍 Informações Técnicas"):
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write("**Dados Originais:**")
+        st.write(f"- Total de registros: {len(df):,}")
+        st.write(f"- Período: {df['Data'].min().strftime('%d/%m/%Y') if not df.empty else 'N/A'} a {df['Data'].max().strftime('%d/%m/%Y') if not df.empty else 'N/A'}")
+        st.write(f"- Anos disponíveis: {', '.join(map(str, anos_disponiveis))}")
+    
+    with col2:
+        st.write("**Dados Filtrados:**")
+        st.write(f"- Registros após filtro: {len(df_filtrado):,}")
+        st.write(f"- Clientes únicos: {num_entidades}")
+        st.write(f"- Artigos únicos: {num_artigos}")
+        st.write(f"- Comerciais ativos: {num_comerciais}")
 
 st.info("""
-💡 **Dicas de uso:**
-1. Use os filtros na sidebar para refinar sua análise
-2. Explore as diferentes abas para análises específicas
-3. Exporte os dados para análises mais detalhadas
-4. Observe os KPIs para monitorar performance
+💡 **Como usar este dashboard:**
+1. **Filtros na sidebar:** Selecione anos, meses, comerciais e clientes para análise
+2. **KPIs:** Veja os indicadores principais no topo da página
+3. **Gráficos:** Analise a evolução temporal e performance por dimensão
+4. **Tabelas:** Consulte os dados detalhados nas abas
+5. **Exportar:** Baixe os dados para análises externas
 """)
