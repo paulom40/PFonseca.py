@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import io
 from datetime import datetime
 
-st.set_page_config(page_title="KPI Compras Clientes (YoY)", layout="wide")
+st.set_page_config(page_title="KPI Compras Clientes", layout="wide")
 st.title("📊 Dashboard de Compras – Clientes, Artigos e Comerciais")
 
 # --- URL raw do ficheiro no GitHub ---
@@ -29,8 +29,8 @@ if df_raw.empty:
 IDX_NOME = 1       # Coluna B
 IDX_ARTIGO = 2     # Coluna C
 IDX_COMERCIAL = 8  # Coluna I
-IDX_DATA = 0       # Coluna A (ajustar se necessário)
-IDX_QTD = 3        # Coluna D (ajustar se necessário)
+IDX_DATA = 0       # Coluna A
+IDX_QTD = 3        # Coluna D
 IDX_ANO = 10       # Coluna K
 
 # Construir dataframe canónico
@@ -69,7 +69,7 @@ df["Ano"] = pd.to_numeric(df["Ano"], errors="coerce").fillna(0).astype(int)
 # Resetar índice para evitar problemas
 df = df.reset_index(drop=True)
 
-# === Sidebar com filtros interativos ===
+# === Sidebar com filtros interativos MULTISELECT ===
 with st.sidebar:
     st.header("🔍 Filtros Interativos")
     
@@ -77,80 +77,116 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
     
-    # Filtro por Ano (Coluna K)
+    # === Filtro por ANO (multiselect) ===
     anos_disponiveis = sorted(df["Ano"].unique())
-    if len(anos_disponiveis) >= 2:
-        ano_base_default = anos_disponiveis[-2]
-        ano_comp_default = anos_disponiveis[-1]
-    elif len(anos_disponiveis) == 1:
-        ano_base_default = anos_disponiveis[0]
-        ano_comp_default = anos_disponiveis[0]
-    else:
-        ano_base_default = 2023
-        ano_comp_default = 2024
+    anos_selecionados = st.multiselect(
+        "📅 Selecionar Ano(s)", 
+        anos_disponiveis,
+        default=anos_disponiveis[-1:] if anos_disponiveis else [],
+        key="ano_filter"
+    )
     
-    ano_base = st.selectbox("📅 Ano base", anos_disponiveis, 
-                          index=anos_disponiveis.index(ano_base_default) if ano_base_default in anos_disponiveis else 0)
-    ano_comp = st.selectbox("📅 Ano comparação", anos_disponiveis, 
-                          index=anos_disponiveis.index(ano_comp_default) if ano_comp_default in anos_disponiveis else 0)
+    # Se nenhum ano selecionado, usar todos
+    if not anos_selecionados:
+        anos_selecionados = anos_disponiveis
+        st.info("ℹ️ Mostrando todos os anos disponíveis")
     
-    # Filtro por Mês
-    meses_nomes = ["Jan","Fev","Mar","Abr","Mai","Jun",
-                   "Jul","Ago","Set","Out","Nov","Dez"]
-    meses_sel = st.multiselect("🗓️ Selecionar meses", meses_nomes, default=meses_nomes)
+    # === Filtro por MÊS (multiselect) ===
+    meses_nomes = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+                   "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+    meses_selecionados = st.multiselect(
+        "🗓️ Selecionar Mês(es)", 
+        meses_nomes,
+        default=meses_nomes,
+        key="mes_filter"
+    )
     
-    # Filtro por Comercial (Coluna I)
-    comerciais_opts = sorted(df["Comercial"].dropna().unique())
-    comercial_sel = st.multiselect("👤 Comercial(s)", comerciais_opts, default=comerciais_opts)
+    # === Filtro por COMERCIAL (multiselect) ===
+    comerciais_disponiveis = sorted(df["Comercial"].dropna().unique())
+    comerciais_selecionados = st.multiselect(
+        "👤 Selecionar Comercial(ais)", 
+        comerciais_disponiveis,
+        default=comerciais_disponiveis,
+        key="comercial_filter"
+    )
     
-    # Filtro por Cliente (Coluna B)
-    clientes_opts = sorted(df["Nome"].dropna().unique())
-    cliente_sel = st.multiselect("🏢 Cliente(s)", clientes_opts, default=clientes_opts)
+    # === Filtro por CLIENTE (multiselect) ===
+    clientes_disponiveis = sorted(df["Nome"].dropna().unique())
+    clientes_selecionados = st.multiselect(
+        "🏢 Selecionar Cliente(s)", 
+        clientes_disponiveis,
+        default=clientes_disponiveis,
+        key="cliente_filter"
+    )
     
-    # Filtro por Artigo (Coluna C)
-    artigos_opts = sorted(df["Artigo"].dropna().unique())
-    artigo_sel = st.multiselect("📦 Artigo(s)", artigos_opts, default=artigos_opts)
+    # === Filtro por ARTIGO (multiselect) ===
+    artigos_disponiveis = sorted(df["Artigo"].dropna().unique())
+    artigos_selecionados = st.multiselect(
+        "📦 Selecionar Artigo(s)", 
+        artigos_disponiveis,
+        default=artigos_disponiveis,
+        key="artigo_filter"
+    )
     
     if st.button("🗑️ Limpar todos os filtros"):
         st.rerun()
+    
+    # Mostrar estatísticas dos filtros
+    with st.expander("📊 Estatísticas dos Filtros"):
+        st.write(f"**Anos selecionados:** {len(anos_selecionados)} de {len(anos_disponiveis)}")
+        st.write(f"**Meses selecionados:** {len(meses_selecionados)} de 12")
+        st.write(f"**Comerciais selecionados:** {len(comerciais_selecionados)} de {len(comerciais_disponiveis)}")
+        st.write(f"**Clientes selecionados:** {len(clientes_selecionados)} de {len(clientes_disponiveis)}")
+        st.write(f"**Artigos selecionados:** {len(artigos_selecionados)} de {len(artigos_disponiveis)}")
 
 # === Aplicar filtros ao dataframe ===
 df_filtrado = df.copy()
 
-# Filtro por Ano
-df_filtrado = df_filtrado[df_filtrado["Ano"].isin([ano_base, ano_comp])]
+# 1. Filtrar por ANO
+df_filtrado = df_filtrado[df_filtrado["Ano"].isin(anos_selecionados)]
 
-# Filtro por Mês
+# 2. Filtrar por MÊS
 meses_map = dict(zip(meses_nomes, range(1, 13)))
-meses_sel_num = [meses_map[m] for m in meses_sel]
-if meses_sel_num:
-    df_filtrado = df_filtrado[df_filtrado["Mes"].isin(meses_sel_num)]
+meses_num_selecionados = [meses_map[m] for m in meses_selecionados]
+df_filtrado = df_filtrado[df_filtrado["Mes"].isin(meses_num_selecionados)]
 
-# Filtro por Comercial
-if comercial_sel:
-    df_filtrado = df_filtrado[df_filtrado["Comercial"].isin(comercial_sel)]
+# 3. Filtrar por COMERCIAL
+if comerciais_selecionados:
+    df_filtrado = df_filtrado[df_filtrado["Comercial"].isin(comerciais_selecionados)]
 
-# Filtro por Cliente
-if cliente_sel:
-    df_filtrado = df_filtrado[df_filtrado["Nome"].isin(cliente_sel)]
+# 4. Filtrar por CLIENTE
+if clientes_selecionados:
+    df_filtrado = df_filtrado[df_filtrado["Nome"].isin(clientes_selecionados)]
 
-# Filtro por Artigo
-if artigo_sel:
-    df_filtrado = df_filtrado[df_filtrado["Artigo"].isin(artigo_sel)]
+# 5. Filtrar por ARTIGO
+if artigos_selecionados:
+    df_filtrado = df_filtrado[df_filtrado["Artigo"].isin(artigos_selecionados)]
 
-# === Tabela comparativa YoY ===
-st.subheader("📈 Comparativo Ano a Ano (YoY)")
+# === Mostrar informações sobre os filtros aplicados ===
+st.subheader("ℹ️ Filtros Aplicados")
+col1, col2, col3, col4, col5 = st.columns(5)
+with col1:
+    st.metric("Anos", len(anos_selecionados))
+with col2:
+    st.metric("Meses", len(meses_selecionados))
+with col3:
+    st.metric("Comerciais", len(comerciais_selecionados) if comerciais_selecionados else "Todos")
+with col4:
+    st.metric("Clientes", len(clientes_selecionados) if clientes_selecionados else "Todos")
+with col5:
+    st.metric("Artigos", len(artigos_selecionados) if artigos_selecionados else "Todos")
 
-if not df_filtrado.empty:
-    # Agrupar dados
-    kpi_grouped = df_filtrado.groupby(
-        ["Comercial", "Nome", "Artigo", "Mes_Nome", "Mes", "Ano"],
-        as_index=False
-    )["Quantidade"].sum()
+# === Análise por Ano (comparação entre anos selecionados) ===
+if len(anos_selecionados) > 1:
+    st.subheader("📈 Comparativo Entre Anos")
     
-    # Criar pivot table
-    pv = kpi_grouped.pivot_table(
-        index=["Comercial", "Nome", "Artigo", "Mes_Nome", "Mes"],
+    # Agrupar por ano e mês
+    comparativo_ano = df_filtrado.groupby(["Ano", "Mes_Nome", "Mes"])["Quantidade"].sum().reset_index()
+    comparativo_ano = comparativo_ano.sort_values(["Ano", "Mes"])
+    
+    # Pivot table para comparação
+    pivot_comparativo = comparativo_ano.pivot_table(
+        index=["Mes_Nome", "Mes"],
         columns="Ano",
         values="Quantidade",
         aggfunc="sum",
@@ -158,37 +194,59 @@ if not df_filtrado.empty:
     ).reset_index()
     
     # Ordenar por mês
-    pv = pv.sort_values(["Comercial", "Nome", "Artigo", "Mes"])
+    pivot_comparativo = pivot_comparativo.sort_values("Mes")
     
-    # Adicionar coluna de variação
-    if ano_base in pv.columns and ano_comp in pv.columns:
-        pv["Variação_%"] = pv.apply(
-            lambda row: ((row[ano_comp] - row[ano_base]) / row[ano_base] * 100) 
-            if row[ano_base] != 0 else (100 if row[ano_comp] > 0 else 0),
-            axis=1
-        )
-        
-        # Reordenar colunas
-        cols_order = ["Comercial", "Nome", "Artigo", "Mes_Nome", ano_base, ano_comp, "Variação_%"]
-        pv = pv[[col for col in cols_order if col in pv.columns]]
-        
-        # Exibir tabela formatada
+    # Calcular variações se tiver mais de um ano
+    if len(anos_selecionados) == 2:
+        ano1, ano2 = sorted(anos_selecionados)
+        if ano1 in pivot_comparativo.columns and ano2 in pivot_comparativo.columns:
+            pivot_comparativo["Variação_%"] = (
+                (pivot_comparativo[ano2] - pivot_comparativo[ano1]) / 
+                pivot_comparativo[ano1].replace(0, pd.NA)
+            ) * 100
+            
+            # Exibir tabela formatada
+            st.dataframe(
+                pivot_comparativo[["Mes_Nome", ano1, ano2, "Variação_%"]]
+                .style.format({
+                    str(ano1): "{:,.0f}",
+                    str(ano2): "{:,.0f}",
+                    "Variação_%": "{:+.1f}%"
+                }).applymap(
+                    lambda x: 'background-color: #FF6B6B' if isinstance(x, (int, float)) and x < 0 else 
+                             ('background-color: #51CF66' if isinstance(x, (int, float)) and x > 0 else ''),
+                    subset=["Variação_%"]
+                ),
+                height=400
+            )
+            
+            # Gráfico de linha comparativo
+            fig_comparativo, ax_comparativo = plt.subplots(figsize=(12, 6))
+            for ano in sorted(anos_selecionados):
+                dados_ano = pivot_comparativo.sort_values("Mes")
+                ax_comparativo.plot(
+                    dados_ano["Mes_Nome"], 
+                    dados_ano[ano], 
+                    marker='o', 
+                    label=f"Ano {ano}"
+                )
+            
+            ax_comparativo.set_title(f"Comparativo Mensal: {min(anos_selecionados)} vs {max(anos_selecionados)}")
+            ax_comparativo.set_xlabel("Mês")
+            ax_comparativo.set_ylabel("Quantidade")
+            ax_comparativo.legend()
+            ax_comparativo.grid(True, alpha=0.3)
+            plt.xticks(rotation=45)
+            plt.tight_layout()
+            st.pyplot(fig_comparativo)
+    else:
+        # Mostrar tabela simples para múltiplos anos
         st.dataframe(
-            pv.style.format({
-                str(ano_base): "{:,.0f}",
-                str(ano_comp): "{:,.0f}",
-                "Variação_%": "{:+.2f}%"
-            }).applymap(
-                lambda x: 'background-color: #FF6B6B' if isinstance(x, (int, float)) and x < 0 else 
-                         ('background-color: #51CF66' if isinstance(x, (int, float)) and x > 0 else ''),
-                subset=["Variação_%"]
-            ),
+            pivot_comparativo.drop(columns=["Mes"]).style.format({
+                str(ano): "{:,.0f}" for ano in anos_selecionados if ano in pivot_comparativo.columns
+            }),
             height=400
         )
-    else:
-        st.warning("Não há dados para os anos selecionados")
-else:
-    st.warning("Não há dados para os filtros aplicados")
 
 # === KPI 1 – Total de quantidade por cliente ===
 st.subheader("📊 KPI 1 – Total de Quantidade Comprada por Cliente")
@@ -201,223 +259,327 @@ if not df_filtrado.empty:
         .sort_values("Quantidade", ascending=False)
     )
     
-    # Mostrar top 10 ou menos se não houver muitos
-    kpi_cliente_top = kpi_cliente.head(min(10, len(kpi_cliente)))
+    # Mostrar top 15
+    top_n = min(15, len(kpi_cliente))
+    kpi_cliente_top = kpi_cliente.head(top_n)
     
     col1, col2 = st.columns([2, 1])
     
     with col1:
         if not kpi_cliente_top.empty:
-            fig1, ax1 = plt.subplots(figsize=(10, 5))
-            bars = ax1.barh(kpi_cliente_top["Nome"], kpi_cliente_top["Quantidade"], color="steelblue")
+            fig1, ax1 = plt.subplots(figsize=(12, 6))
+            bars = ax1.barh(kpi_cliente_top["Nome"], kpi_cliente_top["Quantidade"], 
+                           color=plt.cm.viridis(range(top_n)))
             ax1.set_xlabel("Quantidade Total")
-            ax1.set_title(f"Top Clientes ({ano_base} vs {ano_comp})")
-            ax1.invert_yaxis()  # Maior no topo
+            ax1.set_title(f"Top {top_n} Clientes")
+            ax1.invert_yaxis()
             
             # Adicionar valores nas barras
-            if len(kpi_cliente_top) > 0:
-                max_val = kpi_cliente_top["Quantidade"].max()
-                for bar in bars:
-                    width = bar.get_width()
-                    ax1.text(width + max_val * 0.01, 
-                            bar.get_y() + bar.get_height()/2,
-                            f'{int(width):,}', 
-                            ha='left', va='center')
+            max_val = kpi_cliente_top["Quantidade"].max()
+            for bar in bars:
+                width = bar.get_width()
+                ax1.text(width + max_val * 0.01, 
+                        bar.get_y() + bar.get_height()/2,
+                        f'{int(width):,}', 
+                        ha='left', va='center',
+                        fontweight='bold')
             
+            plt.tight_layout()
             st.pyplot(fig1)
     
     with col2:
         st.dataframe(
             kpi_cliente_top.style.format({"Quantidade": "{:,.0f}"})
-            .bar(subset=["Quantidade"], color='#51CF66'),
-            height=400
+            .background_gradient(subset=["Quantidade"], cmap="viridis"),
+            height=500
         )
-else:
-    st.warning("Não há dados para calcular KPI de clientes")
+    
+    # Estatísticas dos clientes
+    st.subheader("📈 Estatísticas de Clientes")
+    col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
+    
+    with col_stat1:
+        total_clientes = len(kpi_cliente)
+        st.metric("Total Clientes", total_clientes)
+    
+    with col_stat2:
+        media_por_cliente = kpi_cliente["Quantidade"].mean()
+        st.metric("Média por Cliente", f"{media_por_cliente:,.0f}")
+    
+    with col_stat3:
+        top_10_percent = kpi_cliente.head(max(1, int(len(kpi_cliente) * 0.1)))["Quantidade"].sum() / kpi_cliente["Quantidade"].sum() * 100
+        st.metric("Top 10%", f"{top_10_percent:.1f}%")
+    
+    with col_stat4:
+        quantidade_total = kpi_cliente["Quantidade"].sum()
+        st.metric("Quantidade Total", f"{quantidade_total:,.0f}")
 
 # === KPI 2 – Percentagem de quantidade por artigo dentro de cada cliente ===
 st.subheader("📊 KPI 2 – Distribuição Percentual por Artigo")
 
 if not df_filtrado.empty and len(df_filtrado) > 0:
-    # Criar uma cópia para evitar problemas de índice
-    df_perc_calc = df_filtrado.copy()
+    # Calcular percentagens de forma segura
+    df_perc = df_filtrado.copy()
     
     # Calcular totais por cliente
-    total_por_cliente = df_perc_calc.groupby("Nome")["Quantidade"].sum()
+    total_por_cliente = df_perc.groupby("Nome")["Quantidade"].sum()
     
-    # Adicionar percentagem de forma segura
+    # Função para calcular percentagem
     def calcular_percentagem(row):
-        cliente = row["Nome"]
-        quantidade = row["Quantidade"]
-        total_cliente = total_por_cliente.get(cliente, 0)
-        if total_cliente > 0:
-            return (quantidade / total_cliente) * 100
-        return 0
+        try:
+            cliente = row["Nome"]
+            quantidade = row["Quantidade"]
+            total_cliente = total_por_cliente.get(cliente, 0)
+            return (quantidade / total_cliente * 100) if total_cliente > 0 else 0
+        except:
+            return 0
     
-    df_perc_calc["Percentagem"] = df_perc_calc.apply(calcular_percentagem, axis=1)
+    # Aplicar função
+    df_perc["Percentagem"] = df_perc.apply(calcular_percentagem, axis=1)
     
     # Agrupar por cliente e artigo
     kpi_artigo_cliente = (
-        df_perc_calc.groupby(["Nome", "Artigo"], as_index=False)
+        df_perc.groupby(["Nome", "Artigo"], as_index=False)
         .agg({"Quantidade": "sum", "Percentagem": "sum"})
         .sort_values(["Nome", "Percentagem"], ascending=[True, False])
     )
     
-    # Limitar para melhor visualização
-    kpi_artigo_cliente_display = kpi_artigo_cliente.head(20)
+    # Top artigos por cliente (máximo 5 artigos por cliente para melhor visualização)
+    kpi_artigo_cliente_top = kpi_artigo_cliente.groupby("Nome").head(5)
     
     # Exibir tabela
     st.dataframe(
-        kpi_artigo_cliente_display.style.format({
+        kpi_artigo_cliente_top.style.format({
             "Quantidade": "{:,.0f}",
             "Percentagem": "{:.1f}%"
-        }).bar(subset=["Percentagem"], color='#FFA726'),
-        height=400
+        }).background_gradient(subset=["Percentagem"], cmap="YlOrRd"),
+        height=500
     )
     
-    # Gráfico de distribuição (apenas se houver dados razoáveis)
-    clientes_unicos = kpi_artigo_cliente_display["Nome"].nunique()
-    if clientes_unicos <= 10 and clientes_unicos > 0:
-        pivot_perc = kpi_artigo_cliente_display.pivot(
-            index="Nome", 
-            columns="Artigo", 
-            values="Percentagem"
-        ).fillna(0)
+    # Gráfico de heatmap para top clientes
+    if len(kpi_artigo_cliente_top["Nome"].unique()) > 0:
+        # Selecionar top 10 clientes para visualização
+        top_clientes = kpi_cliente.head(10)["Nome"].tolist()
+        dados_top = kpi_artigo_cliente_top[kpi_artigo_cliente_top["Nome"].isin(top_clientes)]
         
-        fig2, ax2 = plt.subplots(figsize=(12, 6))
-        pivot_perc.plot(kind="bar", stacked=True, ax=ax2, colormap="tab20c")
-        ax2.set_title("Distribuição Percentual por Artigo")
-        ax2.set_ylabel("%")
-        ax2.set_xlabel("Cliente")
-        ax2.legend(title="Artigo", bbox_to_anchor=(1.05, 1), loc='upper left')
-        plt.tight_layout()
-        st.pyplot(fig2)
-    elif clientes_unicos > 10:
-        st.info(f"Muitos clientes para mostrar no gráfico ({clientes_unicos}). Use filtros para reduzir.")
-else:
-    st.warning("Não há dados para calcular distribuição percentual")
+        if not dados_top.empty:
+            # Criar pivot para heatmap
+            pivot_heatmap = dados_top.pivot_table(
+                index="Nome",
+                columns="Artigo",
+                values="Percentagem",
+                aggfunc="sum",
+                fill_value=0
+            )
+            
+            # Ordenar por total de percentagem
+            pivot_heatmap = pivot_heatmap.loc[top_clientes]
+            
+            # Criar heatmap
+            fig_heatmap, ax_heatmap = plt.subplots(figsize=(14, 8))
+            im = ax_heatmap.imshow(pivot_heatmap.values, aspect='auto', cmap='YlOrRd')
+            
+            # Configurar eixos
+            ax_heatmap.set_xticks(range(len(pivot_heatmap.columns)))
+            ax_heatmap.set_yticks(range(len(pivot_heatmap.index)))
+            ax_heatmap.set_xticklabels(pivot_heatmap.columns, rotation=45, ha='right')
+            ax_heatmap.set_yticklabels(pivot_heatmap.index)
+            
+            # Adicionar barra de cores
+            plt.colorbar(im, ax=ax_heatmap, label='Percentagem (%)')
+            ax_heatmap.set_title("Heatmap - Distribuição de Artigos por Cliente (Top 10)")
+            plt.tight_layout()
+            st.pyplot(fig_heatmap)
+
+# === KPI 3 – Análise por Comercial ===
+st.subheader("👤 KPI 3 – Desempenho por Comercial")
+
+if not df_filtrado.empty:
+    # Análise por comercial
+    kpi_comercial = (
+        df_filtrado.groupby("Comercial")
+        .agg({
+            "Quantidade": "sum",
+            "Nome": "nunique",
+            "Artigo": "nunique"
+        })
+        .reset_index()
+        .rename(columns={
+            "Nome": "Clientes_Unicos",
+            "Artigo": "Artigos_Unicos"
+        })
+        .sort_values("Quantidade", ascending=False)
+    )
+    
+    col_kpi1, col_kpi2 = st.columns(2)
+    
+    with col_kpi1:
+        st.dataframe(
+            kpi_comercial.style.format({
+                "Quantidade": "{:,.0f}",
+                "Clientes_Unicos": "{:,.0f}",
+                "Artigos_Unicos": "{:,.0f}"
+            }).background_gradient(subset=["Quantidade"], cmap="Blues"),
+            height=400
+        )
+    
+    with col_kpi2:
+        if not kpi_comercial.empty:
+            fig_comercial, ax_comercial = plt.subplots(figsize=(10, 6))
+            bars = ax_comercial.bar(kpi_comercial["Comercial"], kpi_comercial["Quantidade"], 
+                                   color=plt.cm.Set3(range(len(kpi_comercial))))
+            ax_comercial.set_title("Quantidade por Comercial")
+            ax_comercial.set_xlabel("Comercial")
+            ax_comercial.set_ylabel("Quantidade Total")
+            plt.xticks(rotation=45, ha='right')
+            
+            # Adicionar valores no topo das barras
+            for bar in bars:
+                height = bar.get_height()
+                ax_comercial.text(bar.get_x() + bar.get_width()/2., height + 0.01,
+                                 f'{int(height):,}', ha='center', va='bottom', 
+                                 fontsize=9, rotation=0)
+            
+            plt.tight_layout()
+            st.pyplot(fig_comercial)
 
 # === Exportar para Excel ===
 st.subheader("📥 Exportar Resultados")
 
 if not df_filtrado.empty:
-    if st.button("💾 Gerar Relatório Excel"):
+    if st.button("💾 Gerar Relatório Excel Completo"):
         # Criar Excel com múltiplas abas
         xls_buf = io.BytesIO()
         with pd.ExcelWriter(xls_buf, engine='xlsxwriter') as writer:
             # Aba 1: Dados filtrados
             df_filtrado.to_excel(writer, sheet_name='Dados_Filtrados', index=False)
             
-            # Aba 2: Comparativo YoY
-            if 'pv' in locals() and not pv.empty:
-                pv.to_excel(writer, sheet_name='Comparativo_YoY', index=False)
-            
-            # Aba 3: KPI Clientes
+            # Aba 2: KPI Clientes
             if 'kpi_cliente' in locals() and not kpi_cliente.empty:
                 kpi_cliente.to_excel(writer, sheet_name='KPI_Clientes', index=False)
             
-            # Aba 4: Distribuição por Artigo
-            if 'kpi_artigo_cliente' in locals() and not kpi_artigo_cliente.empty:
-                kpi_artigo_cliente.to_excel(writer, sheet_name='Distrib_Artigo', index=False)
+            # Aba 3: Distribuição por Artigo
+            if 'kpi_artigo_cliente_top' in locals() and not kpi_artigo_cliente_top.empty:
+                kpi_artigo_cliente_top.to_excel(writer, sheet_name='Distrib_Artigo', index=False)
+            
+            # Aba 4: KPI Comercial
+            if 'kpi_comercial' in locals() and not kpi_comercial.empty:
+                kpi_comercial.to_excel(writer, sheet_name='KPI_Comercial', index=False)
+            
+            # Aba 5: Resumo de Filtros
+            resumo_filtros = pd.DataFrame({
+                'Filtro': ['Anos', 'Meses', 'Comerciais', 'Clientes', 'Artigos'],
+                'Selecionados': [
+                    ', '.join(map(str, anos_selecionados)),
+                    ', '.join(meses_selecionados),
+                    str(len(comerciais_selecionados)) if comerciais_selecionados else 'Todos',
+                    str(len(clientes_selecionados)) if clientes_selecionados else 'Todos',
+                    str(len(artigos_selecionados)) if artigos_selecionados else 'Todos'
+                ]
+            })
+            resumo_filtros.to_excel(writer, sheet_name='Resumo_Filtros', index=False)
             
             # Formatar largura das colunas
             for sheet_name in writer.sheets:
                 worksheet = writer.sheets[sheet_name]
-                # Ajustar largura das colunas
-                for i, col in enumerate(df_filtrado.columns):
-                    if col in df_filtrado.columns:
-                        column_len = max(
-                            df_filtrado[col].astype(str).str.len().max(),
-                            len(str(col))
-                        ) + 2
-                        worksheet.set_column(i, i, min(column_len, 30))
+                worksheet.set_column('A:Z', 20)
         
         # Botão de download
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         st.download_button(
-            label="⬇️ Download do Relatório Excel",
+            label=f"⬇️ Download do Relatório Excel ({timestamp})",
             data=xls_buf.getvalue(),
-            file_name=f"relatorio_compras_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+            file_name=f"relatorio_compras_{timestamp}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 else:
     st.warning("Não há dados filtrados para exportar")
 
-# === Métricas de resumo ===
-st.subheader("📈 Métricas de Resumo")
+# === Resumo Geral ===
+st.subheader("📊 Resumo Geral")
 
 if not df_filtrado.empty:
-    col1, col2, col3, col4 = st.columns(4)
+    col_res1, col_res2, col_res3, col_res4 = st.columns(4)
     
-    total_ano_base = df_filtrado[df_filtrado["Ano"] == ano_base]["Quantidade"].sum()
-    total_ano_comp = df_filtrado[df_filtrado["Ano"] == ano_comp]["Quantidade"].sum()
-    variacao_total = ((total_ano_comp - total_ano_base) / total_ano_base * 100) if total_ano_base != 0 else 0
+    with col_res1:
+        total_quantidade = df_filtrado["Quantidade"].sum()
+        st.metric("Quantidade Total", f"{total_quantidade:,.0f}")
     
-    with col1:
-        st.metric(f"Total {ano_base}", f"{total_ano_base:,.0f}")
+    with col_res2:
+        total_registos = len(df_filtrado)
+        st.metric("Registos Totais", f"{total_registos:,}")
     
-    with col2:
-        st.metric(f"Total {ano_comp}", f"{total_ano_comp:,.0f}")
-    
-    with col3:
-        st.metric("Variação Total", f"{variacao_total:+.1f}%", 
-                 delta=f"{variacao_total:+.1f}%")
-    
-    with col4:
+    with col_res3:
         clientes_unicos = df_filtrado["Nome"].nunique()
         st.metric("Clientes Únicos", clientes_unicos)
-        
-    # Métricas adicionais
-    col5, col6, col7, col8 = st.columns(4)
     
-    with col5:
+    with col_res4:
         artigos_unicos = df_filtrado["Artigo"].nunique()
         st.metric("Artigos Únicos", artigos_unicos)
     
-    with col6:
-        comerciais_unicos = df_filtrado["Comercial"].nunique()
-        st.metric("Comerciais", comerciais_unicos)
+    # Distribuição por ano
+    st.subheader("📅 Distribuição por Ano")
+    distribuicao_ano = df_filtrado.groupby("Ano")["Quantidade"].sum().reset_index()
     
-    with col7:
-        registos_totais = len(df_filtrado)
-        st.metric("Registos Totais", registos_totais)
+    col_dist1, col_dist2 = st.columns([1, 2])
     
-    with col8:
-        media_por_cliente = total_ano_comp / clientes_unicos if clientes_unicos > 0 else 0
-        st.metric(f"Média/{ano_comp}", f"{media_por_cliente:,.0f}")
-else:
-    st.warning("Não há dados para mostrar métricas")
+    with col_dist1:
+        st.dataframe(
+            distribuicao_ano.style.format({"Quantidade": "{:,.0f}"})
+            .background_gradient(subset=["Quantidade"], cmap="Greens"),
+            height=200
+        )
+    
+    with col_dist2:
+        if len(distribuicao_ano) > 0:
+            fig_dist, ax_dist = plt.subplots(figsize=(10, 4))
+            ax_dist.bar(distribuicao_ano["Ano"].astype(str), 
+                       distribuicao_ano["Quantidade"], 
+                       color='#2ecc71')
+            ax_dist.set_title("Distribuição por Ano")
+            ax_dist.set_xlabel("Ano")
+            ax_dist.set_ylabel("Quantidade")
+            
+            # Adicionar valores no topo das barras
+            for i, (ano, qtd) in enumerate(zip(distribuicao_ano["Ano"], distribuicao_ano["Quantidade"])):
+                ax_dist.text(i, qtd + max(distribuicao_ano["Quantidade"]) * 0.01, 
+                           f'{int(qtd):,}', ha='center', va='bottom')
+            
+            plt.tight_layout()
+            st.pyplot(fig_dist)
 
 # === Instruções ===
-with st.expander("ℹ️ Instruções de uso"):
+with st.expander("ℹ️ Instruções de Uso"):
     st.markdown("""
-    **Como usar este dashboard:**
+    ## 📋 Como usar este dashboard
     
-    1. **Filtros (sidebar à esquerda):**
-       - 📅 **Ano base/comparação**: Selecione os anos para comparação
-       - 🗓️ **Meses**: Selecione os meses a incluir na análise (multiseleção)
-       - 👤 **Comercial**: Filtre por comercial(s) específico(s) (multiseleção)
-       - 🏢 **Cliente**: Filtre por cliente(s) específico(s) (multiseleção)
-       - 📦 **Artigo**: Filtre por artigo(s) específico(s) (multiseleção)
+    ### 🔍 Filtros Interativos (Sidebar)
+    Todos os filtros são **multiselect** - pode selecionar múltiplos valores:
     
-    2. **Visualizações principais:**
-       - 📈 **Comparativo YoY**: Tabela interativa com variação percentual ano a ano
-       - 📊 **KPI Clientes**: Gráfico dos principais clientes por volume
-       - 📊 **Distribuição por Artigo**: Análise percentual de artigos por cliente
+    1. **📅 Ano(s)** - Selecione um ou mais anos para análise
+    2. **🗓️ Mês(es)** - Selecione os meses a incluir
+    3. **👤 Comercial(ais)** - Filtre por um ou mais comerciais
+    4. **🏢 Cliente(s)** - Filtre por um ou mais clientes
+    5. **📦 Artigo(s)** - Filtre por um ou mais artigos
     
-    3. **Exportação:**
-       - 💾 **Gerar Relatório Excel**: Cria Excel com todas as análises filtradas
+    ### 📊 KPIs Principais
+    1. **KPI 1 - Clientes** - Top clientes por volume de compras
+    2. **KPI 2 - Artigos** - Distribuição percentual de artigos por cliente
+    3. **KPI 3 - Comerciais** - Desempenho por comercial
     
-    4. **Métricas de Resumo:**
-       - Visualização rápida dos principais indicadores
+    ### 📥 Exportação
+    - **Gerar Relatório Excel** - Exporta todos os dados filtrados e análises para Excel
+    - Inclui múltiplas abas com todos os KPIs
     
-    **Colunas mapeadas do Excel:**
-    - Coluna B (Índice 1): Nome do Cliente
-    - Coluna C (Índice 2): Artigo
-    - Coluna I (Índice 8): Comercial
-    - Coluna K (Índice 10): Ano
+    ### 💡 Dicas
+    - Use **Ctrl+Click** para selecionar múltiplos itens nos filtros
+    - Clique no **❌** ao lado dos itens selecionados para removê-los
+    - **🔄 Atualizar dados** recarrega do ficheiro original
+    - **🗑️ Limpar filtros** remove todas as seleções
     
-    **Dicas:**
-    - Use `Atualizar todos os dados` para recarregar do ficheiro original
-    - Use `Limpar todos os filtros` para recomeçar a análise
-    - Os filtros são cumulativos (todos aplicados em conjunto)
+    ### 📍 Mapeamento de Colunas
+    - Coluna B (Índice 1): **Nome do Cliente**
+    - Coluna C (Índice 2): **Artigo**
+    - Coluna I (Índice 8): **Comercial**
+    - Coluna K (Índice 10): **Ano**
     """)
