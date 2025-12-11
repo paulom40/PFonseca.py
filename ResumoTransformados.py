@@ -21,28 +21,32 @@ COL_QTD = 3        # Ajusta se necessário
 
 # Construir dataframe canónico
 df = pd.DataFrame({
-    "Nome":      df_raw.iloc[:, IDX_NOME],
-    "Artigo":    df_raw.iloc[:, IDX_ARTIGO],
-    "Comercial": df_raw.iloc[:, IDX_COMERCIAL],
-    "Data":      df_raw.iloc[:, COL_DATA],
-    "Quantidade":df_raw.iloc[:, COL_QTD],
+    "Nome":       df_raw.iloc[:, IDX_NOME],
+    "Artigo":     df_raw.iloc[:, IDX_ARTIGO],
+    "Comercial":  df_raw.iloc[:, IDX_COMERCIAL],
+    "Data":       df_raw.iloc[:, COL_DATA],
+    "Quantidade": df_raw.iloc[:, COL_QTD],
 })
 # === 3. Normalização ===
 df["Data"] = pd.to_datetime(df["Data"], errors="coerce")
 
-# Remover datas inválidas (NaT ou anos estranhos, como 1970/1900)
+# Remover datas inválidas
 df = df[df["Data"].notna()]
 df = df[df["Data"].dt.year >= 2000]
 
 df["Ano"] = df["Data"].dt.year
 df["Mes"] = df["Data"].dt.month
+
 df["Nome"] = df["Nome"].astype(str).str.strip()
 df["Artigo"] = df["Artigo"].astype(str).str.strip()
 df["Comercial"] = df["Comercial"].astype(str).str.strip()
 df["Quantidade"] = pd.to_numeric(df["Quantidade"], errors="coerce").fillna(0)
 
 # === 4. Base KPI ===
-kpi = df.groupby(["Comercial","Nome","Artigo","Ano","Mes"], as_index=False)["Quantidade"].sum()
+kpi = df.groupby(
+    ["Comercial", "Nome", "Artigo", "Ano", "Mes"],
+    as_index=False
+)["Quantidade"].sum()
 # === Sidebar com filtros dinâmicos ===
 with st.sidebar:
     st.header("Filtros")
@@ -55,7 +59,8 @@ with st.sidebar:
     ano_base = st.selectbox("Ano base", anos_disponiveis)
     ano_comp = st.selectbox("Ano comparação", anos_disponiveis)
 
-    meses_nomes = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]
+    meses_nomes = ["Jan","Fev","Mar","Abr","Mai","Jun",
+                   "Jul","Ago","Set","Out","Nov","Dez"]
     meses_sel = st.multiselect("Selecionar meses", meses_nomes, default=meses_nomes)
 
     # Comerciais
@@ -77,7 +82,7 @@ with st.sidebar:
         st.experimental_rerun()
 
 # Converter meses selecionados para números
-meses_map = dict(zip(meses_nomes, range(1,13)))
+meses_map = dict(zip(meses_nomes, range(1, 13)))
 meses_sel_num = [meses_map[m] for m in meses_sel]
 
 # Aplicar filtros ao kpi_view
@@ -92,18 +97,18 @@ if meses_sel_num:
     kpi_view = kpi_view[kpi_view["Mes"].isin(meses_sel_num)]
 # === Pivot comparativo ===
 pv = kpi_view.pivot_table(
-    index=["Comercial","Nome","Artigo","Mes"],
+    index=["Comercial", "Nome", "Artigo", "Mes"],
     columns="Ano",
     values="Quantidade",
     aggfunc="sum"
 )
 
-# Garantir colunas para os dois anos
+# Garantir colunas para os dois anos selecionados
 for col in [ano_base, ano_comp]:
     if col not in pv.columns:
         pv[col] = 0
 
-# Se o pivot estiver vazio, evitar erro
+# Calcular variação apenas se houver linhas
 if len(pv) > 0:
     pv["Variação_%"] = (
         (pv[ano_comp] - pv[ano_base]) /
@@ -112,18 +117,47 @@ if len(pv) > 0:
 else:
     pv["Variação_%"] = []
 
-pv = pv.reset_index().sort_values(["Comercial","Nome","Artigo","Mes"])
-meses_nomes = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]
-pv["Mês"] = pv["Mes"].apply(lambda m: meses_nomes[m-1] if 1 <= m <= 12 else str(m))
-pv = pv[["Comercial","Nome","Artigo","Mês",ano_base,ano_comp,"Variação_%"]]
+pv = pv.reset_index().sort_values(["Comercial", "Nome", "Artigo", "Mes"])
+
+# Coluna Mês legível
+if "Mes" in pv.columns:
+    meses_nomes = ["Jan","Fev","Mar","Abr","Mai","Jun",
+                   "Jul","Ago","Set","Out","Nov","Dez"]
+    pv["Mês"] = pv["Mes"].apply(
+        lambda m: meses_nomes[m-1] if 1 <= m <= 12 else str(m)
+    )
+else:
+    pv["Mês"] = ""
+
+# Garantir que colunas esperadas existem
+for col in ["Comercial", "Nome", "Artigo"]:
+    if col not in pv.columns:
+        pv[col] = ""
+
+if "Variação_%" not in pv.columns:
+    pv["Variação_%"] = 0
+
+# Construir lista de colunas finais que existem
+cols_final = []
+for c in ["Comercial", "Nome", "Artigo", "Mês", ano_base, ano_comp, "Variação_%"]:
+    if c in pv.columns:
+        cols_final.append(c)
+
+pv = pv[cols_final]
 
 # === Mostrar tabela ===
 st.subheader("Tabela comparativa YoY por Comercial, Cliente, Artigo e Mês")
 
 pv = pv.rename(columns=lambda c: str(c).strip())
-cols_fmt = {ano_base: "{:.0f}", ano_comp: "{:.0f}"}
+cols_fmt = {}
+if ano_base in pv.columns:
+    cols_fmt[ano_base] = "{:.0f}"
+if ano_comp in pv.columns:
+    cols_fmt[ano_comp] = "{:.0f}"
 if "Variação_%" in pv.columns:
     cols_fmt["Variação_%"] = "{:.2f}"
+
+if "Variação_%" in pv.columns:
     styled = pv.style.format(cols_fmt).background_gradient(cmap="RdYlGn", subset=["Variação_%"])
 else:
     styled = pv.style.format(cols_fmt)
@@ -143,33 +177,37 @@ with pd.ExcelWriter(xls_buf, engine="xlsxwriter") as writer:
 
     # Formatação condicional na Variação_%
     if "Variação_%" in pv.columns:
-        last_col = len(pv.columns) - 1
+        last_col = pv.columns.get_loc("Variação_%")
         ws.conditional_format(1, last_col, len(pv), last_col, {
-            'type': 'cell','criteria': '>', 'value': 0,
+            'type': 'cell', 'criteria': '>', 'value': 0,
             'format': writer.book.add_format({'bg_color': '#C6EFCE','font_color': '#006100'})
         })
         ws.conditional_format(1, last_col, len(pv), last_col, {
-            'type': 'cell','criteria': '<', 'value': 0,
+            'type': 'cell', 'criteria': '<', 'value': 0,
             'format': writer.book.add_format({'bg_color': '#FFC7CE','font_color': '#9C0006'})
         })
 
-    # Gráfico automático global
-    chart = writer.book.add_chart({'type': 'line'})
-    chart.add_series({
-        'name': f"Ano {ano_base}",
-        'categories': ['KPI_YoY', 1, 3, len(pv), 3],
-        'values':     ['KPI_YoY', 1, 4, len(pv), 4],
-    })
-    chart.add_series({
-        'name': f"Ano {ano_comp}",
-        'categories': ['KPI_YoY', 1, 3, len(pv), 3],
-        'values':     ['KPI_YoY', 1, 5, len(pv), 5],
-    })
-    chart.set_title({'name': 'Evolução Mensal Global'})
-    chart.set_x_axis({'name': 'Mês'})
-    chart.set_y_axis({'name': 'Quantidade'})
-    chart.set_style(10)
-    ws.insert_chart('H2', chart, {'x_scale': 1.3, 'y_scale': 1.3})
+    # Gráfico automático global (se houver dados suficientes)
+    if len(pv) > 0 and ano_base in pv.columns and ano_comp in pv.columns:
+        chart = writer.book.add_chart({'type': 'line'})
+        # categorias = coluna "Mês" se existir, senão index
+        cat_col_idx = pv.columns.get_loc("Mês") if "Mês" in pv.columns else 0
+
+        chart.add_series({
+            'name': f"Ano {ano_base}",
+            'categories': ['KPI_YoY', 1, cat_col_idx, len(pv), cat_col_idx],
+            'values':     ['KPI_YoY', 1, pv.columns.get_loc(ano_base), len(pv), pv.columns.get_loc(ano_base)],
+        })
+        chart.add_series({
+            'name': f"Ano {ano_comp}",
+            'categories': ['KPI_YoY', 1, cat_col_idx, len(pv), cat_col_idx],
+            'values':     ['KPI_YoY', 1, pv.columns.get_loc(ano_comp), len(pv), pv.columns.get_loc(ano_comp)],
+        })
+        chart.set_title({'name': 'Evolução Mensal Global'})
+        chart.set_x_axis({'name': 'Mês'})
+        chart.set_y_axis({'name': 'Quantidade'})
+        chart.set_style(10)
+        ws.insert_chart('H2', chart, {'x_scale': 1.3, 'y_scale': 1.3})
 
 st.download_button(
     label="📥 Exportar para Excel",
