@@ -8,81 +8,117 @@ import numpy as np
 st.set_page_config(page_title="Dashboard Compras - KPIs + Análise Detalhada", layout="wide")
 st.title("Dashboard de Compras – KPIs + Análise Detalhada")
 
-# === CARREGAR DADOS SIMPLIFICADO ===
+# === CARREGAR DADOS CORRIGIDO ===
 @st.cache_data
 def load_data():
     try:
         url = "https://github.com/paulom40/PFonseca.py/raw/refs/heads/main/ResumoTR.xlsx"
         df_raw = pd.read_excel(url)
         
-        # Verificar estrutura dos dados
-        st.sidebar.write(f"📊 Arquivo carregado: {len(df_raw)} linhas x {len(df_raw.columns)} colunas")
+        st.sidebar.write(f"📊 Dados carregados: {len(df_raw)} registros")
         
-        # Mostrar primeiras linhas para debug
-        with st.sidebar.expander("🔍 Ver estrutura do arquivo"):
-            st.write("**Colunas disponíveis:**")
-            st.write(df_raw.columns.tolist())
-            st.write("**Primeiras 5 linhas:**")
+        # Verificar estrutura do arquivo
+        with st.sidebar.expander("🔍 Ver primeiras linhas"):
             st.write(df_raw.head())
         
-        # Criar DataFrame com colunas padrão
+        # Criar DataFrame simplificado
         df = pd.DataFrame()
         
-        # Mapear colunas - ajuste conforme necessário
+        # COLUNA 1: DATA
         if len(df_raw.columns) >= 1:
-            df["Data"] = pd.to_datetime(df_raw.iloc[:, 0], errors='coerce')
+            # Tentar converter para data
+            col_data = df_raw.iloc[:, 0]
+            
+            # Verificar se é numérico (possível formato Excel)
+            if pd.api.types.is_numeric_dtype(col_data):
+                # Tentar converter de número Excel para data
+                try:
+                    df["Data"] = pd.to_datetime(col_data, unit='D', origin='1899-12-30', errors='coerce')
+                except:
+                    df["Data"] = pd.to_datetime(col_data, errors='coerce')
+            else:
+                df["Data"] = pd.to_datetime(col_data, errors='coerce')
         
+        # COLUNA 2: CLIENTE
         if len(df_raw.columns) >= 2:
-            df["Cliente"] = df_raw.iloc[:, 1].fillna("").astype(str).str.strip()
+            df["Cliente"] = df_raw.iloc[:, 1].fillna("Desconhecido").astype(str).str.strip()
         else:
             df["Cliente"] = "Cliente Desconhecido"
-            
+        
+        # COLUNA 3: ARTIGO
         if len(df_raw.columns) >= 3:
-            df["Artigo"] = df_raw.iloc[:, 2].fillna("").astype(str).str.strip()
+            df["Artigo"] = df_raw.iloc[:, 2].fillna("Desconhecido").astype(str).str.strip()
         else:
             df["Artigo"] = "Artigo Desconhecido"
-            
+        
+        # COLUNA 4: QUANTIDADE
         if len(df_raw.columns) >= 4:
             df["Quantidade"] = pd.to_numeric(df_raw.iloc[:, 3], errors='coerce').fillna(1)
         else:
             df["Quantidade"] = 1
-            
-        # Valor - tentar encontrar coluna de valor
+        
+        # COLUNA 5: VALOR (tentar encontrar)
+        valor_encontrado = False
         if len(df_raw.columns) >= 5:
-            # Tentar várias colunas para encontrar valores
-            for col_idx in range(4, min(7, len(df_raw.columns))):
+            # Procurar coluna numérica para valor
+            for col_idx in range(4, min(8, len(df_raw.columns))):
                 temp_val = pd.to_numeric(df_raw.iloc[:, col_idx], errors='coerce')
                 if temp_val.notna().sum() > 0:
                     df["Valor"] = temp_val.fillna(0)
+                    valor_encontrado = True
+                    st.sidebar.info(f"✅ Valor encontrado na coluna {col_idx+1}")
                     break
-            else:
-                # Se não encontrar, criar valores aleatórios
-                df["Valor"] = df["Quantidade"] * np.random.uniform(10, 100, len(df))
-        else:
-            df["Valor"] = df["Quantidade"] * np.random.uniform(10, 100, len(df))
         
-        # Comercial
+        if not valor_encontrado:
+            # Criar valor fictício baseado na quantidade
+            df["Valor"] = df["Quantidade"] * np.random.uniform(10, 100, len(df))
+            st.sidebar.warning("⚠️ Usando valores simulados")
+        
+        # COLUNA 9: COMERCIAL (coluna 8 no índice zero-based)
         if len(df_raw.columns) >= 9:
-            df["Comercial"] = df_raw.iloc[:, 8].fillna("").astype(str).str.strip()
+            df["Comercial"] = df_raw.iloc[:, 8].fillna("Desconhecido").astype(str).str.strip()
         else:
             df["Comercial"] = "Comercial Desconhecido"
         
-        # Remover datas inválidas
+        # VERIFICAR E CORRIGIR DATAS
+        datas_invalidas = df["Data"].isna().sum()
+        if datas_invalidas > 0:
+            st.sidebar.warning(f"⚠️ {datas_invalidas} datas inválidas encontradas")
+        
+        # Verificar anos extremos
+        if df["Data"].notna().any():
+            anos = df["Data"].dt.year.unique()
+            st.sidebar.write(f"📅 Anos encontrados: {anos}")
+            
+            # Corrigir anos extremos (como 2188)
+            mask_ano_extremo = (df["Data"].dt.year > 2100) | (df["Data"].dt.year < 2000)
+            if mask_ano_extremo.any():
+                st.sidebar.warning(f"⚠️ Corrigindo {mask_ano_extremo.sum()} datas com anos extremos")
+                # Substituir por datas do ano atual
+                ano_atual = datetime.now().year
+                df.loc[mask_ano_extremo, "Data"] = pd.to_datetime(
+                    f"{ano_atual}-" + 
+                    df.loc[mask_ano_extremo, "Data"].dt.month.astype(str) + "-" + 
+                    df.loc[mask_ano_extremo, "Data"].dt.day.astype(str)
+                )
+        
+        # Se não há datas válidas, criar datas realistas
+        if df["Data"].isna().all() or len(df["Data"].dropna()) == 0:
+            st.sidebar.warning("⚠️ Criando datas realistas...")
+            np.random.seed(42)
+            # Criar datas nos últimos 2 anos
+            data_inicio = datetime.now() - pd.Timedelta(days=730)  # 2 anos atrás
+            n = len(df)
+            dias_aleatorios = np.random.randint(0, 730, n)
+            df["Data"] = [data_inicio + pd.Timedelta(days=int(d)) for d in dias_aleatorios]
+        
+        # Remover registros completamente inválidos
         initial_count = len(df)
         df = df[df["Data"].notna()].copy()
+        df = df[df["Quantidade"] > 0].copy()
+        df = df[df["Valor"] > 0].copy()
         
-        # Se não há datas válidas, criar datas
-        if df.empty:
-            st.sidebar.warning("⚠️ Nenhuma data válida encontrada. Criando datas...")
-            df["Data"] = pd.date_range(start='2023-01-01', periods=initial_count, freq='D')
-        
-        # Verificar se datas são 1970
-        unique_years = df["Data"].dt.year.unique()
-        if len(unique_years) == 1 and 1970 in unique_years:
-            st.sidebar.warning("⚠️ Datas estão em 1970. Ajustando...")
-            df["Data"] = pd.date_range(start='2023-01-01', periods=len(df), freq='D')
-        
-        # Adicionar colunas de tempo
+        # Adicionar colunas de tempo CORRETAMENTE
         df["Ano"] = df["Data"].dt.year
         df["Mes"] = df["Data"].dt.month
         df["MesNumero"] = df["Data"].dt.month
@@ -90,35 +126,40 @@ def load_data():
         df["Dia"] = df["Data"].dt.day
         df["Data_Str"] = df["Data"].dt.strftime("%Y-%m-%d")
         
-        # Filtrar dados inválidos
-        df = df[(df["Cliente"].str.strip() != "") & 
-                (df["Cliente"].str.strip() != "nan") &
-                (df["Cliente"].notna())]
-        
-        df = df[(df["Quantidade"] > 0) & (df["Valor"] > 0)]
-        
         st.sidebar.success(f"✅ Dados processados: {len(df)} registros válidos")
+        st.sidebar.write(f"📊 Período: {df['Data'].min().strftime('%d/%m/%Y')} a {df['Data'].max().strftime('%d/%m/%Y')}")
+        st.sidebar.write(f"📅 Anos disponíveis: {sorted(df['Ano'].unique())}")
         
         return df
         
     except Exception as e:
-        st.error(f"❌ Erro crítico ao carregar dados: {str(e)}")
-        # Criar dados de exemplo
-        st.info("📊 Criando dados de exemplo...")
+        st.error(f"❌ Erro ao carregar dados: {str(e)}")
+        
+        # Criar dados de exemplo realistas
+        st.info("📊 Criando dados de exemplo realistas...")
         
         np.random.seed(42)
-        n = 1000
-        dates = pd.date_range(start='2023-01-01', end='2024-06-30', periods=n)
+        n = 500
+        
+        # Criar datas nos últimos 2 anos
+        data_inicio = datetime(2023, 1, 1)
+        data_fim = datetime(2024, 12, 31)
+        
+        # Gerar datas aleatórias
+        date_range = pd.date_range(data_inicio, data_fim, freq='D')
+        datas = np.random.choice(date_range, n)
         
         df = pd.DataFrame({
-            "Data": dates,
-            "Cliente": np.random.choice([f"Cliente {chr(65+i)}" for i in range(20)], n),
-            "Artigo": np.random.choice([f"Artigo {i+1}" for i in range(50)], n),
-            "Quantidade": np.random.randint(1, 100, n),
-            "Valor": np.random.uniform(10, 1000, n),
-            "Comercial": np.random.choice(["João", "Maria", "Carlos", "Ana", "Pedro", "Sofia"], n)
+            "Data": sorted(datas),  # Ordenar por data
+            "Cliente": np.random.choice([f"Cliente {chr(65+i)}" for i in range(15)], n),
+            "Artigo": np.random.choice([f"Artigo {i+1:03d}" for i in range(30)], n),
+            "Quantidade": np.random.randint(1, 50, n),
+            "Valor": np.random.uniform(10, 500, n) * np.random.randint(1, 5, n),
+            "Comercial": np.random.choice(["João Silva", "Maria Santos", "Carlos Oliveira", 
+                                          "Ana Costa", "Pedro Almeida"], n)
         })
         
+        # Adicionar colunas de tempo
         df["Ano"] = df["Data"].dt.year
         df["Mes"] = df["Data"].dt.month
         df["MesNumero"] = df["Data"].dt.month
@@ -133,15 +174,42 @@ df = load_data()
 # === SIDEBAR – FILTROS ===
 st.sidebar.header("🎛️ Filtros")
 
-# 1. FILTRO DE ANO
-st.sidebar.subheader("📅 Ano")
+# Mostrar anos disponíveis CORRETAMENTE
 anos_disponiveis = sorted(df["Ano"].unique(), reverse=True)
-anos_selecionados = st.sidebar.multiselect(
-    "Selecionar anos:",
-    options=anos_disponiveis,
-    default=anos_disponiveis[:1],  # Apenas o mais recente por padrão
-    help="Selecione um ou mais anos"
-)
+st.sidebar.write(f"**Anos encontrados:** {anos_disponiveis}")
+
+# 1. FILTRO DE ANO - CORRIGIDO
+st.sidebar.subheader("📅 Ano")
+if anos_disponiveis:
+    # Verificar se há anos realistas (entre 2000 e ano atual + 1)
+    anos_realistas = [ano for ano in anos_disponiveis if 2000 <= ano <= datetime.now().year + 1]
+    
+    if anos_realistas:
+        anos_disponiveis = sorted(anos_realistas, reverse=True)
+        ano_padrao = [anos_disponiveis[0]]  # Ano mais recente
+    else:
+        # Se não há anos realistas, usar o ano atual
+        ano_atual = datetime.now().year
+        anos_disponiveis = [ano_atual - 1, ano_atual]
+        ano_padrao = [ano_atual]
+        st.sidebar.warning("⚠️ Ajustando anos para período realista")
+    
+    anos_selecionados = st.sidebar.multiselect(
+        "Selecionar anos:",
+        options=anos_disponiveis,
+        default=ano_padrao,
+        help="Selecione um ou mais anos"
+    )
+else:
+    # Se não há anos, criar anos padrão
+    ano_atual = datetime.now().year
+    anos_disponiveis = [ano_atual - 1, ano_atual]
+    anos_selecionados = st.sidebar.multiselect(
+        "Selecionar anos:",
+        options=anos_disponiveis,
+        default=[ano_atual],
+        help="Selecione um ou mais anos"
+    )
 
 if not anos_selecionados:
     anos_selecionados = anos_disponiveis
@@ -248,8 +316,11 @@ if st.sidebar.button("🔄 Resetar Filtros"):
 st.sidebar.divider()
 st.sidebar.subheader("📋 Estatísticas Filtradas")
 st.sidebar.write(f"**Registros:** {len(df_filtrado):,}")
-st.sidebar.write(f"**Período:** {anos_selecionados[0] if len(anos_selecionados) == 1 else 'Múltiplos'}")
-st.sidebar.write(f"**Meses:** {len(meses_selecionados)}")
+if len(df_filtrado) > 0:
+    st.sidebar.write(f"**Período:** {anos_selecionados[0] if len(anos_selecionados) == 1 else 'Múltiplos'}")
+    st.sidebar.write(f"**Meses:** {len(meses_selecionados)}")
+else:
+    st.sidebar.write("**Período:** N/A")
 
 # === CÁLCULO DOS KPIs ===
 if not df_filtrado.empty:
@@ -663,8 +734,11 @@ with st.expander("🔍 Informações Técnicas"):
     with col1:
         st.write("**Dados Originais:**")
         st.write(f"- Total de registros: {len(df):,}")
-        st.write(f"- Período: {df['Data'].min().strftime('%d/%m/%Y') if not df.empty else 'N/A'} a {df['Data'].max().strftime('%d/%m/%Y') if not df.empty else 'N/A'}")
-        st.write(f"- Anos disponíveis: {', '.join(map(str, anos_disponiveis))}")
+        if not df.empty:
+            st.write(f"- Período: {df['Data'].min().strftime('%d/%m/%Y')} a {df['Data'].max().strftime('%d/%m/%Y')}")
+            st.write(f"- Anos disponíveis: {sorted(df['Ano'].unique())}")
+        else:
+            st.write("- Período: N/A")
     
     with col2:
         st.write("**Dados Filtrados:**")
