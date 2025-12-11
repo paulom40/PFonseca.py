@@ -156,46 +156,6 @@ st.download_button(
     file_name=f"KPI_YoY_{ano_base}_vs_{ano_comp}.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
-st.subheader("Exportar resultados filtrados")
-
-xls_buf = io.BytesIO()
-with pd.ExcelWriter(xls_buf, engine="xlsxwriter") as writer:
-    pv.to_excel(writer, sheet_name="KPI_YoY", index=False)
-    ws = writer.sheets["KPI_YoY"]
-
-    for i, col in enumerate(pv.columns):
-        ws.set_column(i, i, 18)
-
-    last_col = len(pv.columns) - 1
-    ws.conditional_format(1, last_col, len(pv), last_col, {
-        'type': 'cell','criteria': '>', 'value': 0,
-        'format': writer.book.add_format({'bg_color': '#C6EFCE','font_color': '#006100'})
-    })
-    ws.conditional_format(1, last_col, len(pv), last_col, {
-        'type': 'cell','criteria': '<', 'value': 0,
-        'format': writer.book.add_format({'bg_color': '#FFC7CE','font_color': '#9C0006'})
-    })
-
-    chart = writer.book.add_chart({'type': 'line'})
-    chart.add_series({
-        'name': f"Ano {ano_base}",
-        'categories': ['KPI_YoY', 1, 3, len(pv), 3],
-        'values':     ['KPI_YoY', 1, 4, len(pv), 4],
-    })
-    chart.add_series({
-        'name': f"Ano {ano_comp}",
-        'categories': ['KPI_YoY', 1, 3, len(pv), 3],
-        'values':     ['KPI_YoY', 1, 5, len(pv), 5],
-    })
-
-    ws.insert_chart('H2', chart)
-
-st.download_button(
-    label="📥 Exportar para Excel",
-    data=xls_buf.getvalue(),
-    file_name=f"KPI_YoY_{ano_base}_vs_{ano_comp}.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
 # === KPI 1 – Total de quantidade por cliente ===
 kpi_cliente = (
     df.groupby("Nome")["Quantidade"]
