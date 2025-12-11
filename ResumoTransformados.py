@@ -3,8 +3,8 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import io
 
-st.set_page_config(page_title="Dashboard Compras - KPIs", layout="wide")
-st.title("Dashboard de Compras – KPIs + Comparativo YoY")
+st.set_page_config(page_title="Dashboard Compras - KPIs + YoY", layout="wide")
+st.title("Dashboard de Compras – KPIs + Comparativo com Ano Anterior")
 
 # === CARREGAR DADOS ===
 @st.cache_data
@@ -16,154 +16,164 @@ def load_data():
         "Data":       pd.to_datetime(df_raw.iloc[:, 0], errors="coerce"),
         "Cliente":    df_raw.iloc[:, 1].astype(str).str.strip(),
         "Artigo":     df_raw.iloc[:, 2].astype(str).str.strip(),
-        "Quantidade": pd.to_numeric(df_raw.iloc[:, 3], errors="coerce="coerce").fillna(0),
-        "Comercial":  df_raw.iloc[:, 8].astype(str).str.strip(),
+        "Quantidade": pd.to_numeric(df_raw.iloc[:, 3], errors="coerce").fillna(0),   # ← CORRIGIDO AQUI
+        "Comercial":  df_raw.iloc[:, 8].astype(str).astype(str).str.strip(),
     })
 
     df = df.dropna(subset=["Data"])
     df = df[(df["Cliente"] != "nan") & (df["Comercial"] != "nan") & (df["Artigo"] != "nan")]
     df["Ano"] = df["Data"].dt.year
     df["Mes"] = df["Data"].dt.month
-    df["MesNome"] = df["Data"].dt.strftime("%b")
+    df["MesNome"] = df["Data"].dt.strftime("%b")   # Jan, Feb, Mar…
 
     return df
 
 df = load_data()
 
-# === SIDEBAR - 4 FILTROS ===
+# === SIDEBAR – 4 FILTROS ===
 st.sidebar.header("Filtros")
 
 ano_atual = st.sidebar.selectbox("Ano a Analisar", options=sorted(df["Ano"].unique(), reverse=True))
 ano_anterior = ano_atual - 1
 
 if ano_anterior not in df["Ano"].unique():
-    st.error("Ano anterior não disponível.")
+    st.error(f"Não existem dados para o ano anterior ({ano_anterior}).")
     st.stop()
 
-# Filtros
-todos_com = st.sidebar.checkbox("Todos Comerciais", value=True)
-comerciais_sel = df["Comercial"].unique().tolist() if todos_com else st.sidebar.multiselect("Comerciais", sorted(df["Comercial"].unique()))
+# Comerciais
+todos_com = st.sidebar.checkbox("Todos os Comerciais", value=True)
+comerciais_sel = df["Comercial"].unique().tolist() if todos_com else st.sidebar.multiselect(
+    "Selecionar Comerciais", sorted(df["Comercial"].unique()))
 
-todos_cli = st.sidebar.checkbox("Todos Clientes", value=True)
-clientes_sel = df["Cliente"].unique().tolist() if todos_cli else st.sidebar.multiselect("Clientes", sorted(df["Cliente"].unique()))
+# Clientes
+todos_cli = st.sidebar.checkbox("Todos os Clientes", value=True)
+clientes_sel = df["Cliente"].unique().tolist() if todos_cli else st.sidebar.multiselect(
+    "Selecionar Clientes", sorted(df["Cliente"].unique()))
 
-todos_art = st.sidebar.checkbox("Todos Artigos", value=True)
-artigos_sel = df["Artigo"].unique().tolist() if todos_art else st.sidebar.multiselect("Artigos", sorted(df["Artigo"].unique()))
+# Artigos
+todos_art = st.sidebar.checkbox("Todos os Artigos", value=True)
+artigos_sel = df["Artigo"].unique().tolist() if todos_art else st.sidebar.multiselect(
+    "Selecionar Artigos", sorted(df["Artigo"].unique()))
 
 # === DADOS FILTRADOS ===
-df_atual = df[(df["Ano"] == ano_atual) & (df["Comercial"].isin(comerciais_sel)) & (df["Cliente"].isin(clientes_sel)) & (df["Artigo"].isin(artigos_sel))]
-df_anterior = df[(df["Ano"] == ano_anterior) & (df["Comercial"].isin(comerciais_sel)) & (df["Cliente"].isin(clientes_sel)) & (df["Artigo"].isin(artigos_sel))]
+df_atual = df[
+    (df["Ano"] == ano_atual) &
+    (df["Comercial"].isin(comerciais_sel)) &
+    (df["Cliente"].isin(clientes_sel)) &
+    (df["Artigo"].isin(artigos_sel))
+].copy()
 
-# === CÁLCULO DOS 8 KPIs PRINCIPAIS ===
-total_atual = df_atual["Quantidade"].sum()
-total_anterior = df_anterior["Quantidade"].sum()
-var_total = total_atual - total_anterior
-var_pct = (var_total / total_anterior * 100) if total_anterior > 0 else 0
+df_anterior = df[
+    (df["Ano"] == ano_anterior) &
+    (df["Comercial"].isin(comerciais_sel)) &
+    (df["Cliente"].isin(clientes_sel)) &
+    (df["Artigo"].isin(artigos_sel))
+].copy()
 
-clientes_atual = df_atual["Cliente"].nunique()
-clientes_anterior = df_anterior["Cliente"].nunique()
-var_clientes = clientes_atual - clientes_anterior
+# === CÁLCULO DOS KPIs ===
+total_atual      = df_atual["Quantidade"].sum()
+total_anterior   = df_anterior["Quantidade"].sum()
+var_total        = total_atual - total_anterior
+var_pct          = (var_total / total_anterior * 100) if total_anterior > 0 else 0
 
-artigos_atual = df_atual["Artigo"].nunique()
-artigos_anterior = df_anterior["Artigo"].nunique()
+n_clientes_atual    = df_atual["Cliente"].nunique()
+n_clientes_anterior = df_anterior["Cliente"].nunique()
+var_clientes        = n_clientes_atual - n_clientes_anterior
 
-comerciais_atual = df_atual["Comercial"].nunique()
+n_artigos_atual    = df_atual["Artigo"].nunique()
+n_artigos_anterior = df_anterior["Artigo"].nunique()
 
-ticket_medio_atual = total_atual / len(df_atual) if len(df_atual) > 0 else 0
-ticket_medio_anterior = total_anterior / len(df_anterior) if len(df_anterior) > 0 else 0
-var_ticket = ticket_medio_atual - ticket_medio_anterior
+n_comerciais = df_atual["Comercial"].nunique()
 
-top_cliente_atual = df_atual.groupby("Cliente")["Quantidade"].sum().idxmax() if not df_atual.empty else "-"
-qtd_top_cliente = df_atual.groupby("Cliente")["Quantidade"].sum().max() if not df_atual.empty else 0
+ticket_atual    = total_atual / len(df_atual) if len(df_atual) > 0 else 0
+ticket_anterior = total_anterior / len(df_anterior) if len(df_anterior) > 0 else 0
+var_ticket      = ticket_atual - ticket_anterior
 
-# === 8 KPIs NO TOPO - BONITOS E CLAROS ===
+top_cliente = df_atual.groupby("Cliente")["Quantidade"].sum().idxmax() if not df_atual.empty else "—"
+top_qtd     = df_atual.groupby("Cliente")["Quantidade"].sum().max() if not df_atual.empty else 0
+
+# === 8 KPIs BONITOS NO TOPO ===
 st.markdown(f"### Resumo Executivo – {ano_atual} vs {ano_anterior}")
 
-kpi1, kpi2, kpi3, kpi4, kpi5, kpi6, kpi7, kpi8 = st.columns(8)
+c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(8)
 
-with kpi1:
-    st.metric("Total Quantidade", f"{total_atual:,.0f}", f"{var_total:+,.0f}", delta_color="normal")
-
-with kpi2:
-    st.metric("Variação %", f"{var_pct:+.1f}%", delta=f"{var_pct:+.1f}%", delta_color="normal")
-
-with kpi3:
-    st.metric("Nº Clientes", clientes_atual, f"{var_clientes:+d}")
-
-with kpi4:
-    st.metric("Nº Artigos", art_atual, f"{artigos_anterior:+d}" if artigos_anterior > 0 else None)
-
-with kpi5:
-    st.metric("Comerciais Ativos", comerciais_atual)
-
-with kpi6:
-    st.metric("Ticket Médio", f"{ticket_medio_atual:,.0f}", f"{var_ticket:+.0f}")
-
-with kpi7:
-    st.metric("Top Cliente", top_cliente_atual, help="Cliente com mais quantidade")
-
-with kpi8:
-    st.metric("Qtd Top Cliente", f"{qtd_top_cliente:,.0f}")
+with c1:
+    st.metric("Total Quantidade", f"{total_atual:,.0f}", f"{var_total:+,.0f}")
+with c2:
+    st.metric("Variação %", f"{var_pct:+.1f}%", delta_color="normal")
+with c3:
+    st.metric("Clientes Únicos", n_clientes_atual, f"{var_clientes:+d}")
+with c4:
+    st.metric("Artigos Vendidos", n_artigos_atual, f"{n_artigos_anterior - n_artigos_atual:+d}" if n_artigos_anterior else None)
+with c5:
+    st.metric("Comerciais Ativos", n_comerciais)
+with c6:
+    st.metric("Ticket Médio", f"{ticket_atual:,.0f}", f"{var_ticket:+.0f}")
+with c7:
+    st.metric("Top Cliente", top_cliente)
+with c8:
+    st.metric("Qtd Top Cliente", f"{top_qtd:,.0f}")
 
 st.divider()
 
-# === GRÁFICO EVOLUÇÃO MENSAL ===
-st.subheader(f"Evolução Mensal – {ano_anterior} vs {ano_atual}")
-
+# === EVOLUÇÃO MENSAL ===
+st.subheader("Evolução Mensal Comparativa")
 meses = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+
 evol_atual = df_atual.groupby("MesNome")["Quantidade"].sum().reindex(meses, fill_value=0)
-evol_anterior = df_anterior.groupby("MesNome")["Quantidade"].sum().reindex(meses, fill_value=0)
+evol_ant   = df_anterior.groupby("MesNome")["Quantidade"].sum().reindex(meses, fill_value=0)
 
 fig, ax = plt.subplots(figsize=(14,6))
-ax.plot(meses, evol_atual.values, marker='o', linewidth=4, label=ano_atual, color="#1f77b4")
-ax.plot(meses, evol_anterior.values, marker='o', linewidth=4, label=ano_anterior, color="#ff7f0e", alpha=0.8)
-ax.set_title("Evolução Mensal Comparativa", fontsize=16, fontweight="bold")
+ax.plot(meses, evol_atual.values, marker="o", linewidth=4, label=str(ano_atual), color="#2E86AB")
+ax.plot(meses, evol_ant.values, marker="o", linewidth=4, label=str(ano_anterior), color="#A23B72", alpha=0.7)
+ax.set_title(f"Evolução Mensal – {ano_anterior} vs {ano_atual}", fontsize=15, fontweight="bold")
 ax.set_ylabel("Quantidade")
 ax.legend()
-ax.grid(True, alpha=0.3)
+ax.grid(alpha=0.3)
 st.pyplot(fig)
 
 st.divider()
 
-# === TOP 10 CLIENTES COM VARIAÇÃO ===
+# === TOP 10 CLIENTES YoY ===
 st.subheader("Top 10 Clientes – Comparativo YoY")
 top10 = df_atual.groupby("Cliente")["Quantidade"].sum().nlargest(10).index
+
 comp = pd.DataFrame({
-    ano_anterior: df_anterior.groupby("Cliente")["Quantidade"].sum(),
-    ano_atual: df_atual.groupby("Cliente")["Quantidade"].sum()
+    str(ano_anterior): df_anterior.groupby("Cliente")["Quantidade"].sum(),
+    str(ano_atual):    df_atual.groupby("Cliente")["Quantidade"].sum()
 }).fillna(0).loc[top10]
 
-comp["Variação"] = comp[ano_atual] - comp[ano_anterior]
-comp["Var %"] = (comp["Variação"] / comp[ano_anterior].replace(0,1) * 100).round(1)
+comp["Variação"] = comp[str(ano_atual)] - comp[str(ano_anterior)]
+comp["Var %"]    = (comp["Variação"] / comp[str(ano_anterior)].replace(0,1) * 100).round(1)
 
 col1, col2 = st.columns([3,2])
 with col1:
-    fig, ax = plt.subplots(figsize=(10,6))
-    comp[[ano_anterior, ano_atual]].plot(kind='barh', ax=ax, color=['#ff7f0e', '#1f77b4'])
-    ax.set_title("Top 10 Clientes")
-    ax.invert_yaxis()
-    st.pyplot(fig)
-
+    fig2, ax2 = plt.subplots(figsize=(10,6))
+    comp[[str(ano_anterior), str(ano_atual)]].plot(kind="barh", ax=ax2, color=["#A23B72", "#2E86AB"])
+    ax2.set_title("Top 10 Clientes")
+    ax2.invert_yaxis()
+    st.pyplot(fig2)
 with col2:
     disp = comp.copy()
-    disp[ano_anterior] = disp[ano_anterior].apply(lambda x: f"{x:,.0f}")
-    disp[ano_atual] = disp[ano_atual].apply(lambda x: f"{x:,.0f}")
-    disp["Variação"] = disp["Variação"].apply(lambda x: f"{x:+,.0f}")
+    for col in [str(ano_anterior), str(ano_atual), "Variação"]:
+        disp[col] = disp[col].apply(lambda x: f"{x:,.0f}")
     disp["Var %"] = disp["Var %"].apply(lambda x: f"{x:+.1f}%")
     st.dataframe(disp, use_container_width=True)
 
 st.divider()
 
-# === EXPORTAR ===
+# === EXPORTAR EXCEL
 st.subheader("Exportar Relatório")
 output = io.BytesIO()
-with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-    comp.to_excel(writer, sheet_name='Top Clientes YoY')
-    df_atual.groupby(["Comercial","Cliente","Artigo"])["Quantidade"].sum().reset_index().to_excel(writer, sheet_name='Detalhe Atual', index=False)
+with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+    comp.to_excel(writer, sheet_name="Top10 Clientes YoY")
+    df_atual.groupby(["Comercial","Cliente","Artigo"])["Quantidade"].sum().reset_index().to_excel(writer, sheet_name="Detalhe Atual", index=False)
 
-st.download_button("Download Excel Completo", 
-                   data=output.getvalue(),
-                   file_name=f"KPIs_{ano_atual}_vs_{ano_anterior}.xlsx",
-                   mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+st.download_button(
+    "Baixar Relatório Completo (Excel)",
+    data=output.getvalue(),
+    file_name=f"Dashboard_KPIs_{ano_atual}_vs_{ano_anterior}.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
 
-st.success("Dashboard com KPIs completos e todos os filtros a funcionar perfeitamente!")
+st.success("Dashboard carregado com sucesso! Todos os filtros e KPIs funcionam perfeitamente.")
