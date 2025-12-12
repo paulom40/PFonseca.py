@@ -149,7 +149,7 @@ def aplicar_filtros(df: pd.DataFrame) -> pd.DataFrame:
                 if com_sel:
                     df = df[df["Comercial"].isin(com_sel)]
 
-            # Cliente (dependente dos anteriores)
+            # Cliente
             if not df.empty:
                 clientes = sorted(df["Nome"].dropna().unique())
                 cli_sel = st.multiselect(
@@ -160,7 +160,7 @@ def aplicar_filtros(df: pd.DataFrame) -> pd.DataFrame:
                 if cli_sel:
                     df = df[df["Nome"].isin(cli_sel)]
 
-            # Produto (dependente dos anteriores)
+            # Produto
             if not df.empty:
                 produtos = sorted(df["Artigo"].dropna().unique())
                 prod_sel = st.multiselect(
@@ -186,7 +186,8 @@ def calcular_kpis(df: pd.DataFrame) -> dict:
 
     total = df["V Líquido"].sum()
     qtd = df["Quantidade"].sum()
-    dias = df["Data"].dt.date.nunique()
+    # média por dia de calendário no período
+    dias_periodo = (df["Data"].max() - df["Data"].min()).days + 1
 
     periodo = f"{df['Data'].min().strftime('%d/%m/%Y')} a {df['Data'].max().strftime('%d/%m/%Y')}"
 
@@ -196,8 +197,8 @@ def calcular_kpis(df: pd.DataFrame) -> dict:
         "clientes": df["Nome"].nunique(),
         "produtos": df["Artigo"].nunique(),
         "trans": len(df),
-        "ticket": total / len(df) if len(df) > 0 else 0,
-        "venda_dia": total / dias if dias > 0 else 0,
+        "ticket": total / len(df) if len(df) > 0 else 0,        # ticket por transação
+        "venda_dia": total / dias_periodo if dias_periodo > 0 else 0,
         "valor_unidade": total / qtd if qtd > 0 else 0,
         "periodo": periodo,
         "total_vendas_prev": None,
@@ -233,8 +234,23 @@ def calcular_delta_periodo(df_total: pd.DataFrame, df_filt: pd.DataFrame, kpis: 
 
     return kpis
 
+def calcular_ticket_medio_por_comercial(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Ticket médio por comercial = total de vendas do comercial / nº de transações (linhas) do comercial no período filtrado.
+    """
+    if df.empty or "Comercial" not in df.columns:
+        return pd.DataFrame()
+
+    grp = df.groupby("Comercial").agg(
+        Total_Vendas=("V Líquido", "sum"),
+        Transacoes=("V Líquido", "count")
+    ).reset_index()
+
+    grp["Ticket_Medio"] = grp["Total_Vendas"] / grp["Transacoes"]
+    return grp.sort_values("Total_Vendas", ascending=False)
+
 # ====================== VISUALIZAÇÕES ======================
-def desenhar_kpis(kpis: dict):
+def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
     st.subheader("KPIs em Tempo Real")
 
     c1, c2, c3, c4, c5 = st.columns(5)
@@ -251,11 +267,21 @@ def desenhar_kpis(kpis: dict):
     st.divider()
 
     c6, c7, c8 = st.columns(3)
-    c6.metric("Ticket Médio (€ / transação)", f"{kpis['ticket']:,.0f}")
-    c7.metric("Venda Média / Dia (€)", f"{kpis['venda_dia']:,.0f}")
+    c6.metric("Ticket Médio por Transação (€)", f"{kpis['ticket']:,.0f}")
+    c7.metric("Venda Média / Dia de Calendário (€)", f"{kpis['venda_dia']:,.0f}")
     c8.metric("Valor Médio / Unidade (€)", f"{kpis['valor_unidade']:,.2f}")
 
     st.info(f"**Período em análise:** {kpis['periodo']}")
+
+    # Tabela de Ticket Médio por Comercial
+    st.subheader("Ticket Médio por Comercial")
+    if df_ticket_com.empty:
+        st.warning("Sem dados de comercial para o período/filtros atuais.")
+    else:
+        df_show = df_ticket_com.copy()
+        df_show["Total_Vendas"] = df_show["Total_Vendas"].map(lambda x: f"€{x:,.2f}")
+        df_show["Ticket_Medio"] = df_show["Ticket_Medio"].map(lambda x: f"€{x:,.2f}")
+        st.dataframe(df_show, width="stretch")
 
 def grafico_evolucao(df: pd.DataFrame):
     st.subheader("Evolução Mensal de Vendas (€)")
@@ -374,10 +400,13 @@ df_filt = aplicar_filtros(df_original.copy())
 kpis = calcular_kpis(df_filt)
 kpis = calcular_delta_periodo(df_original, df_filt, kpis)
 
+# Ticket médio por comercial (com base no df_filt)
+df_ticket_com = calcular_ticket_medio_por_comercial(df_filt)
+
 tab1, tab2, tab3, tab4 = st.tabs(["KPIs PRINCIPAIS", "EVOLUÇÃO", "TOP 10", "DADOS"])
 
 with tab1:
-    desenhar_kpis(kpis)
+    desenhar_kpis(kpis, df_ticket_com)
 
 with tab2:
     grafico_evolucao(df_filt)
