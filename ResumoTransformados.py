@@ -43,9 +43,9 @@ st.title("📊 Dashboard Comercial — Vendas & KPIs")
 st.markdown("Análise completa de vendas, comerciais, clientes e produtos.")
 # ====================== LOAD DATA ======================
 @st.cache_data
-def load_data(path: str = "ResumoTR.xlsx") -> pd.DataFrame:
+def load_data(path_or_file="ResumoTR.xlsx") -> pd.DataFrame:
     try:
-        df = pd.read_excel(path)
+        df = pd.read_excel(path_or_file)
     except Exception as e:
         st.error(f"Erro a carregar o ficheiro de dados: {e}")
         return pd.DataFrame()
@@ -136,16 +136,19 @@ def aplicar_filtros(df: pd.DataFrame) -> pd.DataFrame:
     mask_data = (df["Data"].dt.date >= data_inicio) & (df["Data"].dt.date <= data_fim)
     df_filt = df[mask_data].copy()
 
+    # Filtro Comercial
     comerciais = sorted(df_filt["Comercial"].dropna().unique())
     sel_com = st.sidebar.multiselect("Comercial", options=comerciais, default=comerciais)
     if sel_com:
         df_filt = df_filt[df_filt["Comercial"].isin(sel_com)]
 
+    # Filtro Artigo
     artigos = sorted(df_filt["Artigo"].dropna().unique())
     sel_art = st.sidebar.multiselect("Artigo", options=artigos, default=artigos)
     if sel_art:
         df_filt = df_filt[df_filt["Artigo"].isin(sel_art)]
 
+    # Filtro Nome entidade
     df_filt["Nome"] = df_filt["Nome"].astype(str).fillna("").str.strip()
     nomes = sorted([n for n in df_filt["Nome"].unique() if n and n.lower() != "nan"])
     sel_nome = st.sidebar.multiselect("Nome entidade", options=nomes, default=nomes)
@@ -262,7 +265,7 @@ def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
         df_show["Total_Vendas"] = df_show["Total_Vendas"].map(lambda x: f"{x:,.2f}")
         df_show["Ticket_Medio"] = df_show["Ticket_Medio"].map(lambda x: f"{x:,.2f}")
         df_show["Valor_Medio_Unidade"] = df_show["Valor_Medio_Unidade"].map(lambda x: f"{x:,.4f}")
-        st.dataframe(df_show, use_container_width=True)
+        st.dataframe(df_show, width="stretch")
 
     st.subheader("Alertas de Desempenho (Globais)")
     thresholds = obter_thresholds_globais()
@@ -285,26 +288,14 @@ def grafico_evolucao(df: pd.DataFrame):
     fig.add_bar(x=mensal["AnoMes"], y=mensal["V Líquido"])
     fig.update_layout(height=500)
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
 def graficos_top10(df: pd.DataFrame):
     col1, col2 = st.columns(2)
 
+    # 1) Top 10 Produtos (€)
     with col1:
-        st.subheader("Top 10 Clientes (€)")
-        if df.empty:
-            st.warning("Sem dados.")
-        else:
-            topc = df.groupby("Nome")["V Líquido"].sum().nlargest(10)
-            figc = px.bar(
-                x=topc.values, y=topc.index, orientation="h",
-                color=topc.values, color_continuous_scale="Viridis"
-            )
-            figc.update_layout(height=500)
-            st.plotly_chart(figc, use_container_width=True)
-
-    with col2:
         st.subheader("Top 10 Produtos (€)")
         if df.empty:
             st.warning("Sem dados.")
@@ -315,7 +306,53 @@ def graficos_top10(df: pd.DataFrame):
                 color=topp.values, color_continuous_scale="Plasma"
             )
             figp.update_layout(height=500)
-            st.plotly_chart(figp, use_container_width=True)
+            st.plotly_chart(figp, width="stretch")
+
+    # 2) Top 10 Clientes (€)
+    with col2:
+        st.subheader("Top 10 Clientes (€)")
+        if df.empty:
+            st.warning("Sem dados.")
+        else:
+            topc = df.groupby("Nome")["V Líquido"].sum().nlargest(10)
+            figc = px.bar(
+                x=topc.values, y=topc.index, orientation="h",
+                color=topc.values, color_continuous_scale="Viridis"
+            )
+            figc.update_layout(height=500)
+            st.plotly_chart(figc, width="stretch")
+
+    st.divider()
+
+    col3, col4 = st.columns(2)
+
+    # 3) Top 10 Produtos (Quantidade)
+    with col3:
+        st.subheader("Top 10 Produtos (Quantidade)")
+        if df.empty:
+            st.warning("Sem dados.")
+        else:
+            topp_q = df.groupby("Artigo")["Quantidade"].sum().nlargest(10)
+            figpq = px.bar(
+                x=topp_q.values, y=topp_q.index, orientation="h",
+                color=topp_q.values, color_continuous_scale="Blues"
+            )
+            figpq.update_layout(height=500)
+            st.plotly_chart(figpq, width="stretch")
+
+    # 4) Top 10 Clientes (Quantidade)
+    with col4:
+        st.subheader("Top 10 Clientes (Quantidade)")
+        if df.empty:
+            st.warning("Sem dados.")
+        else:
+            topc_q = df.groupby("Nome")["Quantidade"].sum().nlargest(10)
+            figcq = px.bar(
+                x=topc_q.values, y=topc_q.index, orientation="h",
+                color=topc_q.values, color_continuous_scale="Greens"
+            )
+            figcq.update_layout(height=500)
+            st.plotly_chart(figcq, width="stretch")
 # ====================== ALERTAS POR COMERCIAL ======================
 def alertas_por_comercial(df: pd.DataFrame):
     st.subheader("Alertas por Comercial")
@@ -464,7 +501,6 @@ def grafico_semaforo_ticket_comercial(df: pd.DataFrame):
     grp["Status"] = grp["Ticket_Medio"].apply(classificar)
 
     color_map = {"Acima": "green", "Atenção": "orange", "Abaixo": "red"}
-    colors = grp["Status"].map(color_map)
 
     fig = px.bar(
         grp,
@@ -474,10 +510,29 @@ def grafico_semaforo_ticket_comercial(df: pd.DataFrame):
         color_discrete_map=color_map,
         title="Ticket Médio por Comercial (Semáforo)"
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
-# ====================== EXPORTAÇÃO COMPLETA PARA EXCEL ======================
+# ====================== SANITIZAR NOMES DE FOLHAS EXCEL ======================
+def sanitize_sheet_name(name: str, existing_names: set) -> str:
+    invalid = [":", "\\", "/", "?", "*", "[", "]"]
+    for ch in invalid:
+        name = name.replace(ch, "")
+    name = name.replace(" ", "_")
+    name = name[:31]
+    if not name.strip():
+        name = "Sheet"
+    base = name
+    counter = 1
+    while name in existing_names:
+        suffix = f"_{counter}"
+        name = base[:31 - len(suffix)] + suffix
+        counter += 1
+    existing_names.add(name)
+    return name
+
+
+# ====================== EXPORTAÇÃO COMPLETA OTIMIZADA PARA EXCEL ======================
 def tabela_dados_export(df: pd.DataFrame, kpis: dict):
     st.subheader("Exportar Relatório Completo")
 
@@ -531,8 +586,11 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
 
     buffer = io.BytesIO()
     wb = Workbook()
+    existing_sheet_names = set()
 
     def add_sheet(name, df_sheet):
+        nonlocal existing_sheet_names
+        name = sanitize_sheet_name(name, existing_sheet_names)
         ws = wb.create_sheet(name)
         for col_num, col_name in enumerate(df_sheet.columns, 1):
             ws.cell(row=1, column=col_num, value=col_name)
@@ -540,15 +598,16 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
             for col_num, value in enumerate(row, 1):
                 ws.cell(row=row_num, column=col_num, value=value)
 
-    def add_plot_to_sheet(sheet_name, fig):
+    def add_plot_to_sheet(sheet_name, fig, anchor="H2"):
         img_buffer = io.BytesIO()
         fig.savefig(img_buffer, format="png", dpi=150, bbox_inches="tight")
         img_buffer.seek(0)
-        ws = wb[sheet_name]
+        ws = wb[sanitize_sheet_name(sheet_name, existing_sheet_names)]
         img = XLImage(img_buffer)
-        img.anchor = "H2"
+        img.anchor = anchor
         ws.add_image(img)
 
+    # Criar folhas base
     add_sheet("Dados", df_dados)
     add_sheet("KPIs_Globais", df_kpis)
     add_sheet("Historico_Mensal", df_hist)
@@ -557,42 +616,30 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
     add_sheet("Produtos", df_produtos)
     add_sheet("Alertas_Globais", df_alertas)
 
-    # Gráfico evolução mensal
+    # Re-obter nomes reais após sanitização
+    nome_hist = sanitize_sheet_name("Historico_Mensal", existing_sheet_names)
+    nome_rank = sanitize_sheet_name("Ranking_Comerciais", existing_sheet_names)
+    nome_cli = sanitize_sheet_name("Clientes", existing_sheet_names)
+    nome_prod = sanitize_sheet_name("Produtos", existing_sheet_names)
+
+    # Gráfico evolução mensal (Historico_Mensal)
     fig1, ax1 = plt.subplots(figsize=(8, 4))
     ax1.plot(df_hist["AnoMes"], df_hist["Total_Vendas"], marker="o")
     ax1.set_title("Evolução Mensal de Vendas")
     ax1.set_xlabel("Ano-Mês")
     ax1.set_ylabel("Vendas (€)")
     plt.xticks(rotation=45)
-    add_plot_to_sheet("Historico_Mensal", fig1)
+    add_plot_to_sheet(nome_hist, fig1, anchor="H2")
 
-    # Gráfico ranking comerciais
+    # Gráfico ranking comerciais (Ranking_Comerciais)
     fig2, ax2 = plt.subplots(figsize=(8, 4))
     ax2.bar(df_rank_com["Comercial"], df_rank_com["Total_Vendas"])
     ax2.set_title("Ranking de Comerciais")
     ax2.set_ylabel("Total de Vendas (€)")
     plt.xticks(rotation=45)
-    add_plot_to_sheet("Ranking_Comerciais", fig2)
+    add_plot_to_sheet(nome_rank, fig2, anchor="H2")
 
-    # Gráfico top clientes
-    fig3, ax3 = plt.subplots(figsize=(8, 4))
-    ax3.barh(df_clientes["Nome"], df_clientes["Total_Vendas"], color="steelblue")
-    ax3.set_title("Top 10 Clientes por Vendas")
-    ax3.set_xlabel("Total de Vendas (€)")
-    ax3.invert_yaxis()
-    plt.tight_layout()
-    add_plot_to_sheet("Clientes", fig3)
-
-    # Gráfico top produtos
-    fig4, ax4 = plt.subplots(figsize=(8, 4))
-    ax4.barh(df_produtos["Artigo"], df_produtos["Total_Vendas"], color="purple")
-    ax4.set_title("Top 10 Produtos por Vendas")
-    ax4.set_xlabel("Total de Vendas (€)")
-    ax4.invert_yaxis()
-    plt.tight_layout()
-    add_plot_to_sheet("Produtos", fig4)
-
-    # Gráfico semáforo comerciais
+    # Gráfico semáforo comerciais (Ranking_Comerciais, outra posição)
     fig5, ax5 = plt.subplots(figsize=(8, 4))
     df_rank_com["Status"] = df_rank_com["Ticket_Medio"].apply(
         lambda x: "Acima" if x >= thresholds["ticket_comercial"]
@@ -606,97 +653,53 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
     ax5.set_ylabel("Ticket Médio (€)")
     plt.xticks(rotation=45)
     plt.tight_layout()
-    add_plot_to_sheet("Ranking_Comerciais", fig5)
+    add_plot_to_sheet(nome_rank, fig5, anchor="H20")
 
-    # Exportação individual — comercial
-    for comercial in df["Comercial"].unique():
-        df_c = df[df["Comercial"] == comercial].copy()
-        sheet_name = f"Com_{comercial[:25]}"
-        add_sheet(sheet_name, df_c)
+    # Gráfico top produtos (€) (Produtos)
+    fig3, ax3 = plt.subplots(figsize=(8, 4))
+    ax3.barh(df_produtos["Artigo"], df_produtos["Total_Vendas"], color="purple")
+    ax3.set_title("Top 10 Produtos por Vendas (€)")
+    ax3.set_xlabel("Total de Vendas (€)")
+    ax3.invert_yaxis()
+    plt.tight_layout()
+    add_plot_to_sheet(nome_prod, fig3, anchor="H2")
 
-        df_c_hist = df_c.groupby("AnoMes")["V Líquido"].sum().reset_index()
+    # Gráfico top produtos (Quantidade) (Produtos)
+    fig6, ax6 = plt.subplots(figsize=(8, 4))
+    topp_q = df.groupby("Artigo")["Quantidade"].sum().nlargest(10)
+    ax6.barh(topp_q.index, topp_q.values, color="dodgerblue")
+    ax6.set_title("Top 10 Produtos (Quantidade)")
+    ax6.set_xlabel("Quantidade Total")
+    ax6.invert_yaxis()
+    plt.tight_layout()
+    add_plot_to_sheet(nome_prod, fig6, anchor="H20")
 
-        figC1, axC1 = plt.subplots(figsize=(8, 4))
-        axC1.plot(df_c_hist["AnoMes"], df_c_hist["V Líquido"], marker="o")
-        axC1.set_title(f"Evolução Mensal — {comercial}")
-        axC1.set_xlabel("Ano-Mês")
-        axC1.set_ylabel("Vendas (€)")
-        plt.xticks(rotation=45)
-        add_plot_to_sheet(sheet_name, figC1)
+    # Gráfico top clientes (€) (Clientes)
+    fig4, ax4 = plt.subplots(figsize=(8, 4))
+    ax4.barh(df_clientes["Nome"], df_clientes["Total_Vendas"], color="steelblue")
+    ax4.set_title("Top 10 Clientes por Vendas (€)")
+    ax4.set_xlabel("Total de Vendas (€)")
+    ax4.invert_yaxis()
+    plt.tight_layout()
+    add_plot_to_sheet(nome_cli, fig4, anchor="H2")
 
-        figC2, axC2 = plt.subplots(figsize=(8, 4))
-        axC2.bar(["Total"], [df_c["V Líquido"].sum()], color="blue")
-        axC2.set_title(f"Total de Vendas — {comercial}")
-        axC2.set_ylabel("Vendas (€)")
-        add_plot_to_sheet(sheet_name, figC2)
+    # Gráfico top clientes (Quantidade) (Clientes)
+    fig7, ax7 = plt.subplots(figsize=(8, 4))
+    topc_q = df.groupby("Nome")["Quantidade"].sum().nlargest(10)
+    ax7.barh(topc_q.index, topc_q.values, color="seagreen")
+    ax7.set_title("Top 10 Clientes (Quantidade)")
+    ax7.set_xlabel("Quantidade Total")
+    ax7.invert_yaxis()
+    plt.tight_layout()
+    add_plot_to_sheet(nome_cli, fig7, anchor="H20")
 
-        figC3, axC3 = plt.subplots(figsize=(8, 4))
-        ticket_c = df_c["V Líquido"].sum() / len(df_c)
-        axC3.bar(["Ticket Médio"], [ticket_c], color="green")
-        axC3.set_title(f"Ticket Médio — {comercial}")
-        axC3.set_ylabel("€")
-        add_plot_to_sheet(sheet_name, figC3)
+    # Remover sheet default
+    if "Sheet" in wb.sheetnames and len(wb.sheetnames) > 1:
+        std = wb["Sheet"]
+        wb.remove(std)
 
-    # Exportação individual — cliente
-    for cliente in df["Nome"].unique():
-        df_cli = df[df["Nome"] == cliente].copy()
-        sheet_name = f"Cli_{cliente[:25]}"
-        add_sheet(sheet_name, df_cli)
-
-        df_cli_hist = df_cli.groupby("AnoMes")["V Líquido"].sum().reset_index()
-
-        figCl1, axCl1 = plt.subplots(figsize=(8, 4))
-        axCl1.plot(df_cli_hist["AnoMes"], df_cli_hist["V Líquido"], marker="o")
-        axCl1.set_title(f"Evolução Mensal — {cliente}")
-        axCl1.set_xlabel("Ano-Mês")
-        axCl1.set_ylabel("Vendas (€)")
-        plt.xticks(rotation=45)
-        add_plot_to_sheet(sheet_name, figCl1)
-
-        figCl2, axCl2 = plt.subplots(figsize=(8, 4))
-        axCl2.bar(["Total"], [df_cli["V Líquido"].sum()], color="purple")
-        axCl2.set_title(f"Total de Vendas — {cliente}")
-        axCl2.set_ylabel("Vendas (€)")
-        add_plot_to_sheet(sheet_name, figCl2)
-
-        figCl3, axCl3 = plt.subplots(figsize=(8, 4))
-        ticket_cl = df_cli["V Líquido"].sum() / len(df_cli)
-        axCl3.bar(["Ticket Médio"], [ticket_cl], color="orange")
-        axCl3.set_title(f"Ticket Médio — {cliente}")
-        axCl3.set_ylabel("€")
-        add_plot_to_sheet(sheet_name, figCl3)
-
-    # Exportação individual — produto
-    for produto in df["Artigo"].unique():
-        df_p = df[df["Artigo"] == produto].copy()
-        sheet_name = f"Prod_{produto[:25]}"
-        add_sheet(sheet_name, df_p)
-
-        df_p_hist = df_p.groupby("AnoMes")["V Líquido"].sum().reset_index()
-
-        figP1, axP1 = plt.subplots(figsize=(8, 4))
-        axP1.plot(df_p_hist["AnoMes"], df_p_hist["V Líquido"], marker="o")
-        axP1.set_title(f"Evolução Mensal — {produto}")
-        axP1.set_xlabel("Ano-Mês")
-        axP1.set_ylabel("Vendas (€)")
-        plt.xticks(rotation=45)
-        add_plot_to_sheet(sheet_name, figP1)
-
-        figP2, axP2 = plt.subplots(figsize=(8, 4))
-        axP2.bar(["Total"], [df_p["V Líquido"].sum()], color="red")
-        axP2.set_title(f"Total de Vendas — {produto}")
-        axP2.set_ylabel("Vendas (€)")
-        add_plot_to_sheet(sheet_name, figP2)
-
-        figP3, axP3 = plt.subplots(figsize=(8, 4))
-        ticket_p = df_p["V Líquido"].sum() / len(df_p)
-        axP3.bar(["Ticket Médio"], [ticket_p], color="teal")
-        axP3.set_title(f"Ticket Médio — {produto}")
-        axP3.set_ylabel("€")
-        add_plot_to_sheet(sheet_name, figP3)
-
-    wb.remove(wb["Sheet"])
     wb.save(buffer)
+    buffer.seek(0)
 
     st.download_button(
         "📥 Download Excel Completo (com gráficos)",
@@ -704,12 +707,15 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
         file_name="Relatorio_Completo.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-# ====================== EXPORTAÇÃO AUTOMÁTICA MENSAL ======================
+# ====================== EXPORTAÇÃO AUTOMÁTICA MENSAL (OTIMIZADA) ======================
 def gerar_excel_completo(df_mes: pd.DataFrame, kpis_mes: dict) -> io.BytesIO:
     buffer = io.BytesIO()
     wb = Workbook()
+    existing_sheet_names = set()
 
     def add_sheet(name, df_sheet):
+        nonlocal existing_sheet_names
+        name = sanitize_sheet_name(name, existing_sheet_names)
         ws = wb.create_sheet(name)
         for col_num, col_name in enumerate(df_sheet.columns, 1):
             ws.cell(row=1, column=col_num, value=col_name)
@@ -717,13 +723,13 @@ def gerar_excel_completo(df_mes: pd.DataFrame, kpis_mes: dict) -> io.BytesIO:
             for col_num, value in enumerate(row, 1):
                 ws.cell(row=row_num, column=col_num, value=value)
 
-    def add_plot_to_sheet(sheet_name, fig):
+    def add_plot_to_sheet(sheet_name, fig, anchor="H2"):
         img_buffer = io.BytesIO()
         fig.savefig(img_buffer, format="png", dpi=150, bbox_inches="tight")
         img_buffer.seek(0)
-        ws = wb[sheet_name]
+        ws = wb[sanitize_sheet_name(sheet_name, existing_sheet_names)]
         img = XLImage(img_buffer)
-        img.anchor = "H2"
+        img.anchor = anchor
         ws.add_image(img)
 
     add_sheet("Dados", df_mes)
@@ -739,25 +745,24 @@ def gerar_excel_completo(df_mes: pd.DataFrame, kpis_mes: dict) -> io.BytesIO:
     df_rank["Ticket_Medio"] = df_rank["Total_Vendas"] / df_rank["Transacoes"]
     add_sheet("Comerciais", df_rank)
 
+    # Gráfico ranking comerciais
     fig1, ax1 = plt.subplots(figsize=(8, 4))
     ax1.bar(df_rank["Comercial"], df_rank["Total_Vendas"])
     ax1.set_title("Ranking Comerciais")
     plt.xticks(rotation=45)
-    add_plot_to_sheet("Comerciais", fig1)
+    add_plot_to_sheet("Comerciais", fig1, anchor="H2")
 
-    for comercial in df_mes["Comercial"].unique():
-        df_c = df_mes[df_mes["Comercial"] == comercial]
-        add_sheet(f"Com_{comercial[:25]}", df_c)
+    # Gráfico evolução mensal do mês (um ponto, mas mantém consistência)
+    fig2, ax2 = plt.subplots(figsize=(8, 4))
+    ax2.bar(df_hist["AnoMes"], df_hist["V Líquido"])
+    ax2.set_title("Vendas do Mês")
+    plt.xticks(rotation=45)
+    add_plot_to_sheet("Historico", fig2, anchor="H2")
 
-    for cliente in df_mes["Nome"].unique():
-        df_cli = df_mes[df_mes["Nome"] == cliente]
-        add_sheet(f"Cli_{cliente[:25]}", df_cli)
+    if "Sheet" in wb.sheetnames and len(wb.sheetnames) > 1:
+        std = wb["Sheet"]
+        wb.remove(std)
 
-    for produto in df_mes["Artigo"].unique():
-        df_p = df_mes[df_mes["Artigo"] == produto]
-        add_sheet(f"Prod_{produto[:25]}", df_p)
-
-    wb.remove(wb["Sheet"])
     wb.save(buffer)
     buffer.seek(0)
     return buffer
@@ -812,7 +817,7 @@ def debug_comercial_mes(df: pd.DataFrame):
     resumo["Ticket_Medio"] = resumo["Ticket_Medio"].map(lambda x: f"{x:,.2f}")
     resumo["Valor_Medio_Unidade"] = resumo["Valor_Medio_Unidade"].map(lambda x: f"{x:,.4f}")
 
-    st.dataframe(resumo, use_container_width=True)
+    st.dataframe(resumo, width="stretch")
 
 
 # ====================== MAIN ======================
@@ -852,6 +857,7 @@ def main():
     with tab3:
         tabela_dados_export(df_filt, kpis)
         exportacao_mensal(df_filt)
+        # debug_comercial_mes(df_filt)  # se quiseres ativar debug, descomenta
 
     st.markdown("---")
     st.markdown("Desenvolvido por Paulo — Dashboard Comercial ✅")
