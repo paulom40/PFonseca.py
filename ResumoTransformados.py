@@ -1,390 +1,458 @@
-# Streamlit Multi-page Dashboard (estrutura de ficheiros)
-# ======================================================
-# Este documento contém o conteúdo de vários ficheiros necessários para um
-# dashboard Streamlit multipágina profissional. Copie cada secção para o ficheiro
-# correspondente na sua aplicação.
-# Estrutura proposta:
-#  - app.py
-#  - utils.py
-#  - pages/1_Overview.py
-#  - pages/2_Clientes.py
-#  - pages/3_Artigos.py
-#  - pages/4_Comerciais.py
-#  - requirements.txt
-# ------------------------------------------------------
-
-# === FILE: app.py ===
-"""
-app.py - ponto de entrada principal
-"""
-import streamlit as st
-from utils import load_data, apply_filters, resumo_kpis
-
-st.set_page_config(page_title="Dashboard Compras - MultiPage", layout="wide")
-
-st.title("Dashboard de Compras – Visão Geral")
-
-# Carregar dados (cacheado)
-df = load_data()
-
-if df.empty:
-    st.error("❌ Não foi possível carregar dados. Verifique o ficheiro ou a ligação.")
-    st.stop()
-
-# Barra lateral comum com filtros (aplicada globalmente)
-st.sidebar.header("🎛️ Filtros Globais")
-filters = apply_filters(df)
-
-# Mostra resumo rápido
-st.sidebar.divider()
-st.sidebar.write(f"**Registros totais:** {len(df):,}")
-st.sidebar.write(f"**Registros após filtros:** {len(filters['df_filtrado']):,}")
-
-# Navegação (páginas Streamlit usam /pages; esta app mantém a homepage com resumo)
-st.subheader("📌 Resumo Rápido")
-ks = resumo_kpis(filters['df_filtrado'])
-
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("💰 Total Vendas (€)", ks['Total Vendas'])
-col2.metric("📦 Quantidade", ks['Total Quantidade'])
-col3.metric("🏢 Clientes", ks['Clientes Únicos'])
-col4.metric("👨‍💼 Comerciais", ks['Comerciais Únicos'])
-
-st.markdown("---")
-
-st.header("📈 Evolução e Insights")
-st.write("Use as páginas no menu lateral (Streamlit > Pages) para análises detalhadas de Clientes, Artigos e Comerciais.")
-
-# Mostrar gráfico de evolução mensal com Plotly
-import plotly.express as px
-vendas_mensais = filters['df_filtrado'].groupby(['Ano','MesNumero']).Valor.sum().reset_index()
-if not vendas_mensais.empty:
-    vendas_mensais = vendas_mensais.sort_values(['Ano','MesNumero'])
-    vendas_mensais['Periodo'] = vendas_mensais['Ano'].astype(str) + '-' + vendas_mensais['MesNumero'].astype(str).str.zfill(2)
-    fig = px.bar(vendas_mensais, x='Periodo', y='Valor', title='Evolução Mensal de Vendas', labels={'Valor':'€'})
-    fig.update_layout(xaxis_tickangle=-45)
-    st.plotly_chart(fig, use_container_width=True)
-else:
-    st.info('Sem dados de vendas mensais para mostrar.')
-
-st.markdown("\n---\n")
-st.caption("Sugestão: abra as páginas (Overview/Clientes/Artigos/Comerciais) para análises específicas.")
-
-
-# === FILE: utils.py ===
-"""
-utils.py - funções utilitárias para carregar dados e filtros
-"""
 import pandas as pd
-import numpy as np
 import streamlit as st
+import matplotlib.pyplot as plt
+import io
 from datetime import datetime
+import numpy as np
 
+st.set_page_config(page_title="Dashboard Compras - KPIs + Análise Detalhada", layout="wide")
+st.title("Dashboard de Compras – KPIs + Análise Detalhada")
+
+# === CARREGAR DADOS ===
 @st.cache_data
-def load_data(url: str = "https://github.com/paulom40/PFonseca.py/raw/refs/heads/main/ResumoTR.xlsx") -> pd.DataFrame:
-    """Carrega e normaliza o ficheiro Excel em DataFrame padrão.
-    Detecção automática de colunas: Data, Cliente, Artigo, Comercial, Quantidade, Valor.
-    """
+def load_data():
     try:
+        url = "https://github.com/paulom40/PFonseca.py/raw/refs/heads/main/ResumoTR.xlsx"
         df_raw = pd.read_excel(url)
+        
         df = pd.DataFrame()
-        cols = df_raw.columns
-
-        # 1) DETECTAR COLUNA DE DATA
-        data_col = None
-        for c in cols:
-            temp = pd.to_datetime(df_raw[c], errors='coerce')
-            if temp.notna().sum() > len(df_raw)*0.3:
-                data_col = c
-                df['Data'] = temp
-                break
-        if data_col is None:
-            df['Data'] = pd.to_datetime(df_raw.iloc[:, 0], errors='coerce')
-
-        df = df[df['Data'].notna()].copy()
-
-        # 2) DETECTAR COLUNAS DE TEXTO (preferir colunas próximas à data)
-        text_cols = [c for c in cols if df_raw[c].dtype == 'object']
-
-        def get_text(idx, default='Desconhecido'):
+        
+        # Encontrar coluna de data
+        data_encontrada = False
+        for i in range(min(5, len(df_raw.columns))):
+            col_teste = df_raw.iloc[:, i]
             try:
-                return df_raw[text_cols[idx]].astype(str).str.strip()
-            except Exception:
-                return pd.Series([default]*len(df), index=df.index)
-
-        df['Cliente'] = get_text(0)
-        df['Artigo'] = get_text(1)
-        df['Comercial'] = get_text(2)
-
-        # 3) DETECTAR NUMERICOS
-        nums = [c for c in cols if pd.api.types.is_numeric_dtype(df_raw[c])]
-        if len(nums) >= 1:
-            df['Quantidade'] = pd.to_numeric(df_raw[nums[0]], errors='coerce').fillna(1)
+                temp_dates = pd.to_datetime(col_teste, errors='coerce')
+                if temp_dates.notna().sum() > len(col_teste) * 0.3:
+                    df["Data"] = temp_dates
+                    data_encontrada = True
+                    data_col_idx = i
+                    break
+            except:
+                continue
+        
+        if not data_encontrada:
+            df["Data"] = pd.to_datetime(df_raw.iloc[:, 0], errors='coerce')
+            data_col_idx = 0
+        
+        # Remover datas inválidas
+        df = df[df["Data"].notna()].copy()
+        
+        # Identificar colunas
+        text_columns = []
+        for i in range(len(df_raw.columns)):
+            if i == data_col_idx:
+                continue
+            if df_raw.iloc[:, i].dtype == 'object':
+                text_columns.append(i)
+        
+        # Cliente
+        if len(df_raw.columns) > 0:
+            cliente_idx = (data_col_idx + 1) % len(df_raw.columns)
+            df["Cliente"] = df_raw.iloc[:, cliente_idx].fillna("Desconhecido").astype(str).str.strip()
+        
+        # Artigo
+        if len(df_raw.columns) > 1:
+            artigo_idx = (data_col_idx + 2) % len(df_raw.columns)
+            df["Artigo"] = df_raw.iloc[:, artigo_idx].fillna("Desconhecido").astype(str).str.strip()
+        
+        # Quantidade
+        quantidade_encontrada = False
+        for i in range(len(df_raw.columns)):
+            if i in [data_col_idx, cliente_idx, artigo_idx]:
+                continue
+            if pd.api.types.is_numeric_dtype(df_raw.iloc[:, i]):
+                df["Quantidade"] = pd.to_numeric(df_raw.iloc[:, i], errors='coerce').fillna(1)
+                quantidade_encontrada = True
+                quantidade_idx = i
+                break
+        
+        if not quantidade_encontrada:
+            df["Quantidade"] = 1
+        
+        # Valor
+        valor_encontrado = False
+        for i in range(len(df_raw.columns)):
+            if i in [data_col_idx, cliente_idx, artigo_idx, quantidade_idx if 'quantidade_idx' in locals() else -1]:
+                continue
+            if pd.api.types.is_numeric_dtype(df_raw.iloc[:, i]):
+                df["Valor"] = pd.to_numeric(df_raw.iloc[:, i], errors='coerce').fillna(0)
+                valor_encontrado = True
+                break
+        
+        if not valor_encontrado:
+            df["Valor"] = df["Quantidade"] * np.random.uniform(10, 100, len(df))
+        
+        # Comercial
+        if len(df_raw.columns) > 7:
+            df["Comercial"] = df_raw.iloc[:, 7].fillna("Desconhecido").astype(str).str.strip()
         else:
-            df['Quantidade'] = 1
-        if len(nums) >= 2:
-            df['Valor'] = pd.to_numeric(df_raw[nums[1]], errors='coerce').fillna(0)
-        else:
-            df['Valor'] = df['Quantidade'] * np.random.uniform(5,100,len(df))
-
-        # 4) Limpeza adicional
-        df = df[df['Quantidade'] > 0]
-        df = df[df['Valor'] > 0]
-        df = df[df['Cliente'] != 'Desconhecido']
-        df = df[df['Artigo'] != 'Desconhecido']
-
-        # 5) Campos de tempo
-        df['Ano'] = df['Data'].dt.year
-        df['MesNumero'] = df['Data'].dt.month
-        df['MesNome'] = df['Data'].dt.strftime('%b')
-        df['Data_Str'] = df['Data'].dt.strftime('%Y-%m-%d')
-
+            for i in range(len(df_raw.columns)):
+                if i in [data_col_idx, cliente_idx, artigo_idx]:
+                    continue
+                if df_raw.iloc[:, i].dtype == 'object':
+                    df["Comercial"] = df_raw.iloc[:, i].fillna("Desconhecido").astype(str).str.strip()
+                    break
+            else:
+                df["Comercial"] = "Comercial Desconhecido"
+        
+        # Corrigir datas extremas
+        if df["Data"].notna().any():
+            mask_ano_extremo = (df["Data"].dt.year > 2100) | (df["Data"].dt.year < 2000)
+            if mask_ano_extremo.any():
+                ano_atual = datetime.now().year
+                for idx in df[mask_ano_extremo].index:
+                    try:
+                        original_date = df.loc[idx, "Data"]
+                        df.loc[idx, "Data"] = pd.to_datetime(
+                            f"{ano_atual}-{original_date.month:02d}-{original_date.day:02d}"
+                        )
+                    except:
+                        df.loc[idx, "Data"] = pd.Timestamp(f"{ano_atual}-01-01")
+        
+        # Adicionar colunas de tempo
+        df["Ano"] = df["Data"].dt.year
+        df["Mes"] = df["Data"].dt.month
+        df["MesNumero"] = df["Data"].dt.month
+        df["Dia"] = df["Data"].dt.day
+        
+        def safe_strftime(date):
+            try:
+                return date.strftime("%b")
+            except:
+                return "Inv"
+        
+        df["MesNome"] = df["Data"].apply(safe_strftime)
+        df["Data_Str"] = df["Data"].dt.strftime("%Y-%m-%d")
+        
+        # Filtrar dados inválidos
+        df = df[df["Quantidade"] > 0].copy()
+        df = df[df["Valor"] > 0].copy()
+        df = df[df["Cliente"] != "Desconhecido"].copy()
+        df = df[df["Artigo"] != "Desconhecido"].copy()
+        
+        return df
+        
+    except Exception as e:
+        st.error(f"❌ Erro ao carregar dados: {str(e)}")
+        
+        # Dados de exemplo
+        np.random.seed(42)
+        n = 500
+        
+        datas_2023 = pd.date_range('2023-01-01', '2023-06-30', freq='D')
+        datas_2024 = pd.date_range('2024-01-01', '2024-12-31', freq='D')
+        
+        todas_datas = list(datas_2023) + list(datas_2024)
+        datas = np.random.choice(todas_datas, n)
+        
+        df = pd.DataFrame({
+            "Data": datas,
+            "Cliente": np.random.choice(["Empresa A", "Empresa B", "Empresa C", "Empresa D", 
+                                        "Cliente E", "Cliente F", "Cliente G", "Cliente H"], n),
+            "Artigo": np.random.choice(["Produto 001", "Produto 002", "Produto 003", 
+                                       "Produto 004", "Produto 005", "Produto 006",
+                                       "Produto 007", "Produto 008", "Produto 009"], n),
+            "Quantidade": np.random.randint(1, 50, n),
+            "Valor": np.random.uniform(50, 500, n),
+            "Comercial": np.random.choice(["João Silva", "Maria Santos", "Carlos Oliveira", 
+                                          "Ana Costa", "Pedro Almeida"], n)
+        })
+        
+        df["Ano"] = df["Data"].dt.year
+        df["Mes"] = df["Data"].dt.month
+        df["MesNumero"] = df["Data"].dt.month
+        df["MesNome"] = df["Data"].dt.strftime("%b")
+        df["Dia"] = df["Data"].dt.day
+        df["Data_Str"] = df["Data"].dt.strftime("%Y-%m-%d")
+        
         return df
 
-    except Exception as e:
-        st.error(f"Erro a carregar dados: {e}")
-        # Retornar DataFrame vazio para não quebrar a app
-        return pd.DataFrame()
-
-
-# Função para criar filtros interativos e aplicar
-def apply_filters(df: pd.DataFrame) -> dict:
-    """Cria a UI de filtros na sidebar e devolve df_filtrado e selecções."""
-    result = {}
-
-    # Ano
-    anos = sorted(df['Ano'].unique(), reverse=True)
-    anos_sel = st.sidebar.multiselect('Ano', options=anos, default=anos[:min(2,len(anos))])
-    if not anos_sel:
-        anos_sel = anos
-
-    # Mês (dinâmico conforme anos)
-    meses_disponiveis = sorted(df[df['Ano'].isin(anos_sel)]['MesNumero'].unique())
-    meses_map = {1:'Janeiro',2:'Fevereiro',3:'Março',4:'Abril',5:'Maio',6:'Junho',7:'Julho',8:'Agosto',9:'Setembro',10:'Outubro',11:'Novembro',12:'Dezembro'}
-    meses_labels = [meses_map[m] for m in meses_disponiveis]
-    meses_sel_labels = st.sidebar.multiselect('Mês', options=meses_labels, default=meses_labels)
-    nomes_para_mes = {v:k for k,v in meses_map.items()}
-    meses_sel = [nomes_para_mes[n] for n in meses_sel_labels] if meses_sel_labels else meses_disponiveis
-
-    # Comercial
-    comerciais_disponiveis = sorted(df[df['Ano'].isin(anos_sel) & df['MesNumero'].isin(meses_sel)]['Comercial'].unique())
-    if not comerciais_disponiveis:
-        comerciais_disponiveis = sorted(df['Comercial'].unique())
-    todos_com = st.sidebar.checkbox('Todos os Comerciais', value=True, key='todos_com')
-    if todos_com:
-        comerciais_sel = comerciais_disponiveis
-    else:
-        comerciais_sel = st.sidebar.multiselect('Comercial', options=comerciais_disponiveis, default=comerciais_disponiveis[:min(3,len(comerciais_disponiveis))])
-        if not comerciais_sel:
-            comerciais_sel = comerciais_disponiveis
-
-    # Cliente
-    clientes_disponiveis = sorted(df[df['Ano'].isin(anos_sel) & df['MesNumero'].isin(meses_sel) & df['Comercial'].isin(comerciais_sel)]['Cliente'].unique())
-    if not clientes_disponiveis:
-        clientes_disponiveis = sorted(df['Cliente'].unique())
-    todos_cli = st.sidebar.checkbox('Todos os Clientes', value=True, key='todos_cli')
-    if todos_cli:
-        clientes_sel = clientes_disponiveis
-    else:
-        clientes_sel = st.sidebar.multiselect('Cliente', options=clientes_disponiveis, default=clientes_disponiveis[:min(5,len(clientes_disponiveis))])
-        if not clientes_sel:
-            clientes_sel = clientes_disponiveis
-
-    # Artigo
-    artigos_disponiveis = sorted(df[df['Ano'].isin(anos_sel) & df['MesNumero'].isin(meses_sel) & df['Comercial'].isin(comerciais_sel) & df['Cliente'].isin(clientes_sel)]['Artigo'].unique())
-    if not artigos_disponiveis:
-        artigos_disponiveis = sorted(df['Artigo'].unique())
-    todos_art = st.sidebar.checkbox('Todos os Artigos', value=True, key='todos_art')
-    if todos_art:
-        artigos_sel = artigos_disponiveis
-    else:
-        artigos_sel = st.sidebar.multiselect('Artigo', options=artigos_disponiveis, default=artigos_disponiveis[:min(5,len(artigos_disponiveis))])
-        if not artigos_sel:
-            artigos_sel = artigos_disponiveis
-
-    # Botão reset
-    if st.sidebar.button('🔄 Resetar Filtros'):
-        st.experimental_rerun()
-
-    # Aplicar filtros
-    df_filtrado = df[
-        (df['Ano'].isin(anos_sel)) &
-        (df['MesNumero'].isin(meses_sel)) &
-        (df['Comercial'].isin(comerciais_sel)) &
-        (df['Cliente'].isin(clientes_sel)) &
-        (df['Artigo'].isin(artigos_sel))
-    ].copy()
-
-    result['df_filtrado'] = df_filtrado
-    result['anos_sel'] = anos_sel
-    result['meses_sel'] = meses_sel
-    result['comerciais_sel'] = comerciais_sel
-    result['clientes_sel'] = clientes_sel
-    result['artigos_sel'] = artigos_sel
-
-    return result
-
-
-def resumo_kpis(df):
-    if df is None or df.empty:
-        return {"Total Vendas":"€0","Total Quantidade":0,"Clientes Únicos":0,"Comerciais Únicos":0}
-    total_vendas = df['Valor'].sum()
-    return {
-        'Total Vendas': f"€{total_vendas:,.2f}",
-        'Total Quantidade': int(df['Quantidade'].sum()),
-        'Clientes Únicos': int(df['Cliente'].nunique()),
-        'Comerciais Únicos': int(df['Comercial'].nunique())
-    }
-
-
-# === FILE: pages/1_Overview.py ===
-"""
-Página Overview - insights gerais, top KPIs e mapa de calor mensal
-"""
-import streamlit as st
-from utils import load_data, apply_filters, resumo_kpis
-import plotly.express as px
-
-st.set_page_config(page_title='Overview', layout='wide')
-st.title('Overview - KPIs & Tendências')
-
 df = load_data()
-if df.empty:
-    st.error('Erro: sem dados')
-    st.stop()
 
-filters = apply_filters(df)
-df_f = filters['df_filtrado']
+# === FILTROS DINÂMICOS CORRIGIDOS ===
+st.sidebar.header("🎛️ Filtros")
 
-st.subheader('KPIs')
-ks = resumo_kpis(df_f)
-cols = st.columns(4)
-cols[0].metric('Vendas', ks['Total Vendas'])
-cols[1].metric('Quantidade', ks['Total Quantidade'])
-cols[2].metric('Clientes', ks['Clientes Únicos'])
-cols[3].metric('Comerciais', ks['Comerciais Únicos'])
+meses_nomes = {
+    1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+    5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+    9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+}
 
-st.markdown('---')
+meses_abreviados = {
+    1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "May", 6: "Jun",
+    7: "Jul", 8: "Aug", 9: "Sep", 10: "Oct", 11: "Nov", 12: "Dec"
+}
 
-st.subheader('Vendas Mensais')
-if not df_f.empty:
-    vm = df_f.groupby(['Ano','MesNumero']).Valor.sum().reset_index()
-    vm = vm.sort_values(['Ano','MesNumero'])
-    vm['Periodo'] = vm['Ano'].astype(str)+'-'+vm['MesNumero'].astype(str).str.zfill(2)
-    fig = px.line(vm, x='Periodo', y='Valor', markers=True, title='Evolução Mensal')
-    fig.update_layout(xaxis_tickangle=-45)
-    st.plotly_chart(fig, use_container_width=True)
+if len(df) > 0:
+    # === 1. FILTRO DE ANO ===
+    st.sidebar.subheader("📅 Ano")
+    anos_disponiveis = sorted(df["Ano"].unique(), reverse=True)
+    anos_selecionados = st.sidebar.multiselect(
+        "Selecionar anos:",
+        options=anos_disponiveis,
+        default=anos_disponiveis[:min(2, len(anos_disponiveis))],
+        key="filtro_anos"
+    )
+    
+    if not anos_selecionados:
+        anos_selecionados = anos_disponiveis
+    
+    # Aplicar filtro de anos
+    df_temp = df[df["Ano"].isin(anos_selecionados)].copy()
+    
+    # === 2. FILTRO DE MÊS ===
+    st.sidebar.subheader("📆 Mês")
+    meses_disponiveis_numeros = sorted(df_temp["MesNumero"].unique())
+    opcoes_meses = [meses_nomes[mes] for mes in meses_disponiveis_numeros if mes in meses_nomes]
+    
+    if opcoes_meses:
+        meses_selecionados_nomes = st.sidebar.multiselect(
+            "Selecionar meses:",
+            options=opcoes_meses,
+            default=opcoes_meses,
+            key="filtro_meses"
+        )
+        
+        nomes_para_meses = {v: k for k, v in meses_nomes.items()}
+        meses_selecionados = [nomes_para_meses[nome] for nome in meses_selecionados_nomes] if meses_selecionados_nomes else meses_disponiveis_numeros
+    else:
+        meses_selecionados = []
+    
+    # Aplicar filtro de meses
+    df_temp = df_temp[df_temp["MesNumero"].isin(meses_selecionados)].copy()
+    
+    # === 3. FILTRO DE COMERCIAL ===
+    st.sidebar.subheader("👨‍💼 Comercial")
+    comerciais_disponiveis = sorted(df_temp["Comercial"].unique())
+    
+    if comerciais_disponiveis:
+        todos_comerciais = st.sidebar.checkbox("Todos os comerciais", value=True, key="todos_comerciais")
+        
+        if todos_comerciais:
+            comerciais_selecionados = comerciais_disponiveis
+        else:
+            comerciais_selecionados = st.sidebar.multiselect(
+                "Selecionar comerciais:",
+                options=comerciais_disponiveis,
+                default=comerciais_disponiveis[:min(3, len(comerciais_disponiveis))],
+                key="filtro_comerciais"
+            )
+            if not comerciais_selecionados:
+                comerciais_selecionados = comerciais_disponiveis
+    else:
+        comerciais_selecionados = []
+    
+    # Aplicar filtro de comerciais
+    df_temp = df_temp[df_temp["Comercial"].isin(comerciais_selecionados)].copy()
+    
+    # === 4. FILTRO DE CLIENTE ===
+    st.sidebar.subheader("🏢 Cliente")
+    clientes_disponiveis = sorted(df_temp["Cliente"].unique())
+    
+    if clientes_disponiveis:
+        todos_clientes = st.sidebar.checkbox("Todos os clientes", value=True, key="todos_clientes")
+        
+        if todos_clientes:
+            clientes_selecionados = clientes_disponiveis
+        else:
+            clientes_selecionados = st.sidebar.multiselect(
+                "Selecionar clientes:",
+                options=clientes_disponiveis,
+                default=clientes_disponiveis[:min(5, len(clientes_disponiveis))],
+                key="filtro_clientes"
+            )
+            if not clientes_selecionados:
+                clientes_selecionados = clientes_disponiveis
+    else:
+        clientes_selecionados = []
+    
+    # Aplicar filtro de clientes
+    df_temp = df_temp[df_temp["Cliente"].isin(clientes_selecionados)].copy()
+    
+    # === 5. FILTRO DE ARTIGO ===
+    st.sidebar.subheader("📦 Artigo")
+    artigos_disponiveis = sorted(df_temp["Artigo"].unique())
+    
+    if artigos_disponiveis:
+        todos_artigos = st.sidebar.checkbox("Todos os artigos", value=True, key="todos_artigos")
+        
+        if todos_artigos:
+            artigos_selecionados = artigos_disponiveis
+        else:
+            artigos_selecionados = st.sidebar.multiselect(
+                "Selecionar artigos:",
+                options=artigos_disponiveis,
+                default=artigos_disponiveis[:min(5, len(artigos_disponiveis))],
+                key="filtro_artigos"
+            )
+            if not artigos_selecionados:
+                artigos_selecionados = artigos_disponiveis
+    else:
+        artigos_selecionados = []
+    
+    # Aplicar filtro final
+    df_filtrado = df_temp[df_temp["Artigo"].isin(artigos_selecionados)].copy()
+    
+    # Botão resetar
+    if st.sidebar.button("🔄 Resetar Filtros", type="secondary"):
+        st.rerun()
+    
+    # Resumo dos filtros
+    st.sidebar.divider()
+    st.sidebar.subheader("📋 Resumo dos Filtros")
+    st.sidebar.write(f"**Anos:** {len(anos_selecionados)}")
+    st.sidebar.write(f"**Meses:** {len(meses_selecionados)}")
+    st.sidebar.write(f"**Comerciais:** {len(comerciais_selecionados)}")
+    st.sidebar.write(f"**Clientes:** {len(clientes_selecionados)}")
+    st.sidebar.write(f"**Artigos:** {len(artigos_selecionados)}")
+    st.sidebar.write(f"**Registros filtrados:** {len(df_filtrado):,}")
+    
 else:
-    st.info('Sem dados filtrados')
+    df_filtrado = pd.DataFrame()
+    anos_selecionados = []
+    meses_selecionados = []
+    comerciais_selecionados = []
+    clientes_selecionados = []
+    artigos_selecionados = []
 
+# === CÁLCULO DOS KPIs ===
+if not df_filtrado.empty:
+    total_vendas_eur = df_filtrado["Valor"].sum()
+    total_quantidade = df_filtrado["Quantidade"].sum()
+    num_entidades = df_filtrado["Cliente"].nunique()
+    num_comerciais = df_filtrado["Comercial"].nunique()
+    num_artigos = df_filtrado["Artigo"].nunique()
+    num_transacoes = len(df_filtrado)
+    dias_com_vendas = df_filtrado["Data_Str"].nunique()
+    
+    ticket_medio_eur = total_vendas_eur / num_transacoes if num_transacoes > 0 else 0
+    preco_medio_unitario = total_vendas_eur / total_quantidade if total_quantidade > 0 else 0
+    venda_media_transacao = total_vendas_eur / num_transacoes if num_transacoes > 0 else 0
+    quantidade_media_transacao = total_quantidade / num_transacoes if num_transacoes > 0 else 0
+    venda_media_dia = total_vendas_eur / dias_com_vendas if dias_com_vendas > 0 else 0
+    
+    vendas_mensais_group = df_filtrado.groupby(["Ano", "MesNumero"])["Valor"].sum()
+    ticket_medio_mes = vendas_mensais_group.mean() if not vendas_mensais_group.empty else 0
+else:
+    total_vendas_eur = total_quantidade = num_entidades = num_comerciais = num_artigos = 0
+    num_transacoes = dias_com_vendas = ticket_medio_eur = preco_medio_unitario = 0
+    venda_media_transacao = quantidade_media_transacao = venda_media_dia = ticket_medio_mes = 0
 
-# === FILE: pages/2_Clientes.py ===
-"""
-Página Clientes - Top clientes e análise detalhada
-"""
-import streamlit as st
-from utils import load_data, apply_filters
-import plotly.express as px
+# === DISPLAY DOS KPIs ===
+st.subheader("📊 KPIs Principais")
 
-st.set_page_config(page_title='Clientes', layout='wide')
-st.title('Análise de Clientes')
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    st.metric("💰 Total Vendas (€)", f"€{total_vendas_eur:,.2f}")
+with col2:
+    st.metric("📦 Total Quantidade", f"{total_quantidade:,.0f}")
+with col3:
+    st.metric("🏢 Nº Entidades", f"{num_entidades:,.0f}")
+with col4:
+    st.metric("🎫 Ticket Médio (€)", f"€{ticket_medio_eur:,.2f}")
 
-df = load_data()
-if df.empty:
-    st.error('Erro: sem dados')
-    st.stop()
+col5, col6, col7, col8 = st.columns(4)
+with col5:
+    st.metric("👨‍💼 Nº Comerciais", f"{num_comerciais:,.0f}")
+with col6:
+    st.metric("📦 Nº Artigos", f"{num_artigos:,.0f}")
+with col7:
+    st.metric("🏷️ Preço Médio Unitário (€)", f"€{preco_medio_unitario:,.2f}")
+with col8:
+    st.metric("💳 Venda Média/Transação (€)", f"€{venda_media_transacao:,.2f}")
 
-filters = apply_filters(df)
-df_f = filters['df_filtrado']
+col9, col10, col11, col12 = st.columns(4)
+with col9:
+    st.metric("📊 Quantidade Média/Transação", f"{quantidade_media_transacao:,.2f}")
+with col10:
+    st.metric("📅 Dias com Vendas", f"{dias_com_vendas:,.0f}")
+with col11:
+    st.metric("📈 Venda Média/Dia (€)", f"€{venda_media_dia:,.2f}")
+with col12:
+    st.metric("🗓️ Ticket Médio (€) Mês", f"€{ticket_medio_mes:,.2f}")
 
-if df_f.empty:
-    st.warning('Sem dados para os filtros atuais')
-    st.stop()
+st.divider()
 
-st.subheader('Top Clientes por Vendas')
-clientes = df_f.groupby('Cliente').Valor.sum().reset_index().sort_values('Valor', ascending=False).head(20)
-fig = px.bar(clientes, x='Valor', y='Cliente', orientation='h', title='Top Clientes')
-st.plotly_chart(fig, use_container_width=True)
+# === GRÁFICOS ===
+if not df_filtrado.empty:
+    st.subheader("📈 Análise Gráfica")
+    
+    # Evolução mensal
+    vendas_mensais = df_filtrado.groupby(["Ano", "MesNumero"]).agg({
+        "Valor": "sum",
+        "Quantidade": "sum"
+    }).reset_index()
+    
+    if not vendas_mensais.empty:
+        vendas_mensais = vendas_mensais.sort_values(["Ano", "MesNumero"])
+        vendas_mensais["MesNome"] = vendas_mensais["MesNumero"].map(meses_abreviados)
+        vendas_mensais["Periodo"] = vendas_mensais["Ano"].astype(str) + "-" + vendas_mensais["MesNome"]
+        
+        fig1, ax1 = plt.subplots(figsize=(14, 6))
+        x = range(len(vendas_mensais))
+        width = 0.35
+        
+        ax1.bar([i - width/2 for i in x], vendas_mensais["Valor"], width, 
+               label='Valor (€)', color='#2E86AB', alpha=0.7)
+        ax1.set_xlabel("Período")
+        ax1.set_ylabel("Valor (€)", color='#2E86AB')
+        ax1.tick_params(axis='y', labelcolor='#2E86AB')
+        ax1.set_title("Evolução Mensal de Vendas", fontsize=14, fontweight='bold')
+        ax1.set_xticks(x)
+        ax1.set_xticklabels(vendas_mensais["Periodo"], rotation=45, ha='right')
+        
+        ax2 = ax1.twinx()
+        ax2.plot(x, vendas_mensais["Quantidade"], 'o-', color='#A23B72', 
+                linewidth=2, markersize=6, label='Quantidade')
+        ax2.set_ylabel('Quantidade', color='#A23B72')
+        ax2.tick_params(axis='y', labelcolor='#A23B72')
+        
+        lines1, labels1 = ax1.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+        ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
+        ax1.grid(True, alpha=0.3, axis='y')
+        plt.tight_layout()
+        st.pyplot(fig1)
+    
+    # Top Clientes
+    st.subheader("🏆 Top Clientes")
+    top_clientes = df_filtrado.groupby("Cliente").agg({
+        "Valor": "sum",
+        "Quantidade": "sum"
+    }).nlargest(10, "Valor")
+    
+    if not top_clientes.empty:
+        fig2, ax2 = plt.subplots(figsize=(14, 6))
+        ax2.barh(range(len(top_clientes)), top_clientes["Valor"], color='#A23B72', alpha=0.7)
+        ax2.set_yticks(range(len(top_clientes)))
+        ax2.set_yticklabels(top_clientes.index)
+        ax2.invert_yaxis()
+        ax2.set_xlabel("Total Vendas (€)")
+        ax2.set_title("Top 10 Clientes por Valor", fontsize=12, fontweight='bold')
+        ax2.grid(True, alpha=0.3, axis='x')
+        
+        for i, v in enumerate(top_clientes["Valor"]):
+            ax2.text(v, i, f' €{v:,.0f}', va='center', fontsize=9)
+        
+        plt.tight_layout()
+        st.pyplot(fig2)
+    
+    # Exportar dados
+    st.divider()
+    st.subheader("📤 Exportar Dados")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        csv_data = df_filtrado.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            "📥 Download CSV",
+            csv_data,
+            f"dados_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            "text/csv"
+        )
+else:
+    st.warning("⚠️ Não há dados disponíveis com os filtros atuais!")
 
-st.markdown('---')
-st.subheader('Tabela detalhada')
-st.dataframe(df_f.groupby('Cliente').agg({'Valor':'sum','Quantidade':'sum','Data':'count'}).rename(columns={'Data':'Transações'}).sort_values('Valor', ascending=False))
-
-
-# === FILE: pages/3_Artigos.py ===
-"""
-Página Artigos - Top artigos e performance
-"""
-import streamlit as st
-from utils import load_data, apply_filters
-import plotly.express as px
-
-st.set_page_config(page_title='Artigos', layout='wide')
-st.title('Análise de Artigos')
-
-df = load_data()
-if df.empty:
-    st.error('Erro: sem dados')
-    st.stop()
-
-filters = apply_filters(df)
-df_f = filters['df_filtrado']
-
-if df_f.empty:
-    st.warning('Sem dados para os filtros atuais')
-    st.stop()
-
-st.subheader('Top Artigos por Vendas')
-artigos = df_f.groupby('Artigo').agg({'Valor':'sum','Quantidade':'sum'}).reset_index().sort_values('Valor', ascending=False).head(30)
-fig = px.bar(artigos, x='Artigo', y='Valor', title='Top Artigos', labels={'Valor':'€'})
-fig.update_layout(xaxis_tickangle=-45)
-st.plotly_chart(fig, use_container_width=True)
-
-st.markdown('---')
-st.subheader('Detalhe por Artigo')
-st.dataframe(artigos)
-
-
-# === FILE: pages/4_Comerciais.py ===
-"""
-Página Comerciais - Desempenho por comercial
-"""
-import streamlit as st
-from utils import load_data, apply_filters
-import plotly.express as px
-
-st.set_page_config(page_title='Comerciais', layout='wide')
-st.title('Desempenho por Comercial')
-
-df = load_data()
-if df.empty:
-    st.error('Erro: sem dados')
-    st.stop()
-
-filters = apply_filters(df)
-df_f = filters['df_filtrado']
-
-if df_f.empty:
-    st.warning('Sem dados para os filtros atuais')
-    st.stop()
-
-st.subheader('Ranking Comerciais')
-com = df_f.groupby('Comercial').agg({'Valor':'sum','Quantidade':'sum','Cliente':'nunique'}).reset_index().sort_values('Valor', ascending=False)
-fig = px.bar(com, x='Comercial', y='Valor', title='Total Vendas por Comercial')
-fig.update_layout(xaxis_tickangle=-45)
-st.plotly_chart(fig, use_container_width=True)
-
-st.markdown('---')
-st.subheader('Matriz de Performance')
-st.dataframe(com)
-
-
-# === FILE: requirements.txt ===
-# Dependências sugeridas
-streamlit
-pandas
-numpy
-openpyxl
-plotly
-
-# FIM
+st.divider()
+st.success("✅ Dashboard carregado com sucesso!")
