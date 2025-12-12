@@ -71,7 +71,6 @@ st.markdown(
     "- Os KPIs refletem sempre o período filtrado.\n"
     "- Navegue pelas abas para ver evolução temporal, Top 10 e dados detalhados."
 )
-
 # ====================== CARREGAR DADOS ======================
 @st.cache_data(show_spinner="Carregando ResumoTR.xlsx...", ttl=600)
 def load_data(path: str = "ResumoTR.xlsx") -> pd.DataFrame:
@@ -172,7 +171,6 @@ def aplicar_filtros(df: pd.DataFrame) -> pd.DataFrame:
             df = df[df["Artigo"].isin(prod_sel)]
 
     return df
-
 # ====================== KPIs ======================
 def calcular_kpis(df: pd.DataFrame) -> dict:
     if df.empty:
@@ -194,14 +192,16 @@ def calcular_kpis(df: pd.DataFrame) -> dict:
     data_min = df["Data"].min()
     data_max = df["Data"].max()
     periodo = f"{data_min.strftime('%d/%m/%Y')} a {data_max.strftime('%d/%m/%Y')}"
-    dias_periodo = (data_max - data_min).days + 1
+
+    # ✅ Dias com vendas reais (corrigido)
+    dias_com_venda = df["Data"].dt.date.nunique()
 
     transacoes = len(df)
     clientes = df["Nome"].nunique()
     produtos = df["Artigo"].nunique()
 
     ticket_medio = total_vendas / transacoes if transacoes > 0 else 0
-    venda_media_dia = total_vendas / dias_periodo if dias_periodo > 0 else 0
+    venda_media_dia = total_vendas / dias_com_venda if dias_com_venda > 0 else 0
     valor_medio_unidade = total_vendas / qtd_total if qtd_total > 0 else 0
 
     return {
@@ -216,18 +216,22 @@ def calcular_kpis(df: pd.DataFrame) -> dict:
         "periodo": periodo
     }
 
+
+# ====================== TICKET MÉDIO POR COMERCIAL ======================
 def calcular_ticket_medio_por_comercial(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty or "Comercial" not in df.columns:
         return pd.DataFrame()
 
     grp = df.groupby("Comercial").agg(
         Total_Vendas=("V Líquido", "sum"),
-        Transacoes=("V Líquido", "count")
+        Transacoes=("V Líquido", "count"),
+        Quantidade=("Quantidade", "sum")
     ).reset_index()
 
     grp["Ticket_Medio"] = grp["Total_Vendas"] / grp["Transacoes"]
-    return grp.sort_values("Total_Vendas", ascending=False)
+    grp["Valor_Medio_Unidade"] = grp["Total_Vendas"] / grp["Quantidade"]
 
+    return grp.sort_values("Ticket_Medio", ascending=False)
 # ====================== VISUALIZAÇÕES ======================
 def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
     st.subheader("KPIs em Tempo Real")
@@ -242,7 +246,7 @@ def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
     st.divider()
 
     c6, c7, c8 = st.columns(3)
-        c6.metric("Ticket Médio por Transação (€)", f"{kpis['ticket']:,.2f}")
+    c6.metric("Ticket Médio por Transação (€)", f"{kpis['ticket']:,.2f}")
     c7.metric("Venda Média por Dia (€)", f"{kpis['venda_dia']:,.2f}")
     c8.metric("Valor Médio por Unidade (€)", f"{kpis['valor_unidade']:,.4f}")
 
@@ -255,6 +259,7 @@ def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
         df_show = df_ticket_com.copy()
         df_show["Total_Vendas"] = df_show["Total_Vendas"].map(lambda x: f"€{x:,.2f}")
         df_show["Ticket_Medio"] = df_show["Ticket_Medio"].map(lambda x: f"€{x:,.2f}")
+        df_show["Valor_Medio_Unidade"] = df_show["Valor_Medio_Unidade"].map(lambda x: f"€{x:,.4f}")
         st.dataframe(df_show, width="stretch")
 
 
@@ -278,7 +283,7 @@ def grafico_evolucao(df: pd.DataFrame):
         yaxis_title="Vendas (€)",
         height=500
     )
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(fig, use_container_width=True)
 
 
 def graficos_top10(df: pd.DataFrame):
@@ -302,7 +307,7 @@ def graficos_top10(df: pd.DataFrame):
                 height=500,
                 yaxis={"categoryorder": "total ascending"}
             )
-            st.plotly_chart(figc, width="stretch")
+            st.plotly_chart(figc, use_container_width=True)
 
     with col2:
         st.subheader("Top 10 Produtos por Vendas (€)")
@@ -322,9 +327,8 @@ def graficos_top10(df: pd.DataFrame):
                 height=500,
                 yaxis={"categoryorder": "total ascending"}
             )
-            st.plotly_chart(figp, width="stretch")
-
-
+            st.plotly_chart(figp, use_container_width=True)
+# ====================== TABELA DETALHADA + EXPORTAÇÃO ======================
 def tabela_dados_export(df: pd.DataFrame, kpis: dict):
     st.subheader("Tabela de Dados Detalhada")
     if df.empty:
@@ -339,14 +343,18 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
     display_df["Data"] = display_df["Data"].dt.strftime("%d/%m/%Y")
 
     st.dataframe(
-        display_df.style.format({"V Líquido": "€{:,.2f}", "PM": "€{:,.2f}"}),
-        width="stretch",
+        display_df.style.format({
+            "V Líquido": "€{:,.2f}",
+            "PM": "€{:,.2f}"
+        }),
+        use_container_width=True,
         height=600
     )
 
     st.subheader("Exportar Dados e KPIs")
     col1, col2 = st.columns(2)
 
+    # ✅ Exportar CSV
     csv = df.to_csv(index=False).encode()
     col1.download_button(
         "Download CSV",
@@ -357,6 +365,7 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
         key="btn_csv"
     )
 
+    # ✅ Exportar Excel com KPIs
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         df.to_excel(writer, sheet_name="Dados", index=False)
@@ -370,8 +379,6 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
         help="Exportar dados filtrados e KPIs em ficheiro Excel.",
         key="btn_excel"
     )
-
-
 # ====================== MAIN ======================
 df_original = load_data()
 if df_original.empty:
@@ -401,4 +408,3 @@ st.markdown(
     f"<small style='text-align:center;display:block;color:#666'>Dashboard atualizado em {datetime.now().strftime('%d/%m/%Y %H:%M')}</small>",
     unsafe_allow_html=True
 )
-
