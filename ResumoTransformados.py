@@ -46,10 +46,8 @@ def load_data(path: str = "ResumoTR.xlsx") -> pd.DataFrame:
         st.error(f"Erro a carregar o ficheiro de dados: {e}")
         return pd.DataFrame()
 
-    # Normalizar nomes de colunas
     df.columns = [str(c).strip() for c in df.columns]
 
-    # Mapeamento básico para garantir consistência
     col_map = {
         "Entidad": "Entidade",
         "Entidade": "Entidade",
@@ -73,7 +71,6 @@ def load_data(path: str = "ResumoTR.xlsx") -> pd.DataFrame:
 
     df = df.rename(columns={c: col_map.get(c, c) for c in df.columns})
 
-    # Garantir colunas essenciais
     required = ["Entidade", "Nome", "Artigo", "Quantidade", "Unidade",
                 "V Líquido", "PM", "Data", "Comercial", "Mês", "Ano"]
     missing = [c for c in required if c not in df.columns]
@@ -81,17 +78,14 @@ def load_data(path: str = "ResumoTR.xlsx") -> pd.DataFrame:
         st.error(f"Faltam colunas obrigatórias no ficheiro: {missing}")
         return pd.DataFrame()
 
-    # Converter tipos
     df["Data"] = pd.to_datetime(df["Data"], errors="coerce")
     df["Quantidade"] = pd.to_numeric(df["Quantidade"], errors="coerce")
     df["V Líquido"] = pd.to_numeric(df["V Líquido"], errors="coerce")
     df["PM"] = pd.to_numeric(df["PM"], errors="coerce")
 
-    # Remover linhas sem data ou sem valor/quantidade
     df = df.dropna(subset=["Data"])
     df = df[(df["Quantidade"] > 0) & (df["V Líquido"] != 0)]
 
-    # Criar coluna AnoMes para gráficos
     df["AnoMes"] = df["Data"].dt.strftime("%Y-%m")
 
     return df
@@ -105,7 +99,6 @@ def aplicar_filtros(df: pd.DataFrame) -> pd.DataFrame:
         st.sidebar.warning("Sem dados para aplicar filtros.")
         return df
 
-    # Intervalo de datas
     data_min = df["Data"].min()
     data_max = df["Data"].max()
 
@@ -124,33 +117,23 @@ def aplicar_filtros(df: pd.DataFrame) -> pd.DataFrame:
     mask_data = (df["Data"].dt.date >= data_inicio) & (df["Data"].dt.date <= data_fim)
     df_filt = df[mask_data].copy()
 
-    # Filtro Comercial
+    # ✅ Filtro Comercial
     comerciais = sorted(df_filt["Comercial"].dropna().unique())
-    sel_com = st.sidebar.multiselect(
-        "Comercial",
-        options=comerciais,
-        default=comerciais
-    )
+    sel_com = st.sidebar.multiselect("Comercial", options=comerciais, default=comerciais)
     if sel_com:
         df_filt = df_filt[df_filt["Comercial"].isin(sel_com)]
 
-    # Filtro Artigo
+    # ✅ Filtro Artigo
     artigos = sorted(df_filt["Artigo"].dropna().unique())
-    sel_art = st.sidebar.multiselect(
-        "Artigo",
-        options=artigos,
-        default=artigos
-    )
+    sel_art = st.sidebar.multiselect("Artigo", options=artigos, default=artigos)
     if sel_art:
         df_filt = df_filt[df_filt["Artigo"].isin(sel_art)]
 
-    # Filtro Nome (Entidade)
-    nomes = sorted(df_filt["Nome"].dropna().unique())
-    sel_nome = st.sidebar.multiselect(
-        "Nome entidade",
-        options=nomes,
-        default=nomes
-    )
+    # ✅ Filtro Nome (corrigido)
+    df_filt["Nome"] = df_filt["Nome"].astype(str).fillna("").str.strip()
+    nomes = sorted([n for n in df_filt["Nome"].unique() if n and n.lower() != "nan"])
+
+    sel_nome = st.sidebar.multiselect("Nome entidade", options=nomes, default=nomes)
     if sel_nome:
         df_filt = df_filt[df_filt["Nome"].isin(sel_nome)]
 
@@ -159,14 +142,8 @@ def aplicar_filtros(df: pd.DataFrame) -> pd.DataFrame:
 def calcular_kpis(df: pd.DataFrame) -> dict:
     if df.empty:
         return {
-            "total_vendas": 0,
-            "qtd": 0,
-            "clientes": 0,
-            "produtos": 0,
-            "trans": 0,
-            "ticket": 0,
-            "venda_dia": 0,
-            "valor_unidade": 0,
+            "total_vendas": 0, "qtd": 0, "clientes": 0, "produtos": 0,
+            "trans": 0, "ticket": 0, "venda_dia": 0, "valor_unidade": 0,
             "periodo": "Sem dados"
         }
 
@@ -177,16 +154,15 @@ def calcular_kpis(df: pd.DataFrame) -> dict:
     data_max = df["Data"].max()
     periodo = f"{data_min.strftime('%d/%m/%Y')} a {data_max.strftime('%d/%m/%Y')}"
 
-    # Dias com vendas reais (distintos no período filtrado)
     dias_com_venda = df["Data"].dt.date.nunique()
 
     transacoes = len(df)
     clientes = df["Nome"].nunique()
     produtos = df["Artigo"].nunique()
 
-    ticket_medio = total_vendas / transacoes if transacoes > 0 else 0
-    venda_media_dia = total_vendas / dias_com_venda if dias_com_venda > 0 else 0
-    valor_medio_unidade = total_vendas / qtd_total if qtd_total > 0 else 0
+    ticket_medio = total_vendas / transacoes if transacoes else 0
+    venda_media_dia = total_vendas / dias_com_venda if dias_com_venda else 0
+    valor_medio_unidade = total_vendas / qtd_total if qtd_total else 0
 
     return {
         "total_vendas": total_vendas,
@@ -203,7 +179,7 @@ def calcular_kpis(df: pd.DataFrame) -> dict:
 
 # ====================== TICKET MÉDIO POR COMERCIAL ======================
 def calcular_ticket_medio_por_comercial(df: pd.DataFrame) -> pd.DataFrame:
-    if df.empty or "Comercial" not in df.columns:
+    if df.empty:
         return pd.DataFrame()
 
     grp = df.groupby("Comercial").agg(
@@ -225,12 +201,12 @@ def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
     c2.metric("Quantidade Total", f"{kpis['qtd']:,.2f}")
     c3.metric("Clientes Únicos", int(kpis["clientes"]))
     c4.metric("Produtos Vendidos", int(kpis["produtos"]))
-    c5.metric("Transações (linhas)", int(kpis["trans"]))
+    c5.metric("Transações", int(kpis["trans"]))
 
     st.divider()
 
     c6, c7, c8 = st.columns(3)
-    c6.metric("Ticket Médio por Transação (€)", f"{kpis['ticket']:,.2f}")
+    c6.metric("Ticket Médio (€)", f"{kpis['ticket']:,.2f}")
     c7.metric("Venda Média por Dia (€)", f"{kpis['venda_dia']:,.2f}")
     c8.metric("Valor Médio por Unidade (€)", f"{kpis['valor_unidade']:,.4f}")
 
@@ -238,7 +214,7 @@ def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
 
     st.subheader("Ticket Médio por Comercial")
     if df_ticket_com.empty:
-        st.warning("Sem dados de comercial para o período/filtros atuais.")
+        st.warning("Sem dados de comercial.")
     else:
         df_show = df_ticket_com.copy()
         df_show["Total_Vendas"] = df_show["Total_Vendas"].map(lambda x: f"€{x:,.2f}")
@@ -250,24 +226,15 @@ def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
 def grafico_evolucao(df: pd.DataFrame):
     st.subheader("Evolução Mensal de Vendas (€)")
     if df.empty:
-        st.warning("Nenhum dado com os filtros atuais.")
+        st.warning("Sem dados.")
         return
 
     mensal = df.groupby("AnoMes")["V Líquido"].sum().reset_index()
 
-    fig = px.line(
-        mensal,
-        x="AnoMes",
-        y="V Líquido",
-        markers=True,
-        title="Vendas por Mês (Ano-Mês)"
-    )
-    fig.add_bar(x=mensal["AnoMes"], y=mensal["V Líquido"], name="Vendas (€)")
-    fig.update_layout(
-        xaxis_title="Período (Ano-Mês)",
-        yaxis_title="Vendas (€)",
-        height=500
-    )
+    fig = px.line(mensal, x="AnoMes", y="V Líquido", markers=True)
+    fig.add_bar(x=mensal["AnoMes"], y=mensal["V Líquido"])
+    fig.update_layout(height=500)
+
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -275,53 +242,38 @@ def graficos_top10(df: pd.DataFrame):
     col1, col2 = st.columns(2)
 
     with col1:
-        st.subheader("Top 10 Clientes por Vendas (€)")
+        st.subheader("Top 10 Clientes (€)")
         if df.empty:
-            st.warning("Sem dados para o período/filtros atuais.")
+            st.warning("Sem dados.")
         else:
             topc = df.groupby("Nome")["V Líquido"].sum().nlargest(10)
             figc = px.bar(
-                x=topc.values,
-                y=topc.index,
-                orientation="h",
-                color=topc.values,
-                color_continuous_scale="Viridis",
-                labels={"x": "Vendas (€)", "y": "Cliente"}
+                x=topc.values, y=topc.index, orientation="h",
+                color=topc.values, color_continuous_scale="Viridis"
             )
-            figc.update_layout(
-                height=500,
-                yaxis={"categoryorder": "total ascending"}
-            )
+            figc.update_layout(height=500)
             st.plotly_chart(figc, use_container_width=True)
 
     with col2:
-        st.subheader("Top 10 Produtos por Vendas (€)")
+        st.subheader("Top 10 Produtos (€)")
         if df.empty:
-            st.warning("Sem dados para o período/filtros atuais.")
+            st.warning("Sem dados.")
         else:
             topp = df.groupby("Artigo")["V Líquido"].sum().nlargest(10)
             figp = px.bar(
-                x=topp.values,
-                y=topp.index,
-                orientation="h",
-                color=topp.values,
-                color_continuous_scale="Plasma",
-                labels={"x": "Vendas (€)", "y": "Produto"}
+                x=topp.values, y=topp.index, orientation="h",
+                color=topp.values, color_continuous_scale="Plasma"
             )
-            figp.update_layout(
-                height=500,
-                yaxis={"categoryorder": "total ascending"}
-            )
+            figp.update_layout(height=500)
             st.plotly_chart(figp, use_container_width=True)
 # ====================== TABELA DETALHADA + EXPORTAÇÃO ======================
 def tabela_dados_export(df: pd.DataFrame, kpis: dict):
     st.subheader("Tabela de Dados Detalhada")
 
     if df.empty:
-        st.warning("Nenhum dado para apresentar na tabela com os filtros atuais.")
+        st.warning("Sem dados.")
         return
 
-    # Colunas a apresentar
     cols = [
         "Data", "Entidade", "Nome", "Artigo", "Quantidade",
         "Unidade", "V Líquido", "PM", "Comercial", "Mês", "Ano"
@@ -344,17 +296,14 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
 
     col1, col2 = st.columns(2)
 
-    # ✅ Exportar CSV
     csv = df.to_csv(index=False).encode()
     col1.download_button(
         "Download CSV",
         data=csv,
         file_name="dados.csv",
-        mime="text/csv",
-        help="Exportar dados filtrados em formato CSV."
+        mime="text/csv"
     )
 
-    # ✅ Exportar Excel com KPIs
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         df.to_excel(writer, sheet_name="Dados", index=False)
@@ -364,16 +313,10 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
         "Download Excel + KPIs",
         data=buffer.getvalue(),
         file_name="relatorio.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        help="Exportar dados filtrados e KPIs em ficheiro Excel."
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-# ====================== DEBUG OPCIONAL (Modo 1) ======================
+# ====================== DEBUG OPCIONAL ======================
 def debug_comercial_mes(df: pd.DataFrame):
-    """
-    Debug opcional — só aparece se for chamado manualmente.
-    Exemplo de uso:
-        debug_comercial_mes(df_filt)
-    """
     st.subheader("🔍 Debug — Comercial / Ano / Mês")
 
     if df.empty:
@@ -381,7 +324,6 @@ def debug_comercial_mes(df: pd.DataFrame):
         return
 
     df_dbg = df.copy()
-    df_dbg["Data"] = pd.to_datetime(df_dbg["Data"], errors="coerce")
     df_dbg["AnoMes"] = df_dbg["Data"].dt.strftime("%Y-%m")
 
     resumo = df_dbg.groupby(["Comercial", "Ano", "Mês", "AnoMes"]).agg(
@@ -427,8 +369,7 @@ def main():
 
     with tab1:
         desenhar_kpis(kpis, df_ticket_com)
-
-        # ✅ Debug opcional — só aparece se tu ativares manualmente
+        # ✅ Debug opcional — só aparece se ativares manualmente:
         # debug_comercial_mes(df_filt)
 
     with tab2:
