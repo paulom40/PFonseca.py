@@ -590,37 +590,32 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
 
     def add_sheet(name, df_sheet):
         nonlocal existing_sheet_names
-        name = sanitize_sheet_name(name, existing_sheet_names)
-        ws = wb.create_sheet(name)
+        name_real = sanitize_sheet_name(name, existing_names=existing_sheet_names)
+        ws = wb.create_sheet(name_real)
         for col_num, col_name in enumerate(df_sheet.columns, 1):
             ws.cell(row=1, column=col_num, value=col_name)
         for row_num, row in enumerate(df_sheet.values, 2):
             for col_num, value in enumerate(row, 1):
                 ws.cell(row=row_num, column=col_num, value=value)
+        return name_real
 
     def add_plot_to_sheet(sheet_name, fig, anchor="H2"):
         img_buffer = io.BytesIO()
         fig.savefig(img_buffer, format="png", dpi=150, bbox_inches="tight")
         img_buffer.seek(0)
-        ws = wb[sanitize_sheet_name(sheet_name, existing_sheet_names)]
+        ws = wb[sheet_name]
         img = XLImage(img_buffer)
         img.anchor = anchor
         ws.add_image(img)
 
-    # Criar folhas base
-    add_sheet("Dados", df_dados)
-    add_sheet("KPIs_Globais", df_kpis)
-    add_sheet("Historico_Mensal", df_hist)
-    add_sheet("Ranking_Comerciais", df_rank_com)
-    add_sheet("Clientes", df_clientes)
-    add_sheet("Produtos", df_produtos)
-    add_sheet("Alertas_Globais", df_alertas)
-
-    # Re-obter nomes reais após sanitização
-    nome_hist = sanitize_sheet_name("Historico_Mensal", existing_sheet_names)
-    nome_rank = sanitize_sheet_name("Ranking_Comerciais", existing_sheet_names)
-    nome_cli = sanitize_sheet_name("Clientes", existing_sheet_names)
-    nome_prod = sanitize_sheet_name("Produtos", existing_sheet_names)
+    # Criar folhas na ordem pedida
+    nome_dados = add_sheet("Dados", df_dados)
+    nome_kpis = add_sheet("KPIs_Globais", df_kpis)
+    nome_hist = add_sheet("Historico_Mensal", df_hist)
+    nome_rank = add_sheet("Ranking_Comerciais", df_rank_com)
+    nome_cli = add_sheet("Clientes", df_clientes)
+    nome_prod = add_sheet("Produtos", df_produtos)
+    nome_alertas = add_sheet("Alertas_Globais", df_alertas)
 
     # Gráfico evolução mensal (Historico_Mensal)
     fig1, ax1 = plt.subplots(figsize=(8, 4))
@@ -693,7 +688,7 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
     plt.tight_layout()
     add_plot_to_sheet(nome_cli, fig7, anchor="H20")
 
-    # Remover sheet default
+    # Remover sheet default, se existir
     if "Sheet" in wb.sheetnames and len(wb.sheetnames) > 1:
         std = wb["Sheet"]
         wb.remove(std)
@@ -715,49 +710,50 @@ def gerar_excel_completo(df_mes: pd.DataFrame, kpis_mes: dict) -> io.BytesIO:
 
     def add_sheet(name, df_sheet):
         nonlocal existing_sheet_names
-        name = sanitize_sheet_name(name, existing_sheet_names)
-        ws = wb.create_sheet(name)
+        name_real = sanitize_sheet_name(name, existing_sheet_names)
+        ws = wb.create_sheet(name_real)
         for col_num, col_name in enumerate(df_sheet.columns, 1):
             ws.cell(row=1, column=col_num, value=col_name)
         for row_num, row in enumerate(df_sheet.values, 2):
             for col_num, value in enumerate(row, 1):
                 ws.cell(row=row_num, column=col_num, value=value)
+        return name_real
 
     def add_plot_to_sheet(sheet_name, fig, anchor="H2"):
         img_buffer = io.BytesIO()
         fig.savefig(img_buffer, format="png", dpi=150, bbox_inches="tight")
         img_buffer.seek(0)
-        ws = wb[sanitize_sheet_name(sheet_name, existing_sheet_names)]
+        ws = wb[sheet_name]
         img = XLImage(img_buffer)
         img.anchor = anchor
         ws.add_image(img)
 
-    add_sheet("Dados", df_mes)
-    add_sheet("KPIs", pd.DataFrame([kpis_mes]))
+    nome_dados = add_sheet("Dados", df_mes)
+    nome_kpis = add_sheet("KPIs", pd.DataFrame([kpis_mes]))
 
     df_hist = df_mes.groupby("AnoMes")["V Líquido"].sum().reset_index()
-    add_sheet("Historico", df_hist)
+    nome_hist = add_sheet("Historico", df_hist)
 
     df_rank = df_mes.groupby("Comercial").agg(
         Total_Vendas=("V Líquido", "sum"),
         Transacoes=("V Líquido", "count")
     ).reset_index()
     df_rank["Ticket_Medio"] = df_rank["Total_Vendas"] / df_rank["Transacoes"]
-    add_sheet("Comerciais", df_rank)
+    nome_rank = add_sheet("Comerciais", df_rank)
 
     # Gráfico ranking comerciais
     fig1, ax1 = plt.subplots(figsize=(8, 4))
     ax1.bar(df_rank["Comercial"], df_rank["Total_Vendas"])
     ax1.set_title("Ranking Comerciais")
     plt.xticks(rotation=45)
-    add_plot_to_sheet("Comerciais", fig1, anchor="H2")
+    add_plot_to_sheet(nome_rank, fig1, anchor="H2")
 
-    # Gráfico evolução mensal do mês (um ponto, mas mantém consistência)
+    # Gráfico vendas do mês
     fig2, ax2 = plt.subplots(figsize=(8, 4))
     ax2.bar(df_hist["AnoMes"], df_hist["V Líquido"])
     ax2.set_title("Vendas do Mês")
     plt.xticks(rotation=45)
-    add_plot_to_sheet("Historico", fig2, anchor="H2")
+    add_plot_to_sheet(nome_hist, fig2, anchor="H2")
 
     if "Sheet" in wb.sheetnames and len(wb.sheetnames) > 1:
         std = wb["Sheet"]
@@ -789,35 +785,6 @@ def exportacao_mensal(df: pd.DataFrame):
                 file_name=f"Relatorio_{mes}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
-
-
-# ====================== DEBUG OPCIONAL ======================
-def debug_comercial_mes(df: pd.DataFrame):
-    st.subheader("🔍 Debug — Comercial / Ano / Mês")
-
-    if df.empty:
-        st.warning("Sem dados para debug.")
-        return
-
-    df_dbg = df.copy()
-    df_dbg["AnoMes"] = df_dbg["Data"].dt.strftime("%Y-%m")
-
-    resumo = df_dbg.groupby(["Comercial", "Ano", "Mês", "AnoMes"]).agg(
-        Total_Vendas=("V Líquido", "sum"),
-        Quantidade=("Quantidade", "sum"),
-        Transacoes=("V Líquido", "count")
-    ).reset_index()
-
-    resumo["Ticket_Medio"] = resumo["Total_Vendas"] / resumo["Transacoes"]
-    resumo["Valor_Medio_Unidade"] = resumo["Total_Vendas"] / resumo["Quantidade"]
-
-    resumo = resumo.sort_values("Total_Vendas", ascending=False)
-
-    resumo["Total_Vendas"] = resumo["Total_Vendas"].map(lambda x: f"{x:,.2f}")
-    resumo["Ticket_Medio"] = resumo["Ticket_Medio"].map(lambda x: f"{x:,.2f}")
-    resumo["Valor_Medio_Unidade"] = resumo["Valor_Medio_Unidade"].map(lambda x: f"{x:,.4f}")
-
-    st.dataframe(resumo, width="stretch")
 
 
 # ====================== MAIN ======================
@@ -857,7 +824,6 @@ def main():
     with tab3:
         tabela_dados_export(df_filt, kpis)
         exportacao_mensal(df_filt)
-        # debug_comercial_mes(df_filt)  # se quiseres ativar debug, descomenta
 
     st.markdown("---")
     st.markdown("Desenvolvido por Paulo — Dashboard Comercial ✅")
