@@ -78,7 +78,7 @@ def load_data(path: str = "ResumoTR.xlsx") -> pd.DataFrame:
         st.error(f"Faltam colunas obrigatórias no ficheiro: {missing}")
         return pd.DataFrame()
 
-    # ✅ CORREÇÃO QUANTIDADE
+    # Quantidade robusta
     df["Quantidade"] = (
         df["Quantidade"]
         .astype(str)
@@ -110,7 +110,6 @@ def aplicar_filtros(df: pd.DataFrame) -> pd.DataFrame:
         st.sidebar.warning("Sem dados para aplicar filtros.")
         return df
 
-    # ✅ Garantir datas válidas
     data_min = df["Data"].min()
     data_max = df["Data"].max()
 
@@ -134,22 +133,21 @@ def aplicar_filtros(df: pd.DataFrame) -> pd.DataFrame:
     mask_data = (df["Data"].dt.date >= data_inicio) & (df["Data"].dt.date <= data_fim)
     df_filt = df[mask_data].copy()
 
-    # ✅ Filtro Comercial
+    # Filtro Comercial
     comerciais = sorted(df_filt["Comercial"].dropna().unique())
     sel_com = st.sidebar.multiselect("Comercial", options=comerciais, default=comerciais)
     if sel_com:
         df_filt = df_filt[df_filt["Comercial"].isin(sel_com)]
 
-    # ✅ Filtro Artigo
+    # Filtro Artigo
     artigos = sorted(df_filt["Artigo"].dropna().unique())
     sel_art = st.sidebar.multiselect("Artigo", options=artigos, default=artigos)
     if sel_art:
         df_filt = df_filt[df_filt["Artigo"].isin(sel_art)]
 
-    # ✅ Filtro Nome (corrigido)
+    # Filtro Nome
     df_filt["Nome"] = df_filt["Nome"].astype(str).fillna("").str.strip()
     nomes = sorted([n for n in df_filt["Nome"].unique() if n and n.lower() != "nan"])
-
     sel_nome = st.sidebar.multiselect("Nome entidade", options=nomes, default=nomes)
     if sel_nome:
         df_filt = df_filt[df_filt["Nome"].isin(sel_nome)]
@@ -178,12 +176,8 @@ def calcular_kpis(df: pd.DataFrame) -> dict:
     clientes = df["Nome"].nunique()
     produtos = df["Artigo"].nunique()
 
-    # ✅ Ticket Médio Comercial (por transação)
     ticket_medio = total_vendas / transacoes if transacoes else 0
-
-    # ✅ Ticket Médio Cliente (por cliente único)
     ticket_medio_cliente = total_vendas / clientes if clientes else 0
-
     venda_media_dia = total_vendas / dias_com_venda if dias_com_venda else 0
     valor_medio_unidade = total_vendas / qtd_total if qtd_total else 0
 
@@ -199,6 +193,31 @@ def calcular_kpis(df: pd.DataFrame) -> dict:
         "valor_unidade": valor_medio_unidade,
         "periodo": periodo
     }
+
+
+# ====================== ALERTAS E THRESHOLDS ======================
+def obter_thresholds_globais():
+    return {
+        "ticket_comercial": 1000,
+        "ticket_cliente": 1500,
+        "venda_dia": 2000,
+        "valor_unidade": 2,
+        "total_vendas": 50000
+    }
+
+
+def mostrar_alerta(label: str, valor: float, limite: float):
+    if limite is None:
+        st.info(f"{label}: {valor:,.2f}")
+        return
+
+    if valor >= limite:
+        st.success(f"✅ {label}: {valor:,.2f} (acima do esperado)")
+    elif valor >= limite * 0.7:
+        st.warning(f"⚠️ {label}: {valor:,.2f} (atenção)")
+        return
+    else:
+        st.error(f"❌ {label}: {valor:,.2f} (abaixo do esperado)")
 
 
 # ====================== TICKET MÉDIO POR COMERCIAL ======================
@@ -245,6 +264,219 @@ def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
         df_show["Ticket_Medio"] = df_show["Ticket_Medio"].map(lambda x: f"€{x:,.2f}")
         df_show["Valor_Medio_Unidade"] = df_show["Valor_Medio_Unidade"].map(lambda x: f"€{x:,.4f}")
         st.dataframe(df_show, use_container_width=True)
+
+    st.subheader("Alertas de Desempenho (Globais)")
+    thresholds = obter_thresholds_globais()
+    mostrar_alerta("Ticket Médio Comercial (€)", kpis["ticket"], thresholds["ticket_comercial"])
+    mostrar_alerta("Ticket Médio Cliente (€)", kpis["ticket_cliente"], thresholds["ticket_cliente"])
+    mostrar_alerta("Venda Média por Dia (€)", kpis["venda_dia"], thresholds["venda_dia"])
+    mostrar_alerta("Valor Médio por Unidade (€)", kpis["valor_unidade"], thresholds["valor_unidade"])
+    mostrar_alerta("Total de Vendas (€)", kpis["total_vendas"], thresholds["total_vendas"])
+
+
+def grafico_evolucao(df: pd.DataFrame):
+    st.subheader("Evolução Mensal de Vendas (€)")
+    if df.empty:
+        st.warning("Sem dados.")
+        return
+
+    mensal = df.groupby("AnoMes")["V Líquido"].sum().reset_index()
+
+    fig = px.line(mensal, x="AnoMes", y="V Líquido", markers=True)
+    fig.add_bar(x=mensal["AnoMes"], y=mensal["V Líquido"])
+    fig.update_layout(height=500)
+
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def graficos_top10(df: pd.DataFrame):
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("Top 10 Clientes (€)")
+        if df.empty:
+            st.warning("Sem dados.")
+        else:
+            topc = df.groupby("Nome")["V Líquido"].sum().nlargest(10)
+            figc = px.bar(
+                x=topc.values, y=topc.index, orientation="h",
+                color=topc.values, color_continuous_scale="Viridis"
+            )
+            figc.update_layout(height=500)
+            st.plotly_chart(figc, use_container_width=True)
+
+    with col2:
+        st.subheader("Top 10 Produtos (€)")
+        if df.empty:
+            st.warning("Sem dados.")
+        else:
+            topp = df.groupby("Artigo")["V Líquido"].sum().nlargest(10)
+            figp = px.bar(
+                x=topp.values, y=topp.index, orientation="h",
+                color=topp.values, color_continuous_scale="Plasma"
+            )
+            figp.update_layout(height=500)
+            st.plotly_chart(figp, use_container_width=True)
+# ====================== ALERTAS POR COMERCIAL ======================
+def alertas_por_comercial(df: pd.DataFrame):
+    st.subheader("Alertas por Comercial")
+
+    if df.empty:
+        st.warning("Sem dados para análise de comerciais.")
+        return
+
+    thresholds = obter_thresholds_globais()
+
+    grp = df.groupby("Comercial").agg(
+        Total_Vendas=("V Líquido", "sum"),
+        Transacoes=("V Líquido", "count"),
+        Quantidade=("Quantidade", "sum"),
+        Clientes=("Nome", "nunique")
+    ).reset_index()
+
+    grp["Ticket_Medio_Comercial"] = grp["Total_Vendas"] / grp["Transacoes"]
+    grp["Ticket_Medio_Cliente"] = grp["Total_Vendas"] / grp["Clientes"]
+
+    for _, row in grp.iterrows():
+        st.markdown(f"### Comercial: **{row['Comercial']}**")
+        mostrar_alerta(
+            "Ticket Médio Comercial (€)",
+            row["Ticket_Medio_Comercial"],
+            thresholds["ticket_comercial"]
+        )
+        mostrar_alerta(
+            "Ticket Médio Cliente (€)",
+            row["Ticket_Medio_Cliente"],
+            thresholds["ticket_cliente"]
+        )
+        mostrar_alerta(
+            "Total de Vendas (€)",
+            row["Total_Vendas"],
+            thresholds["total_vendas"]
+        )
+        st.markdown("---")
+
+
+# ====================== ALERTAS POR CLIENTE ======================
+def alertas_por_cliente(df: pd.DataFrame, limite_min_venda: float = 0):
+    st.subheader("Alertas por Cliente (Top 20 por Vendas)")
+
+    if df.empty:
+        st.warning("Sem dados para análise de clientes.")
+        return
+
+    thresholds = obter_thresholds_globais()
+
+    grp = df.groupby("Nome").agg(
+        Total_Vendas=("V Líquido", "sum"),
+        Transacoes=("V Líquido", "count"),
+        Quantidade=("Quantidade", "sum")
+    ).reset_index()
+
+    grp["Ticket_Medio_Cliente"] = grp["Total_Vendas"] / grp["Transacoes"]
+    grp = grp.sort_values("Total_Vendas", ascending=False).head(20)
+
+    for _, row in grp.iterrows():
+        if row["Total_Vendas"] < limite_min_venda:
+            continue
+
+        st.markdown(f"### Cliente: **{row['Nome']}**")
+        mostrar_alerta(
+            "Total de Vendas (€)",
+            row["Total_Vendas"],
+            thresholds["total_vendas"]
+        )
+        mostrar_alerta(
+            "Ticket Médio por Transação (€)",
+            row["Ticket_Medio_Cliente"],
+            thresholds["ticket_cliente"]
+        )
+        st.markdown("---")
+
+
+# ====================== ALERTAS POR PRODUTO ======================
+def alertas_por_produto(df: pd.DataFrame, limite_min_venda: float = 0):
+    st.subheader("Alertas por Produto (Top 20 por Vendas)")
+
+    if df.empty:
+        st.warning("Sem dados para análise de produtos.")
+        return
+
+    thresholds = obter_thresholds_globais()
+
+    grp = df.groupby("Artigo").agg(
+        Total_Vendas=("V Líquido", "sum"),
+        Quantidade=("Quantidade", "sum"),
+        Transacoes=("V Líquido", "count")
+    ).reset_index()
+
+    grp["Ticket_Medio_Produto"] = grp["Total_Vendas"] / grp["Transacoes"]
+    grp["Valor_Medio_Unidade"] = grp["Total_Vendas"] / grp["Quantidade"]
+    grp = grp.sort_values("Total_Vendas", ascending=False).head(20)
+
+    for _, row in grp.iterrows():
+        if row["Total_Vendas"] < limite_min_venda:
+            continue
+
+        st.markdown(f"### Produto: **{row['Artigo']}**")
+        mostrar_alerta(
+            "Total de Vendas (€)",
+            row["Total_Vendas"],
+            thresholds["total_vendas"]
+        )
+        mostrar_alerta(
+            "Ticket Médio por Transação (€)",
+            row["Ticket_Medio_Produto"],
+            thresholds["ticket_comercial"]
+        )
+        mostrar_alerta(
+            "Valor Médio por Unidade (€)",
+            row["Valor_Medio_Unidade"],
+            thresholds["valor_unidade"]
+        )
+        st.markdown("---")
+
+
+# ====================== GRÁFICO SEMÁFORO TICKET COMERCIAL ======================
+def grafico_semaforo_ticket_comercial(df: pd.DataFrame):
+    st.subheader("Semáforo Ticket Médio por Comercial")
+
+    if df.empty:
+        st.warning("Sem dados.")
+        return
+
+    thresholds = obter_thresholds_globais()
+
+    grp = df.groupby("Comercial").agg(
+        Total_Vendas=("V Líquido", "sum"),
+        Transacoes=("V Líquido", "count")
+    ).reset_index()
+
+    grp["Ticket_Medio"] = grp["Total_Vendas"] / grp["Transacoes"]
+
+    def classificar(valor):
+        if valor >= thresholds["ticket_comercial"]:
+            return "Acima"
+        elif valor >= thresholds["ticket_comercial"] * 0.7:
+            return "Atenção"
+        else:
+            return "Abaixo"
+
+    grp["Status"] = grp["Ticket_Medio"].apply(classificar)
+
+    color_map = {"Acima": "green", "Atenção": "orange", "Abaixo": "red"}
+
+    fig = px.bar(
+        grp,
+        x="Comercial",
+        y="Ticket_Medio",
+        color="Status",
+        color_discrete_map=color_map,
+        title="Ticket Médio por Comercial (Semáforo)"
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+
 # ====================== TABELA DETALHADA + EXPORTAÇÃO ======================
 def tabela_dados_export(df: pd.DataFrame, kpis: dict):
     st.subheader("Tabela de Dados Detalhada")
@@ -344,16 +576,18 @@ def main():
     kpis = calcular_kpis(df_filt)
     df_ticket_com = calcular_ticket_medio_por_comercial(df_filt)
 
-    tab1, tab2, tab3 = st.tabs(["📊 KPIs", "📈 Gráficos", "📄 Tabela"])
+    tab1, tab2, tab3 = st.tabs(["📊 KPIs", "📈 Gráficos & Alertas", "📄 Tabela"])
 
     with tab1:
         desenhar_kpis(kpis, df_ticket_com)
-        # ✅ Debug opcional — só aparece se ativares manualmente:
-        # debug_comercial_mes(df_filt)
+        alertas_por_comercial(df_filt)
+        alertas_por_cliente(df_filt, limite_min_venda=1000)
 
     with tab2:
         grafico_evolucao(df_filt)
         graficos_top10(df_filt)
+        grafico_semaforo_ticket_comercial(df_filt)
+        alertas_por_produto(df_filt, limite_min_venda=1000)
 
     with tab3:
         tabela_dados_export(df_filt, kpis)
