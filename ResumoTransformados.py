@@ -110,14 +110,20 @@ def aplicar_filtros(df: pd.DataFrame) -> pd.DataFrame:
         st.sidebar.warning("Sem dados para aplicar filtros.")
         return df
 
+    # ✅ Garantir datas válidas
     data_min = df["Data"].min()
     data_max = df["Data"].max()
 
+    if pd.isna(data_min) or pd.isna(data_max):
+        st.sidebar.error("Datas inválidas no dataset.")
+        return df
+
+    data_min = data_min.date()
+    data_max = data_max.date()
+
     data_inicio, data_fim = st.sidebar.date_input(
         "Período",
-        value=(data_min, data_max),
-        min_value=data_min,
-        max_value=data_max
+        value=(data_min, data_max)
     )
 
     if isinstance(data_inicio, datetime):
@@ -154,7 +160,8 @@ def calcular_kpis(df: pd.DataFrame) -> dict:
     if df.empty:
         return {
             "total_vendas": 0, "qtd": 0, "clientes": 0, "produtos": 0,
-            "trans": 0, "ticket": 0, "venda_dia": 0, "valor_unidade": 0,
+            "trans": 0, "ticket": 0, "ticket_cliente": 0,
+            "venda_dia": 0, "valor_unidade": 0,
             "periodo": "Sem dados"
         }
 
@@ -171,7 +178,12 @@ def calcular_kpis(df: pd.DataFrame) -> dict:
     clientes = df["Nome"].nunique()
     produtos = df["Artigo"].nunique()
 
+    # ✅ Ticket Médio Comercial (por transação)
     ticket_medio = total_vendas / transacoes if transacoes else 0
+
+    # ✅ Ticket Médio Cliente (por cliente único)
+    ticket_medio_cliente = total_vendas / clientes if clientes else 0
+
     venda_media_dia = total_vendas / dias_com_venda if dias_com_venda else 0
     valor_medio_unidade = total_vendas / qtd_total if qtd_total else 0
 
@@ -182,6 +194,7 @@ def calcular_kpis(df: pd.DataFrame) -> dict:
         "produtos": produtos,
         "trans": transacoes,
         "ticket": ticket_medio,
+        "ticket_cliente": ticket_medio_cliente,
         "venda_dia": venda_media_dia,
         "valor_unidade": valor_medio_unidade,
         "periodo": periodo
@@ -217,8 +230,8 @@ def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
     st.divider()
 
     c6, c7, c8 = st.columns(3)
-    c6.metric("Ticket Médio (€)", f"{kpis['ticket']:,.2f}")
-    c7.metric("Venda Média por Dia (€)", f"{kpis['venda_dia']:,.2f}")
+    c6.metric("Ticket Médio Comercial (€)", f"{kpis['ticket']:,.2f}")
+    c7.metric("Ticket Médio Cliente (€)", f"{kpis['ticket_cliente']:,.2f}")
     c8.metric("Valor Médio por Unidade (€)", f"{kpis['valor_unidade']:,.4f}")
 
     st.info(f"Período em análise: {kpis['periodo']}")
@@ -232,51 +245,6 @@ def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
         df_show["Ticket_Medio"] = df_show["Ticket_Medio"].map(lambda x: f"€{x:,.2f}")
         df_show["Valor_Medio_Unidade"] = df_show["Valor_Medio_Unidade"].map(lambda x: f"€{x:,.4f}")
         st.dataframe(df_show, use_container_width=True)
-
-
-def grafico_evolucao(df: pd.DataFrame):
-    st.subheader("Evolução Mensal de Vendas (€)")
-    if df.empty:
-        st.warning("Sem dados.")
-        return
-
-    mensal = df.groupby("AnoMes")["V Líquido"].sum().reset_index()
-
-    fig = px.line(mensal, x="AnoMes", y="V Líquido", markers=True)
-    fig.add_bar(x=mensal["AnoMes"], y=mensal["V Líquido"])
-    fig.update_layout(height=500)
-
-    st.plotly_chart(fig, use_container_width=True)
-
-
-def graficos_top10(df: pd.DataFrame):
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.subheader("Top 10 Clientes (€)")
-        if df.empty:
-            st.warning("Sem dados.")
-        else:
-            topc = df.groupby("Nome")["V Líquido"].sum().nlargest(10)
-            figc = px.bar(
-                x=topc.values, y=topc.index, orientation="h",
-                color=topc.values, color_continuous_scale="Viridis"
-            )
-            figc.update_layout(height=500)
-            st.plotly_chart(figc, use_container_width=True)
-
-    with col2:
-        st.subheader("Top 10 Produtos (€)")
-        if df.empty:
-            st.warning("Sem dados.")
-        else:
-            topp = df.groupby("Artigo")["V Líquido"].sum().nlargest(10)
-            figp = px.bar(
-                x=topp.values, y=topp.index, orientation="h",
-                color=topp.values, color_continuous_scale="Plasma"
-            )
-            figp.update_layout(height=500)
-            st.plotly_chart(figp, use_container_width=True)
 # ====================== TABELA DETALHADA + EXPORTAÇÃO ======================
 def tabela_dados_export(df: pd.DataFrame, kpis: dict):
     st.subheader("Tabela de Dados Detalhada")
