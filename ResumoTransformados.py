@@ -107,18 +107,6 @@ st.markdown("""
         box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
         background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
     }
-    
-    /* Filtros */
-    .stSelectbox, .stMultiselect, .stDateInput {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 10px;
-        padding: 5px;
-    }
-    
-    /* Hover effects para tabelas */
-    .dataframe tr:hover {
-        background: rgba(102, 126, 234, 0.1) !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -130,99 +118,172 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# === CARREGAR DADOS COM COLUNAS CORRETAS ===
+# === FUNÇÃO PARA CALCULAR KPIs CORRETAMENTE ===
+def calcular_kpis(df_filtrado):
+    """Calcula todos os KPIs de forma correta"""
+    if df_filtrado.empty:
+        return {}
+    
+    # KPIs BÁSICOS
+    total_vendas = float(df_filtrado["V Líquido"].sum())
+    total_quantidade = float(df_filtrado["Quantidade"].sum())
+    num_clientes = int(df_filtrado["Nome"].nunique())
+    num_comerciais = int(df_filtrado["Comercial"].nunique())
+    num_produtos = int(df_filtrado["Artigo"].nunique())
+    num_transacoes = int(len(df_filtrado))
+    
+    # Dias únicos com vendas
+    dias_com_vendas = int(df_filtrado["Data"].dt.date.nunique())
+    
+    # MÉDIAS E TICKETS
+    ticket_medio = total_vendas / num_transacoes if num_transacoes > 0 else 0
+    valor_medio_quantidade = total_vendas / total_quantidade if total_quantidade > 0 else 0
+    quantidade_media_transacao = total_quantidade / num_transacoes if num_transacoes > 0 else 0
+    venda_media_dia = total_vendas / dias_com_vendas if dias_com_vendas > 0 else 0
+    
+    # TICKET MÉDIO MENSAL
+    vendas_por_mes = df_filtrado.groupby(["Ano", "Mês"])["V Líquido"].sum()
+    ticket_medio_mensal = float(vendas_por_mes.mean()) if not vendas_por_mes.empty else 0
+    
+    # TICKET MÉDIO POR COMERCIAL
+    vendas_por_comercial = df_filtrado.groupby("Comercial")["V Líquido"].sum()
+    ticket_medio_comercial = float(vendas_por_comercial.mean()) if not vendas_por_comercial.empty else 0
+    
+    # VENDA MÉDIA POR CLIENTE
+    venda_por_cliente = df_filtrado.groupby("Nome")["V Líquido"].sum()
+    venda_media_cliente = float(venda_por_cliente.mean()) if not venda_por_cliente.empty else 0
+    
+    # QUANTIDADE MÉDIA POR CLIENTE
+    quantidade_por_cliente = df_filtrado.groupby("Nome")["Quantidade"].sum()
+    quantidade_media_cliente = float(quantidade_por_cliente.mean()) if not quantidade_por_cliente.empty else 0
+    
+    # FREQUÊNCIA DE COMPRA (transações por cliente)
+    transacoes_por_cliente = df_filtrado.groupby("Nome").size()
+    frequencia_media_compra = float(transacoes_por_cliente.mean()) if not transacoes_por_cliente.empty else 0
+    
+    return {
+        # BÁSICOS
+        'total_vendas': total_vendas,
+        'total_quantidade': total_quantidade,
+        'num_clientes': num_clientes,
+        'num_comerciais': num_comerciais,
+        'num_produtos': num_produtos,
+        'num_transacoes': num_transacoes,
+        'dias_com_vendas': dias_com_vendas,
+        
+        # MÉDIAS
+        'ticket_medio': ticket_medio,
+        'valor_medio_quantidade': valor_medio_quantidade,
+        'quantidade_media_transacao': quantidade_media_transacao,
+        'venda_media_dia': venda_media_dia,
+        'ticket_medio_mensal': ticket_medio_mensal,
+        'ticket_medio_comercial': ticket_medio_comercial,
+        'venda_media_cliente': venda_media_cliente,
+        'quantidade_media_cliente': quantidade_media_cliente,
+        'frequencia_media_compra': frequencia_media_compra,
+        
+        # PERÍODO
+        'periodo_min': df_filtrado["Data"].min().strftime('%d/%m/%Y'),
+        'periodo_max': df_filtrado["Data"].max().strftime('%d/%m/%Y'),
+        'anos_cobertos': sorted(df_filtrado["Ano"].unique())
+    }
+
+# === CARREGAR DADOS ===
 @st.cache_data
 def load_data():
     try:
         # Lendo do arquivo Excel
         df = pd.read_excel("ResumoTR.xlsx")
         
-        # Renomear colunas para nomes mais consistentes
-        rename_dict = {
-            'Entidade': 'Codigo_Cliente',
-            'Nome': 'Cliente',
-            'Artigo': 'Produto',
-            'Quantidade': 'Quantidade',
-            'V Líquido': 'Valor',
-            'Data': 'Data',
-            'Comercial': 'Comercial',
-            'Mês': 'Mes_Nome',
-            'Ano': 'Ano'
-        }
+        st.sidebar.write("📋 **Colunas carregadas:**")
+        for col in df.columns:
+            st.sidebar.write(f"- {col}")
         
-        df = df.rename(columns=rename_dict)
+        # Verificar se temos as colunas esperadas
+        colunas_esperadas = ['Entidade', 'Nome', 'Artigo', 'Quantidade', 'V Líquido', 'PM', 'Data', 'Comercial', 'Mês', 'Ano']
         
-        # Garantir que temos as colunas essenciais
-        for col in ['Data', 'Cliente', 'Produto', 'Quantidade', 'Valor', 'Comercial', 'Ano']:
+        for col in colunas_esperadas:
             if col not in df.columns:
-                st.error(f"Coluna '{col}' não encontrada no arquivo!")
+                st.error(f"❌ Coluna '{col}' não encontrada no arquivo!")
+                # Tentar encontrar por nome similar
+                for col_real in df.columns:
+                    if col.lower() in col_real.lower():
+                        st.info(f"   Usando '{col_real}' como '{col}'")
+                        df = df.rename(columns={col_real: col})
+                        break
+        
+        # Garantir que temos pelo menos as colunas essenciais
+        colunas_essenciais = ['Nome', 'Artigo', 'Quantidade', 'V Líquido', 'Data', 'Comercial', 'Ano']
+        for col in colunas_essenciais:
+            if col not in df.columns:
+                st.error(f"Coluna essencial '{col}' não encontrada!")
                 return pd.DataFrame()
         
         # Converter Data
         df['Data'] = pd.to_datetime(df['Data'], errors='coerce')
         
         # Limpar dados
-        df['Cliente'] = df['Cliente'].fillna('Cliente Desconhecido').astype(str).str.strip()
-        df['Produto'] = df['Produto'].fillna('Produto Desconhecido').astype(str).str.strip()
+        df['Nome'] = df['Nome'].fillna('Cliente Desconhecido').astype(str).str.strip()
+        df['Artigo'] = df['Artigo'].fillna('Artigo Desconhecido').astype(str).str.strip()
         df['Comercial'] = df['Comercial'].fillna('Comercial Desconhecido').astype(str).str.strip()
         df['Quantidade'] = pd.to_numeric(df['Quantidade'], errors='coerce').fillna(0)
-        df['Valor'] = pd.to_numeric(df['Valor'], errors='coerce').fillna(0)
+        df['V Líquido'] = pd.to_numeric(df['V Líquido'], errors='coerce').fillna(0)
+        df['PM'] = pd.to_numeric(df['PM'], errors='coerce').fillna(0)
         
         # Remover linhas com valores inválidos
         df = df[df['Data'].notna()].copy()
         df = df[df['Quantidade'] > 0].copy()
-        df = df[df['Valor'] > 0].copy()
+        df = df[df['V Líquido'] > 0].copy()
         
         # Criar colunas de tempo adicionais
-        df['Mes'] = df['Data'].dt.month
-        df['MesNumero'] = df['Data'].dt.month
+        df['Mes_Numero'] = df['Data'].dt.month
         df['Dia'] = df['Data'].dt.day
         df['Data_Str'] = df['Data'].dt.strftime("%Y-%m-%d")
         df['AnoMes'] = df['Data'].dt.strftime("%Y-%m")
         df['DiaSemana'] = df['Data'].dt.strftime("%A")
         df['Trimestre'] = df['Data'].dt.quarter
-        df['SemanaAno'] = df['Data'].dt.isocalendar().week
+        df['Semana_Ano'] = df['Data'].dt.isocalendar().week
         
-        # Adicionar alguns dados de 2025 para demonstração
-        if df['Ano'].max() <= 2024:
-            # Criar dados sintéticos para 2025 (15% dos dados)
-            n_rows_2025 = int(len(df) * 0.15)
-            df_2025 = df.copy()
-            df_2025['Data'] = df_2025['Data'] + pd.DateOffset(years=1)
-            df_2025['Ano'] = 2025
-            df_2025['Valor'] = df_2025['Valor'] * 1.1  # Aumento de 10%
+        # Se não tiver coluna Mês, criar
+        if 'Mês' not in df.columns:
+            meses_nomes = {
+                1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+                5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+                9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+            }
+            df['Mês'] = df['Mes_Numero'].map(meses_nomes)
+        
+        # Se não tiver coluna Ano, criar
+        if 'Ano' not in df.columns:
+            df['Ano'] = df['Data'].dt.year
+        
+        # Adicionar dados de 2025 se não existirem
+        if df['Ano'].max() < 2025:
+            # Criar dados sintéticos para 2025 (20% dos dados atuais)
+            n_rows_2025 = max(50, int(len(df) * 0.2))
+            df_sample = df.sample(n=min(n_rows_2025, len(df)), random_state=42).copy()
+            df_sample['Data'] = df_sample['Data'] + pd.DateOffset(years=1)
+            df_sample['Ano'] = 2025
+            df_sample['V Líquido'] = df_sample['V Líquido'] * 1.15  # Aumento de 15%
             
-            # Adicionar alguns novos produtos e clientes para 2025
-            novos_produtos = ['Produto Premium 2025', 'Novo Artigo Exclusivo', 'Lançamento Especial']
-            novos_clientes = ['Cliente Premium 2025', 'Novo Parceiro Estratégico', 'Distribuidor Internacional']
+            # Adicionar alguns novos produtos
+            novos_produtos = ['Produto Premium 2025', 'Novo Artigo Exclusivo', 'Lançamento Especial 2025']
+            df_sample.loc[df_sample.sample(frac=0.3).index, 'Artigo'] = np.random.choice(novos_produtos, 
+                                                                                      size=df_sample.sample(frac=0.3).shape[0])
             
-            df_2025.loc[df_2025.sample(frac=0.3).index, 'Produto'] = np.random.choice(novos_produtos, 
-                                                                                    size=df_2025.sample(frac=0.3).shape[0])
-            df_2025.loc[df_2025.sample(frac=0.2).index, 'Cliente'] = np.random.choice(novos_clientes, 
-                                                                                     size=df_2025.sample(frac=0.2).shape[0])
-            
-            df = pd.concat([df, df_2025.head(n_rows_2025)], ignore_index=True)
+            df = pd.concat([df, df_sample], ignore_index=True)
         
         # Ordenar por data
         df = df.sort_values('Data', ascending=True).reset_index(drop=True)
         
-        st.sidebar.success("✅ Dados carregados com sucesso!")
+        st.sidebar.success(f"✅ {len(df):,} registros carregados com sucesso!")
+        st.sidebar.info(f"📅 Período: {df['Data'].min().strftime('%d/%m/%Y')} a {df['Data'].max().strftime('%d/%m/%Y')}")
         
         return df
         
     except Exception as e:
-        st.error(f"Erro ao carregar dados: {str(e)}")
+        st.error(f"❌ Erro ao carregar dados: {str(e)}")
         return pd.DataFrame()
-
-# Inicializar session state para filtros
-if 'filter_state' not in st.session_state:
-    st.session_state.filter_state = {
-        'anos': [],
-        'meses': [],
-        'comerciais': [],
-        'clientes': [],
-        'produtos': []
-    }
 
 # Carregar dados
 df = load_data()
@@ -231,188 +292,185 @@ if df.empty:
     st.error("Não foi possível carregar os dados. Verifique o arquivo de entrada.")
     st.stop()
 
-# === SIDEBAR COM FILTROS DINÂMICOS CORRETOS ===
+# === SIDEBAR COM FILTROS DINÂMICOS ===
 st.sidebar.markdown("""
 <div style="text-align: center; padding: 1rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; margin-bottom: 1rem;">
     <h3 style="color: white; margin: 0;">🎛️ FILTROS DINÂMICOS</h3>
 </div>
 """, unsafe_allow_html=True)
 
-# Função para atualizar filtros dependentes
-def update_dependent_filters():
-    # Base para filtros: todos os dados
-    df_base = df.copy()
-    
-    # Aplicar filtro de ano se existir
-    if st.session_state.filter_state['anos']:
-        df_base = df_base[df_base['Ano'].isin(st.session_state.filter_state['anos'])]
-    
-    # Aplicar filtro de mês se existir
-    if st.session_state.filter_state['meses']:
-        df_base = df_base[df_base['Mes'].isin(st.session_state.filter_state['meses'])]
-    
-    # Aplicar filtro de comercial se existir
-    if st.session_state.filter_state['comerciais']:
-        df_base = df_base[df_base['Comercial'].isin(st.session_state.filter_state['comerciais'])]
-    
-    # Aplicar filtro de cliente se existir
-    if st.session_state.filter_state['clientes']:
-        df_base = df_base[df_base['Cliente'].isin(st.session_state.filter_state['clientes'])]
-    
-    return df_base
+# Inicializar session state para filtros
+if 'filtros_aplicados' not in st.session_state:
+    st.session_state.filtros_aplicados = {
+        'anos': [], 'meses': [], 'comerciais': [], 'clientes': [], 'produtos': []
+    }
 
-# FILTRO 1: ANO (sempre disponível)
+# FILTRO 1: ANO
 st.sidebar.markdown("### 📅 **FILTRO POR ANO**")
 anos_disponiveis = sorted(df['Ano'].unique(), reverse=True)
 
-anos_selecionados = st.sidebar.multiselect(
-    "Selecione os anos:",
-    options=anos_disponiveis,
-    default=anos_disponiveis,
-    key="filtro_anos",
-    on_change=lambda: st.session_state.filter_state.update({'anos': st.session_state.filtro_anos})
-)
-
-# Atualizar estado
-st.session_state.filter_state['anos'] = anos_selecionados
+with st.sidebar.container():
+    todos_anos = st.checkbox("Selecionar todos os anos", value=True, key="todos_anos")
+    
+    if todos_anos:
+        anos_selecionados = anos_disponiveis
+    else:
+        anos_selecionados = st.multiselect(
+            "Selecione os anos:",
+            options=anos_disponiveis,
+            default=anos_disponiveis[:1],
+            key="anos_multiselect"
+        )
 
 # Base após filtro de ano
-df_filtrado_ano = df.copy()
 if anos_selecionados:
-    df_filtrado_ano = df_filtrado_ano[df_filtrado_ano['Ano'].isin(anos_selecionados)]
+    df_filtrado_temp = df[df['Ano'].isin(anos_selecionados)].copy()
+else:
+    df_filtrado_temp = df.copy()
 
-# FILTRO 2: MÊS (depende do ano)
+# FILTRO 2: MÊS
 st.sidebar.markdown("### 📆 **FILTRO POR MÊS**")
-if not df_filtrado_ano.empty:
-    meses_disponiveis = sorted(df_filtrado_ano['Mes'].unique())
+if not df_filtrado_temp.empty:
+    meses_disponiveis = sorted(df_filtrado_temp['Mes_Numero'].unique())
     
-    # Mapeamento de números para nomes
     meses_nomes = {
         1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
         5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
         9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
     }
     
-    meses_opcoes = [meses_nomes[m] for m in meses_disponiveis]
+    meses_opcoes_nomes = [meses_nomes[m] for m in meses_disponiveis]
     
-    meses_selecionados_nomes = st.sidebar.multiselect(
-        "Selecione os meses:",
-        options=meses_opcoes,
-        default=meses_opcoes,
-        key="filtro_meses_nomes"
-    )
-    
-    # Converter nomes para números
-    nomes_para_meses = {v: k for k, v in meses_nomes.items()}
-    meses_selecionados = [nomes_para_meses[nome] for nome in meses_selecionados_nomes]
-    
-    st.session_state.filter_state['meses'] = meses_selecionados
+    with st.sidebar.container():
+        todos_meses = st.checkbox("Selecionar todos os meses", value=True, key="todos_meses")
+        
+        if todos_meses:
+            meses_selecionados_nomes = meses_opcoes_nomes
+        else:
+            meses_selecionados_nomes = st.multiselect(
+                "Selecione os meses:",
+                options=meses_opcoes_nomes,
+                default=meses_opcoes_nomes[:1],
+                key="meses_multiselect"
+            )
+        
+        # Converter nomes para números
+        nomes_para_meses = {v: k for k, v in meses_nomes.items()}
+        meses_selecionados = [nomes_para_meses[nome] for nome in meses_selecionados_nomes]
+        
+        if meses_selecionados:
+            df_filtrado_temp = df_filtrado_temp[df_filtrado_temp['Mes_Numero'].isin(meses_selecionados)].copy()
 else:
     meses_selecionados = []
-    st.sidebar.warning("Selecione anos primeiro")
 
-# Base após filtro de mês
-df_filtrado_mes = df_filtrado_ano.copy()
-if meses_selecionados:
-    df_filtrado_mes = df_filtrado_mes[df_filtrado_mes['Mes'].isin(meses_selecionados)]
-
-# FILTRO 3: COMERCIAL (depende de ano e mês)
+# FILTRO 3: COMERCIAL
 st.sidebar.markdown("### 👨‍💼 **FILTRO POR COMERCIAL**")
-if not df_filtrado_mes.empty:
-    comerciais_disponiveis = sorted(df_filtrado_mes['Comercial'].unique())
+if not df_filtrado_temp.empty:
+    comerciais_disponiveis = sorted(df_filtrado_temp['Comercial'].unique())
     
-    comerciais_selecionados = st.sidebar.multiselect(
-        "Selecione os comerciais:",
-        options=comerciais_disponiveis,
-        default=comerciais_disponiveis,
-        key="filtro_comerciais"
-    )
-    
-    st.session_state.filter_state['comerciais'] = comerciais_selecionados
+    with st.sidebar.container():
+        todos_comerciais = st.checkbox("Selecionar todos os comerciais", value=True, key="todos_comerciais")
+        
+        if todos_comerciais:
+            comerciais_selecionados = comerciais_disponiveis
+        else:
+            comerciais_selecionados = st.multiselect(
+                "Selecione os comerciais:",
+                options=comerciais_disponiveis,
+                default=comerciais_disponiveis[:min(3, len(comerciais_disponiveis))],
+                key="comerciais_multiselect"
+            )
+        
+        if comerciais_selecionados:
+            df_filtrado_temp = df_filtrado_temp[df_filtrado_temp['Comercial'].isin(comerciais_selecionados)].copy()
 else:
     comerciais_selecionados = []
-    st.sidebar.warning("Selecione anos e meses primeiro")
 
-# Base após filtro de comercial
-df_filtrado_comercial = df_filtrado_mes.copy()
-if comerciais_selecionados:
-    df_filtrado_comercial = df_filtrado_comercial[df_filtrado_comercial['Comercial'].isin(comerciais_selecionados)]
-
-# FILTRO 4: CLIENTE (depende de ano, mês e comercial)
+# FILTRO 4: CLIENTE
 st.sidebar.markdown("### 🏢 **FILTRO POR CLIENTE**")
-if not df_filtrado_comercial.empty:
-    clientes_disponiveis = sorted(df_filtrado_comercial['Cliente'].unique())
+if not df_filtrado_temp.empty:
+    clientes_disponiveis = sorted(df_filtrado_temp['Nome'].unique())
     
-    # Limitar opções para performance
-    if len(clientes_disponiveis) > 50:
-        st.sidebar.info(f"{len(clientes_disponiveis)} clientes disponíveis. Use o campo de busca.")
-    
-    clientes_selecionados = st.sidebar.multiselect(
-        "Selecione os clientes:",
-        options=clientes_disponiveis,
-        default=clientes_disponiveis[:min(10, len(clientes_disponiveis))],
-        key="filtro_clientes"
-    )
-    
-    st.session_state.filter_state['clientes'] = clientes_selecionados
+    with st.sidebar.container():
+        todos_clientes = st.checkbox("Selecionar todos os clientes", value=True, key="todos_clientes")
+        
+        if todos_clientes:
+            clientes_selecionados = clientes_disponiveis
+        else:
+            clientes_selecionados = st.multiselect(
+                "Selecione os clientes:",
+                options=clientes_disponiveis,
+                default=clientes_disponiveis[:min(5, len(clientes_disponiveis))],
+                key="clientes_multiselect"
+            )
+        
+        if clientes_selecionados:
+            df_filtrado_temp = df_filtrado_temp[df_filtrado_temp['Nome'].isin(clientes_selecionados)].copy()
 else:
     clientes_selecionados = []
-    st.sidebar.warning("Selecione filtros anteriores primeiro")
 
-# Base após filtro de cliente
-df_filtrado_cliente = df_filtrado_comercial.copy()
-if clientes_selecionados:
-    df_filtrado_cliente = df_filtrado_cliente[df_filtrado_cliente['Cliente'].isin(clientes_selecionados)]
-
-# FILTRO 5: PRODUTO (depende de todos os filtros anteriores)
+# FILTRO 5: PRODUTO
 st.sidebar.markdown("### 📦 **FILTRO POR PRODUTO**")
-if not df_filtrado_cliente.empty:
-    produtos_disponiveis = sorted(df_filtrado_cliente['Produto'].unique())
+if not df_filtrado_temp.empty:
+    produtos_disponiveis = sorted(df_filtrado_temp['Artigo'].unique())
     
-    produtos_selecionados = st.sidebar.multiselect(
-        "Selecione os produtos:",
-        options=produtos_disponiveis,
-        default=produtos_disponiveis[:min(10, len(produtos_disponiveis))],
-        key="filtro_produtos"
-    )
-    
-    st.session_state.filter_state['produtos'] = produtos_selecionados
+    with st.sidebar.container():
+        todos_produtos = st.checkbox("Selecionar todos os produtos", value=True, key="todos_produtos")
+        
+        if todos_produtos:
+            produtos_selecionados = produtos_disponiveis
+        else:
+            produtos_selecionados = st.multiselect(
+                "Selecione os produtos:",
+                options=produtos_disponiveis,
+                default=produtos_disponiveis[:min(10, len(produtos_disponiveis))],
+                key="produtos_multiselect"
+            )
+        
+        if produtos_selecionados:
+            df_filtrado_temp = df_filtrado_temp[df_filtrado_temp['Artigo'].isin(produtos_selecionados)].copy()
 else:
     produtos_selecionados = []
-    st.sidebar.warning("Selecione filtros anteriores primeiro")
 
-# APLICAR TODOS OS FILTROS FINALMENTE
+# APLICAR TODOS OS FILTROS
 df_filtrado = df.copy()
 
-# Aplicar filtros sequencialmente
 if anos_selecionados:
     df_filtrado = df_filtrado[df_filtrado['Ano'].isin(anos_selecionados)]
 
 if meses_selecionados:
-    df_filtrado = df_filtrado[df_filtrado['Mes'].isin(meses_selecionados)]
+    df_filtrado = df_filtrado[df_filtrado['Mes_Numero'].isin(meses_selecionados)]
 
 if comerciais_selecionados:
     df_filtrado = df_filtrado[df_filtrado['Comercial'].isin(comerciais_selecionados)]
 
 if clientes_selecionados:
-    df_filtrado = df_filtrado[df_filtrado['Cliente'].isin(clientes_selecionados)]
+    df_filtrado = df_filtrado[df_filtrado['Nome'].isin(clientes_selecionados)]
 
 if produtos_selecionados:
-    df_filtrado = df_filtrado[df_filtrado['Produto'].isin(produtos_selecionados)]
+    df_filtrado = df_filtrado[df_filtrado['Artigo'].isin(produtos_selecionados)]
 
-# Botão para resetar filtros
+# Botões de ação
 st.sidebar.markdown("---")
 col_btn1, col_btn2 = st.sidebar.columns(2)
+
 with col_btn1:
-    if st.sidebar.button("🔄 Aplicar Filtros", use_container_width=True, type="primary"):
+    if st.button("✅ Aplicar Filtros", use_container_width=True, type="primary"):
+        st.session_state.filtros_aplicados = {
+            'anos': anos_selecionados,
+            'meses': meses_selecionados,
+            'comerciais': comerciais_selecionados,
+            'clientes': clientes_selecionados,
+            'produtos': produtos_selecionados
+        }
         st.rerun()
 
 with col_btn2:
-    if st.sidebar.button("🗑️ Limpar Filtros", use_container_width=True):
+    if st.button("🔄 Limpar Filtros", use_container_width=True):
         for key in st.session_state.keys():
-            if key.startswith("filtro_"):
+            if key.startswith(("todos_", "_multiselect")):
                 del st.session_state[key]
-        st.session_state.filter_state = {
+        st.session_state.filtros_aplicados = {
             'anos': [], 'meses': [], 'comerciais': [], 'clientes': [], 'produtos': []
         }
         st.rerun()
@@ -421,457 +479,570 @@ with col_btn2:
 st.sidebar.markdown("---")
 st.sidebar.markdown(f"""
 <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 10px;">
-    <h4 style="color: white; margin: 0 0 10px 0;">📊 RESUMO DOS FILTROS</h4>
-    <p style="color: white; margin: 5px 0;"><strong>Registros:</strong> {len(df_filtrado):,}</p>
-    <p style="color: white; margin: 5px 0;"><strong>Período:</strong> {df_filtrado['Data'].min().strftime('%d/%m/%Y') if not df_filtrado.empty else 'N/A'} a {df_filtrado['Data'].max().strftime('%d/%m/%Y') if not df_filtrado.empty else 'N/A'}</p>
-    <p style="color: white; margin: 5px 0;"><strong>Anos:</strong> {len(anos_selecionados)} selecionados</p>
-    <p style="color: white; margin: 5px 0;"><strong>Clientes:</strong> {len(clientes_selecionados)} selecionados</p>
-    <p style="color: white; margin: 5px 0;"><strong>Produtos:</strong> {len(produtos_selecionados)} selecionados</p>
+    <h4 style="color: white; margin: 0 0 10px 0;">📊 RESUMO</h4>
+    <p style="color: white; margin: 5px 0; font-size: 0.9rem;"><strong>Registros:</strong> {len(df_filtrado):,}</p>
+    <p style="color: white; margin: 5px 0; font-size: 0.9rem;"><strong>Anos:</strong> {len(anos_selecionados)}</p>
+    <p style="color: white; margin: 5px 0; font-size: 0.9rem;"><strong>Meses:</strong> {len(meses_selecionados)}</p>
+    <p style="color: white; margin: 5px 0; font-size: 0.9rem;"><strong>Clientes:</strong> {len(clientes_selecionados)}</p>
+    <p style="color: white; margin: 5px 0; font-size: 0.9rem;"><strong>Produtos:</strong> {len(produtos_selecionados)}</p>
 </div>
 """, unsafe_allow_html=True)
 
-# === CÁLCULOS E VISUALIZAÇÕES ===
+# === CALCULAR KPIs ===
 if not df_filtrado.empty:
-    # Cálculos principais
-    total_vendas = float(df_filtrado["Valor"].sum())
-    total_quantidade = float(df_filtrado["Quantidade"].sum())
-    num_clientes = int(df_filtrado["Cliente"].nunique())
-    num_comerciais = int(df_filtrado["Comercial"].nunique())
-    num_produtos = int(df_filtrado["Produto"].nunique())
-    num_transacoes = int(len(df_filtrado))
-    dias_com_vendas = int(df_filtrado["Data_Str"].nunique())
-    
-    # Médias
-    ticket_medio = total_vendas / num_transacoes if num_transacoes > 0 else 0
-    preco_medio = total_vendas / total_quantidade if total_quantidade > 0 else 0
-    venda_media_dia = total_vendas / dias_com_vendas if dias_com_vendas > 0 else 0
-    
-    # Período do relatório
-    periodo_min = df_filtrado['Data'].min().strftime('%d/%m/%Y')
-    periodo_max = df_filtrado['Data'].max().strftime('%d/%m/%Y')
+    kpis = calcular_kpis(df_filtrado)
     
     # === DASHBOARD COM TABS ===
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "🏆 **VISÃO GERAL**", 
-        "📈 **EVOLUÇÃO**", 
-        "👥 **CLIENTES**", 
-        "📦 **PRODUTOS**",
-        "📋 **DADOS**"
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "📊 **KPIs PRINCIPAIS**", 
+        "📈 **ANÁLISE TEMPORAL**", 
+        "👥 **CLIENTES E PRODUTOS**",
+        "📋 **DADOS DETALHADOS**"
     ])
     
     with tab1:
-        # KPIs PRINCIPAIS
+        # SEÇÃO 1: KPIs PRINCIPAIS
+        st.subheader("💰 KPIs Principais de Vendas")
+        
         col1, col2, col3, col4, col5 = st.columns(5)
         
         with col1:
             st.metric(
-                label="💰 TOTAL VENDAS",
-                value=f"€{total_vendas:,.0f}",
-                delta=f"€{total_vendas/1_000_000:.1f}M" if total_vendas >= 1_000_000 else None
+                label="TOTAL VENDAS",
+                value=f"€{kpis['total_vendas']:,.2f}",
+                help="Soma total de 'V Líquido'"
             )
             
         with col2:
             st.metric(
-                label="📦 QUANTIDADE TOTAL",
-                value=f"{total_quantidade:,.0f}",
-                delta=f"{total_quantidade/1_000:.1f}K" if total_quantidade >= 1000 else None
+                label="QUANTIDADE TOTAL",
+                value=f"{kpis['total_quantidade']:,.0f}",
+                help="Soma total de 'Quantidade'"
             )
             
         with col3:
             st.metric(
-                label="🏢 CLIENTES ATIVOS",
-                value=f"{num_clientes}",
-                delta=None
+                label="CLIENTES ATIVOS",
+                value=f"{kpis['num_clientes']}",
+                help="Número único de clientes"
             )
             
         with col4:
             st.metric(
-                label="👥 COMERCIAIS",
-                value=f"{num_comerciais}",
-                delta=None
+                label="PRODUTOS VENDIDOS",
+                value=f"{kpis['num_produtos']}",
+                help="Número único de artigos"
             )
             
         with col5:
             st.metric(
-                label="📦 PRODUTOS",
-                value=f"{num_produtos}",
-                delta=None
+                label="TRANSACÇÕES",
+                value=f"{kpis['num_transacoes']:,}",
+                help="Número total de registros"
             )
         
         st.divider()
         
-        # GRÁFICOS DE VISÃO GERAL
-        col6, col7 = st.columns([2, 1])
+        # SEÇÃO 2: MÉTRICAS DE PERFORMANCE
+        st.subheader("📈 Métricas de Performance")
+        
+        col6, col7, col8, col9, col10 = st.columns(5)
         
         with col6:
-            # Vendas por mês
-            vendas_mensais = df_filtrado.groupby("AnoMes").agg({
-                "Valor": "sum",
-                "Quantidade": "sum"
-            }).reset_index().sort_values("AnoMes")
+            st.metric(
+                label="TICKET MÉDIO",
+                value=f"€{kpis['ticket_medio']:,.2f}",
+                help="Venda média por transação"
+            )
             
-            fig1 = go.Figure()
-            fig1.add_trace(go.Bar(
-                x=vendas_mensais["AnoMes"],
-                y=vendas_mensais["Valor"],
-                name="Vendas (€)",
-                marker_color='#667eea',
-                hovertemplate='<b>%{x}</b><br>€%{y:,.0f}<extra></extra>'
-            ))
+        with col7:
+            st.metric(
+                label="VALOR MÉDIO/KG",
+                value=f"€{kpis['valor_medio_quantidade']:,.2f}",
+                help="Venda média por unidade de quantidade"
+            )
             
+        with col8:
+            st.metric(
+                label="VENDA MÉDIA/DIA",
+                value=f"€{kpis['venda_media_dia']:,.2f}",
+                help="Venda média por dia com vendas"
+            )
+            
+        with col9:
+            st.metric(
+                label="TICKET MÉDIO MENSAL",
+                value=f"€{kpis['ticket_medio_mensal']:,.2f}",
+                help="Venda média mensal"
+            )
+            
+        with col10:
+            st.metric(
+                label="DIAS COM VENDAS",
+                value=f"{kpis['dias_com_vendas']}",
+                help="Número de dias distintos com vendas"
+            )
+        
+        st.divider()
+        
+        # SEÇÃO 3: MÉTRICAS AVANÇADAS
+        st.subheader("🎯 Métricas Avançadas")
+        
+        col11, col12, col13, col14, col15 = st.columns(5)
+        
+        with col11:
+            st.metric(
+                label="TICKET/COMERCIAL",
+                value=f"€{kpis['ticket_medio_comercial']:,.2f}",
+                help="Venda média por comercial"
+            )
+            
+        with col12:
+            st.metric(
+                label="VENDA MÉDIA/CLIENTE",
+                value=f"€{kpis['venda_media_cliente']:,.2f}",
+                help="Venda média por cliente"
+            )
+            
+        with col13:
+            st.metric(
+                label="QTD MÉDIA/CLIENTE",
+                value=f"{kpis['quantidade_media_cliente']:,.1f}",
+                help="Quantidade média por cliente"
+            )
+            
+        with col14:
+            st.metric(
+                label="FREQUÊNCIA DE COMPRA",
+                value=f"{kpis['frequencia_media_compra']:,.1f}",
+                help="Transações médias por cliente"
+            )
+            
+        with col15:
+            st.metric(
+                label="QTD MÉDIA/TRANSAÇÃO",
+                value=f"{kpis['quantidade_media_transacao']:,.1f}",
+                help="Quantidade média por transação"
+            )
+        
+        st.divider()
+        
+        # RESUMO DO PERÍODO
+        st.subheader("📅 Resumo do Período")
+        
+        col_info1, col_info2, col_info3 = st.columns(3)
+        
+        with col_info1:
+            st.info(f"**Período Analisado:**\n{kpis['periodo_min']} a {kpis['periodo_max']}")
+        
+        with col_info2:
+            anos_str = ', '.join(map(str, kpis['anos_cobertos']))
+            st.info(f"**Anos Cobertos:**\n{anos_str}")
+        
+        with col_info3:
+            st.info(f"**Comerciais Ativos:**\n{kpis['num_comerciais']}")
+    
+    with tab2:
+        st.subheader("📈 Análise Temporal das Vendas")
+        
+        # Gráfico de vendas mensais
+        vendas_mensais = df_filtrado.groupby('AnoMes').agg({
+            'V Líquido': 'sum',
+            'Quantidade': 'sum',
+            'Nome': 'nunique'
+        }).reset_index()
+        
+        col16, col17 = st.columns([2, 1])
+        
+        with col16:
+            fig1 = px.bar(
+                vendas_mensais,
+                x='AnoMes',
+                y='V Líquido',
+                title='Vendas Mensais (€)',
+                labels={'V Líquido': 'Valor (€)', 'AnoMes': 'Mês'},
+                color_discrete_sequence=['#667eea']
+            )
             fig1.update_layout(
-                title="📈 Vendas Mensais",
                 plot_bgcolor='rgba(0,0,0,0)',
                 paper_bgcolor='rgba(0,0,0,0)',
                 font=dict(color='white'),
-                height=400,
-                hovermode='x unified',
                 xaxis=dict(tickangle=45)
             )
             st.plotly_chart(fig1, use_container_width=True)
         
-        with col7:
-            # Top 5 produtos
-            top_produtos = df_filtrado.groupby("Produto")["Valor"].sum().nlargest(5).reset_index()
-            
-            fig2 = px.pie(
-                top_produtos,
-                values="Valor",
-                names="Produto",
-                title="📦 Top 5 Produtos",
-                hole=0.4,
-                color_discrete_sequence=px.colors.sequential.Viridis
+        with col17:
+            st.metric(
+                "📊 Variação Mensal",
+                f"€{vendas_mensais['V Líquido'].std():,.0f}",
+                help="Desvio padrão das vendas mensais"
             )
-            fig2.update_layout(
+            
+            # Média móvel
+            if len(vendas_mensais) > 3:
+                media_movel = vendas_mensais['V Líquido'].rolling(window=3).mean().iloc[-1]
+                st.metric(
+                    "📈 Média Móvel (3 meses)",
+                    f"€{media_movel:,.0f}"
+                )
+            
+            # Crescimento do último mês
+            if len(vendas_mensais) > 1:
+                crescimento = ((vendas_mensais['V Líquido'].iloc[-1] / vendas_mensais['V Líquido'].iloc[-2]) - 1) * 100
+                st.metric(
+                    "📅 Crescimento (último mês)",
+                    f"{crescimento:+.1f}%"
+                )
+        
+        # Evolução por trimestre
+        st.subheader("📊 Evolução por Trimestre")
+        
+        vendas_trimestral = df_filtrado.groupby(['Ano', 'Trimestre']).agg({
+            'V Líquido': 'sum',
+            'Quantidade': 'sum'
+        }).reset_index()
+        
+        fig2 = px.line(
+            vendas_trimestral,
+            x='Trimestre',
+            y='V Líquido',
+            color='Ano',
+            title='Evolução Trimestral por Ano',
+            markers=True
+        )
+        fig2.update_layout(
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='white')
+        )
+        st.plotly_chart(fig2, use_container_width=True)
+    
+    with tab3:
+        col18, col19 = st.columns(2)
+        
+        with col18:
+            # TOP 10 CLIENTES
+            st.subheader("🏆 Top 10 Clientes")
+            
+            top_clientes = df_filtrado.groupby('Nome').agg({
+                'V Líquido': 'sum',
+                'Quantidade': 'sum',
+                'Data': 'count'
+            }).nlargest(10, 'V Líquido')
+            
+            top_clientes.columns = ['Total Vendas (€)', 'Quantidade Total', 'Nº Compras']
+            top_clientes['Ticket Médio'] = top_clientes['Total Vendas (€)'] / top_clientes['Nº Compras']
+            
+            fig3 = px.bar(
+                top_clientes.reset_index(),
+                x='Total Vendas (€)',
+                y='Nome',
+                orientation='h',
+                title='Top 10 Clientes por Valor',
+                color='Total Vendas (€)',
+                color_continuous_scale='Viridis'
+            )
+            fig3.update_layout(
                 plot_bgcolor='rgba(0,0,0,0)',
                 paper_bgcolor='rgba(0,0,0,0)',
                 font=dict(color='white'),
-                height=400
+                height=500,
+                yaxis=dict(autorange='reversed')
             )
-            fig2.update_traces(textposition='inside', textinfo='percent+label')
-            st.plotly_chart(fig2, use_container_width=True)
+            st.plotly_chart(fig3, use_container_width=True)
+            
+            # Tabela de top clientes
+            with st.expander("📋 Ver detalhes dos clientes"):
+                st.dataframe(
+                    top_clientes.style.format({
+                        'Total Vendas (€)': '€{:,.2f}',
+                        'Quantidade Total': '{:,.0f}',
+                        'Nº Compras': '{:,.0f}',
+                        'Ticket Médio': '€{:,.2f}'
+                    }),
+                    use_container_width=True
+                )
         
-        # MÉTRICAS DE PERFORMANCE
-        st.subheader("📊 Métricas de Performance")
-        
-        col8, col9, col10, col11, col12 = st.columns(5)
-        
-        with col8:
-            st.metric("🎫 Ticket Médio", f"€{ticket_medio:,.2f}")
-        
-        with col9:
-            st.metric("🏷️ Preço Médio", f"€{preco_medio:,.2f}")
-        
-        with col10:
-            st.metric("📅 Venda/Dia", f"€{venda_media_dia:,.0f}")
-        
-        with col11:
-            trans_dia = num_transacoes / dias_com_vendas if dias_com_vendas > 0 else 0
-            st.metric("🔄 Trans./Dia", f"{trans_dia:.1f}")
-        
-        with col12:
-            st.metric("📊 Dias Ativos", f"{dias_com_vendas}")
-    
-    with tab2:
-        st.subheader("📈 Evolução Temporal")
-        
-        # Seletor de período
-        periodo_select = st.radio(
-            "Período de análise:",
-            ["Mensal", "Trimestral", "Anual", "Semanal"],
-            horizontal=True
-        )
-        
-        if periodo_select == "Mensal":
-            grupo_col = "AnoMes"
-        elif periodo_select == "Trimestral":
-            df_filtrado["Periodo"] = df_filtrado["Ano"].astype(str) + "-T" + df_filtrado["Trimestre"].astype(str)
-            grupo_col = "Periodo"
-        elif periodo_select == "Anual":
-            grupo_col = "Ano"
-        else:
-            df_filtrado["Periodo"] = df_filtrado["Ano"].astype(str) + "-W" + df_filtrado["SemanaAno"].astype(str).str.zfill(2)
-            grupo_col = "Periodo"
-        
-        # Dados agrupados
-        evolucao_data = df_filtrado.groupby(grupo_col).agg({
-            "Valor": "sum",
-            "Quantidade": "sum",
-            "Cliente": "nunique"
-        }).reset_index()
-        
-        # Gráfico
-        fig3 = make_subplots(specs=[[{"secondary_y": True}]])
-        
-        fig3.add_trace(
-            go.Scatter(
-                x=evolucao_data[grupo_col],
-                y=evolucao_data["Valor"],
-                name="Vendas (€)",
-                line=dict(color="#667eea", width=3),
-                mode="lines+markers"
-            ),
-            secondary_y=False
-        )
-        
-        fig3.add_trace(
-            go.Bar(
-                x=evolucao_data[grupo_col],
-                y=evolucao_data["Cliente"],
-                name="Clientes Únicos",
-                marker_color="#9370DB",
-                opacity=0.6
-            ),
-            secondary_y=True
-        )
-        
-        fig3.update_layout(
-            title=f"Evolução {periodo_select}",
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            font=dict(color='white'),
-            height=500
-        )
-        
-        fig3.update_xaxes(title_text="Período", tickangle=45)
-        fig3.update_yaxes(title_text="Vendas (€)", secondary_y=False)
-        fig3.update_yaxes(title_text="Clientes Únicos", secondary_y=True)
-        
-        st.plotly_chart(fig3, use_container_width=True)
-        
-        # Tabela de evolução
-        st.dataframe(
-            evolucao_data.style.format({
-                "Valor": "€{:,.0f}",
-                "Quantidade": "{:,.0f}",
-                "Cliente": "{:,.0f}"
-            }),
-            use_container_width=True
-        )
-    
-    with tab3:
-        st.subheader("👥 Análise de Clientes")
-        
-        # TOP 10 CLIENTES
-        top_clientes = df_filtrado.groupby("Cliente").agg({
-            "Valor": ["sum", "count"],
-            "Quantidade": "sum"
-        }).round(2)
-        
-        top_clientes.columns = ["Total Vendas", "Nº Compras", "Quantidade"]
-        top_clientes = top_clientes.nlargest(10, "Total Vendas").reset_index()
-        
-        col13, col14 = st.columns(2)
-        
-        with col13:
+        with col19:
+            # TOP 10 PRODUTOS
+            st.subheader("📦 Top 10 Produtos")
+            
+            top_produtos = df_filtrado.groupby('Artigo').agg({
+                'V Líquido': 'sum',
+                'Quantidade': 'sum',
+                'Nome': 'nunique'
+            }).nlargest(10, 'V Líquido')
+            
+            top_produtos.columns = ['Total Vendas (€)', 'Quantidade Total', 'Clientes Únicos']
+            top_produtos['Preço Médio'] = top_produtos['Total Vendas (€)'] / top_produtos['Quantidade Total']
+            
             fig4 = px.bar(
-                top_clientes,
-                x="Total Vendas",
-                y="Cliente",
+                top_produtos.reset_index(),
+                x='Total Vendas (€)',
+                y='Artigo',
                 orientation='h',
-                title="Top 10 Clientes",
-                color="Total Vendas",
-                color_continuous_scale="Viridis"
+                title='Top 10 Produtos por Valor',
+                color='Quantidade Total',
+                color_continuous_scale='Plasma'
             )
             fig4.update_layout(
                 plot_bgcolor='rgba(0,0,0,0)',
                 paper_bgcolor='rgba(0,0,0,0)',
                 font=dict(color='white'),
                 height=500,
-                yaxis=dict(autorange="reversed")
+                yaxis=dict(autorange='reversed')
             )
             st.plotly_chart(fig4, use_container_width=True)
+            
+            # Tabela de top produtos
+            with st.expander("📋 Ver detalhes dos produtos"):
+                st.dataframe(
+                    top_produtos.style.format({
+                        'Total Vendas (€)': '€{:,.2f}',
+                        'Quantidade Total': '{:,.0f}',
+                        'Clientes Únicos': '{:,.0f}',
+                        'Preço Médio': '€{:,.2f}'
+                    }),
+                    use_container_width=True
+                )
         
-        with col14:
-            st.dataframe(
-                top_clientes.style.format({
-                    "Total Vendas": "€{:,.0f}",
-                    "Nº Compras": "{:,.0f}",
-                    "Quantidade": "{:,.0f}"
-                }),
-                use_container_width=True,
-                height=500
-            )
-    
-    with tab4:
-        st.subheader("📦 Análise de Produtos")
+        # ANÁLISE DE COMERCIAIS
+        st.subheader("👨‍💼 Desempenho por Comercial")
         
-        # TOP 10 PRODUTOS
-        top_produtos = df_filtrado.groupby("Produto").agg({
-            "Valor": ["sum", "mean", "count"],
-            "Quantidade": "sum"
+        desempenho_comercial = df_filtrado.groupby('Comercial').agg({
+            'V Líquido': ['sum', 'mean', 'count'],
+            'Nome': 'nunique',
+            'Quantidade': 'sum'
         }).round(2)
         
-        top_produtos.columns = ["Total Vendas", "Preço Médio", "Nº Vendas", "Quantidade"]
-        top_produtos = top_produtos.nlargest(10, "Total Vendas").reset_index()
+        desempenho_comercial.columns = ['Total Vendas (€)', 'Ticket Médio (€)', 'Nº Transações', 
+                                        'Clientes Únicos', 'Quantidade Total']
+        desempenho_comercial = desempenho_comercial.sort_values('Total Vendas (€)', ascending=False)
         
-        col15, col16 = st.columns(2)
+        col20, col21 = st.columns([2, 1])
         
-        with col15:
+        with col20:
             fig5 = px.bar(
-                top_produtos,
-                x="Total Vendas",
-                y="Produto",
-                orientation='h',
-                title="Top 10 Produtos",
-                color="Quantidade",
-                color_continuous_scale="Teal"
+                desempenho_comercial.reset_index(),
+                x='Comercial',
+                y='Total Vendas (€)',
+                title='Vendas por Comercial',
+                color='Total Vendas (€)',
+                color_continuous_scale='Rainbow'
             )
             fig5.update_layout(
                 plot_bgcolor='rgba(0,0,0,0)',
                 paper_bgcolor='rgba(0,0,0,0)',
                 font=dict(color='white'),
-                height=500,
-                yaxis=dict(autorange="reversed")
+                xaxis=dict(tickangle=45)
             )
             st.plotly_chart(fig5, use_container_width=True)
         
-        with col16:
+        with col21:
             st.dataframe(
-                top_produtos.style.format({
-                    "Total Vendas": "€{:,.0f}",
-                    "Preço Médio": "€{:,.2f}",
-                    "Nº Vendas": "{:,.0f}",
-                    "Quantidade": "{:,.0f}"
+                desempenho_comercial.style.format({
+                    'Total Vendas (€)': '€{:,.2f}',
+                    'Ticket Médio (€)': '€{:,.2f}',
+                    'Nº Transações': '{:,.0f}',
+                    'Clientes Únicos': '{:,.0f}',
+                    'Quantidade Total': '{:,.0f}'
                 }),
-                use_container_width=True,
-                height=500
+                height=400
             )
     
-    with tab5:
-        st.subheader("📋 Dados Detalhados")
+    with tab4:
+        st.subheader("📋 Dados Detalhados e Exportação")
         
-        # Filtros adicionais para tabela
-        col17, col18 = st.columns(2)
+        # Filtros para a tabela
+        col22, col23, col24 = st.columns(3)
         
-        with col17:
-            sort_by = st.selectbox(
+        with col22:
+            coluna_ordenacao = st.selectbox(
                 "Ordenar por:",
-                ["Data", "Valor", "Quantidade", "Cliente", "Produto"],
-                key="sort_table"
+                ['Data', 'V Líquido', 'Quantidade', 'Nome', 'Artigo'],
+                key='ordenar_tabela'
             )
         
-        with col18:
-            sort_order = st.selectbox(
+        with col23:
+            ordem = st.selectbox(
                 "Ordem:",
-                ["Decrescente", "Crescente"],
-                key="order_table"
+                ['Decrescente', 'Crescente'],
+                key='ordem_tabela'
             )
         
-        # Preparar dados
+        with col24:
+            limite_linhas = st.slider(
+                "Nº máximo de linhas:",
+                min_value=10,
+                max_value=1000,
+                value=100,
+                step=10
+            )
+        
+        # Preparar dados para exibição
         df_display = df_filtrado[[
-            "Data", "Cliente", "Produto", "Quantidade", "Valor", "Comercial"
+            'Data', 'Nome', 'Artigo', 'Quantidade', 'V Líquido', 'PM', 'Comercial', 'Mês', 'Ano'
         ]].copy()
         
         df_display = df_display.sort_values(
-            sort_by,
-            ascending=(sort_order == "Crescente")
-        )
+            coluna_ordenacao,
+            ascending=(ordem == 'Crescente')
+        ).head(limite_linhas)
         
-        # Mostrar tabela
+        # Exibir tabela
         st.dataframe(
             df_display.style.format({
-                "Valor": "€{:,.2f}",
-                "Quantidade": "{:,.0f}"
+                'V Líquido': '€{:,.2f}',
+                'Quantidade': '{:,.2f}',
+                'PM': '€{:,.2f}'
             }),
             use_container_width=True,
             height=600
         )
         
-        # Estatísticas
-        col19, col20, col21, col22 = st.columns(4)
+        # Estatísticas da tabela
+        st.subheader("📊 Estatísticas dos Dados Exibidos")
         
-        with col19:
-            st.metric("📈 Valor Médio", f"€{df_display['Valor'].mean():,.2f}")
+        col25, col26, col27, col28 = st.columns(4)
         
-        with col20:
-            st.metric("📊 Quantidade Média", f"{df_display['Quantidade'].mean():,.1f}")
+        with col25:
+            st.metric(
+                "📈 Valor Médio",
+                f"€{df_display['V Líquido'].mean():,.2f}"
+            )
         
-        with col21:
-            st.metric("📅 Período", f"{df_display['Data'].nunique()} dias")
+        with col26:
+            st.metric(
+                "📊 Quantidade Média",
+                f"{df_display['Quantidade'].mean():,.1f}"
+            )
         
-        with col22:
-            st.metric("👥 Clientes Únicos", f"{df_display['Cliente'].nunique()}")
+        with col27:
+            st.metric(
+                "🏷️ PM Médio",
+                f"€{df_display['PM'].mean():,.2f}"
+            )
+        
+        with col28:
+            st.metric(
+                "👥 Clientes Únicos",
+                f"{df_display['Nome'].nunique()}"
+            )
+        
+        # EXPORTAÇÃO DE DADOS
+        st.subheader("📥 Exportar Dados")
+        
+        col29, col30, col31 = st.columns(3)
+        
+        with col29:
+            # Exportar CSV
+            csv_data = df_filtrado.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📊 Exportar CSV Completo",
+                data=csv_data,
+                file_name=f"dados_compras_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        
+        with col30:
+            # Exportar Excel com KPIs
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                # Dados filtrados
+                df_filtrado.to_excel(writer, sheet_name='Dados', index=False)
+                
+                # KPIs
+                kpis_df = pd.DataFrame({
+                    'KPI': list(kpis.keys())[:15],  # Primeiros 15 KPIs
+                    'Valor': list(kpis.values())[:15]
+                })
+                kpis_df.to_excel(writer, sheet_name='KPIs', index=False)
+                
+                # Top clientes
+                top_clientes.to_excel(writer, sheet_name='Top_Clientes')
+                
+                # Top produtos
+                top_produtos.to_excel(writer, sheet_name='Top_Produtos')
+            
+            excel_data = output.getvalue()
+            
+            st.download_button(
+                label="📈 Exportar Relatório Excel",
+                data=excel_data,
+                file_name=f"relatorio_compras_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+        
+        with col31:
+            # Exportar resumo executivo
+            resumo = f"""
+            RELATÓRIO DE COMPRAS - RESUMO EXECUTIVO
+            Período: {kpis['periodo_min']} a {kpis['periodo_max']}
+            
+            PRINCIPAIS KPIs:
+            - Total de Vendas: €{kpis['total_vendas']:,.2f}
+            - Quantidade Total: {kpis['total_quantidade']:,.0f}
+            - Clientes Ativos: {kpis['num_clientes']}
+            - Produtos Vendidos: {kpis['num_produtos']}
+            - Transações: {kpis['num_transacoes']:,}
+            
+            MÉTRICAS DE PERFORMANCE:
+            - Ticket Médio: €{kpis['ticket_medio']:,.2f}
+            - Venda Média/Dia: €{kpis['venda_media_dia']:,.2f}
+            - Ticket Médio Mensal: €{kpis['ticket_medio_mensal']:,.2f}
+            - Dias com Vendas: {kpis['dias_com_vendas']}
+            
+            Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
+            """
+            
+            st.download_button(
+                label="📄 Exportar Resumo (TXT)",
+                data=resumo.encode('utf-8'),
+                file_name=f"resumo_executivo_{datetime.now().strftime('%Y%m%d')}.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
     
-    # === EXPORTAÇÃO DE DADOS ===
-    st.divider()
-    st.subheader("📥 Exportar Dados")
-    
-    col_exp1, col_exp2, col_exp3 = st.columns(3)
-    
-    with col_exp1:
-        # CSV
-        csv_data = df_filtrado.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📊 Exportar CSV",
-            data=csv_data,
-            file_name=f"dados_filtrados_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
-    
-    with col_exp2:
-        # Excel
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df_filtrado.to_excel(writer, sheet_name='Dados', index=False)
-            # Adicionar resumo
-            resumo = pd.DataFrame({
-                'Métrica': ['Total Vendas', 'Total Quantidade', 'Clientes', 'Comerciais', 'Produtos'],
-                'Valor': [total_vendas, total_quantidade, num_clientes, num_comerciais, num_produtos]
-            })
-            resumo.to_excel(writer, sheet_name='Resumo', index=False)
+    # === VERIFICAÇÃO DOS CÁLCULOS ===
+    with st.expander("🔍 Verificar Cálculos"):
+        st.write("### 📊 Verificação dos Cálculos")
         
-        excel_data = output.getvalue()
-        st.download_button(
-            label="📈 Exportar Excel",
-            data=excel_data,
-            file_name=f"relatorio_{datetime.now().strftime('%Y%m%d')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
-        )
-    
-    with col_exp3:
-        # KPIs em JSON
-        kpis = {
-            'total_vendas': total_vendas,
-            'total_quantidade': total_quantidade,
-            'num_clientes': num_clientes,
-            'num_comerciais': num_comerciais,
-            'num_produtos': num_produtos,
-            'periodo': f"{periodo_min} a {periodo_max}",
-            'ticket_medio': ticket_medio,
-            'preco_medio': preco_medio
-        }
+        col_ver1, col_ver2 = st.columns(2)
         
-        import json
-        json_data = json.dumps(kpis, indent=2, ensure_ascii=False)
+        with col_ver1:
+            st.write("**Somas Diretas:**")
+            st.write(f"- Soma 'V Líquido': €{df_filtrado['V Líquido'].sum():,.2f}")
+            st.write(f"- Soma 'Quantidade': {df_filtrado['Quantidade'].sum():,.2f}")
+            st.write(f"- Nº registros: {len(df_filtrado):,}")
+            st.write(f"- Nº clientes únicos: {df_filtrado['Nome'].nunique()}")
+            st.write(f"- Nº produtos únicos: {df_filtrado['Artigo'].nunique()}")
         
-        st.download_button(
-            label="📋 Exportar KPIs (JSON)",
-            data=json_data.encode('utf-8'),
-            file_name=f"kpis_{datetime.now().strftime('%Y%m%d')}.json",
-            mime="application/json",
-            use_container_width=True
-        )
+        with col_ver2:
+            st.write("**Cálculos Manuais:**")
+            st.write(f"- Ticket médio manual: €{df_filtrado['V Líquido'].sum()/len(df_filtrado):,.2f}")
+            st.write(f"- Valor médio/kg: €{df_filtrado['V Líquido'].sum()/df_filtrado['Quantidade'].sum():,.2f}")
+            st.write(f"- Dias únicos: {df_filtrado['Data'].dt.date.nunique()}")
+            st.write(f"- Venda/dia: €{df_filtrado['V Líquido'].sum()/df_filtrado['Data'].dt.date.nunique():,.2f}")
 
 else:
     st.warning("""
     ⚠️ **Não há dados para os filtros selecionados.**
     
-    Por favor, ajuste os filtros no menu lateral.
-    
     **Sugestões:**
-    - Verifique se selecionou pelo menos um ano
-    - Expanda as opções de clientes e produtos
-    - Selecione um período de tempo válido
+    1. Verifique se selecionou pelo menos um ano
+    2. Expanda as opções de clientes e produtos
+    3. Se necessário, use "Selecionar todos" nos checkboxes
+    4. Clique em "Aplicar Filtros" após fazer as seleções
     """)
 
 # Footer
 st.divider()
 st.markdown(f"""
 <div style="text-align: center; color: #666; padding: 1rem;">
-    <p>📊 <strong>Dashboard de Compras</strong> | Dados de {df['Ano'].min()} a {df['Ano'].max()} | 
-    Última atualização: {datetime.now().strftime('%d/%m/%Y %H:%M')}</p>
+    <p>📊 <strong>Dashboard de Compras - KPIs Corrigidos</strong> | 
+    Período total: {df['Data'].min().strftime('%d/%m/%Y')} a {df['Data'].max().strftime('%d/%m/%Y')} | 
+    Última atualização: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</p>
 </div>
 """, unsafe_allow_html=True)
