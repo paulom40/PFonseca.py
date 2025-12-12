@@ -224,8 +224,8 @@ try:
 except:
     df = load_data()
 
-# === FILTROS ===
-st.sidebar.header("🎛️ Filtros")
+# === FILTROS INTERATIVOS CORRIGIDOS ===
+st.sidebar.header("🎛️ Filtros Interativos")
 
 meses_nomes = {
     1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
@@ -239,119 +239,144 @@ meses_abreviados = {
 }
 
 if len(df) > 0:
-    if st.sidebar.button("🔄 Resetar Filtros", type="secondary"):
+    if st.sidebar.button("🔄 Resetar Todos os Filtros", type="secondary"):
         st.rerun()
     
     st.sidebar.divider()
     
-    # 1. ANO
+    # === APLICAR FILTROS DE FORMA CASCATA ===
+    
+    # 1. FILTRO DE ANO
     st.sidebar.subheader("📅 Ano")
     anos_disponiveis = sorted(df["Ano"].unique(), reverse=True)
+    st.sidebar.caption(f"Disponíveis: {anos_disponiveis}")
+    
     anos_selecionados = st.sidebar.multiselect(
         "Selecionar anos:",
         options=anos_disponiveis,
         default=anos_disponiveis,
         key="filtro_anos"
     )
+    
     if not anos_selecionados:
         anos_selecionados = anos_disponiveis
     
-    df_filtrado = df[df["Ano"].isin(anos_selecionados)].copy()
-    st.sidebar.caption(f"✓ {len(df_filtrado):,} registros")
+    # APLICAR FILTRO 1
+    df_temp = df[df["Ano"].isin(anos_selecionados)].copy()
+    st.sidebar.info(f"✓ {len(df_temp):,} registros após filtro de ano")
     
-    # 2. MÊS
+    # 2. FILTRO DE MÊS (baseado nos anos selecionados)
     st.sidebar.subheader("📆 Mês")
-    meses_disponiveis = sorted(df_filtrado["MesNumero"].unique())
-    opcoes_meses = [meses_nomes[mes] for mes in meses_disponiveis]
+    meses_disponiveis = sorted(df_temp["MesNumero"].unique())
+    meses_nomes_disponiveis = [meses_nomes[m] for m in meses_disponiveis]
+    st.sidebar.caption(f"Disponíveis: {len(meses_disponiveis)} meses")
+    
     meses_selecionados_nomes = st.sidebar.multiselect(
         "Selecionar meses:",
-        options=opcoes_meses,
-        default=opcoes_meses,
+        options=meses_nomes_disponiveis,
+        default=meses_nomes_disponiveis,
         key="filtro_meses"
     )
     
     nomes_para_meses = {v: k for k, v in meses_nomes.items()}
     meses_selecionados = [nomes_para_meses[nome] for nome in meses_selecionados_nomes] if meses_selecionados_nomes else meses_disponiveis
     
-    df_filtrado = df_filtrado[df_filtrado["MesNumero"].isin(meses_selecionados)].copy()
-    st.sidebar.caption(f"✓ {len(df_filtrado):,} registros")
+    # APLICAR FILTRO 2
+    df_temp = df_temp[df_temp["MesNumero"].isin(meses_selecionados)].copy()
+    st.sidebar.info(f"✓ {len(df_temp):,} registros após filtro de mês")
     
-    # 3. COMERCIAL
+    # 3. FILTRO DE COMERCIAL (baseado em ano + mês)
     st.sidebar.subheader("👨‍💼 Comercial")
-    comerciais_disponiveis = sorted(df_filtrado["Comercial"].unique())
-    todos_comerciais = st.sidebar.checkbox("✓ Todos", value=True, key="cb_comerciais")
+    comerciais_disponiveis = sorted(df_temp["Comercial"].unique())
+    st.sidebar.caption(f"Disponíveis: {len(comerciais_disponiveis)} comerciais")
+    
+    todos_comerciais = st.sidebar.checkbox("✓ Selecionar todos os comerciais", value=True, key="cb_comerciais")
     
     if todos_comerciais:
         comerciais_selecionados = comerciais_disponiveis
     else:
         comerciais_selecionados = st.sidebar.multiselect(
-            "Selecionar:",
+            "Selecionar comerciais:",
             options=comerciais_disponiveis,
-            default=comerciais_disponiveis[:3],
+            default=comerciais_disponiveis[:min(3, len(comerciais_disponiveis))],
             key="filtro_comerciais"
         )
         if not comerciais_selecionados:
             comerciais_selecionados = comerciais_disponiveis
     
-    df_filtrado = df_filtrado[df_filtrado["Comercial"].isin(comerciais_selecionados)].copy()
-    st.sidebar.caption(f"✓ {len(df_filtrado):,} registros")
+    # APLICAR FILTRO 3
+    df_temp = df_temp[df_temp["Comercial"].isin(comerciais_selecionados)].copy()
+    st.sidebar.info(f"✓ {len(df_temp):,} registros após filtro de comercial")
     
-    # 4. CLIENTE
+    # 4. FILTRO DE CLIENTE (baseado em ano + mês + comercial)
     st.sidebar.subheader("🏢 Cliente")
-    clientes_disponiveis = sorted(df_filtrado["Cliente"].unique())
-    todos_clientes = st.sidebar.checkbox("✓ Todos", value=True, key="cb_clientes")
+    clientes_disponiveis = sorted(df_temp["Cliente"].unique())
+    st.sidebar.caption(f"Disponíveis: {len(clientes_disponiveis)} clientes")
+    
+    todos_clientes = st.sidebar.checkbox("✓ Selecionar todos os clientes", value=True, key="cb_clientes")
     
     if todos_clientes:
         clientes_selecionados = clientes_disponiveis
     else:
         clientes_selecionados = st.sidebar.multiselect(
-            "Selecionar:",
+            "Selecionar clientes:",
             options=clientes_disponiveis,
-            default=clientes_disponiveis[:5],
+            default=clientes_disponiveis[:min(5, len(clientes_disponiveis))],
             key="filtro_clientes"
         )
         if not clientes_selecionados:
             clientes_selecionados = clientes_disponiveis
     
-    df_filtrado = df_filtrado[df_filtrado["Cliente"].isin(clientes_selecionados)].copy()
-    st.sidebar.caption(f"✓ {len(df_filtrado):,} registros")
+    # APLICAR FILTRO 4
+    df_temp = df_temp[df_temp["Cliente"].isin(clientes_selecionados)].copy()
+    st.sidebar.info(f"✓ {len(df_temp):,} registros após filtro de cliente")
     
-    # 5. ARTIGO
+    # 5. FILTRO DE ARTIGO (baseado em todos os filtros anteriores)
     st.sidebar.subheader("📦 Artigo")
-    artigos_disponiveis = sorted(df_filtrado["Artigo"].unique())
-    todos_artigos = st.sidebar.checkbox("✓ Todos", value=True, key="cb_artigos")
+    artigos_disponiveis = sorted(df_temp["Artigo"].unique())
+    st.sidebar.caption(f"Disponíveis: {len(artigos_disponiveis)} artigos")
+    
+    todos_artigos = st.sidebar.checkbox("✓ Selecionar todos os artigos", value=True, key="cb_artigos")
     
     if todos_artigos:
         artigos_selecionados = artigos_disponiveis
     else:
         artigos_selecionados = st.sidebar.multiselect(
-            "Selecionar:",
+            "Selecionar artigos:",
             options=artigos_disponiveis,
-            default=artigos_disponiveis[:10],
+            default=artigos_disponiveis[:min(10, len(artigos_disponiveis))],
             key="filtro_artigos"
         )
         if not artigos_selecionados:
             artigos_selecionados = artigos_disponiveis
     
-    df_filtrado = df_filtrado[df_filtrado["Artigo"].isin(artigos_selecionados)].copy()
+    # APLICAR FILTRO FINAL
+    df_filtrado = df_temp[df_temp["Artigo"].isin(artigos_selecionados)].copy()
     
     st.sidebar.divider()
-    st.sidebar.metric("🔢 Total Registros", f"{len(df_filtrado):,}")
+    st.sidebar.success(f"🎯 **Total Final: {len(df_filtrado):,} registros**")
     
+    # VERIFICAÇÃO DE DADOS
+    with st.sidebar.expander("🔍 Verificar cálculos"):
+        st.write(f"**Soma Quantidade:** {df_filtrado['Quantidade'].sum():,.2f}")
+        st.write(f"**Soma Valor:** €{df_filtrado['Valor'].sum():,.2f}")
+        st.write(f"**Linhas:** {len(df_filtrado)}")
+        
 else:
     df_filtrado = pd.DataFrame()
+    st.warning("⚠️ Nenhum dado disponível")
 
-# === KPIs ===
+# === KPIs COM CÁLCULOS CORRIGIDOS ===
 if not df_filtrado.empty:
     
-    # CÁLCULOS GERAIS
-    total_vendas_eur = df_filtrado["Valor"].sum()
-    total_quantidade = df_filtrado["Quantidade"].sum()
-    num_entidades = df_filtrado["Cliente"].nunique()
-    num_comerciais = df_filtrado["Comercial"].nunique()
-    num_artigos = df_filtrado["Artigo"].nunique()
-    num_transacoes = len(df_filtrado)
-    dias_com_vendas = df_filtrado["Data_Str"].nunique()
+    # CÁLCULOS GERAIS - CORRIGIDOS
+    total_vendas_eur = float(df_filtrado["Valor"].sum())
+    total_quantidade = float(df_filtrado["Quantidade"].sum())
+    num_entidades = int(df_filtrado["Cliente"].nunique())
+    num_comerciais = int(df_filtrado["Comercial"].nunique())
+    num_artigos = int(df_filtrado["Artigo"].nunique())
+    num_transacoes = int(len(df_filtrado))
+    dias_com_vendas = int(df_filtrado["Data_Str"].nunique())
     
     ticket_medio = total_vendas_eur / num_transacoes if num_transacoes > 0 else 0
     preco_medio_unitario = total_vendas_eur / total_quantidade if total_quantidade > 0 else 0
@@ -361,11 +386,11 @@ if not df_filtrado.empty:
     
     # TICKET MÉDIO MENSAL
     vendas_por_mes = df_filtrado.groupby("AnoMes")["Valor"].sum()
-    ticket_medio_mensal = vendas_por_mes.mean() if not vendas_por_mes.empty else 0
+    ticket_medio_mensal = float(vendas_por_mes.mean()) if not vendas_por_mes.empty else 0
     
     # TICKET MÉDIO POR COMERCIAL
     vendas_por_comercial = df_filtrado.groupby("Comercial")["Valor"].sum()
-    ticket_medio_comercial = vendas_por_comercial.mean() if not vendas_por_comercial.empty else 0
+    ticket_medio_comercial = float(vendas_por_comercial.mean()) if not vendas_por_comercial.empty else 0
     
     # === SEÇÃO 1: KPIs PRINCIPAIS ===
     st.subheader("📊 KPIs Principais")
@@ -428,13 +453,12 @@ if not df_filtrado.empty:
     # === SEÇÃO 4: TOP 15 CLIENTES MENSAIS ===
     st.subheader("🏆 Top 15 Clientes Mensais")
     
-    # Agrupar por Cliente e Mês
+    # Agrupar corretamente
     clientes_mensais = df_filtrado.groupby(["Cliente", "AnoMes"]).agg({
         "Valor": "sum",
         "Quantidade": "sum"
     }).reset_index()
     
-    # Calcular média mensal por cliente
     clientes_media_mensal = clientes_mensais.groupby("Cliente").agg({
         "Valor": "mean",
         "Quantidade": "mean"
@@ -446,21 +470,22 @@ if not df_filtrado.empty:
     col_a, col_b = st.columns([2, 1])
     
     with col_a:
-        fig1, ax1 = plt.subplots(figsize=(12, 8))
-        y_pos = range(len(top15_clientes))
-        ax1.barh(y_pos, top15_clientes["Venda Média Mensal (€)"], color='#2E86AB', alpha=0.8)
-        ax1.set_yticks(y_pos)
-        ax1.set_yticklabels(top15_clientes.index, fontsize=9)
-        ax1.invert_yaxis()
-        ax1.set_xlabel("Venda Média Mensal (€)", fontsize=11)
-        ax1.set_title("Top 15 Clientes - Venda Média Mensal", fontsize=13, fontweight='bold')
-        ax1.grid(True, alpha=0.3, axis='x')
-        
-        for i, v in enumerate(top15_clientes["Venda Média Mensal (€)"]):
-            ax1.text(v, i, f' €{v:,.0f}', va='center', fontsize=9)
-        
-        plt.tight_layout()
-        st.pyplot(fig1)
+        if not top15_clientes.empty:
+            fig1, ax1 = plt.subplots(figsize=(12, 8))
+            y_pos = range(len(top15_clientes))
+            ax1.barh(y_pos, top15_clientes["Venda Média Mensal (€)"], color='#2E86AB', alpha=0.8)
+            ax1.set_yticks(y_pos)
+            ax1.set_yticklabels(top15_clientes.index, fontsize=9)
+            ax1.invert_yaxis()
+            ax1.set_xlabel("Venda Média Mensal (€)", fontsize=11)
+            ax1.set_title("Top 15 Clientes - Venda Média Mensal", fontsize=13, fontweight='bold')
+            ax1.grid(True, alpha=0.3, axis='x')
+            
+            for i, v in enumerate(top15_clientes["Venda Média Mensal (€)"]):
+                ax1.text(v, i, f' €{v:,.0f}', va='center', fontsize=9)
+            
+            plt.tight_layout()
+            st.pyplot(fig1)
     
     with col_b:
         st.dataframe(
@@ -476,13 +501,12 @@ if not df_filtrado.empty:
     # === SEÇÃO 5: TOP 15 ARTIGOS MENSAIS ===
     st.subheader("📦 Top 15 Artigos Mensais")
     
-    # Agrupar por Artigo e Mês
+    # Agrupar corretamente
     artigos_mensais = df_filtrado.groupby(["Artigo", "AnoMes"]).agg({
         "Valor": "sum",
         "Quantidade": "sum"
     }).reset_index()
     
-    # Calcular média mensal por artigo
     artigos_media_mensal = artigos_mensais.groupby("Artigo").agg({
         "Valor": "mean",
         "Quantidade": "mean"
@@ -494,21 +518,22 @@ if not df_filtrado.empty:
     col_c, col_d = st.columns([2, 1])
     
     with col_c:
-        fig2, ax2 = plt.subplots(figsize=(12, 8))
-        y_pos = range(len(top15_artigos))
-        ax2.barh(y_pos, top15_artigos["Venda Média Mensal (€)"], color='#A23B72', alpha=0.8)
-        ax2.set_yticks(y_pos)
-        ax2.set_yticklabels(top15_artigos.index, fontsize=9)
-        ax2.invert_yaxis()
-        ax2.set_xlabel("Venda Média Mensal (€)", fontsize=11)
-        ax2.set_title("Top 15 Artigos - Venda Média Mensal", fontsize=13, fontweight='bold')
-        ax2.grid(True, alpha=0.3, axis='x')
-        
-        for i, v in enumerate(top15_artigos["Venda Média Mensal (€)"]):
-            ax2.text(v, i, f' €{v:,.0f}', va='center', fontsize=9)
-        
-        plt.tight_layout()
-        st.pyplot(fig2)
+        if not top15_artigos.empty:
+            fig2, ax2 = plt.subplots(figsize=(12, 8))
+            y_pos = range(len(top15_artigos))
+            ax2.barh(y_pos, top15_artigos["Venda Média Mensal (€)"], color='#A23B72', alpha=0.8)
+            ax2.set_yticks(y_pos)
+            ax2.set_yticklabels(top15_artigos.index, fontsize=9)
+            ax2.invert_yaxis()
+            ax2.set_xlabel("Venda Média Mensal (€)", fontsize=11)
+            ax2.set_title("Top 15 Artigos - Venda Média Mensal", fontsize=13, fontweight='bold')
+            ax2.grid(True, alpha=0.3, axis='x')
+            
+            for i, v in enumerate(top15_artigos["Venda Média Mensal (€)"]):
+                ax2.text(v, i, f' €{v:,.0f}', va='center', fontsize=9)
+            
+            plt.tight_layout()
+            st.pyplot(fig2)
     
     with col_d:
         st.dataframe(
@@ -521,7 +546,7 @@ if not df_filtrado.empty:
     
     st.divider()
     
-    # === SEÇÃO 6: EVOLUÇÃO MENSAL ===
+    # === EVOLUÇÃO MENSAL ===
     st.subheader("📈 Evolução Mensal de Vendas")
     
     vendas_mensais = df_filtrado.groupby(["Ano", "MesNumero"]).agg({
@@ -561,7 +586,7 @@ if not df_filtrado.empty:
     
     st.divider()
     
-    # === SEÇÃO 7: DESEMPENHO POR COMERCIAL ===
+    # === DESEMPENHO POR COMERCIAL ===
     st.subheader("👨‍💼 Desempenho por Comercial")
     
     desempenho_comercial = df_filtrado.groupby("Comercial").agg({
@@ -577,20 +602,21 @@ if not df_filtrado.empty:
     col_e, col_f = st.columns([3, 2])
     
     with col_e:
-        fig4, ax5 = plt.subplots(figsize=(12, 6))
-        x_pos = range(len(desempenho_comercial))
-        ax5.bar(x_pos, desempenho_comercial["Total Vendas (€)"], color='#F18F01', alpha=0.8)
-        ax5.set_xticks(x_pos)
-        ax5.set_xticklabels(desempenho_comercial.index, rotation=45, ha='right')
-        ax5.set_ylabel("Total Vendas (€)", fontsize=11)
-        ax5.set_title("Performance de Vendas por Comercial", fontsize=13, fontweight='bold')
-        ax5.grid(True, alpha=0.3, axis='y')
-        
-        for i, v in enumerate(desempenho_comercial["Total Vendas (€)"]):
-            ax5.text(i, v, f'€{v:,.0f}', ha='center', va='bottom', fontsize=9, rotation=0)
-        
-        plt.tight_layout()
-        st.pyplot(fig4)
+        if not desempenho_comercial.empty:
+            fig4, ax5 = plt.subplots(figsize=(12, 6))
+            x_pos = range(len(desempenho_comercial))
+            ax5.bar(x_pos, desempenho_comercial["Total Vendas (€)"], color='#F18F01', alpha=0.8)
+            ax5.set_xticks(x_pos)
+            ax5.set_xticklabels(desempenho_comercial.index, rotation=45, ha='right')
+            ax5.set_ylabel("Total Vendas (€)", fontsize=11)
+            ax5.set_title("Performance de Vendas por Comercial", fontsize=13, fontweight='bold')
+            ax5.grid(True, alpha=0.3, axis='y')
+            
+            for i, v in enumerate(desempenho_comercial["Total Vendas (€)"]):
+                ax5.text(i, v, f'€{v:,.0f}', ha='center', va='bottom', fontsize=9)
+            
+            plt.tight_layout()
+            st.pyplot(fig4)
     
     with col_f:
         st.dataframe(
@@ -622,53 +648,8 @@ if not df_filtrado.empty:
         )
     
     with col_exp2:
-        # Criar Excel APENAS com KPIs
         output_kpis = io.BytesIO()
         with pd.ExcelWriter(output_kpis, engine='openpyxl') as writer:
-            # Aba 1: KPIs Principais
-            kpis_principais = pd.DataFrame({
-                "KPI": ["Total Vendas (€)", "Total Quantidade", "Nº Entidades", "Nº Comerciais", "Nº Artigos"],
-                "Valor": [total_vendas_eur, total_quantidade, num_entidades, num_comerciais, num_artigos]
-            })
-            kpis_principais.to_excel(writer, sheet_name='KPIs_Principais', index=False)
-            
-            # Aba 2: KPIs de Médias e Tickets
-            kpis_medias = pd.DataFrame({
-                "KPI": [
-                    "Ticket Médio (€)",
-                    "Ticket Médio Mensal (€)",
-                    "Ticket Médio/Comercial (€)",
-                    "Preço Médio Unitário (€)",
-                    "Venda Média/Transação (€)"
-                ],
-                "Valor": [
-                    ticket_medio,
-                    ticket_medio_mensal,
-                    ticket_medio_comercial,
-                    preco_medio_unitario,
-                    venda_media_transacao
-                ]
-            })
-            kpis_medias.to_excel(writer, sheet_name='KPIs_Medias_Tickets', index=False)
-            
-            # Aba 3: KPIs Operacionais
-            kpis_operacionais = pd.DataFrame({
-                "KPI": [
-                    "Quantidade Média/Transação",
-                    "Dias com Vendas",
-                    "Venda Média/Dia (€)",
-                    "Número de Transações"
-                ],
-                "Valor": [
-                    quantidade_media_transacao,
-                    dias_com_vendas,
-                    venda_media_dia,
-                    num_transacoes
-                ]
-            })
-            kpis_operacionais.to_excel(writer, sheet_name='KPIs_Operacionais', index=False)
-            
-            # Aba 4: Resumo COMPLETO de Todos os KPIs
             kpis_completo = pd.DataFrame({
                 "Categoria": [
                     "Principais", "Principais", "Principais", "Principais", "Principais",
@@ -690,84 +671,35 @@ if not df_filtrado.empty:
             })
             kpis_completo.to_excel(writer, sheet_name='Todos_KPIs', index=False)
             
-            # Aba 5: Top 15 Clientes (resumo)
-            top15_clientes_resumo = top15_clientes.copy()
-            top15_clientes_resumo.insert(0, 'Ranking', range(1, len(top15_clientes) + 1))
-            top15_clientes_resumo.to_excel(writer, sheet_name='Top15_Clientes')
+            top15_clientes_copy = top15_clientes.copy()
+            top15_clientes_copy.insert(0, 'Ranking', range(1, len(top15_clientes) + 1))
+            top15_clientes_copy.to_excel(writer, sheet_name='Top15_Clientes')
             
-            # Aba 6: Top 15 Artigos (resumo)
-            top15_artigos_resumo = top15_artigos.copy()
-            top15_artigos_resumo.insert(0, 'Ranking', range(1, len(top15_artigos) + 1))
-            top15_artigos_resumo.to_excel(writer, sheet_name='Top15_Artigos')
+            top15_artigos_copy = top15_artigos.copy()
+            top15_artigos_copy.insert(0, 'Ranking', range(1, len(top15_artigos) + 1))
+            top15_artigos_copy.to_excel(writer, sheet_name='Top15_Artigos')
             
-            # Aba 7: Desempenho por Comercial
-            desempenho_comercial_copy = desempenho_comercial.copy()
-            desempenho_comercial_copy.insert(0, 'Ranking', range(1, len(desempenho_comercial) + 1))
-            desempenho_comercial_copy.to_excel(writer, sheet_name='Desempenho_Comerciais')
+            desempenho_comercial.to_excel(writer, sheet_name='Desempenho_Comerciais')
         
         excel_kpis_data = output_kpis.getvalue()
         
         st.download_button(
             label="📊 Todos os KPIs (Excel)",
             data=excel_kpis_data,
-            file_name=f"kpis_completos_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+            file_name=f"kpis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
             type="primary"
         )
     
     with col_exp3:
-        # Criar Excel com TUDO (KPIs + Dados)
         output_completo = io.BytesIO()
         with pd.ExcelWriter(output_completo, engine='openpyxl') as writer:
-            # Aba 1: Resumo Executivo
-            resumo_executivo = pd.DataFrame({
-                "Métrica": ["Total Vendas (€)", "Total Quantidade", "Nº Clientes", "Ticket Médio (€)", "Período"],
-                "Valor": [
-                    f"€{total_vendas_eur:,.2f}",
-                    f"{total_quantidade:,.0f}",
-                    f"{num_entidades}",
-                    f"€{ticket_medio:,.2f}",
-                    f"{df_filtrado['Data'].min().strftime('%d/%m/%Y')} - {df_filtrado['Data'].max().strftime('%d/%m/%Y')}"
-                ]
-            })
-            resumo_executivo.to_excel(writer, sheet_name='Resumo_Executivo', index=False)
-            
-            # Aba 2: Todos os KPIs
-            kpis_completo = pd.DataFrame({
-                "Categoria": [
-                    "Principais", "Principais", "Principais", "Principais", "Principais",
-                    "Médias/Tickets", "Médias/Tickets", "Médias/Tickets", "Médias/Tickets", "Médias/Tickets",
-                    "Operacionais", "Operacionais", "Operacionais", "Operacionais"
-                ],
-                "KPI": [
-                    "Total Vendas (€)", "Total Quantidade", "Nº Entidades", "Nº Comerciais", "Nº Artigos",
-                    "Ticket Médio (€)", "Ticket Médio Mensal (€)", "Ticket Médio/Comercial (€)",
-                    "Preço Médio Unitário (€)", "Venda Média/Transação (€)",
-                    "Quantidade Média/Transação", "Dias com Vendas", "Venda Média/Dia (€)", "Nº Transações"
-                ],
-                "Valor": [
-                    total_vendas_eur, total_quantidade, num_entidades, num_comerciais, num_artigos,
-                    ticket_medio, ticket_medio_mensal, ticket_medio_comercial,
-                    preco_medio_unitario, venda_media_transacao,
-                    quantidade_media_transacao, dias_com_vendas, venda_media_dia, num_transacoes
-                ]
-            })
-            kpis_completo.to_excel(writer, sheet_name='Todos_KPIs', index=False)
-            
-            # Aba 3: Dados Filtrados
+            kpis_completo.to_excel(writer, sheet_name='KPIs', index=False)
             df_filtrado.to_excel(writer, sheet_name='Dados_Filtrados', index=False)
-            
-            # Aba 4: Top 15 Clientes
             top15_clientes.to_excel(writer, sheet_name='Top15_Clientes')
-            
-            # Aba 5: Top 15 Artigos
             top15_artigos.to_excel(writer, sheet_name='Top15_Artigos')
-            
-            # Aba 6: Vendas Mensais
             vendas_mensais.to_excel(writer, sheet_name='Vendas_Mensais', index=False)
-            
-            # Aba 7: Desempenho Comerciais
             desempenho_comercial.to_excel(writer, sheet_name='Desempenho_Comerciais')
         
         excel_completo_data = output_completo.getvalue()
@@ -775,46 +707,30 @@ if not df_filtrado.empty:
         st.download_button(
             label="📋 Relatório Completo (Excel)",
             data=excel_completo_data,
-            file_name=f"relatorio_completo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+            file_name=f"relatorio_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True
         )
 
 else:
-    st.warning("⚠️ Não há dados disponíveis. Por favor, ajuste os filtros ou faça upload do arquivo.")
+    st.warning("⚠️ Não há dados disponíveis. Ajuste os filtros ou faça upload do arquivo.")
 
 st.divider()
 st.success("✅ Dashboard carregado com sucesso!")
 
-# Rodapé com informações
-with st.expander("ℹ️ Informações do Dashboard"):
+with st.expander("ℹ️ Sobre os Cálculos"):
     st.write("""
-    ### 📊 KPIs Disponíveis:
+    ### 📊 Como são calculados os KPIs:
     
-    **Principais:**
-    - Total Vendas (€), Total Quantidade, Nº Entidades, Nº Comerciais, Nº Artigos
+    **Total Vendas (€)**: Soma de todos os valores
+    **Total Quantidade**: Soma de todas as quantidades
+    **Ticket Médio Mensal (€)**: Média das vendas totais por mês
+    **Ticket Médio/Comercial (€)**: Média das vendas totais por comercial
+    **Preço Médio Unitário (€)**: Valor total ÷ Quantidade total
     
-    **Médias e Tickets:**
-    - Ticket Médio (€) - valor médio por transação
-    - Ticket Médio Mensal (€) - média de vendas mensais
-    - Ticket Médio por Comercial (€) - média de vendas por comercial
-    - Preço Médio Unitário (€) - valor total / quantidade total
-    - Venda Média/Transação (€)
+    **Top 15 Clientes/Artigos Mensais**: Baseado na média mensal de vendas
     
-    **Operacionais:**
-    - Quantidade Média/Transação
-    - Dias com Vendas
-    - Venda Média/Dia (€)
-    
-    **Rankings:**
-    - Top 15 Clientes Mensais - baseado em venda média mensal
-    - Top 15 Artigos Mensais - baseado em venda média mensal
-    
-    **Análises:**
-    - Evolução Mensal de Vendas
-    - Desempenho por Comercial
-    
-    ### 📤 Exportação:
-    - CSV com dados filtrados
-    - Excel com 6 abas: KPIs, Dados, Top Clientes, Top Artigos, Vendas Mensais, Desempenho Comerciais
+    ### 🎛️ Filtros Interativos:
+    Os filtros funcionam em cascata - cada filtro só mostra opções válidas baseadas nos filtros anteriores.
+    Use os checkboxes "Selecionar todos" para facilitar a seleção.
     """)
