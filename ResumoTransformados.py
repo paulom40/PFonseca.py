@@ -359,7 +359,8 @@ def comparacao_ano_a_ano(df: pd.DataFrame):
     mes_sel = st.selectbox(
         "Seleciona o mês para comparar entre anos:",
         options=meses_disponiveis,
-        format_func=lambda m: datetime(2000, m, 1).strftime("%B")
+        format_func=lambda m: datetime(2000, m, 1).strftime("%B"),
+        key="mes_ano_ano_global"
     )
 
     df_mes = df[df["Mes_Num"] == mes_sel]
@@ -408,11 +409,12 @@ def comparacao_ano_a_ano_clientes(df: pd.DataFrame):
     df["Mes_Num"] = df["Data"].dt.month
     df["Ano"] = df["Data"].dt.year
 
-    # ====================== FILTRO DE CLIENTE ======================
+    # Filtro de cliente
     clientes = sorted(df["Nome"].dropna().unique())
     cliente_sel = st.selectbox(
         "Seleciona o cliente a analisar:",
-        options=clientes
+        options=clientes,
+        key="cliente_ano_ano_selectbox_unico"
     )
 
     df = df[df["Nome"] == cliente_sel]
@@ -421,13 +423,14 @@ def comparacao_ano_a_ano_clientes(df: pd.DataFrame):
         st.warning("Sem dados para este cliente.")
         return
 
-    # ====================== FILTRO DE MÊS ======================
+    # Filtro de mês
     meses_disponiveis = sorted(df["Mes_Num"].unique())
 
     mes_sel = st.selectbox(
-        "Seleciona o mês para comparar entre anos:",
+        "Seleciona o mês para comparar entre anos (Clientes):",
         options=meses_disponiveis,
-        format_func=lambda m: datetime(2000, m, 1).strftime("%B")
+        format_func=lambda m: datetime(2000, m, 1).strftime("%B"),
+        key="mes_ano_ano_cliente_selectbox_unico"
     )
 
     df_mes = df[df["Mes_Num"] == mes_sel]
@@ -436,14 +439,12 @@ def comparacao_ano_a_ano_clientes(df: pd.DataFrame):
         st.warning("Sem dados para este mês.")
         return
 
-    # ====================== AGRUPAMENTO ======================
     df_comp = df_mes.groupby("Ano").agg(
         Total_Vendas=("V Líquido", "sum"),
         Quantidade=("Quantidade", "sum"),
         Transacoes=("V Líquido", "count")
     ).reset_index()
 
-    # ====================== GRÁFICO ======================
     fig = px.bar(
         df_comp,
         x="Ano",
@@ -458,13 +459,11 @@ def comparacao_ano_a_ano_clientes(df: pd.DataFrame):
 
     st.plotly_chart(fig, width="stretch")
 
-    # ====================== TABELA ======================
     st.subheader(f"Tabela Ano-a-Ano — {cliente_sel}")
     df_show = df_comp.copy()
     df_show["Total_Vendas"] = df_show["Total_Vendas"].map(lambda x: f"{x:,.2f}")
     df_show["Quantidade"] = df_show["Quantidade"].map(lambda x: f"{x:,.2f}")
     st.dataframe(df_show, width="stretch")
-
 # ====================== ALERTAS POR COMERCIAL ======================
 def alertas_por_comercial(df: pd.DataFrame):
     st.subheader("Alertas por Comercial")
@@ -733,7 +732,7 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
 
     def add_sheet(name, df_sheet):
         nonlocal existing_sheet_names
-        name_real = sanitize_sheet_name(name, existing_sheet_names)
+        name_real = sanitize_sheet_name(name, existing_names=existing_sheet_names)
         ws = wb.create_sheet(name_real)
         for col_num, col_name in enumerate(df_sheet.columns, 1):
             ws.cell(row=1, column=col_num, value=col_name)
@@ -741,6 +740,143 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
             for col_num, value in enumerate(row, 1):
                 ws.cell(row=row_num, column=col_num, value=value)
         return name_real
+    def add_plot_to_sheet(sheet_name, fig, anchor="H2"):
+        img_buffer = io.BytesIO()
+        fig.savefig(img_buffer, format="png", dpi=150, bbox_inches="tight")
+        img_buffer.seek(0)
+        ws = wb[sheet_name]
+        img = XLImage(img_buffer)
+        img.anchor = anchor
+        ws.add_image(img)
+
+    # Criar folhas na ordem pedida
+    nome_dados   = add_sheet("Dados", df_dados)
+    nome_kpis    = add_sheet("KPIs_Globais", df_kpis)
+    nome_hist    = add_sheet("Historico_Mensal", df_hist)
+    nome_rank    = add_sheet("Ranking_Comerciais", df_rank_com)
+    nome_cli     = add_sheet("Clientes", df_clientes)
+    nome_prod    = add_sheet("Produtos", df_produtos)
+    nome_alertas = add_sheet("Alertas_Globais", df_alertas)
+
+    nome_comp_aa = None
+    if df_comp_aa is not None and not df_comp_aa.empty:
+        nome_comp_aa = add_sheet("Comparacao_Ano_a_Ano", df_comp_aa)
+
+    nome_comp_aa_cli = None
+    if df_comp_aa_cli is not None and not df_comp_aa_cli.empty:
+        nome_comp_aa_cli = add_sheet("Comparacao_Ano_a_Ano_Clientes", df_comp_aa_cli)
+
+    # Evolução mensal
+    fig1, ax1 = plt.subplots(figsize=(8, 4))
+    ax1.plot(df_hist["AnoMes"], df_hist["Total_Vendas"], marker="o")
+    ax1.set_title("Evolução Mensal de Vendas")
+    ax1.set_xlabel("Ano-Mês")
+    ax1.set_ylabel("Vendas (€)")
+    plt.xticks(rotation=45)
+    add_plot_to_sheet(nome_hist, fig1, anchor="H2")
+
+    # Ranking comerciais
+    fig2, ax2 = plt.subplots(figsize=(8, 4))
+    ax2.bar(df_rank_com["Comercial"], df_rank_com["Total_Vendas"])
+    ax2.set_title("Ranking de Comerciais")
+    ax2.set_ylabel("Total de Vendas (€)")
+    plt.xticks(rotation=45)
+    add_plot_to_sheet(nome_rank, fig2, anchor="H2")
+
+    # Semáforo comerciais
+    fig5, ax5 = plt.subplots(figsize=(8, 4))
+    df_rank_com["Status"] = df_rank_com["Ticket_Medio"].apply(
+        lambda x: "Acima" if x >= thresholds["ticket_comercial"]
+        else "Atenção" if x >= thresholds["ticket_comercial"] * 0.7
+        else "Abaixo"
+    )
+    color_map = {"Acima": "green", "Atenção": "orange", "Abaixo": "red"}
+    colors = df_rank_com["Status"].map(color_map)
+    ax5.bar(df_rank_com["Comercial"], df_rank_com["Ticket_Medio"], color=colors)
+    ax5.set_title("Semáforo — Ticket Médio por Comercial")
+    ax5.set_ylabel("Ticket Médio (€)")
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    add_plot_to_sheet(nome_rank, fig5, anchor="H20")
+
+    # Top produtos (€)
+    fig3, ax3 = plt.subplots(figsize=(8, 4))
+    ax3.barh(df_produtos["Artigo"], df_produtos["Total_Vendas"], color="purple")
+    ax3.set_title("Top 10 Produtos por Vendas (€)")
+    ax3.set_xlabel("Total de Vendas (€)")
+    ax3.invert_yaxis()
+    plt.tight_layout()
+    add_plot_to_sheet(nome_prod, fig3, anchor="H2")
+
+    # Top produtos (Quantidade)
+    fig6, ax6 = plt.subplots(figsize=(8, 4))
+    topp_q = df.groupby("Artigo")["Quantidade"].sum().nlargest(10)
+    ax6.barh(topp_q.index, topp_q.values, color="dodgerblue")
+    ax6.set_title("Top 10 Produtos (Quantidade)")
+    ax6.set_xlabel("Quantidade Total")
+    ax6.invert_yaxis()
+    plt.tight_layout()
+    add_plot_to_sheet(nome_prod, fig6, anchor="H20")
+
+    # Top clientes (€)
+    fig4, ax4 = plt.subplots(figsize=(8, 4))
+    ax4.barh(df_clientes["Nome"], df_clientes["Total_Vendas"], color="steelblue")
+    ax4.set_title("Top 10 Clientes por Vendas (€)")
+    ax4.set_xlabel("Total de Vendas (€)")
+    ax4.invert_yaxis()
+    plt.tight_layout()
+    add_plot_to_sheet(nome_cli, fig4, anchor="H2")
+
+    # Top clientes (Quantidade)
+    fig7, ax7 = plt.subplots(figsize=(8, 4))
+    topc_q = df.groupby("Nome")["Quantidade"].sum().nlargest(10)
+    ax7.barh(topc_q.index, topc_q.values, color="seagreen")
+    ax7.set_title("Top 10 Clientes (Quantidade)")
+    ax7.set_xlabel("Quantidade Total")
+    ax7.invert_yaxis()
+    plt.tight_layout()
+    add_plot_to_sheet(nome_cli, fig7, anchor="H20")
+
+    # Comparação Ano-a-Ano (global)
+    if nome_comp_aa is not None and df_comp_aa is not None and not df_comp_aa.empty:
+        fig8, ax8 = plt.subplots(figsize=(8, 4))
+        ax8.bar(df_comp_aa["Ano"], df_comp_aa["Total_Vendas"], color="navy")
+        if mes_sel_export is not None:
+            nome_mes = datetime(2000, mes_sel_export, 1).strftime("%B")
+            ax8.set_title(f"Comparação Ano-a-Ano — Mês de {nome_mes}")
+        else:
+            ax8.set_title("Comparação Ano-a-Ano")
+        ax8.set_ylabel("Total de Vendas (€)")
+        plt.xticks(rotation=0)
+        plt.tight_layout()
+        add_plot_to_sheet(nome_comp_aa, fig8, anchor="H2")
+
+    # Comparação Ano-a-Ano Clientes
+    if nome_comp_aa_cli is not None and df_comp_aa_cli is not None and not df_comp_aa_cli.empty:
+        fig9, ax9 = plt.subplots(figsize=(10, 5))
+        for ano in df_comp_aa_cli["Ano"].unique():
+            df_ano = df_comp_aa_cli[df_comp_aa_cli["Ano"] == ano]
+            ax9.bar(df_ano["Nome"], df_ano["Total_Vendas"], label=str(ano))
+        ax9.set_title("Comparação Ano-a-Ano — Top Clientes")
+        ax9.set_ylabel("Total de Vendas (€)")
+        plt.xticks(rotation=45, ha="right")
+        ax9.legend()
+        plt.tight_layout()
+        add_plot_to_sheet(nome_comp_aa_cli, fig9, anchor="H2")
+
+    if "Sheet" in wb.sheetnames and len(wb.sheetnames) > 1:
+        std = wb["Sheet"]
+        wb.remove(std)
+
+    wb.save(buffer)
+    buffer.seek(0)
+
+    st.download_button(
+        "📥 Download Excel Completo (com gráficos)",
+        data=buffer.getvalue(),
+        file_name="Relatorio_Completo.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
     def add_plot_to_sheet(sheet_name, fig, anchor="H2"):
         img_buffer = io.BytesIO()
         fig.savefig(img_buffer, format="png", dpi=150, bbox_inches="tight")
