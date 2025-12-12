@@ -408,10 +408,24 @@ def comparacao_ano_a_ano_clientes(df: pd.DataFrame):
     df["Mes_Num"] = df["Data"].dt.month
     df["Ano"] = df["Data"].dt.year
 
+    # ====================== FILTRO DE CLIENTE ======================
+    clientes = sorted(df["Nome"].dropna().unique())
+    cliente_sel = st.selectbox(
+        "Seleciona o cliente a analisar:",
+        options=clientes
+    )
+
+    df = df[df["Nome"] == cliente_sel]
+
+    if df.empty:
+        st.warning("Sem dados para este cliente.")
+        return
+
+    # ====================== FILTRO DE MÊS ======================
     meses_disponiveis = sorted(df["Mes_Num"].unique())
 
     mes_sel = st.selectbox(
-        "Seleciona o mês para comparar entre anos (Clientes):",
+        "Seleciona o mês para comparar entre anos:",
         options=meses_disponiveis,
         format_func=lambda m: datetime(2000, m, 1).strftime("%B")
     )
@@ -422,30 +436,35 @@ def comparacao_ano_a_ano_clientes(df: pd.DataFrame):
         st.warning("Sem dados para este mês.")
         return
 
-    df_comp = df_mes.groupby(["Ano", "Nome"]).agg(
+    # ====================== AGRUPAMENTO ======================
+    df_comp = df_mes.groupby("Ano").agg(
         Total_Vendas=("V Líquido", "sum"),
         Quantidade=("Quantidade", "sum"),
         Transacoes=("V Líquido", "count")
     ).reset_index()
 
-    df_top = df_comp.sort_values("Total_Vendas", ascending=False).groupby("Ano").head(10)
-
+    # ====================== GRÁFICO ======================
     fig = px.bar(
-        df_top,
-        x="Nome",
+        df_comp,
+        x="Ano",
         y="Total_Vendas",
-        color="Ano",
-        barmode="group",
-        title=f"Top Clientes — Mês de {datetime(2000, mes_sel, 1).strftime('%B')} (Ano-a-Ano)"
+        text="Total_Vendas",
+        title=f"{cliente_sel} — Vendas no mês de {datetime(2000, mes_sel, 1).strftime('%B')} (Ano-a-Ano)",
+        color="Total_Vendas",
+        color_continuous_scale="Blues"
     )
-    fig.update_layout(height=500, xaxis_tickangle=45)
+    fig.update_traces(texttemplate="%{text:,.0f}", textposition="outside")
+    fig.update_layout(height=500)
+
     st.plotly_chart(fig, width="stretch")
 
-    st.subheader("Tabela Ano-a-Ano — Clientes")
-    df_show = df_top.copy()
+    # ====================== TABELA ======================
+    st.subheader(f"Tabela Ano-a-Ano — {cliente_sel}")
+    df_show = df_comp.copy()
     df_show["Total_Vendas"] = df_show["Total_Vendas"].map(lambda x: f"{x:,.2f}")
     df_show["Quantidade"] = df_show["Quantidade"].map(lambda x: f"{x:,.2f}")
     st.dataframe(df_show, width="stretch")
+
 # ====================== ALERTAS POR COMERCIAL ======================
 def alertas_por_comercial(df: pd.DataFrame):
     st.subheader("Alertas por Comercial")
