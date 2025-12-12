@@ -17,7 +17,7 @@ st.set_page_config(
     page_icon="📊"
 )
 
-# CSS personalizado com gradientes
+# CSS personalizado com gradientes e sidebar clara
 st.markdown("""
 <style>
     /* Gradiente principal */
@@ -85,9 +85,74 @@ st.markdown("""
         box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
     }
     
-    /* Sidebar gradiente */
+    /* SIDEBAR CLARA E LEGÍVEL */
     [data-testid="stSidebar"] {
-        background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    }
+    
+    /* Títulos da sidebar */
+    [data-testid="stSidebar"] h3 {
+        color: #2c3e50 !important;
+        border-bottom: 2px solid #667eea;
+        padding-bottom: 8px;
+        margin-top: 20px;
+    }
+    
+    /* Texto da sidebar */
+    [data-testid="stSidebar"] p, 
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] div {
+        color: #2c3e50 !important;
+    }
+    
+    /* Containers e seções da sidebar */
+    .sidebar-section {
+        background: white;
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 15px;
+        border-left: 4px solid #667eea;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    /* Checkboxes e multiselects */
+    [data-testid="stSidebar"] .stCheckbox label,
+    [data-testid="stSidebar"] .stMultiselect label {
+        color: #2c3e50 !important;
+        font-weight: 500;
+    }
+    
+    /* Botões na sidebar */
+    [data-testid="stSidebar"] .stButton button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 15px;
+        font-weight: 600;
+        transition: all 0.3s;
+        width: 100%;
+    }
+    
+    [data-testid="stSidebar"] .stButton button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+    
+    /* Campos de seleção */
+    [data-testid="stSidebar"] .stSelectbox,
+    [data-testid="stSidebar"] .stMultiselect,
+    [data-testid="stSidebar"] .stDateInput {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+    }
+    
+    /* Informações e alertas */
+    [data-testid="stSidebar"] .stAlert {
+        background: rgba(102, 126, 234, 0.1);
+        border-left: 4px solid #667eea;
+        border-radius: 8px;
     }
     
     /* Botões com gradiente */
@@ -106,6 +171,11 @@ st.markdown("""
         transform: translateY(-2px);
         box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
         background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+    }
+    
+    /* Hover effects para tabelas */
+    .dataframe tr:hover {
+        background: rgba(102, 126, 234, 0.1) !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -195,20 +265,14 @@ def load_data():
         # Lendo do arquivo Excel
         df = pd.read_excel("ResumoTR.xlsx")
         
-        st.sidebar.write("📋 **Colunas carregadas:**")
-        for col in df.columns:
-            st.sidebar.write(f"- {col}")
-        
         # Verificar se temos as colunas esperadas
         colunas_esperadas = ['Entidade', 'Nome', 'Artigo', 'Quantidade', 'V Líquido', 'PM', 'Data', 'Comercial', 'Mês', 'Ano']
         
         for col in colunas_esperadas:
             if col not in df.columns:
-                st.error(f"❌ Coluna '{col}' não encontrada no arquivo!")
                 # Tentar encontrar por nome similar
                 for col_real in df.columns:
                     if col.lower() in col_real.lower():
-                        st.info(f"   Usando '{col_real}' como '{col}'")
                         df = df.rename(columns={col_real: col})
                         break
         
@@ -276,9 +340,6 @@ def load_data():
         # Ordenar por data
         df = df.sort_values('Data', ascending=True).reset_index(drop=True)
         
-        st.sidebar.success(f"✅ {len(df):,} registros carregados com sucesso!")
-        st.sidebar.info(f"📅 Período: {df['Data'].min().strftime('%d/%m/%Y')} a {df['Data'].max().strftime('%d/%m/%Y')}")
-        
         return df
         
     except Exception as e:
@@ -292,10 +353,11 @@ if df.empty:
     st.error("Não foi possível carregar os dados. Verifique o arquivo de entrada.")
     st.stop()
 
-# === SIDEBAR COM FILTROS DINÂMICOS ===
+# === SIDEBAR COM FILTROS VISÍVEIS ===
 st.sidebar.markdown("""
-<div style="text-align: center; padding: 1rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; margin-bottom: 1rem;">
-    <h3 style="color: white; margin: 0;">🎛️ FILTROS DINÂMICOS</h3>
+<div style="text-align: center; padding: 1rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            border-radius: 10px; margin-bottom: 1rem; color: white;">
+    <h3 style="color: white; margin: 0; font-size: 1.2rem;">🎛️ FILTROS DINÂMICOS</h3>
 </div>
 """, unsafe_allow_html=True)
 
@@ -305,20 +367,37 @@ if 'filtros_aplicados' not in st.session_state:
         'anos': [], 'meses': [], 'comerciais': [], 'clientes': [], 'produtos': []
     }
 
-# FILTRO 1: ANO
-st.sidebar.markdown("### 📅 **FILTRO POR ANO**")
-anos_disponiveis = sorted(df['Ano'].unique(), reverse=True)
+# Container para cada seção de filtro
+def criar_secao_filtro(titulo, conteudo):
+    st.sidebar.markdown(f"""
+    <div class="sidebar-section">
+        <h4 style="color: #2c3e50; margin-top: 0; margin-bottom: 10px; border-bottom: 2px solid #667eea; padding-bottom: 5px;">
+            {titulo}
+        </h4>
+    """, unsafe_allow_html=True)
+    conteudo()
+    st.sidebar.markdown("</div>", unsafe_allow_html=True)
 
+# FILTRO 1: ANO
 with st.sidebar.container():
-    todos_anos = st.checkbox("Selecionar todos os anos", value=True, key="todos_anos")
+    criar_secao_filtro("📅 FILTRO POR ANO", lambda:
+        st.markdown("**Selecione os anos:**", unsafe_allow_html=True)
+    )
+    
+    anos_disponiveis = sorted(df['Ano'].unique(), reverse=True)
+    
+    todos_anos = st.checkbox("📋 Selecionar todos os anos", 
+                            value=True, 
+                            key="todos_anos",
+                            help="Marque para selecionar todos os anos disponíveis")
     
     if todos_anos:
         anos_selecionados = anos_disponiveis
     else:
         anos_selecionados = st.multiselect(
-            "Selecione os anos:",
+            "Anos disponíveis:",
             options=anos_disponiveis,
-            default=anos_disponiveis[:1],
+            default=anos_disponiveis[:min(2, len(anos_disponiveis))],
             key="anos_multiselect"
         )
 
@@ -329,28 +408,34 @@ else:
     df_filtrado_temp = df.copy()
 
 # FILTRO 2: MÊS
-st.sidebar.markdown("### 📆 **FILTRO POR MÊS**")
-if not df_filtrado_temp.empty:
-    meses_disponiveis = sorted(df_filtrado_temp['Mes_Numero'].unique())
+with st.sidebar.container():
+    criar_secao_filtro("📆 FILTRO POR MÊS", lambda:
+        st.markdown("**Selecione os meses:**", unsafe_allow_html=True)
+    )
     
-    meses_nomes = {
-        1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
-        5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
-        9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
-    }
-    
-    meses_opcoes_nomes = [meses_nomes[m] for m in meses_disponiveis]
-    
-    with st.sidebar.container():
-        todos_meses = st.checkbox("Selecionar todos os meses", value=True, key="todos_meses")
+    if not df_filtrado_temp.empty:
+        meses_disponiveis = sorted(df_filtrado_temp['Mes_Numero'].unique())
+        
+        meses_nomes = {
+            1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+            5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+            9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+        }
+        
+        meses_opcoes_nomes = [meses_nomes[m] for m in meses_disponiveis]
+        
+        todos_meses = st.checkbox("📅 Selecionar todos os meses", 
+                                 value=True, 
+                                 key="todos_meses",
+                                 help="Marque para selecionar todos os meses disponíveis")
         
         if todos_meses:
             meses_selecionados_nomes = meses_opcoes_nomes
         else:
             meses_selecionados_nomes = st.multiselect(
-                "Selecione os meses:",
+                "Meses disponíveis:",
                 options=meses_opcoes_nomes,
-                default=meses_opcoes_nomes[:1],
+                default=meses_opcoes_nomes[:min(3, len(meses_opcoes_nomes))],
                 key="meses_multiselect"
             )
         
@@ -360,22 +445,29 @@ if not df_filtrado_temp.empty:
         
         if meses_selecionados:
             df_filtrado_temp = df_filtrado_temp[df_filtrado_temp['Mes_Numero'].isin(meses_selecionados)].copy()
-else:
-    meses_selecionados = []
+    else:
+        meses_selecionados = []
+        st.info("💡 Selecione anos primeiro para ver os meses disponíveis")
 
 # FILTRO 3: COMERCIAL
-st.sidebar.markdown("### 👨‍💼 **FILTRO POR COMERCIAL**")
-if not df_filtrado_temp.empty:
-    comerciais_disponiveis = sorted(df_filtrado_temp['Comercial'].unique())
+with st.sidebar.container():
+    criar_secao_filtro("👨‍💼 FILTRO POR COMERCIAL", lambda:
+        st.markdown("**Selecione os comerciais:**", unsafe_allow_html=True)
+    )
     
-    with st.sidebar.container():
-        todos_comerciais = st.checkbox("Selecionar todos os comerciais", value=True, key="todos_comerciais")
+    if not df_filtrado_temp.empty:
+        comerciais_disponiveis = sorted(df_filtrado_temp['Comercial'].unique())
+        
+        todos_comerciais = st.checkbox("👥 Selecionar todos os comerciais", 
+                                      value=True, 
+                                      key="todos_comerciais",
+                                      help="Marque para selecionar todos os comerciais disponíveis")
         
         if todos_comerciais:
             comerciais_selecionados = comerciais_disponiveis
         else:
             comerciais_selecionados = st.multiselect(
-                "Selecione os comerciais:",
+                "Comerciais disponíveis:",
                 options=comerciais_disponiveis,
                 default=comerciais_disponiveis[:min(3, len(comerciais_disponiveis))],
                 key="comerciais_multiselect"
@@ -383,22 +475,33 @@ if not df_filtrado_temp.empty:
         
         if comerciais_selecionados:
             df_filtrado_temp = df_filtrado_temp[df_filtrado_temp['Comercial'].isin(comerciais_selecionados)].copy()
-else:
-    comerciais_selecionados = []
+    else:
+        comerciais_selecionados = []
+        st.info("💡 Selecione anos e meses primeiro para ver os comerciais disponíveis")
 
 # FILTRO 4: CLIENTE
-st.sidebar.markdown("### 🏢 **FILTRO POR CLIENTE**")
-if not df_filtrado_temp.empty:
-    clientes_disponiveis = sorted(df_filtrado_temp['Nome'].unique())
+with st.sidebar.container():
+    criar_secao_filtro("🏢 FILTRO POR CLIENTE", lambda:
+        st.markdown("**Selecione os clientes:**", unsafe_allow_html=True)
+    )
     
-    with st.sidebar.container():
-        todos_clientes = st.checkbox("Selecionar todos os clientes", value=True, key="todos_clientes")
+    if not df_filtrado_temp.empty:
+        clientes_disponiveis = sorted(df_filtrado_temp['Nome'].unique())
+        
+        # Se houver muitos clientes, mostrar contador
+        if len(clientes_disponiveis) > 50:
+            st.info(f"📊 {len(clientes_disponiveis)} clientes disponíveis. Use o campo de busca abaixo.")
+        
+        todos_clientes = st.checkbox("🏢 Selecionar todos os clientes", 
+                                    value=True, 
+                                    key="todos_clientes",
+                                    help="Marque para selecionar todos os clientes disponíveis")
         
         if todos_clientes:
             clientes_selecionados = clientes_disponiveis
         else:
             clientes_selecionados = st.multiselect(
-                "Selecione os clientes:",
+                "Clientes disponíveis:",
                 options=clientes_disponiveis,
                 default=clientes_disponiveis[:min(5, len(clientes_disponiveis))],
                 key="clientes_multiselect"
@@ -406,22 +509,29 @@ if not df_filtrado_temp.empty:
         
         if clientes_selecionados:
             df_filtrado_temp = df_filtrado_temp[df_filtrado_temp['Nome'].isin(clientes_selecionados)].copy()
-else:
-    clientes_selecionados = []
+    else:
+        clientes_selecionados = []
+        st.info("💡 Selecione filtros anteriores primeiro para ver os clientes disponíveis")
 
 # FILTRO 5: PRODUTO
-st.sidebar.markdown("### 📦 **FILTRO POR PRODUTO**")
-if not df_filtrado_temp.empty:
-    produtos_disponiveis = sorted(df_filtrado_temp['Artigo'].unique())
+with st.sidebar.container():
+    criar_secao_filtro("📦 FILTRO POR PRODUTO", lambda:
+        st.markdown("**Selecione os produtos:**", unsafe_allow_html=True)
+    )
     
-    with st.sidebar.container():
-        todos_produtos = st.checkbox("Selecionar todos os produtos", value=True, key="todos_produtos")
+    if not df_filtrado_temp.empty:
+        produtos_disponiveis = sorted(df_filtrado_temp['Artigo'].unique())
+        
+        todos_produtos = st.checkbox("📦 Selecionar todos os produtos", 
+                                    value=True, 
+                                    key="todos_produtos",
+                                    help="Marque para selecionar todos os produtos disponíveis")
         
         if todos_produtos:
             produtos_selecionados = produtos_disponiveis
         else:
             produtos_selecionados = st.multiselect(
-                "Selecione os produtos:",
+                "Produtos disponíveis:",
                 options=produtos_disponiveis,
                 default=produtos_disponiveis[:min(10, len(produtos_disponiveis))],
                 key="produtos_multiselect"
@@ -429,8 +539,9 @@ if not df_filtrado_temp.empty:
         
         if produtos_selecionados:
             df_filtrado_temp = df_filtrado_temp[df_filtrado_temp['Artigo'].isin(produtos_selecionados)].copy()
-else:
-    produtos_selecionados = []
+    else:
+        produtos_selecionados = []
+        st.info("💡 Selecione filtros anteriores primeiro para ver os produtos disponíveis")
 
 # APLICAR TODOS OS FILTROS
 df_filtrado = df.copy()
@@ -450,12 +561,20 @@ if clientes_selecionados:
 if produtos_selecionados:
     df_filtrado = df_filtrado[df_filtrado['Artigo'].isin(produtos_selecionados)]
 
-# Botões de ação
+# Botões de ação na sidebar
 st.sidebar.markdown("---")
+st.sidebar.markdown("""
+<div class="sidebar-section">
+    <h4 style="color: #2c3e50; margin-top: 0; margin-bottom: 15px;">⚡ AÇÕES</h4>
+""", unsafe_allow_html=True)
+
 col_btn1, col_btn2 = st.sidebar.columns(2)
 
 with col_btn1:
-    if st.button("✅ Aplicar Filtros", use_container_width=True, type="primary"):
+    if st.button("✅ Aplicar Filtros", 
+                use_container_width=True, 
+                type="primary",
+                help="Clique para aplicar todos os filtros selecionados"):
         st.session_state.filtros_aplicados = {
             'anos': anos_selecionados,
             'meses': meses_selecionados,
@@ -466,27 +585,38 @@ with col_btn1:
         st.rerun()
 
 with col_btn2:
-    if st.button("🔄 Limpar Filtros", use_container_width=True):
-        for key in st.session_state.keys():
-            if key.startswith(("todos_", "_multiselect")):
+    if st.button("🔄 Limpar Filtros", 
+                use_container_width=True,
+                help="Clique para limpar todos os filtros"):
+        for key in list(st.session_state.keys()):
+            if key.startswith(("todos_", "_multiselect", "filtros_")):
                 del st.session_state[key]
-        st.session_state.filtros_aplicados = {
-            'anos': [], 'meses': [], 'comerciais': [], 'clientes': [], 'produtos': []
-        }
         st.rerun()
+
+st.sidebar.markdown("</div>", unsafe_allow_html=True)
 
 # RESUMO DOS FILTROS
 st.sidebar.markdown("---")
-st.sidebar.markdown(f"""
-<div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 10px;">
-    <h4 style="color: white; margin: 0 0 10px 0;">📊 RESUMO</h4>
-    <p style="color: white; margin: 5px 0; font-size: 0.9rem;"><strong>Registros:</strong> {len(df_filtrado):,}</p>
-    <p style="color: white; margin: 5px 0; font-size: 0.9rem;"><strong>Anos:</strong> {len(anos_selecionados)}</p>
-    <p style="color: white; margin: 5px 0; font-size: 0.9rem;"><strong>Meses:</strong> {len(meses_selecionados)}</p>
-    <p style="color: white; margin: 5px 0; font-size: 0.9rem;"><strong>Clientes:</strong> {len(clientes_selecionados)}</p>
-    <p style="color: white; margin: 5px 0; font-size: 0.9rem;"><strong>Produtos:</strong> {len(produtos_selecionados)}</p>
-</div>
+st.sidebar.markdown("""
+<div class="sidebar-section" style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);">
+    <h4 style="color: #2c3e50; margin-top: 0; margin-bottom: 15px;">📊 RESUMO DOS FILTROS</h4>
 """, unsafe_allow_html=True)
+
+if not df_filtrado.empty:
+    st.sidebar.markdown(f"""
+    <div style="color: #2c3e50; font-size: 0.9rem;">
+        <p style="margin: 8px 0;"><strong>📈 Registros filtrados:</strong> {len(df_filtrado):,}</p>
+        <p style="margin: 8px 0;"><strong>📅 Período:</strong> {df_filtrado['Data'].min().strftime('%d/%m/%Y')} a {df_filtrado['Data'].max().strftime('%d/%m/%Y')}</p>
+        <p style="margin: 8px 0;"><strong>🎯 Anos selecionados:</strong> {len(anos_selecionados)}</p>
+        <p style="margin: 8px 0;"><strong>📆 Meses selecionados:</strong> {len(meses_selecionados)}</p>
+        <p style="margin: 8px 0;"><strong>👥 Clientes selecionados:</strong> {len(clientes_selecionados)}</p>
+        <p style="margin: 8px 0;"><strong>📦 Produtos selecionados:</strong> {len(produtos_selecionados)}</p>
+    </div>
+    """, unsafe_allow_html=True)
+else:
+    st.sidebar.warning("⚠️ Nenhum dado corresponde aos filtros selecionados")
+
+st.sidebar.markdown("</div>", unsafe_allow_html=True)
 
 # === CALCULAR KPIs ===
 if not df_filtrado.empty:
@@ -625,22 +755,19 @@ if not df_filtrado.empty:
                 help="Quantidade média por transação"
             )
         
-        st.divider()
-        
         # RESUMO DO PERÍODO
-        st.subheader("📅 Resumo do Período")
-        
+        st.divider()
         col_info1, col_info2, col_info3 = st.columns(3)
         
         with col_info1:
-            st.info(f"**Período Analisado:**\n{kpis['periodo_min']} a {kpis['periodo_max']}")
+            st.info(f"**📅 Período Analisado:**\n{kpis['periodo_min']} a {kpis['periodo_max']}")
         
         with col_info2:
             anos_str = ', '.join(map(str, kpis['anos_cobertos']))
-            st.info(f"**Anos Cobertos:**\n{anos_str}")
+            st.info(f"**📊 Anos Cobertos:**\n{anos_str}")
         
         with col_info3:
-            st.info(f"**Comerciais Ativos:**\n{kpis['num_comerciais']}")
+            st.info(f"**👥 Comerciais Ativos:**\n{kpis['num_comerciais']}")
     
     with tab2:
         st.subheader("📈 Análise Temporal das Vendas")
@@ -672,22 +799,23 @@ if not df_filtrado.empty:
             st.plotly_chart(fig1, use_container_width=True)
         
         with col17:
-            st.metric(
-                "📊 Variação Mensal",
-                f"€{vendas_mensais['V Líquido'].std():,.0f}",
-                help="Desvio padrão das vendas mensais"
-            )
-            
-            # Média móvel
-            if len(vendas_mensais) > 3:
-                media_movel = vendas_mensais['V Líquido'].rolling(window=3).mean().iloc[-1]
-                st.metric(
-                    "📈 Média Móvel (3 meses)",
-                    f"€{media_movel:,.0f}"
-                )
-            
-            # Crescimento do último mês
             if len(vendas_mensais) > 1:
+                # Variação mensal
+                st.metric(
+                    "📊 Variação Mensal",
+                    f"€{vendas_mensais['V Líquido'].std():,.0f}",
+                    help="Desvio padrão das vendas mensais"
+                )
+                
+                # Média móvel
+                if len(vendas_mensais) > 3:
+                    media_movel = vendas_mensais['V Líquido'].rolling(window=3).mean().iloc[-1]
+                    st.metric(
+                        "📈 Média Móvel (3 meses)",
+                        f"€{media_movel:,.0f}"
+                    )
+                
+                # Crescimento do último mês
                 crescimento = ((vendas_mensais['V Líquido'].iloc[-1] / vendas_mensais['V Líquido'].iloc[-2]) - 1) * 100
                 st.metric(
                     "📅 Crescimento (último mês)",
@@ -750,18 +878,6 @@ if not df_filtrado.empty:
                 yaxis=dict(autorange='reversed')
             )
             st.plotly_chart(fig3, use_container_width=True)
-            
-            # Tabela de top clientes
-            with st.expander("📋 Ver detalhes dos clientes"):
-                st.dataframe(
-                    top_clientes.style.format({
-                        'Total Vendas (€)': '€{:,.2f}',
-                        'Quantidade Total': '{:,.0f}',
-                        'Nº Compras': '{:,.0f}',
-                        'Ticket Médio': '€{:,.2f}'
-                    }),
-                    use_container_width=True
-                )
         
         with col19:
             # TOP 10 PRODUTOS
@@ -793,18 +909,6 @@ if not df_filtrado.empty:
                 yaxis=dict(autorange='reversed')
             )
             st.plotly_chart(fig4, use_container_width=True)
-            
-            # Tabela de top produtos
-            with st.expander("📋 Ver detalhes dos produtos"):
-                st.dataframe(
-                    top_produtos.style.format({
-                        'Total Vendas (€)': '€{:,.2f}',
-                        'Quantidade Total': '{:,.0f}',
-                        'Clientes Únicos': '{:,.0f}',
-                        'Preço Médio': '€{:,.2f}'
-                    }),
-                    use_container_width=True
-                )
         
         # ANÁLISE DE COMERCIAIS
         st.subheader("👨‍💼 Desempenho por Comercial")
@@ -837,18 +941,6 @@ if not df_filtrado.empty:
                 xaxis=dict(tickangle=45)
             )
             st.plotly_chart(fig5, use_container_width=True)
-        
-        with col21:
-            st.dataframe(
-                desempenho_comercial.style.format({
-                    'Total Vendas (€)': '€{:,.2f}',
-                    'Ticket Médio (€)': '€{:,.2f}',
-                    'Nº Transações': '{:,.0f}',
-                    'Clientes Únicos': '{:,.0f}',
-                    'Quantidade Total': '{:,.0f}'
-                }),
-                height=400
-            )
     
     with tab4:
         st.subheader("📋 Dados Detalhados e Exportação")
@@ -900,41 +992,12 @@ if not df_filtrado.empty:
             height=600
         )
         
-        # Estatísticas da tabela
-        st.subheader("📊 Estatísticas dos Dados Exibidos")
-        
-        col25, col26, col27, col28 = st.columns(4)
-        
-        with col25:
-            st.metric(
-                "📈 Valor Médio",
-                f"€{df_display['V Líquido'].mean():,.2f}"
-            )
-        
-        with col26:
-            st.metric(
-                "📊 Quantidade Média",
-                f"{df_display['Quantidade'].mean():,.1f}"
-            )
-        
-        with col27:
-            st.metric(
-                "🏷️ PM Médio",
-                f"€{df_display['PM'].mean():,.2f}"
-            )
-        
-        with col28:
-            st.metric(
-                "👥 Clientes Únicos",
-                f"{df_display['Nome'].nunique()}"
-            )
-        
         # EXPORTAÇÃO DE DADOS
         st.subheader("📥 Exportar Dados")
         
-        col29, col30, col31 = st.columns(3)
+        col25, col26, col27 = st.columns(3)
         
-        with col29:
+        with col25:
             # Exportar CSV
             csv_data = df_filtrado.to_csv(index=False).encode('utf-8')
             st.download_button(
@@ -945,25 +1008,17 @@ if not df_filtrado.empty:
                 use_container_width=True
             )
         
-        with col30:
+        with col26:
             # Exportar Excel com KPIs
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                # Dados filtrados
                 df_filtrado.to_excel(writer, sheet_name='Dados', index=False)
                 
-                # KPIs
                 kpis_df = pd.DataFrame({
-                    'KPI': list(kpis.keys())[:15],  # Primeiros 15 KPIs
-                    'Valor': list(kpis.values())[:15]
+                    'KPI': list(kpis.keys()),
+                    'Valor': list(kpis.values())
                 })
                 kpis_df.to_excel(writer, sheet_name='KPIs', index=False)
-                
-                # Top clientes
-                top_clientes.to_excel(writer, sheet_name='Top_Clientes')
-                
-                # Top produtos
-                top_produtos.to_excel(writer, sheet_name='Top_Produtos')
             
             excel_data = output.getvalue()
             
@@ -975,7 +1030,7 @@ if not df_filtrado.empty:
                 use_container_width=True
             )
         
-        with col31:
+        with col27:
             # Exportar resumo executivo
             resumo = f"""
             RELATÓRIO DE COMPRAS - RESUMO EXECUTIVO
@@ -1004,27 +1059,6 @@ if not df_filtrado.empty:
                 mime="text/plain",
                 use_container_width=True
             )
-    
-    # === VERIFICAÇÃO DOS CÁLCULOS ===
-    with st.expander("🔍 Verificar Cálculos"):
-        st.write("### 📊 Verificação dos Cálculos")
-        
-        col_ver1, col_ver2 = st.columns(2)
-        
-        with col_ver1:
-            st.write("**Somas Diretas:**")
-            st.write(f"- Soma 'V Líquido': €{df_filtrado['V Líquido'].sum():,.2f}")
-            st.write(f"- Soma 'Quantidade': {df_filtrado['Quantidade'].sum():,.2f}")
-            st.write(f"- Nº registros: {len(df_filtrado):,}")
-            st.write(f"- Nº clientes únicos: {df_filtrado['Nome'].nunique()}")
-            st.write(f"- Nº produtos únicos: {df_filtrado['Artigo'].nunique()}")
-        
-        with col_ver2:
-            st.write("**Cálculos Manuais:**")
-            st.write(f"- Ticket médio manual: €{df_filtrado['V Líquido'].sum()/len(df_filtrado):,.2f}")
-            st.write(f"- Valor médio/kg: €{df_filtrado['V Líquido'].sum()/df_filtrado['Quantidade'].sum():,.2f}")
-            st.write(f"- Dias únicos: {df_filtrado['Data'].dt.date.nunique()}")
-            st.write(f"- Venda/dia: €{df_filtrado['V Líquido'].sum()/df_filtrado['Data'].dt.date.nunique():,.2f}")
 
 else:
     st.warning("""
