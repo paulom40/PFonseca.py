@@ -407,4 +407,5 @@ def gerar_excel_completo(df_mes: pd.DataFrame, kpis_mes: dict) -> io.BytesIO:
                 ws.cell(row=row_num, column=col_num, value=value)
         return name_real
 
-    def add_plot_to_sheet(sheet_name, fig, anchor="
+    def add_plot_to_sheet(sheet_name, fig, anchor="H2"):
+
