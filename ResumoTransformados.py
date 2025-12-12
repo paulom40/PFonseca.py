@@ -342,7 +342,7 @@ def graficos_top10(df: pd.DataFrame):
             )
             figcq.update_layout(height=500)
             st.plotly_chart(figcq, width="stretch")
-# ====================== COMPARAÇÃO ANO-A-ANO (DASHBOARD) ======================
+# ====================== COMPARAÇÃO ANO-A-ANO (GLOBAL) ======================
 def comparacao_ano_a_ano(df: pd.DataFrame):
     st.subheader("📆 Comparação do Mesmo Mês em Diferentes Anos")
 
@@ -391,6 +391,58 @@ def comparacao_ano_a_ano(df: pd.DataFrame):
 
     st.subheader("Resumo Ano-a-Ano")
     df_show = df_comp.copy()
+    df_show["Total_Vendas"] = df_show["Total_Vendas"].map(lambda x: f"{x:,.2f}")
+    df_show["Quantidade"] = df_show["Quantidade"].map(lambda x: f"{x:,.2f}")
+    st.dataframe(df_show, width="stretch")
+
+
+# ====================== COMPARAÇÃO ANO-A-ANO POR CLIENTE ======================
+def comparacao_ano_a_ano_clientes(df: pd.DataFrame):
+    st.subheader("📆 Comparação Ano-a-Ano — Clientes")
+
+    if df.empty:
+        st.warning("Sem dados para comparar.")
+        return
+
+    df = df.copy()
+    df["Mes_Num"] = df["Data"].dt.month
+    df["Ano"] = df["Data"].dt.year
+
+    meses_disponiveis = sorted(df["Mes_Num"].unique())
+
+    mes_sel = st.selectbox(
+        "Seleciona o mês para comparar entre anos (Clientes):",
+        options=meses_disponiveis,
+        format_func=lambda m: datetime(2000, m, 1).strftime("%B")
+    )
+
+    df_mes = df[df["Mes_Num"] == mes_sel]
+
+    if df_mes.empty:
+        st.warning("Sem dados para este mês.")
+        return
+
+    df_comp = df_mes.groupby(["Ano", "Nome"]).agg(
+        Total_Vendas=("V Líquido", "sum"),
+        Quantidade=("Quantidade", "sum"),
+        Transacoes=("V Líquido", "count")
+    ).reset_index()
+
+    df_top = df_comp.sort_values("Total_Vendas", ascending=False).groupby("Ano").head(10)
+
+    fig = px.bar(
+        df_top,
+        x="Nome",
+        y="Total_Vendas",
+        color="Ano",
+        barmode="group",
+        title=f"Top Clientes — Mês de {datetime(2000, mes_sel, 1).strftime('%B')} (Ano-a-Ano)"
+    )
+    fig.update_layout(height=500, xaxis_tickangle=45)
+    st.plotly_chart(fig, width="stretch")
+
+    st.subheader("Tabela Ano-a-Ano — Clientes")
+    df_show = df_top.copy()
     df_show["Total_Vendas"] = df_show["Total_Vendas"].map(lambda x: f"{x:,.2f}")
     df_show["Quantidade"] = df_show["Quantidade"].map(lambda x: f"{x:,.2f}")
     st.dataframe(df_show, width="stretch")
@@ -621,25 +673,40 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
         {"KPI": "Total de Vendas", "Valor": kpis["total_vendas"], "Limite": thresholds["total_vendas"]},
     ])
 
-    # ========== COMPARAÇÃO ANO-A-ANO PARA EXPORT ==========
+    # ========== COMPARAÇÃO ANO-A-ANO GLOBAL PARA EXPORT ==========
     df_comp_aa = None
     mes_sel_export = None
-    if not df.empty:
-        df_tmp = df.copy()
-        df_tmp["Mes_Num"] = df_tmp["Data"].dt.month
-        df_tmp["Ano"] = df_tmp["Data"].dt.year
 
-        meses_disponiveis = sorted(df_tmp["Mes_Num"].unique())
-        if len(meses_disponiveis) > 0:
-            mes_sel_export = meses_disponiveis[-1]  # último mês disponível
-            df_mes = df_tmp[df_tmp["Mes_Num"] == mes_sel_export]
-            if not df_mes.empty:
-                df_comp_aa = df_mes.groupby("Ano").agg(
-                    Total_Vendas=("V Líquido", "sum"),
-                    Quantidade=("Quantidade", "sum"),
-                    Transacoes=("V Líquido", "count"),
-                    Clientes=("Nome", "nunique")
-                ).reset_index()
+    df_tmp = df.copy()
+    df_tmp["Mes_Num"] = df_tmp["Data"].dt.month
+    df_tmp["Ano"] = df_tmp["Data"].dt.year
+
+    meses_disponiveis = sorted(df_tmp["Mes_Num"].unique())
+    if len(meses_disponiveis) > 0:
+        mes_sel_export = meses_disponiveis[-1]  # último mês disponível
+        df_mes = df_tmp[df_tmp["Mes_Num"] == mes_sel_export]
+        if not df_mes.empty:
+            df_comp_aa = df_mes.groupby("Ano").agg(
+                Total_Vendas=("V Líquido", "sum"),
+                Quantidade=("Quantidade", "sum"),
+                Transacoes=("V Líquido", "count"),
+                Clientes=("Nome", "nunique")
+            ).reset_index()
+
+    # ========== COMPARAÇÃO ANO-A-ANO CLIENTES PARA EXPORT ==========
+    df_comp_aa_cli = None
+    mes_sel_export_cli = None
+    if len(meses_disponiveis) > 0:
+        mes_sel_export_cli = meses_disponiveis[-1]
+        df_mes_cli = df_tmp[df_tmp["Mes_Num"] == mes_sel_export_cli]
+
+        if not df_mes_cli.empty:
+            df_comp_aa_cli = df_mes_cli.groupby(["Ano", "Nome"]).agg(
+                Total_Vendas=("V Líquido", "sum"),
+                Quantidade=("Quantidade", "sum"),
+                Transacoes=("V Líquido", "count")
+            ).reset_index()
+            df_comp_aa_cli = df_comp_aa_cli.sort_values("Total_Vendas", ascending=False).groupby("Ano").head(10)
 
     buffer = io.BytesIO()
     wb = Workbook()
@@ -676,6 +743,10 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
     nome_comp_aa = None
     if df_comp_aa is not None and not df_comp_aa.empty:
         nome_comp_aa = add_sheet("Comparacao_Ano_a_Ano", df_comp_aa)
+
+    nome_comp_aa_cli = None
+    if df_comp_aa_cli is not None and not df_comp_aa_cli.empty:
+        nome_comp_aa_cli = add_sheet("Comparacao_Ano_a_Ano_Clientes", df_comp_aa_cli)
 
     # Evolução mensal
     fig1, ax1 = plt.subplots(figsize=(8, 4))
@@ -748,7 +819,7 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
     plt.tight_layout()
     add_plot_to_sheet(nome_cli, fig7, anchor="H20")
 
-    # Comparação Ano-a-Ano (se existir)
+    # Comparação Ano-a-Ano (global)
     if nome_comp_aa is not None and df_comp_aa is not None and not df_comp_aa.empty:
         fig8, ax8 = plt.subplots(figsize=(8, 4))
         ax8.bar(df_comp_aa["Ano"], df_comp_aa["Total_Vendas"], color="navy")
@@ -761,6 +832,19 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
         plt.xticks(rotation=0)
         plt.tight_layout()
         add_plot_to_sheet(nome_comp_aa, fig8, anchor="H2")
+
+    # Comparação Ano-a-Ano Clientes
+    if nome_comp_aa_cli is not None and df_comp_aa_cli is not None and not df_comp_aa_cli.empty:
+        fig9, ax9 = plt.subplots(figsize=(10, 5))
+        for ano in df_comp_aa_cli["Ano"].unique():
+            df_ano = df_comp_aa_cli[df_comp_aa_cli["Ano"] == ano]
+            ax9.bar(df_ano["Nome"], df_ano["Total_Vendas"], label=str(ano))
+        ax9.set_title("Comparação Ano-a-Ano — Top Clientes")
+        ax9.set_ylabel("Total de Vendas (€)")
+        plt.xticks(rotation=45, ha="right")
+        ax9.legend()
+        plt.tight_layout()
+        add_plot_to_sheet(nome_comp_aa_cli, fig9, anchor="H2")
 
     if "Sheet" in wb.sheetnames and len(wb.sheetnames) > 1:
         std = wb["Sheet"]
@@ -775,59 +859,6 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
         file_name="Relatorio_Completo.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-# ====================== COMPARAÇÃO ANO-A-ANO POR CLIENTE ======================
-def comparacao_ano_a_ano_clientes(df: pd.DataFrame):
-    st.subheader("📆 Comparação Ano-a-Ano — Clientes")
-
-    if df.empty:
-        st.warning("Sem dados para comparar.")
-        return
-
-    df = df.copy()
-    df["Mes_Num"] = df["Data"].dt.month
-    df["Ano"] = df["Data"].dt.year
-
-    meses_disponiveis = sorted(df["Mes_Num"].unique())
-
-    mes_sel = st.selectbox(
-        "Seleciona o mês para comparar entre anos (Clientes):",
-        options=meses_disponiveis,
-        format_func=lambda m: datetime(2000, m, 1).strftime("%B")
-    )
-
-    df_mes = df[df["Mes_Num"] == mes_sel]
-
-    if df_mes.empty:
-        st.warning("Sem dados para este mês.")
-        return
-
-    df_comp = df_mes.groupby(["Ano", "Nome"]).agg(
-        Total_Vendas=("V Líquido", "sum"),
-        Quantidade=("Quantidade", "sum"),
-        Transacoes=("V Líquido", "count")
-    ).reset_index()
-
-    # Top 10 clientes por ano
-    df_top = df_comp.sort_values("Total_Vendas", ascending=False).groupby("Ano").head(10)
-
-    fig = px.bar(
-        df_top,
-        x="Nome",
-        y="Total_Vendas",
-        color="Ano",
-        barmode="group",
-        title=f"Top Clientes — Mês de {datetime(2000, mes_sel, 1).strftime('%B')} (Ano-a-Ano)"
-    )
-    fig.update_layout(height=500)
-    st.plotly_chart(fig, width="stretch")
-
-    st.subheader("Tabela Ano-a-Ano — Clientes")
-    df_show = df_top.copy()
-    df_show["Total_Vendas"] = df_show["Total_Vendas"].map(lambda x: f"{x:,.2f}")
-    df_show["Quantidade"] = df_show["Quantidade"].map(lambda x: f"{x:,.2f}")
-    st.dataframe(df_show, width="stretch")
-
-
 # ====================== EXPORTAÇÃO AUTOMÁTICA MENSAL (OTIMIZADA) ======================
 def gerar_excel_completo(df_mes: pd.DataFrame, kpis_mes: dict) -> io.BytesIO:
     buffer = io.BytesIO()
@@ -932,11 +963,12 @@ def main():
     kpis = calcular_kpis(df_filt)
     df_ticket_com = calcular_ticket_medio_por_comercial(df_filt)
 
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "📊 KPIs",
         "📈 Gráficos & Alertas",
         "📄 Tabelas & Export",
-        "📆 Comparação Ano-a-Ano"
+        "📆 Comparação Ano-a-Ano",
+        "👥 Comparação Ano-a-Ano (Clientes)"
     ])
 
     with tab1:
@@ -956,6 +988,9 @@ def main():
 
     with tab4:
         comparacao_ano_a_ano(df_filt)
+
+    with tab5:
+        comparacao_ano_a_ano_clientes(df_filt)
 
     st.markdown("---")
     st.markdown("Desenvolvido por Paulo — Dashboard Comercial ✅")
