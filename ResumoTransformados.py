@@ -775,6 +775,59 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
         file_name="Relatorio_Completo.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+# ====================== COMPARAÇÃO ANO-A-ANO POR CLIENTE ======================
+def comparacao_ano_a_ano_clientes(df: pd.DataFrame):
+    st.subheader("📆 Comparação Ano-a-Ano — Clientes")
+
+    if df.empty:
+        st.warning("Sem dados para comparar.")
+        return
+
+    df = df.copy()
+    df["Mes_Num"] = df["Data"].dt.month
+    df["Ano"] = df["Data"].dt.year
+
+    meses_disponiveis = sorted(df["Mes_Num"].unique())
+
+    mes_sel = st.selectbox(
+        "Seleciona o mês para comparar entre anos (Clientes):",
+        options=meses_disponiveis,
+        format_func=lambda m: datetime(2000, m, 1).strftime("%B")
+    )
+
+    df_mes = df[df["Mes_Num"] == mes_sel]
+
+    if df_mes.empty:
+        st.warning("Sem dados para este mês.")
+        return
+
+    df_comp = df_mes.groupby(["Ano", "Nome"]).agg(
+        Total_Vendas=("V Líquido", "sum"),
+        Quantidade=("Quantidade", "sum"),
+        Transacoes=("V Líquido", "count")
+    ).reset_index()
+
+    # Top 10 clientes por ano
+    df_top = df_comp.sort_values("Total_Vendas", ascending=False).groupby("Ano").head(10)
+
+    fig = px.bar(
+        df_top,
+        x="Nome",
+        y="Total_Vendas",
+        color="Ano",
+        barmode="group",
+        title=f"Top Clientes — Mês de {datetime(2000, mes_sel, 1).strftime('%B')} (Ano-a-Ano)"
+    )
+    fig.update_layout(height=500)
+    st.plotly_chart(fig, width="stretch")
+
+    st.subheader("Tabela Ano-a-Ano — Clientes")
+    df_show = df_top.copy()
+    df_show["Total_Vendas"] = df_show["Total_Vendas"].map(lambda x: f"{x:,.2f}")
+    df_show["Quantidade"] = df_show["Quantidade"].map(lambda x: f"{x:,.2f}")
+    st.dataframe(df_show, width="stretch")
+
+
 # ====================== EXPORTAÇÃO AUTOMÁTICA MENSAL (OTIMIZADA) ======================
 def gerar_excel_completo(df_mes: pd.DataFrame, kpis_mes: dict) -> io.BytesIO:
     buffer = io.BytesIO()
