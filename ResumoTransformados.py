@@ -78,10 +78,21 @@ def load_data(path: str = "ResumoTR.xlsx") -> pd.DataFrame:
         st.error(f"Faltam colunas obrigatórias no ficheiro: {missing}")
         return pd.DataFrame()
 
-    df["Data"] = pd.to_datetime(df["Data"], errors="coerce")
+    # ✅ CORREÇÃO QUANTIDADE
+    df["Quantidade"] = (
+        df["Quantidade"]
+        .astype(str)
+        .str.replace(",", ".", regex=False)
+        .str.replace("KG", "", regex=False)
+        .str.replace("kg", "", regex=False)
+        .str.replace(" ", "", regex=False)
+        .str.replace("\u00A0", "", regex=False)
+    )
     df["Quantidade"] = pd.to_numeric(df["Quantidade"], errors="coerce")
+
     df["V Líquido"] = pd.to_numeric(df["V Líquido"], errors="coerce")
     df["PM"] = pd.to_numeric(df["PM"], errors="coerce")
+    df["Data"] = pd.to_datetime(df["Data"], errors="coerce")
 
     df = df.dropna(subset=["Data"])
     df = df[(df["Quantidade"] > 0) & (df["V Líquido"] != 0)]
