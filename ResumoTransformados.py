@@ -5,6 +5,10 @@ import plotly.express as px
 from datetime import datetime
 import io
 
+import matplotlib.pyplot as plt
+from openpyxl import Workbook
+from openpyxl.drawing.image import Image as XLImage
+
 # ====================== CONFIG STREAMLIT ======================
 st.set_page_config(
     page_title="Dashboard Comercial",
@@ -78,7 +82,6 @@ def load_data(path: str = "ResumoTR.xlsx") -> pd.DataFrame:
         st.error(f"Faltam colunas obrigatórias no ficheiro: {missing}")
         return pd.DataFrame()
 
-    # Quantidade robusta
     df["Quantidade"] = (
         df["Quantidade"]
         .astype(str)
@@ -133,19 +136,16 @@ def aplicar_filtros(df: pd.DataFrame) -> pd.DataFrame:
     mask_data = (df["Data"].dt.date >= data_inicio) & (df["Data"].dt.date <= data_fim)
     df_filt = df[mask_data].copy()
 
-    # Filtro Comercial
     comerciais = sorted(df_filt["Comercial"].dropna().unique())
     sel_com = st.sidebar.multiselect("Comercial", options=comerciais, default=comerciais)
     if sel_com:
         df_filt = df_filt[df_filt["Comercial"].isin(sel_com)]
 
-    # Filtro Artigo
     artigos = sorted(df_filt["Artigo"].dropna().unique())
     sel_art = st.sidebar.multiselect("Artigo", options=artigos, default=artigos)
     if sel_art:
         df_filt = df_filt[df_filt["Artigo"].isin(sel_art)]
 
-    # Filtro Nome
     df_filt["Nome"] = df_filt["Nome"].astype(str).fillna("").str.strip()
     nomes = sorted([n for n in df_filt["Nome"].unique() if n and n.lower() != "nan"])
     sel_nome = st.sidebar.multiselect("Nome entidade", options=nomes, default=nomes)
@@ -212,12 +212,11 @@ def mostrar_alerta(label: str, valor: float, limite: float):
         return
 
     if valor >= limite:
-        st.success(f"✅ {label}: {valor:,.2f} (acima do esperado)")
+        st.success(f"{label}: {valor:,.2f} (acima do esperado)")
     elif valor >= limite * 0.7:
-        st.warning(f"⚠️ {label}: {valor:,.2f} (atenção)")
-        return
+        st.warning(f"{label}: {valor:,.2f} (atenção)")
     else:
-        st.error(f"❌ {label}: {valor:,.2f} (abaixo do esperado)")
+        st.error(f"{label}: {valor:,.2f} (abaixo do esperado)")
 
 
 # ====================== TICKET MÉDIO POR COMERCIAL ======================
@@ -260,9 +259,9 @@ def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
         st.warning("Sem dados de comercial.")
     else:
         df_show = df_ticket_com.copy()
-        df_show["Total_Vendas"] = df_show["Total_Vendas"].map(lambda x: f"€{x:,.2f}")
-        df_show["Ticket_Medio"] = df_show["Ticket_Medio"].map(lambda x: f"€{x:,.2f}")
-        df_show["Valor_Medio_Unidade"] = df_show["Valor_Medio_Unidade"].map(lambda x: f"€{x:,.4f}")
+        df_show["Total_Vendas"] = df_show["Total_Vendas"].map(lambda x: f"{x:,.2f}")
+        df_show["Ticket_Medio"] = df_show["Ticket_Medio"].map(lambda x: f"{x:,.2f}")
+        df_show["Valor_Medio_Unidade"] = df_show["Valor_Medio_Unidade"].map(lambda x: f"{x:,.4f}")
         st.dataframe(df_show, use_container_width=True)
 
     st.subheader("Alertas de Desempenho (Globais)")
@@ -465,6 +464,7 @@ def grafico_semaforo_ticket_comercial(df: pd.DataFrame):
     grp["Status"] = grp["Ticket_Medio"].apply(classificar)
 
     color_map = {"Acima": "green", "Atenção": "orange", "Abaixo": "red"}
+    colors = grp["Status"].map(color_map)
 
     fig = px.bar(
         grp,
@@ -477,55 +477,315 @@ def grafico_semaforo_ticket_comercial(df: pd.DataFrame):
     st.plotly_chart(fig, use_container_width=True)
 
 
-# ====================== TABELA DETALHADA + EXPORTAÇÃO ======================
+# ====================== EXPORTAÇÃO COMPLETA PARA EXCEL ======================
 def tabela_dados_export(df: pd.DataFrame, kpis: dict):
-    st.subheader("Tabela de Dados Detalhada")
+    st.subheader("Exportar Relatório Completo")
 
     if df.empty:
-        st.warning("Sem dados.")
+        st.warning("Sem dados para exportar.")
         return
 
-    cols = [
-        "Data", "Entidade", "Nome", "Artigo", "Quantidade",
-        "Unidade", "V Líquido", "PM", "Comercial", "Mês", "Ano"
-    ]
-    cols_existentes = [c for c in cols if c in df.columns]
+    df_dados = df.copy()
+    df_kpis = pd.DataFrame([kpis])
 
-    display_df = df[cols_existentes].copy()
-    display_df["Data"] = display_df["Data"].dt.strftime("%d/%m/%Y")
+    df_hist = df.groupby("AnoMes").agg(
+        Total_Vendas=("V Líquido", "sum"),
+        Quantidade=("Quantidade", "sum"),
+        Transacoes=("V Líquido", "count")
+    ).reset_index()
 
-    st.dataframe(
-        display_df.style.format({
-            "V Líquido": "€{:,.2f}",
-            "PM": "€{:,.2f}"
-        }),
-        use_container_width=True,
-        height=600
-    )
+    df_rank_com = df.groupby("Comercial").agg(
+        Total_Vendas=("V Líquido", "sum"),
+        Transacoes=("V Líquido", "count"),
+        Quantidade=("Quantidade", "sum"),
+        Clientes=("Nome", "nunique")
+    ).reset_index()
+    df_rank_com["Ticket_Medio"] = df_rank_com["Total_Vendas"] / df_rank_com["Transacoes"]
+    df_rank_com = df_rank_com.sort_values("Total_Vendas", ascending=False)
 
-    st.subheader("Exportar Dados e KPIs")
+    df_clientes = df.groupby("Nome").agg(
+        Total_Vendas=("V Líquido", "sum"),
+        Transacoes=("V Líquido", "count"),
+        Quantidade=("Quantidade", "sum")
+    ).reset_index()
+    df_clientes["Ticket_Medio"] = df_clientes["Total_Vendas"] / df_clientes["Transacoes"]
+    df_clientes = df_clientes.sort_values("Total_Vendas", ascending=False).head(10)
 
-    col1, col2 = st.columns(2)
+    df_produtos = df.groupby("Artigo").agg(
+        Total_Vendas=("V Líquido", "sum"),
+        Quantidade=("Quantidade", "sum"),
+        Transacoes=("V Líquido", "count")
+    ).reset_index()
+    df_produtos["Ticket_Medio"] = df_produtos["Total_Vendas"] / df_produtos["Transacoes"]
+    df_produtos["Valor_Medio_Unidade"] = df_produtos["Total_Vendas"] / df_produtos["Quantidade"]
+    df_produtos = df_produtos.sort_values("Total_Vendas", ascending=False).head(10)
 
-    csv = df.to_csv(index=False).encode()
-    col1.download_button(
-        "Download CSV",
-        data=csv,
-        file_name="dados.csv",
-        mime="text/csv"
-    )
+    thresholds = obter_thresholds_globais()
+    df_alertas = pd.DataFrame([
+        {"KPI": "Ticket Médio Comercial", "Valor": kpis["ticket"], "Limite": thresholds["ticket_comercial"]},
+        {"KPI": "Ticket Médio Cliente", "Valor": kpis["ticket_cliente"], "Limite": thresholds["ticket_cliente"]},
+        {"KPI": "Venda Média por Dia", "Valor": kpis["venda_dia"], "Limite": thresholds["venda_dia"]},
+        {"KPI": "Valor Médio por Unidade", "Valor": kpis["valor_unidade"], "Limite": thresholds["valor_unidade"]},
+        {"KPI": "Total de Vendas", "Valor": kpis["total_vendas"], "Limite": thresholds["total_vendas"]},
+    ])
 
     buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        df.to_excel(writer, sheet_name="Dados", index=False)
-        pd.DataFrame([kpis]).to_excel(writer, sheet_name="KPIs", index=False)
+    wb = Workbook()
 
-    col2.download_button(
-        "Download Excel + KPIs",
+    def add_sheet(name, df_sheet):
+        ws = wb.create_sheet(name)
+        for col_num, col_name in enumerate(df_sheet.columns, 1):
+            ws.cell(row=1, column=col_num, value=col_name)
+        for row_num, row in enumerate(df_sheet.values, 2):
+            for col_num, value in enumerate(row, 1):
+                ws.cell(row=row_num, column=col_num, value=value)
+
+    def add_plot_to_sheet(sheet_name, fig):
+        img_buffer = io.BytesIO()
+        fig.savefig(img_buffer, format="png", dpi=150, bbox_inches="tight")
+        img_buffer.seek(0)
+        ws = wb[sheet_name]
+        img = XLImage(img_buffer)
+        img.anchor = "H2"
+        ws.add_image(img)
+
+    add_sheet("Dados", df_dados)
+    add_sheet("KPIs_Globais", df_kpis)
+    add_sheet("Historico_Mensal", df_hist)
+    add_sheet("Ranking_Comerciais", df_rank_com)
+    add_sheet("Clientes", df_clientes)
+    add_sheet("Produtos", df_produtos)
+    add_sheet("Alertas_Globais", df_alertas)
+
+    # Gráfico evolução mensal
+    fig1, ax1 = plt.subplots(figsize=(8, 4))
+    ax1.plot(df_hist["AnoMes"], df_hist["Total_Vendas"], marker="o")
+    ax1.set_title("Evolução Mensal de Vendas")
+    ax1.set_xlabel("Ano-Mês")
+    ax1.set_ylabel("Vendas (€)")
+    plt.xticks(rotation=45)
+    add_plot_to_sheet("Historico_Mensal", fig1)
+
+    # Gráfico ranking comerciais
+    fig2, ax2 = plt.subplots(figsize=(8, 4))
+    ax2.bar(df_rank_com["Comercial"], df_rank_com["Total_Vendas"])
+    ax2.set_title("Ranking de Comerciais")
+    ax2.set_ylabel("Total de Vendas (€)")
+    plt.xticks(rotation=45)
+    add_plot_to_sheet("Ranking_Comerciais", fig2)
+
+    # Gráfico top clientes
+    fig3, ax3 = plt.subplots(figsize=(8, 4))
+    ax3.barh(df_clientes["Nome"], df_clientes["Total_Vendas"], color="steelblue")
+    ax3.set_title("Top 10 Clientes por Vendas")
+    ax3.set_xlabel("Total de Vendas (€)")
+    ax3.invert_yaxis()
+    plt.tight_layout()
+    add_plot_to_sheet("Clientes", fig3)
+
+    # Gráfico top produtos
+    fig4, ax4 = plt.subplots(figsize=(8, 4))
+    ax4.barh(df_produtos["Artigo"], df_produtos["Total_Vendas"], color="purple")
+    ax4.set_title("Top 10 Produtos por Vendas")
+    ax4.set_xlabel("Total de Vendas (€)")
+    ax4.invert_yaxis()
+    plt.tight_layout()
+    add_plot_to_sheet("Produtos", fig4)
+
+    # Gráfico semáforo comerciais
+    fig5, ax5 = plt.subplots(figsize=(8, 4))
+    df_rank_com["Status"] = df_rank_com["Ticket_Medio"].apply(
+        lambda x: "Acima" if x >= thresholds["ticket_comercial"]
+        else "Atenção" if x >= thresholds["ticket_comercial"] * 0.7
+        else "Abaixo"
+    )
+    color_map = {"Acima": "green", "Atenção": "orange", "Abaixo": "red"}
+    colors = df_rank_com["Status"].map(color_map)
+    ax5.bar(df_rank_com["Comercial"], df_rank_com["Ticket_Medio"], color=colors)
+    ax5.set_title("Semáforo — Ticket Médio por Comercial")
+    ax5.set_ylabel("Ticket Médio (€)")
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    add_plot_to_sheet("Ranking_Comerciais", fig5)
+
+    # Exportação individual — comercial
+    for comercial in df["Comercial"].unique():
+        df_c = df[df["Comercial"] == comercial].copy()
+        sheet_name = f"Com_{comercial[:25]}"
+        add_sheet(sheet_name, df_c)
+
+        df_c_hist = df_c.groupby("AnoMes")["V Líquido"].sum().reset_index()
+
+        figC1, axC1 = plt.subplots(figsize=(8, 4))
+        axC1.plot(df_c_hist["AnoMes"], df_c_hist["V Líquido"], marker="o")
+        axC1.set_title(f"Evolução Mensal — {comercial}")
+        axC1.set_xlabel("Ano-Mês")
+        axC1.set_ylabel("Vendas (€)")
+        plt.xticks(rotation=45)
+        add_plot_to_sheet(sheet_name, figC1)
+
+        figC2, axC2 = plt.subplots(figsize=(8, 4))
+        axC2.bar(["Total"], [df_c["V Líquido"].sum()], color="blue")
+        axC2.set_title(f"Total de Vendas — {comercial}")
+        axC2.set_ylabel("Vendas (€)")
+        add_plot_to_sheet(sheet_name, figC2)
+
+        figC3, axC3 = plt.subplots(figsize=(8, 4))
+        ticket_c = df_c["V Líquido"].sum() / len(df_c)
+        axC3.bar(["Ticket Médio"], [ticket_c], color="green")
+        axC3.set_title(f"Ticket Médio — {comercial}")
+        axC3.set_ylabel("€")
+        add_plot_to_sheet(sheet_name, figC3)
+
+    # Exportação individual — cliente
+    for cliente in df["Nome"].unique():
+        df_cli = df[df["Nome"] == cliente].copy()
+        sheet_name = f"Cli_{cliente[:25]}"
+        add_sheet(sheet_name, df_cli)
+
+        df_cli_hist = df_cli.groupby("AnoMes")["V Líquido"].sum().reset_index()
+
+        figCl1, axCl1 = plt.subplots(figsize=(8, 4))
+        axCl1.plot(df_cli_hist["AnoMes"], df_cli_hist["V Líquido"], marker="o")
+        axCl1.set_title(f"Evolução Mensal — {cliente}")
+        axCl1.set_xlabel("Ano-Mês")
+        axCl1.set_ylabel("Vendas (€)")
+        plt.xticks(rotation=45)
+        add_plot_to_sheet(sheet_name, figCl1)
+
+        figCl2, axCl2 = plt.subplots(figsize=(8, 4))
+        axCl2.bar(["Total"], [df_cli["V Líquido"].sum()], color="purple")
+        axCl2.set_title(f"Total de Vendas — {cliente}")
+        axCl2.set_ylabel("Vendas (€)")
+        add_plot_to_sheet(sheet_name, figCl2)
+
+        figCl3, axCl3 = plt.subplots(figsize=(8, 4))
+        ticket_cl = df_cli["V Líquido"].sum() / len(df_cli)
+        axCl3.bar(["Ticket Médio"], [ticket_cl], color="orange")
+        axCl3.set_title(f"Ticket Médio — {cliente}")
+        axCl3.set_ylabel("€")
+        add_plot_to_sheet(sheet_name, figCl3)
+
+    # Exportação individual — produto
+    for produto in df["Artigo"].unique():
+        df_p = df[df["Artigo"] == produto].copy()
+        sheet_name = f"Prod_{produto[:25]}"
+        add_sheet(sheet_name, df_p)
+
+        df_p_hist = df_p.groupby("AnoMes")["V Líquido"].sum().reset_index()
+
+        figP1, axP1 = plt.subplots(figsize=(8, 4))
+        axP1.plot(df_p_hist["AnoMes"], df_p_hist["V Líquido"], marker="o")
+        axP1.set_title(f"Evolução Mensal — {produto}")
+        axP1.set_xlabel("Ano-Mês")
+        axP1.set_ylabel("Vendas (€)")
+        plt.xticks(rotation=45)
+        add_plot_to_sheet(sheet_name, figP1)
+
+        figP2, axP2 = plt.subplots(figsize=(8, 4))
+        axP2.bar(["Total"], [df_p["V Líquido"].sum()], color="red")
+        axP2.set_title(f"Total de Vendas — {produto}")
+        axP2.set_ylabel("Vendas (€)")
+        add_plot_to_sheet(sheet_name, figP2)
+
+        figP3, axP3 = plt.subplots(figsize=(8, 4))
+        ticket_p = df_p["V Líquido"].sum() / len(df_p)
+        axP3.bar(["Ticket Médio"], [ticket_p], color="teal")
+        axP3.set_title(f"Ticket Médio — {produto}")
+        axP3.set_ylabel("€")
+        add_plot_to_sheet(sheet_name, figP3)
+
+    wb.remove(wb["Sheet"])
+    wb.save(buffer)
+
+    st.download_button(
+        "📥 Download Excel Completo (com gráficos)",
         data=buffer.getvalue(),
-        file_name="relatorio.xlsx",
+        file_name="Relatorio_Completo.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+# ====================== EXPORTAÇÃO AUTOMÁTICA MENSAL ======================
+def gerar_excel_completo(df_mes: pd.DataFrame, kpis_mes: dict) -> io.BytesIO:
+    buffer = io.BytesIO()
+    wb = Workbook()
+
+    def add_sheet(name, df_sheet):
+        ws = wb.create_sheet(name)
+        for col_num, col_name in enumerate(df_sheet.columns, 1):
+            ws.cell(row=1, column=col_num, value=col_name)
+        for row_num, row in enumerate(df_sheet.values, 2):
+            for col_num, value in enumerate(row, 1):
+                ws.cell(row=row_num, column=col_num, value=value)
+
+    def add_plot_to_sheet(sheet_name, fig):
+        img_buffer = io.BytesIO()
+        fig.savefig(img_buffer, format="png", dpi=150, bbox_inches="tight")
+        img_buffer.seek(0)
+        ws = wb[sheet_name]
+        img = XLImage(img_buffer)
+        img.anchor = "H2"
+        ws.add_image(img)
+
+    add_sheet("Dados", df_mes)
+    add_sheet("KPIs", pd.DataFrame([kpis_mes]))
+
+    df_hist = df_mes.groupby("AnoMes")["V Líquido"].sum().reset_index()
+    add_sheet("Historico", df_hist)
+
+    df_rank = df_mes.groupby("Comercial").agg(
+        Total_Vendas=("V Líquido", "sum"),
+        Transacoes=("V Líquido", "count")
+    ).reset_index()
+    df_rank["Ticket_Medio"] = df_rank["Total_Vendas"] / df_rank["Transacoes"]
+    add_sheet("Comerciais", df_rank)
+
+    fig1, ax1 = plt.subplots(figsize=(8, 4))
+    ax1.bar(df_rank["Comercial"], df_rank["Total_Vendas"])
+    ax1.set_title("Ranking Comerciais")
+    plt.xticks(rotation=45)
+    add_plot_to_sheet("Comerciais", fig1)
+
+    for comercial in df_mes["Comercial"].unique():
+        df_c = df_mes[df_mes["Comercial"] == comercial]
+        add_sheet(f"Com_{comercial[:25]}", df_c)
+
+    for cliente in df_mes["Nome"].unique():
+        df_cli = df_mes[df_mes["Nome"] == cliente]
+        add_sheet(f"Cli_{cliente[:25]}", df_cli)
+
+    for produto in df_mes["Artigo"].unique():
+        df_p = df_mes[df_mes["Artigo"] == produto]
+        add_sheet(f"Prod_{produto[:25]}", df_p)
+
+    wb.remove(wb["Sheet"])
+    wb.save(buffer)
+    buffer.seek(0)
+    return buffer
+
+
+def exportacao_mensal(df: pd.DataFrame):
+    st.subheader("📦 Exportação Automática Mensal")
+
+    if df.empty:
+        st.warning("Sem dados para exportação mensal.")
+        return
+
+    meses = sorted(df["AnoMes"].unique())
+
+    if st.button("Gerar Relatórios Mensais"):
+        for mes in meses:
+            df_mes = df[df["AnoMes"] == mes].copy()
+            kpis_mes = calcular_kpis(df_mes)
+            buffer = gerar_excel_completo(df_mes, kpis_mes)
+
+            st.download_button(
+                label=f"📥 Download Relatório {mes}",
+                data=buffer.getvalue(),
+                file_name=f"Relatorio_{mes}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+
+
 # ====================== DEBUG OPCIONAL ======================
 def debug_comercial_mes(df: pd.DataFrame):
     st.subheader("🔍 Debug — Comercial / Ano / Mês")
@@ -548,9 +808,9 @@ def debug_comercial_mes(df: pd.DataFrame):
 
     resumo = resumo.sort_values("Total_Vendas", ascending=False)
 
-    resumo["Total_Vendas"] = resumo["Total_Vendas"].map(lambda x: f"€{x:,.2f}")
-    resumo["Ticket_Medio"] = resumo["Ticket_Medio"].map(lambda x: f"€{x:,.2f}")
-    resumo["Valor_Medio_Unidade"] = resumo["Valor_Medio_Unidade"].map(lambda x: f"€{x:,.4f}")
+    resumo["Total_Vendas"] = resumo["Total_Vendas"].map(lambda x: f"{x:,.2f}")
+    resumo["Ticket_Medio"] = resumo["Ticket_Medio"].map(lambda x: f"{x:,.2f}")
+    resumo["Valor_Medio_Unidade"] = resumo["Valor_Medio_Unidade"].map(lambda x: f"{x:,.4f}")
 
     st.dataframe(resumo, use_container_width=True)
 
@@ -576,7 +836,7 @@ def main():
     kpis = calcular_kpis(df_filt)
     df_ticket_com = calcular_ticket_medio_por_comercial(df_filt)
 
-    tab1, tab2, tab3 = st.tabs(["📊 KPIs", "📈 Gráficos & Alertas", "📄 Tabela"])
+    tab1, tab2, tab3 = st.tabs(["📊 KPIs", "📈 Gráficos & Alertas", "📄 Tabelas & Export"])
 
     with tab1:
         desenhar_kpis(kpis, df_ticket_com)
@@ -591,11 +851,11 @@ def main():
 
     with tab3:
         tabela_dados_export(df_filt, kpis)
+        exportacao_mensal(df_filt)
 
     st.markdown("---")
     st.markdown("Desenvolvido por Paulo — Dashboard Comercial ✅")
 
 
-# ====================== EXECUTAR APP ======================
 if __name__ == "__main__":
     main()
