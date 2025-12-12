@@ -103,8 +103,6 @@ def load_data(path_or_file="ResumoTR.xlsx") -> pd.DataFrame:
     df["AnoMes"] = df["Data"].dt.strftime("%Y-%m")
 
     return df
-
-
 # ====================== FILTROS ======================
 def aplicar_filtros(df: pd.DataFrame) -> pd.DataFrame:
     st.sidebar.header("Filtros")
@@ -113,8 +111,15 @@ def aplicar_filtros(df: pd.DataFrame) -> pd.DataFrame:
         st.sidebar.warning("Sem dados para aplicar filtros.")
         return df
 
-    data_min = df["Data"].min().date()
-    data_max = df["Data"].max().date()
+    data_min = df["Data"].min()
+    data_max = df["Data"].max()
+
+    if pd.isna(data_min) or pd.isna(data_max):
+        st.sidebar.error("Datas inválidas no dataset.")
+        return df
+
+    data_min = data_min.date()
+    data_max = data_max.date()
 
     data_inicio, data_fim = st.sidebar.date_input(
         "Período",
@@ -124,21 +129,21 @@ def aplicar_filtros(df: pd.DataFrame) -> pd.DataFrame:
     mask_data = (df["Data"].dt.date >= data_inicio) & (df["Data"].dt.date <= data_fim)
     df_filt = df[mask_data].copy()
 
-    # Comercial
+    # Filtro Comercial
     comerciais = sorted(df_filt["Comercial"].dropna().unique())
     sel_com = st.sidebar.multiselect("Comercial", options=comerciais, default=comerciais)
     if sel_com:
         df_filt = df_filt[df_filt["Comercial"].isin(sel_com)]
 
-    # Artigo
+    # Filtro Artigo
     artigos = sorted(df_filt["Artigo"].dropna().unique())
     sel_art = st.sidebar.multiselect("Artigo", options=artigos, default=artigos)
     if sel_art:
         df_filt = df_filt[df_filt["Artigo"].isin(sel_art)]
 
-    # Nome entidade
-    df_filt["Nome"] = df_filt["Nome"].astype(str).str.strip()
-    nomes = sorted([n for n in df_filt["Nome"].unique() if n])
+    # Filtro Nome entidade
+    df_filt["Nome"] = df_filt["Nome"].astype(str).fillna("").str.strip()
+    nomes = sorted([n for n in df_filt["Nome"].unique() if n and n.lower() != "nan"])
     sel_nome = st.sidebar.multiselect("Nome entidade", options=nomes, default=nomes)
     if sel_nome:
         df_filt = df_filt[df_filt["Nome"].isin(sel_nome)]
@@ -159,7 +164,7 @@ def calcular_kpis(df: pd.DataFrame) -> dict:
 
     data_min = df["Data"].min()
     data_max = df["Data"].max()
-    periodo = f"{data_min:%d/%m/%Y} a {data_max:%d/%m/%Y}"
+    periodo = f"{data_min.strftime('%d/%m/%Y')} a {data_max.strftime('%d/%m/%Y')}"
 
     dias_com_venda = df["Data"].dt.date.nunique()
 
@@ -186,7 +191,7 @@ def calcular_kpis(df: pd.DataFrame) -> dict:
     }
 
 
-# ====================== THRESHOLDS ======================
+# ====================== ALERTAS E THRESHOLDS ======================
 def obter_thresholds_globais():
     return {
         "ticket_comercial": 1000,
@@ -221,7 +226,7 @@ def calcular_ticket_medio_por_comercial(df: pd.DataFrame) -> pd.DataFrame:
     grp["Valor_Medio_Unidade"] = grp["Total_Vendas"] / grp["Quantidade"]
 
     return grp.sort_values("Total_Vendas", ascending=False)
-# ====================== VISUALIZAÇÕES ======================
+# ====================== VISUALIZAÇÕES PRINCIPAIS ======================
 def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
     st.subheader("KPIs em Tempo Real")
 
@@ -278,7 +283,7 @@ def grafico_evolucao(df: pd.DataFrame):
 def graficos_top10(df: pd.DataFrame):
     col1, col2 = st.columns(2)
 
-    # 1) Top 10 Produtos (€)
+    # Top 10 Produtos (€)
     with col1:
         st.subheader("Top 10 Produtos (€)")
         if df.empty:
@@ -292,7 +297,7 @@ def graficos_top10(df: pd.DataFrame):
             figp.update_layout(height=500)
             st.plotly_chart(figp, width="stretch")
 
-    # 2) Top 10 Clientes (€)
+    # Top 10 Clientes (€)
     with col2:
         st.subheader("Top 10 Clientes (€)")
         if df.empty:
@@ -310,7 +315,7 @@ def graficos_top10(df: pd.DataFrame):
 
     col3, col4 = st.columns(2)
 
-    # 3) Top 10 Produtos (Quantidade)
+    # Top 10 Produtos (Quantidade)
     with col3:
         st.subheader("Top 10 Produtos (Quantidade)")
         if df.empty:
@@ -324,7 +329,7 @@ def graficos_top10(df: pd.DataFrame):
             figpq.update_layout(height=500)
             st.plotly_chart(figpq, width="stretch")
 
-    # 4) Top 10 Clientes (Quantidade)
+    # Top 10 Clientes (Quantidade)
     with col4:
         st.subheader("Top 10 Clientes (Quantidade)")
         if df.empty:
@@ -337,9 +342,7 @@ def graficos_top10(df: pd.DataFrame):
             )
             figcq.update_layout(height=500)
             st.plotly_chart(figcq, width="stretch")
-
-
-# ====================== COMPARAÇÃO ANO-A-ANO ======================
+# ====================== COMPARAÇÃO ANO-A-ANO (DASHBOARD) ======================
 def comparacao_ano_a_ano(df: pd.DataFrame):
     st.subheader("📆 Comparação do Mesmo Mês em Diferentes Anos")
 
@@ -347,6 +350,7 @@ def comparacao_ano_a_ano(df: pd.DataFrame):
         st.warning("Sem dados para comparar.")
         return
 
+    df = df.copy()
     df["Mes_Num"] = df["Data"].dt.month
     df["Ano"] = df["Data"].dt.year
 
@@ -508,8 +512,6 @@ def alertas_por_produto(df: pd.DataFrame, limite_min_venda: float = 0):
             thresholds["valor_unidade"]
         )
         st.markdown("---")
-
-
 # ====================== GRÁFICO SEMÁFORO TICKET COMERCIAL ======================
 def grafico_semaforo_ticket_comercial(df: pd.DataFrame):
     st.subheader("Semáforo Ticket Médio por Comercial")
@@ -567,8 +569,6 @@ def sanitize_sheet_name(name: str, existing_names: set) -> str:
         counter += 1
     existing_names.add(name)
     return name
-
-
 # ====================== EXPORTAÇÃO COMPLETA OTIMIZADA PARA EXCEL ======================
 def tabela_dados_export(df: pd.DataFrame, kpis: dict):
     st.subheader("Exportar Relatório Completo")
@@ -655,7 +655,6 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
             for col_num, value in enumerate(row, 1):
                 ws.cell(row=row_num, column=col_num, value=value)
         return name_real
-
     def add_plot_to_sheet(sheet_name, fig, anchor="H2"):
         img_buffer = io.BytesIO()
         fig.savefig(img_buffer, format="png", dpi=150, bbox_inches="tight")
@@ -677,8 +676,6 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
     nome_comp_aa = None
     if df_comp_aa is not None and not df_comp_aa.empty:
         nome_comp_aa = add_sheet("Comparacao_Ano_a_Ano", df_comp_aa)
-
-    # ===== GRÁFICOS =====
 
     # Evolução mensal
     fig1, ax1 = plt.subplots(figsize=(8, 4))
@@ -765,7 +762,6 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
         plt.tight_layout()
         add_plot_to_sheet(nome_comp_aa, fig8, anchor="H2")
 
-    # Remover sheet default
     if "Sheet" in wb.sheetnames and len(wb.sheetnames) > 1:
         std = wb["Sheet"]
         wb.remove(std)
@@ -779,7 +775,7 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
         file_name="Relatorio_Completo.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-# ====================== EXPORTAÇÃO AUTOMÁTICA MENSAL ======================
+# ====================== EXPORTAÇÃO AUTOMÁTICA MENSAL (OTIMIZADA) ======================
 def gerar_excel_completo(df_mes: pd.DataFrame, kpis_mes: dict) -> io.BytesIO:
     buffer = io.BytesIO()
     wb = Workbook()
@@ -796,4 +792,121 @@ def gerar_excel_completo(df_mes: pd.DataFrame, kpis_mes: dict) -> io.BytesIO:
                 ws.cell(row=row_num, column=col_num, value=value)
         return name_real
 
-    def add_plot_to_sheet(sheet_name, fig, anchor="
+    def add_plot_to_sheet(sheet_name, fig, anchor="H2"):
+        img_buffer = io.BytesIO()
+        fig.savefig(img_buffer, format="png", dpi=150, bbox_inches="tight")
+        img_buffer.seek(0)
+        ws = wb[sheet_name]
+        img = XLImage(img_buffer)
+        img.anchor = anchor
+        ws.add_image(img)
+
+    nome_dados = add_sheet("Dados", df_mes)
+    nome_kpis = add_sheet("KPIs", pd.DataFrame([kpis_mes]))
+
+    df_hist = df_mes.groupby("AnoMes")["V Líquido"].sum().reset_index()
+    nome_hist = add_sheet("Historico", df_hist)
+
+    df_rank = df_mes.groupby("Comercial").agg(
+        Total_Vendas=("V Líquido", "sum"),
+        Transacoes=("V Líquido", "count")
+    ).reset_index()
+    df_rank["Ticket_Medio"] = df_rank["Total_Vendas"] / df_rank["Transacoes"]
+    nome_rank = add_sheet("Comerciais", df_rank)
+
+    # Gráfico ranking comerciais
+    fig1, ax1 = plt.subplots(figsize=(8, 4))
+    ax1.bar(df_rank["Comercial"], df_rank["Total_Vendas"])
+    ax1.set_title("Ranking Comerciais")
+    plt.xticks(rotation=45)
+    add_plot_to_sheet(nome_rank, fig1, anchor="H2")
+
+    # Gráfico vendas do mês
+    fig2, ax2 = plt.subplots(figsize=(8, 4))
+    ax2.bar(df_hist["AnoMes"], df_hist["V Líquido"])
+    ax2.set_title("Vendas do Mês")
+    plt.xticks(rotation=45)
+    add_plot_to_sheet(nome_hist, fig2, anchor="H2")
+
+    if "Sheet" in wb.sheetnames and len(wb.sheetnames) > 1:
+        std = wb["Sheet"]
+        wb.remove(std)
+
+    wb.save(buffer)
+    buffer.seek(0)
+    return buffer
+
+
+def exportacao_mensal(df: pd.DataFrame):
+    st.subheader("📦 Exportação Automática Mensal")
+
+    if df.empty:
+        st.warning("Sem dados para exportação mensal.")
+        return
+
+    meses = sorted(df["AnoMes"].unique())
+
+    if st.button("Gerar Relatórios Mensais"):
+        for mes in meses:
+            df_mes = df[df["AnoMes"] == mes].copy()
+            kpis_mes = calcular_kpis(df_mes)
+            buffer = gerar_excel_completo(df_mes, kpis_mes)
+
+            st.download_button(
+                label=f"📥 Download Relatório {mes}",
+                data=buffer.getvalue(),
+                file_name=f"Relatorio_{mes}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+# ====================== MAIN ======================
+def main():
+    st.sidebar.title("📁 Carregar Dados")
+
+    file = st.sidebar.file_uploader("Selecionar ficheiro Excel", type=["xlsx"])
+
+    if file is None:
+        st.info("Carrega um ficheiro Excel para começar.")
+        return
+
+    df = load_data(file)
+
+    if df.empty:
+        st.error("Erro ao carregar os dados.")
+        return
+
+    df_filt = aplicar_filtros(df)
+
+    kpis = calcular_kpis(df_filt)
+    df_ticket_com = calcular_ticket_medio_por_comercial(df_filt)
+
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "📊 KPIs",
+        "📈 Gráficos & Alertas",
+        "📄 Tabelas & Export",
+        "📆 Comparação Ano-a-Ano"
+    ])
+
+    with tab1:
+        desenhar_kpis(kpis, df_ticket_com)
+        alertas_por_comercial(df_filt)
+        alertas_por_cliente(df_filt, limite_min_venda=1000)
+
+    with tab2:
+        grafico_evolucao(df_filt)
+        graficos_top10(df_filt)
+        grafico_semaforo_ticket_comercial(df_filt)
+        alertas_por_produto(df_filt, limite_min_venda=1000)
+
+    with tab3:
+        tabela_dados_export(df_filt, kpis)
+        exportacao_mensal(df_filt)
+
+    with tab4:
+        comparacao_ano_a_ano(df_filt)
+
+    st.markdown("---")
+    st.markdown("Desenvolvido por Paulo — Dashboard Comercial ✅")
+
+
+if __name__ == "__main__":
+    main()
