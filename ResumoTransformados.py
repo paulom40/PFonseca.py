@@ -5,7 +5,6 @@ import plotly.express as px
 from datetime import datetime
 import io
 from openpyxl import Workbook
-from openpyxl.drawing.image import Image as XLImage
 
 # ====================== CONFIG STREAMLIT ======================
 st.set_page_config(
@@ -39,6 +38,7 @@ st.markdown("""
 # ====================== HEADER ======================
 st.title("📊 Dashboard Comercial — Vendas & KPIs")
 st.markdown("Análise completa de vendas, comerciais, clientes e produtos.")
+
 # ====================== LOAD DATA ======================
 @st.cache_data
 def load_data(path_or_file="ResumoTR.xlsx") -> pd.DataFrame:
@@ -118,6 +118,7 @@ def aplicar_filtros(df: pd.DataFrame) -> pd.DataFrame:
         df_filt = df_filt[df_filt["Nome"].isin(sel_nome)]
 
     return df_filt
+
 # ====================== KPIs ======================
 def calcular_kpis(df: pd.DataFrame) -> dict:
     if df.empty:
@@ -177,6 +178,7 @@ def calcular_ticket_medio_por_comercial(df: pd.DataFrame) -> pd.DataFrame:
     grp["Valor_Medio_Unidade"] = grp["Total_Vendas"] / grp["Quantidade"]
 
     return grp.sort_values("Total_Vendas", ascending=False)
+
 # ====================== VISUALIZAÇÕES PRINCIPAIS ======================
 def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
     st.subheader("KPIs em Tempo Real")
@@ -285,6 +287,7 @@ def graficos_top10(df: pd.DataFrame):
             )
             figcq.update_layout(height=500)
             st.plotly_chart(figcq, use_container_width=True)
+
 # ====================== COMPARAÇÃO ANO-A-ANO (GLOBAL) ======================
 def comparacao_ano_a_ano(df: pd.DataFrame):
     st.subheader("📆 Comparação Ano-a-Ano — Global")
@@ -403,6 +406,7 @@ def comparacao_ano_a_ano_clientes(df: pd.DataFrame):
     df_show["Quantidade"] = df_show["Quantidade"].map(lambda x: f"{x:,.2f}")
 
     st.dataframe(df_show, use_container_width=True)
+
 # ====================== AUXILIARES PARA EXPORTAÇÃO EXCEL ======================
 
 def sanitize_sheet_name(name: str, existing_names: set) -> str:
@@ -435,7 +439,8 @@ def criar_sheet(wb, name: str, existing_names: set):
     name_real = sanitize_sheet_name(name, existing_names)
     ws = wb.create_sheet(title=name_real)
     return ws
-# ====================== EXPORTAÇÃO EXCEL — RELATÓRIO COMPLETO ======================
+
+# ====================== EXPORTAÇÃO EXCEL — RELATÓRIO COMPLETO (SEM GRÁFICOS) ======================
 def tabela_dados_export(df: pd.DataFrame, kpis: dict):
     st.subheader("📄 Exportação — Relatório Completo")
 
@@ -448,21 +453,6 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
     ws0 = wb.active
     ws0.title = "Resumo"
     existing_names = {ws0.title}
-
-    # ====================== Função interna para adicionar gráficos (CORRIGIDA) ======================
-    def add_plot_to_sheet(sheet_name, fig, anchor="H2"):
-        import plotly.io as pio
-
-        # Converter gráfico Plotly → PNG
-        img_bytes = pio.to_image(fig, format="png", scale=2)
-
-        img_buffer = io.BytesIO(img_bytes)
-        img_buffer.seek(0)
-
-        ws = wb[sheet_name]
-        img = XLImage(img_buffer)
-        img.anchor = anchor
-        ws.add_image(img)
 
     # ====================== Folha Resumo ======================
     ws0["A1"] = "Resumo Geral"
@@ -494,51 +484,45 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
         for col_num, value in enumerate(row, 1):
             ws_dados.cell(row=row_num, column=col_num, value=value)
 
-    # ====================== Folha Evolução Mensal ======================
+    # ====================== Folha Evolução Mensal (DADOS) ======================
     ws_hist = criar_sheet(wb, "Historico_Mensal", existing_names)
-
     mensal = df.groupby("AnoMes")["V Líquido"].sum().reset_index()
-    fig = px.line(mensal, x="AnoMes", y="V Líquido", markers=True)
-    fig.add_bar(x=mensal["AnoMes"], y=mensal["V Líquido"])
-    fig.update_layout(height=500)
+    
+    ws_hist["A1"] = "Mês"
+    ws_hist["B1"] = "Vendas (€)"
+    for row_num, row in enumerate(mensal.itertuples(index=False), 2):
+        ws_hist.cell(row=row_num, column=1, value=row.AnoMes)
+        ws_hist.cell(row=row_num, column=2, value=row[1])
 
-    add_plot_to_sheet("Historico_Mensal", fig)
-
-    # ====================== Folha Ranking Comerciais ======================
+    # ====================== Folha Ranking Comerciais (DADOS) ======================
     ws_rank = criar_sheet(wb, "Ranking_Comerciais", existing_names)
+    rank = df.groupby("Comercial")["V Líquido"].sum().sort_values(ascending=False).reset_index()
+    
+    ws_rank["A1"] = "Comercial"
+    ws_rank["B1"] = "Total Vendas (€)"
+    for row_num, row in enumerate(rank.itertuples(index=False), 2):
+        ws_rank.cell(row=row_num, column=1, value=row.Comercial)
+        ws_rank.cell(row=row_num, column=2, value=row[1])
 
-    rank = df.groupby("Comercial")["V Líquido"].sum().sort_values(ascending=False)
-    fig = px.bar(
-        x=rank.values, y=rank.index, orientation="h",
-        color=rank.values, color_continuous_scale="Blues"
-    )
-    fig.update_layout(height=500)
+    # ====================== Folha Produtos (TOP 10) ======================
+    ws_prod = criar_sheet(wb, "Top_Produtos", existing_names)
+    top_prod = df.groupby("Artigo")["V Líquido"].sum().nlargest(10).reset_index()
+    
+    ws_prod["A1"] = "Produto"
+    ws_prod["B1"] = "Total Vendas (€)"
+    for row_num, row in enumerate(top_prod.itertuples(index=False), 2):
+        ws_prod.cell(row=row_num, column=1, value=row.Artigo)
+        ws_prod.cell(row=row_num, column=2, value=row[1])
 
-    add_plot_to_sheet("Ranking_Comerciais", fig)
-
-    # ====================== Folha Produtos ======================
-    ws_prod = criar_sheet(wb, "Produtos", existing_names)
-
-    top_prod = df.groupby("Artigo")["V Líquido"].sum().nlargest(10)
-    fig = px.bar(
-        x=top_prod.values, y=top_prod.index, orientation="h",
-        color=top_prod.values, color_continuous_scale="Plasma"
-    )
-    fig.update_layout(height=500)
-
-    add_plot_to_sheet("Produtos", fig)
-
-    # ====================== Folha Clientes ======================
-    ws_cli = criar_sheet(wb, "Clientes", existing_names)
-
-    top_cli = df.groupby("Nome")["V Líquido"].sum().nlargest(10)
-    fig = px.bar(
-        x=top_cli.values, y=top_cli.index, orientation="h",
-        color=top_cli.values, color_continuous_scale="Viridis"
-    )
-    fig.update_layout(height=500)
-
-    add_plot_to_sheet("Clientes", fig)
+    # ====================== Folha Clientes (TOP 10) ======================
+    ws_cli = criar_sheet(wb, "Top_Clientes", existing_names)
+    top_cli = df.groupby("Nome")["V Líquido"].sum().nlargest(10).reset_index()
+    
+    ws_cli["A1"] = "Cliente"
+    ws_cli["B1"] = "Total Vendas (€)"
+    for row_num, row in enumerate(top_cli.itertuples(index=False), 2):
+        ws_cli.cell(row=row_num, column=1, value=row.Nome)
+        ws_cli.cell(row=row_num, column=2, value=row[1])
 
     # ====================== Exportação ======================
     buffer = io.BytesIO()
@@ -551,7 +535,8 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
         file_name="Relatorio_Completo.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-# ====================== EXPORTAÇÃO EXCEL — RELATÓRIOS MENSAIS ======================
+
+# ====================== EXPORTAÇÃO EXCEL — RELATÓRIOS MENSAIS (SEM GRÁFICOS) ======================
 def gerar_excel_completo(df: pd.DataFrame):
     st.subheader("📄 Exportação — Relatórios Mensais")
 
@@ -571,19 +556,6 @@ def gerar_excel_completo(df: pd.DataFrame):
     ws0 = wb.active
     ws0.title = "Resumo"
     existing_names = {ws0.title}
-
-    # ====================== Função interna corrigida ======================
-    def add_plot_to_sheet(sheet_name, fig, anchor="H2"):
-        import plotly.io as pio
-
-        img_bytes = pio.to_image(fig, format="png", scale=2)
-        img_buffer = io.BytesIO(img_bytes)
-        img_buffer.seek(0)
-
-        ws = wb[sheet_name]
-        img = XLImage(img_buffer)
-        img.anchor = anchor
-        ws.add_image(img)
 
     # ====================== Resumo ======================
     ws0["A1"] = f"Resumo — {mes_sel}"
@@ -605,16 +577,16 @@ def gerar_excel_completo(df: pd.DataFrame):
         for col_num, value in enumerate(row, 1):
             ws_dados.cell(row=row_num, column=col_num, value=value)
 
-    # ====================== Gráfico Diário ======================
-    ws_hist = criar_sheet(wb, "Historico", existing_names)
-
+    # ====================== Histórico Diário (DADOS) ======================
+    ws_hist = criar_sheet(wb, "Historico_Diario", existing_names)
     diario = df_mes.groupby(df_mes["Data"].dt.strftime("%d"))["V Líquido"].sum().reset_index()
     diario.columns = ["Dia", "Vendas"]
 
-    fig = px.line(diario, x="Dia", y="Vendas", markers=True)
-    fig.update_layout(height=500)
-
-    add_plot_to_sheet("Historico", fig)
+    ws_hist["A1"] = "Dia"
+    ws_hist["B1"] = "Vendas (€)"
+    for row_num, row in enumerate(diario.itertuples(index=False), 2):
+        ws_hist.cell(row=row_num, column=1, value=row.Dia)
+        ws_hist.cell(row=row_num, column=2, value=row.Vendas)
 
     # ====================== Exportação ======================
     buffer = io.BytesIO()
@@ -627,6 +599,7 @@ def gerar_excel_completo(df: pd.DataFrame):
         file_name=f"Relatorio_{mes_sel}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 # ====================== INTERFACE DAS EXPORTAÇÕES ======================
 def tabelas_export_interface(df: pd.DataFrame, kpis: dict):
     st.subheader("📄 Tabelas & Export")
@@ -637,6 +610,7 @@ def tabelas_export_interface(df: pd.DataFrame, kpis: dict):
     st.markdown("---")
     st.markdown("### 📥 Exportação Mensal")
     gerar_excel_completo(df)
+
 # ====================== ABA PRINCIPAL — COMPARAÇÃO ANO-A-ANO ======================
 def aba_comparacao_ano_ano(df: pd.DataFrame):
     st.header("📆 Comparação Ano-a-Ano")
@@ -651,67 +625,9 @@ def aba_comparacao_ano_ano(df: pd.DataFrame):
 
     with tab2:
         comparacao_ano_a_ano_clientes(df)
+
 # ====================== ABA PRINCIPAL — DASHBOARD COMPLETO ======================
 def aba_dashboard(df: pd.DataFrame):
     st.header("📊 Dashboard Geral")
 
-    if df.empty:
-        st.warning("Sem dados para apresentar.")
-        return
-
-    # ====================== KPIs ======================
-    kpis = calcular_kpis(df)
-    df_ticket_com = calcular_ticket_medio_por_comercial(df)
-
-    desenhar_kpis(kpis, df_ticket_com)
-
-    st.divider()
-
-    # ====================== Evolução Mensal ======================
-    grafico_evolucao(df)
-
-    st.divider()
-
-    # ====================== Top 10 ======================
-    graficos_top10(df)
-
-    st.divider()
-
-    # ====================== Tabelas & Export ======================
-    tabelas_export_interface(df, kpis)
-# ====================== MAIN APP ======================
-def main():
-    st.sidebar.title("📁 Carregar Dados")
-
-    uploaded_file = st.sidebar.file_uploader(
-        "Seleciona o ficheiro Excel",
-        type=["xlsx"]
-    )
-
-    if uploaded_file:
-        df = load_data(uploaded_file)
-    else:
-        st.info("A usar o ficheiro padrão: ResumoTR.xlsx")
-        df = load_data()
-
-    if df.empty:
-        st.error("Não foi possível carregar dados válidos.")
-        return
-
-    # Aplicar filtros
-    df_filt = aplicar_filtros(df)
-
-    # Tabs principais
-    tab_dashboard, tab_ano = st.tabs([
-        "📊 Dashboard Geral",
-        "📆 Comparação Ano-a-Ano"
-    ])
-
-    with tab_dashboard:
-        aba_dashboard(df_filt)
-
-    with tab_ano:
-        aba_comparacao_ano_ano(df_filt)
-# ====================== EXECUÇÃO ======================
-if __name__ == "__main__":
-    main()
+    if df.
