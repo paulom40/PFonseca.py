@@ -128,8 +128,8 @@ def calcular_kpis(df: pd.DataFrame) -> dict:
             "clientes": 0,
             "produtos": 0,
             "trans": 0,
-            "ticket": 0,
-            "ticket_cliente": 0,
+            "ticket_medio": 0,
+            "ticket_medio_cliente": 0,
             "venda_dia": 0,
             "valor_unidade": 0,
             "periodo": "Sem dados"
@@ -144,9 +144,16 @@ def calcular_kpis(df: pd.DataFrame) -> dict:
     clientes = df["Nome"].nunique()
     produtos = df["Artigo"].nunique()
 
-    ticket = total_vendas / trans if trans else 0
-    ticket_cliente = total_vendas / clientes if clientes else 0
+    # Ticket Médio = Valor médio por transação
+    ticket_medio = total_vendas / trans if trans else 0
+    
+    # Ticket Médio por Cliente = Valor médio de compra por cliente
+    ticket_medio_cliente = total_vendas / clientes if clientes else 0
+    
+    # Venda média por dia
     venda_dia = total_vendas / dias_com_venda if dias_com_venda else 0
+    
+    # Valor médio por unidade vendida
     valor_unidade = total_vendas / qtd_total if qtd_total else 0
 
     return {
@@ -155,8 +162,8 @@ def calcular_kpis(df: pd.DataFrame) -> dict:
         "clientes": clientes,
         "produtos": produtos,
         "trans": trans,
-        "ticket": ticket,
-        "ticket_cliente": ticket_cliente,
+        "ticket_medio": ticket_medio,
+        "ticket_medio_cliente": ticket_medio_cliente,
         "venda_dia": venda_dia,
         "valor_unidade": valor_unidade,
         "periodo": periodo
@@ -182,6 +189,12 @@ def calcular_ticket_medio_por_comercial(df: pd.DataFrame) -> pd.DataFrame:
 # ====================== VISUALIZAÇÕES PRINCIPAIS ======================
 def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
     st.subheader("KPIs em Tempo Real")
+    
+    # Debug info (pode remover depois)
+    with st.expander("ℹ️ Informação de Debug"):
+        st.write(f"**Total Vendas:** {kpis['total_vendas']:,.2f}€")
+        st.write(f"**Número de Transações (linhas):** {kpis['trans']}")
+        st.write(f"**Ticket Médio Calculado:** {kpis['total_vendas'] / kpis['trans'] if kpis['trans'] else 0:,.2f}€")
 
     c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("Total Vendas (€)", f"{kpis['total_vendas']:,.2f}")
@@ -193,21 +206,58 @@ def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
     st.divider()
 
     c6, c7, c8 = st.columns(3)
-    c6.metric("Ticket Médio Comercial (€)", f"{kpis['ticket']:,.2f}")
-    c7.metric("Ticket Médio Cliente (€)", f"{kpis['ticket_cliente']:,.2f}")
+    c6.metric("Ticket Médio (€)", f"{kpis['ticket_medio']:,.2f}")
+    c7.metric("Ticket Médio por Cliente (€)", f"{kpis['ticket_medio_cliente']:,.2f}")
     c8.metric("Valor Médio por Unidade (€)", f"{kpis['valor_unidade']:,.4f}")
 
     st.info(f"Período em análise: {kpis['periodo']}")
 
-    st.subheader("Ticket Médio por Comercial")
+    st.subheader("📊 Desempenho por Comercial")
     if df_ticket_com.empty:
         st.warning("Sem dados de comercial.")
     else:
         df_show = df_ticket_com.copy()
-        df_show["Total_Vendas"] = df_show["Total_Vendas"].map(lambda x: f"{x:,.2f}")
-        df_show["Ticket_Medio"] = df_show["Ticket_Medio"].map(lambda x: f"{x:,.2f}")
-        df_show["Valor_Medio_Unidade"] = df_show["Valor_Medio_Unidade"].map(lambda x: f"{x:,.4f}")
-        st.dataframe(df_show, use_container_width=True)
+        
+        # Formatar colunas para display
+        df_show["Total_Vendas_Format"] = df_show["Total_Vendas"].map(lambda x: f"{x:,.2f}€")
+        df_show["Transacoes_Format"] = df_show["Transacoes"].map(lambda x: f"{int(x)}")
+        df_show["Quantidade_Format"] = df_show["Quantidade"].map(lambda x: f"{x:,.3f}")
+        df_show["Ticket_Medio_Format"] = df_show["Ticket_Medio"].map(lambda x: f"{x:,.2f}€")
+        df_show["Valor_Medio_Unidade_Format"] = df_show["Valor_Medio_Unidade"].map(lambda x: f"{x:,.4f}€")
+        
+        # Selecionar colunas formatadas
+        df_display = df_show[["Comercial", "Total_Vendas_Format", "Transacoes_Format", 
+                              "Quantidade_Format", "Ticket_Medio_Format", "Valor_Medio_Unidade_Format"]]
+        df_display.columns = ["Comercial", "Total Vendas", "Transações", 
+                             "Quantidade", "Ticket Médio", "Valor Médio/Unidade"]
+        
+        st.dataframe(df_display, width='stretch', hide_index=True)
+        
+        # Botão de download
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+            # Preparar dados para Excel (com valores numéricos originais)
+            df_excel = df_show[["Comercial", "Total_Vendas", "Transacoes", 
+                                "Quantidade", "Ticket_Medio", "Valor_Medio_Unidade"]].copy()
+            df_excel.columns = ["Comercial", "Total Vendas (€)", "Transações", 
+                               "Quantidade", "Ticket Médio (€)", "Valor Médio/Unidade (€)"]
+            df_excel.to_excel(writer, sheet_name="Desempenho_Comerciais", index=False)
+        
+        buffer.seek(0)
+        
+        st.download_button(
+            label="📥 Download Desempenho por Comercial (Excel)",
+            data=buffer,
+            file_name="Desempenho_Comerciais.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        
+        # Mostrar totais
+        st.markdown("---")
+        col_a, col_b, col_c = st.columns(3)
+        col_a.metric("Total Geral", f"{df_show['Total_Vendas'].sum():,.2f}€")
+        col_b.metric("Total Transações", f"{int(df_show['Transacoes'].sum())}")
+        col_c.metric("Total Quantidade", f"{df_show['Quantidade'].sum():,.3f}")
 
 
 def grafico_evolucao(df: pd.DataFrame):
@@ -222,7 +272,7 @@ def grafico_evolucao(df: pd.DataFrame):
     fig.add_bar(x=mensal["AnoMes"], y=mensal["V Líquido"])
     fig.update_layout(height=500)
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
 
 def graficos_top10(df: pd.DataFrame):
@@ -240,7 +290,7 @@ def graficos_top10(df: pd.DataFrame):
                 color=topp.values, color_continuous_scale="Plasma"
             )
             figp.update_layout(height=500)
-            st.plotly_chart(figp, use_container_width=True)
+            st.plotly_chart(figp, width='stretch')
 
     # Top 10 Clientes (€)
     with col2:
@@ -254,7 +304,7 @@ def graficos_top10(df: pd.DataFrame):
                 color=topc.values, color_continuous_scale="Viridis"
             )
             figc.update_layout(height=500)
-            st.plotly_chart(figc, use_container_width=True)
+            st.plotly_chart(figc, width='stretch')
 
     st.divider()
 
@@ -272,7 +322,7 @@ def graficos_top10(df: pd.DataFrame):
                 color=topp_q.values, color_continuous_scale="Blues"
             )
             figpq.update_layout(height=500)
-            st.plotly_chart(figpq, use_container_width=True)
+            st.plotly_chart(figpq, width='stretch')
 
     # Top 10 Clientes (Quantidade)
     with col4:
@@ -286,7 +336,7 @@ def graficos_top10(df: pd.DataFrame):
                 color=topc_q.values, color_continuous_scale="Greens"
             )
             figcq.update_layout(height=500)
-            st.plotly_chart(figcq, use_container_width=True)
+            st.plotly_chart(figcq, width='stretch')
 
 # ====================== COMPARAÇÃO ANO-A-ANO (GLOBAL) ======================
 def comparacao_ano_a_ano(df: pd.DataFrame):
@@ -333,13 +383,13 @@ def comparacao_ano_a_ano(df: pd.DataFrame):
     fig.update_traces(texttemplate="%{text:,.0f}", textposition="outside")
     fig.update_layout(height=500)
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
     df_show = df_comp.copy()
     df_show["Total_Vendas"] = df_show["Total_Vendas"].map(lambda x: f"{x:,.2f}")
     df_show["Quantidade"] = df_show["Quantidade"].map(lambda x: f"{x:,.2f}")
 
-    st.dataframe(df_show, use_container_width=True)
+    st.dataframe(df_show, width='stretch')
 
 
 # ====================== COMPARAÇÃO ANO-A-ANO POR CLIENTE ======================
@@ -399,13 +449,13 @@ def comparacao_ano_a_ano_clientes(df: pd.DataFrame):
     fig.update_traces(texttemplate="%{text:,.0f}", textposition="outside")
     fig.update_layout(height=500)
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
     df_show = df_comp.copy()
     df_show["Total_Vendas"] = df_show["Total_Vendas"].map(lambda x: f"{x:,.2f}")
     df_show["Quantidade"] = df_show["Quantidade"].map(lambda x: f"{x:,.2f}")
 
-    st.dataframe(df_show, use_container_width=True)
+    st.dataframe(df_show, width='stretch')
 
 # ====================== AUXILIARES PARA EXPORTAÇÃO EXCEL ======================
 
@@ -466,10 +516,10 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
     ws0["B6"] = kpis["produtos"]
     ws0["A7"] = "Transações"
     ws0["B7"] = kpis["trans"]
-    ws0["A8"] = "Ticket Médio Comercial (€)"
-    ws0["B8"] = kpis["ticket"]
-    ws0["A9"] = "Ticket Médio Cliente (€)"
-    ws0["B9"] = kpis["ticket_cliente"]
+    ws0["A8"] = "Ticket Médio (€)"
+    ws0["B8"] = kpis["ticket_medio"]
+    ws0["A9"] = "Ticket Médio por Cliente (€)"
+    ws0["B9"] = kpis["ticket_medio_cliente"]
     ws0["A10"] = "Venda Média por Dia (€)"
     ws0["B10"] = kpis["venda_dia"]
     ws0["A11"] = "Valor Médio por Unidade (€)"
