@@ -170,7 +170,298 @@ def calcular_kpis(df: pd.DataFrame) -> dict:
     }
 
 
-# ====================== TICKET MÉDIO POR COMERCIAL ======================
+# ====================== ANÁLISE DE CRESCIMENTO ======================
+def calcular_crescimento(df: pd.DataFrame) -> dict:
+    """
+    Calcula crescimento comparando último mês com mês anterior
+    """
+    if df.empty:
+        return None
+    
+    df = df.copy()
+    df["AnoMes"] = df["Data"].dt.strftime("%Y-%m")
+    
+    meses = sorted(df["AnoMes"].unique())
+    if len(meses) < 2:
+        return None
+    
+    # Último mês e mês anterior
+    mes_atual = meses[-1]
+    mes_anterior = meses[-2]
+    
+    df_atual = df[df["AnoMes"] == mes_atual]
+    df_anterior = df[df["AnoMes"] == mes_anterior]
+    
+    # Calcular KPIs de ambos períodos
+    vendas_atual = df_atual["V Líquido"].sum()
+    vendas_anterior = df_anterior["V Líquido"].sum()
+    
+    qtd_atual = df_atual["Quantidade"].sum()
+    qtd_anterior = df_anterior["Quantidade"].sum()
+    
+    trans_atual = len(df_atual)
+    trans_anterior = len(df_anterior)
+    
+    clientes_atual = df_atual["Nome"].nunique()
+    clientes_anterior = df_anterior["Nome"].nunique()
+    
+    # Calcular variações %
+    var_vendas = ((vendas_atual - vendas_anterior) / vendas_anterior * 100) if vendas_anterior else 0
+    var_qtd = ((qtd_atual - qtd_anterior) / qtd_anterior * 100) if qtd_anterior else 0
+    var_trans = ((trans_atual - trans_anterior) / trans_anterior * 100) if trans_anterior else 0
+    var_clientes = ((clientes_atual - clientes_anterior) / clientes_anterior * 100) if clientes_anterior else 0
+    
+    return {
+        "mes_atual": mes_atual,
+        "mes_anterior": mes_anterior,
+        "vendas_atual": vendas_atual,
+        "vendas_anterior": vendas_anterior,
+        "var_vendas": var_vendas,
+        "qtd_atual": qtd_atual,
+        "qtd_anterior": qtd_anterior,
+        "var_qtd": var_qtd,
+        "trans_atual": trans_atual,
+        "trans_anterior": trans_anterior,
+        "var_trans": var_trans,
+        "clientes_atual": clientes_atual,
+        "clientes_anterior": clientes_anterior,
+        "var_clientes": var_clientes
+    }
+
+
+def mostrar_analise_crescimento(df: pd.DataFrame):
+    st.subheader("📈 Análise de Crescimento (Mês vs Mês Anterior)")
+    
+    crescimento = calcular_crescimento(df)
+    
+    if not crescimento:
+        st.warning("Necessário pelo menos 2 meses de dados para análise de crescimento.")
+        return
+    
+    st.info(f"Comparando **{crescimento['mes_atual']}** vs **{crescimento['mes_anterior']}**")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric(
+            "Total Vendas",
+            f"{crescimento['vendas_atual']:,.2f}€",
+            f"{crescimento['var_vendas']:+.1f}%",
+            delta_color="normal"
+        )
+    
+    with col2:
+        st.metric(
+            "Quantidade",
+            f"{crescimento['qtd_atual']:,.0f}",
+            f"{crescimento['var_qtd']:+.1f}%",
+            delta_color="normal"
+        )
+    
+    with col3:
+        st.metric(
+            "Transações",
+            f"{crescimento['trans_atual']:,}",
+            f"{crescimento['var_trans']:+.1f}%",
+            delta_color="normal"
+        )
+    
+    with col4:
+        st.metric(
+            "Clientes",
+            f"{crescimento['clientes_atual']:,}",
+            f"{crescimento['var_clientes']:+.1f}%",
+            delta_color="normal"
+        )
+    
+    # Gráfico de comparação
+    df_comp = pd.DataFrame({
+        "Período": [crescimento['mes_anterior'], crescimento['mes_atual']],
+        "Vendas": [crescimento['vendas_anterior'], crescimento['vendas_atual']],
+        "Transações": [crescimento['trans_anterior'], crescimento['trans_atual']],
+        "Clientes": [crescimento['clientes_anterior'], crescimento['clientes_atual']]
+    })
+    
+    fig = px.bar(
+        df_comp,
+        x="Período",
+        y="Vendas",
+        text="Vendas",
+        title="Comparação de Vendas",
+        color="Vendas",
+        color_continuous_scale="Blues"
+    )
+    fig.update_traces(texttemplate="%{text:,.0f}€", textposition="outside")
+    fig.update_layout(height=400)
+    st.plotly_chart(fig, width='stretch')
+
+
+# ====================== SEGMENTAÇÃO DE CLIENTES ======================
+def segmentar_clientes(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Segmenta clientes em: VIP, Regulares, Novos, Inativos
+    
+    Critérios:
+    - VIP: Top 20% em vendas E mais de 5 transações
+    - Regulares: Mais de 3 transações
+    - Novos: 1-3 transações E primeira compra nos últimos 90 dias
+    - Inativos: Última compra há mais de 90 dias
+    """
+    if df.empty:
+        return pd.DataFrame()
+    
+    df = df.copy()
+    data_max = df["Data"].max()
+    
+    # Agregar por cliente
+    clientes = df.groupby("Nome").agg(
+        Total_Vendas=("V Líquido", "sum"),
+        Transacoes=("V Líquido", "count"),
+        Primeira_Compra=("Data", "min"),
+        Ultima_Compra=("Data", "max"),
+        Quantidade=("Quantidade", "sum")
+    ).reset_index()
+    
+    # Calcular dias desde última compra
+    clientes["Dias_Sem_Comprar"] = (data_max - clientes["Ultima_Compra"]).dt.days
+    clientes["Dias_Como_Cliente"] = (data_max - clientes["Primeira_Compra"]).dt.days
+    
+    # Threshold para top 20%
+    percentil_80 = clientes["Total_Vendas"].quantile(0.80)
+    
+    # Função de segmentação
+    def classificar(row):
+        if row["Dias_Sem_Comprar"] > 90:
+            return "⚠️ Inativo"
+        elif row["Total_Vendas"] >= percentil_80 and row["Transacoes"] > 5:
+            return "⭐ VIP"
+        elif row["Transacoes"] > 3:
+            return "✅ Regular"
+        elif row["Dias_Como_Cliente"] <= 90:
+            return "🆕 Novo"
+        else:
+            return "📊 Ocasional"
+    
+    clientes["Segmento"] = clientes.apply(classificar, axis=1)
+    
+    # Calcular ticket médio
+    clientes["Ticket_Medio"] = clientes["Total_Vendas"] / clientes["Transacoes"]
+    
+    return clientes
+
+
+def mostrar_segmentacao_clientes(df: pd.DataFrame):
+    st.subheader("👥 Segmentação de Clientes")
+    
+    if df.empty:
+        st.warning("Sem dados para segmentação.")
+        return
+    
+    clientes_seg = segmentar_clientes(df)
+    
+    if clientes_seg.empty:
+        st.warning("Não foi possível segmentar clientes.")
+        return
+    
+    # Resumo por segmento
+    resumo = clientes_seg.groupby("Segmento").agg(
+        Quantidade_Clientes=("Nome", "count"),
+        Total_Vendas=("Total_Vendas", "sum"),
+        Ticket_Medio=("Ticket_Medio", "mean")
+    ).reset_index()
+    
+    # Ordenar por importância
+    ordem_segmentos = ["⭐ VIP", "✅ Regular", "🆕 Novo", "📊 Ocasional", "⚠️ Inativo"]
+    resumo["Ordem"] = resumo["Segmento"].map({s: i for i, s in enumerate(ordem_segmentos)})
+    resumo = resumo.sort_values("Ordem").drop("Ordem", axis=1)
+    
+    # Gráfico de pizza
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        fig_pizza = px.pie(
+            resumo,
+            values="Quantidade_Clientes",
+            names="Segmento",
+            title="Distribuição de Clientes por Segmento",
+            hole=0.4
+        )
+        fig_pizza.update_layout(height=400)
+        st.plotly_chart(fig_pizza, width='stretch')
+    
+    with col2:
+        fig_vendas = px.bar(
+            resumo,
+            x="Segmento",
+            y="Total_Vendas",
+            text="Total_Vendas",
+            title="Vendas por Segmento",
+            color="Total_Vendas",
+            color_continuous_scale="Viridis"
+        )
+        fig_vendas.update_traces(texttemplate="%{text:,.0f}€", textposition="outside")
+        fig_vendas.update_layout(height=400)
+        st.plotly_chart(fig_vendas, width='stretch')
+    
+    # Tabela resumo
+    st.markdown("### 📊 Resumo por Segmento")
+    resumo_display = resumo.copy()
+    resumo_display["Total_Vendas"] = resumo_display["Total_Vendas"].map(lambda x: f"{x:,.2f}€")
+    resumo_display["Ticket_Medio"] = resumo_display["Ticket_Medio"].map(lambda x: f"{x:,.2f}€")
+    resumo_display.columns = ["Segmento", "Nº Clientes", "Total Vendas", "Ticket Médio"]
+    st.dataframe(resumo_display, width='stretch', hide_index=True)
+    
+    # Lista de clientes VIP
+    st.markdown("### ⭐ Clientes VIP")
+    vips = clientes_seg[clientes_seg["Segmento"] == "⭐ VIP"].sort_values("Total_Vendas", ascending=False)
+    
+    if not vips.empty:
+        vips_display = vips[["Nome", "Total_Vendas", "Transacoes", "Ticket_Medio", "Ultima_Compra"]].copy()
+        vips_display["Total_Vendas"] = vips_display["Total_Vendas"].map(lambda x: f"{x:,.2f}€")
+        vips_display["Ticket_Medio"] = vips_display["Ticket_Medio"].map(lambda x: f"{x:,.2f}€")
+        vips_display["Ultima_Compra"] = vips_display["Ultima_Compra"].dt.strftime("%d/%m/%Y")
+        vips_display.columns = ["Cliente", "Total Vendas", "Transações", "Ticket Médio", "Última Compra"]
+        st.dataframe(vips_display, width='stretch', hide_index=True)
+    else:
+        st.info("Nenhum cliente VIP no período selecionado.")
+    
+    # Clientes inativos (em risco)
+    st.markdown("### ⚠️ Clientes Inativos (Recuperar)")
+    inativos = clientes_seg[clientes_seg["Segmento"] == "⚠️ Inativo"].sort_values("Total_Vendas", ascending=False)
+    
+    if not inativos.empty:
+        inativos_display = inativos[["Nome", "Total_Vendas", "Dias_Sem_Comprar", "Ultima_Compra"]].head(10).copy()
+        inativos_display["Total_Vendas"] = inativos_display["Total_Vendas"].map(lambda x: f"{x:,.2f}€")
+        inativos_display["Ultima_Compra"] = inativos_display["Ultima_Compra"].dt.strftime("%d/%m/%Y")
+        inativos_display.columns = ["Cliente", "Total Vendas (histórico)", "Dias sem comprar", "Última Compra"]
+        st.dataframe(inativos_display, width='stretch', hide_index=True)
+    else:
+        st.success("Nenhum cliente inativo! 🎉")
+    
+    # Botão de download
+    st.markdown("---")
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+        clientes_export = clientes_seg.copy()
+        clientes_export["Primeira_Compra"] = clientes_export["Primeira_Compra"].dt.strftime("%d/%m/%Y")
+        clientes_export["Ultima_Compra"] = clientes_export["Ultima_Compra"].dt.strftime("%d/%m/%Y")
+        clientes_export = clientes_export[[
+            "Nome", "Segmento", "Total_Vendas", "Transacoes", 
+            "Ticket_Medio", "Dias_Sem_Comprar", "Primeira_Compra", "Ultima_Compra"
+        ]]
+        clientes_export.columns = [
+            "Cliente", "Segmento", "Total Vendas (€)", "Transações", 
+            "Ticket Médio (€)", "Dias sem Comprar", "Primeira Compra", "Última Compra"
+        ]
+        clientes_export.to_excel(writer, sheet_name="Segmentacao_Clientes", index=False)
+    
+    buffer.seek(0)
+    st.download_button(
+        label="📥 Download Segmentação de Clientes (Excel)",
+        data=buffer,
+        file_name="Segmentacao_Clientes.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 def calcular_ticket_medio_por_comercial(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame()
@@ -703,6 +994,16 @@ def aba_dashboard(df: pd.DataFrame):
     df_ticket_com = calcular_ticket_medio_por_comercial(df)
 
     desenhar_kpis(kpis, df_ticket_com)
+
+    st.divider()
+
+    # ====================== Análise de Crescimento ======================
+    mostrar_analise_crescimento(df)
+
+    st.divider()
+
+    # ====================== Segmentação de Clientes ======================
+    mostrar_segmentacao_clientes(df)
 
     st.divider()
 
