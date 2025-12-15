@@ -630,4 +630,65 @@ def aba_comparacao_ano_ano(df: pd.DataFrame):
 def aba_dashboard(df: pd.DataFrame):
     st.header("📊 Dashboard Geral")
 
-    if df.
+    if df.empty:
+        st.warning("Sem dados para apresentar.")
+        return
+
+    # ====================== KPIs ======================
+    kpis = calcular_kpis(df)
+    df_ticket_com = calcular_ticket_medio_por_comercial(df)
+
+    desenhar_kpis(kpis, df_ticket_com)
+
+    st.divider()
+
+    # ====================== Evolução Mensal ======================
+    grafico_evolucao(df)
+
+    st.divider()
+
+    # ====================== Top 10 ======================
+    graficos_top10(df)
+
+    st.divider()
+
+    # ====================== Tabelas & Export ======================
+    tabelas_export_interface(df, kpis)
+
+# ====================== MAIN APP ======================
+def main():
+    st.sidebar.title("📁 Carregar Dados")
+
+    uploaded_file = st.sidebar.file_uploader(
+        "Seleciona o ficheiro Excel",
+        type=["xlsx"]
+    )
+
+    if uploaded_file:
+        df = load_data(uploaded_file)
+    else:
+        st.info("A usar o ficheiro padrão: ResumoTR.xlsx")
+        df = load_data()
+
+    if df.empty:
+        st.error("Não foi possível carregar dados válidos.")
+        return
+
+    # Aplicar filtros
+    df_filt = aplicar_filtros(df)
+
+    # Tabs principais
+    tab_dashboard, tab_ano = st.tabs([
+        "📊 Dashboard Geral",
+        "📆 Comparação Ano-a-Ano"
+    ])
+
+    with tab_dashboard:
+        aba_dashboard(df_filt)
+
+    with tab_ano:
+        aba_comparacao_ano_ano(df_filt)
+
+# ====================== EXECUÇÃO ======================
+if __name__ == "__main__":
+    main()
