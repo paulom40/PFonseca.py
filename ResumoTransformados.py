@@ -845,7 +845,7 @@ def criar_sheet(wb, name: str, existing_names: set):
     ws = wb.create_sheet(title=name_real)
     return ws
 
-# ====================== EXPORTAÇÃO EXCEL — RELATÓRIO COMPLETO (SEM GRÁFICOS) ======================
+# ====================== EXPORTAÇÃO EXCEL — RELATÓRIO COMPLETO ======================
 def tabela_dados_export(df: pd.DataFrame, kpis: dict):
     st.subheader("📄 Exportação — Relatório Completo")
 
@@ -861,6 +861,8 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
 
     # ====================== Folha Resumo ======================
     ws0["A1"] = "Resumo Geral"
+    ws0["A1"].font = ws0["A1"].font.copy(bold=True, size=14)
+    
     ws0["A3"] = "Total Vendas (€)"
     ws0["B3"] = kpis["total_vendas"]
     ws0["A4"] = "Quantidade Total"
@@ -869,7 +871,7 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
     ws0["B5"] = kpis["clientes"]
     ws0["A6"] = "Produtos Vendidos"
     ws0["B6"] = kpis["produtos"]
-    ws0["A7"] = "Transações"
+    ws0["A7"] = "Transações (Visitas Únicas)"
     ws0["B7"] = kpis["trans"]
     ws0["A8"] = "Ticket Médio (€)"
     ws0["B8"] = kpis["ticket_medio"]
@@ -879,55 +881,132 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
     ws0["B10"] = kpis["venda_dia"]
     ws0["A11"] = "Valor Médio por Unidade (€)"
     ws0["B11"] = kpis["valor_unidade"]
+    ws0["A12"] = "Período"
+    ws0["B12"] = kpis["periodo"]
 
-    # ====================== Folha Dados ======================
-    ws_dados = criar_sheet(wb, "Dados", existing_names)
+    # ====================== Folha Dados Completos ======================
+    ws_dados = criar_sheet(wb, "Dados_Completos", existing_names)
     for col_num, col_name in enumerate(df.columns, 1):
-        ws_dados.cell(row=1, column=col_num, value=col_name)
+        cell = ws_dados.cell(row=1, column=col_num, value=col_name)
+        cell.font = cell.font.copy(bold=True)
 
     for row_num, row in enumerate(df.itertuples(index=False), 2):
         for col_num, value in enumerate(row, 1):
             ws_dados.cell(row=row_num, column=col_num, value=value)
 
-    # ====================== Folha Evolução Mensal (DADOS) ======================
-    ws_hist = criar_sheet(wb, "Historico_Mensal", existing_names)
+    # ====================== Folha Desempenho por Comercial ======================
+    ws_comerciais = criar_sheet(wb, "Desempenho_Comerciais", existing_names)
+    
+    # Calcular métricas por comercial
+    df_temp = df.copy()
+    df_temp["Data_Apenas"] = df_temp["Data"].dt.date
+    
+    comerciais_data = []
+    for comercial in df_temp["Comercial"].unique():
+        df_com = df_temp[df_temp["Comercial"] == comercial]
+        total_vendas = df_com["V Líquido"].sum()
+        quantidade = df_com["Quantidade"].sum()
+        visitas = df_com.groupby(["Nome", "Data_Apenas"]).ngroups
+        ticket_medio = total_vendas / visitas if visitas > 0 else 0
+        valor_medio_un = total_vendas / quantidade if quantidade > 0 else 0
+        
+        comerciais_data.append([
+            comercial, total_vendas, visitas, quantidade, ticket_medio, valor_medio_un
+        ])
+    
+    # Headers
+    headers = ["Comercial", "Total Vendas (€)", "Transações Únicas", "Quantidade", "Ticket Médio (€)", "Valor Médio/Unidade (€)"]
+    for col_num, header in enumerate(headers, 1):
+        cell = ws_comerciais.cell(row=1, column=col_num, value=header)
+        cell.font = cell.font.copy(bold=True)
+    
+    # Data
+    for row_num, row_data in enumerate(sorted(comerciais_data, key=lambda x: x[1], reverse=True), 2):
+        for col_num, value in enumerate(row_data, 1):
+            ws_comerciais.cell(row=row_num, column=col_num, value=value)
+
+    # ====================== Folha Evolução Mensal ======================
+    ws_hist = criar_sheet(wb, "Evolucao_Mensal", existing_names)
     mensal = df.groupby("AnoMes")["V Líquido"].sum().reset_index()
+    mensal.columns = ["Mês", "Vendas (€)"]
     
-    ws_hist["A1"] = "Mês"
-    ws_hist["B1"] = "Vendas (€)"
+    for col_num, header in enumerate(mensal.columns, 1):
+        cell = ws_hist.cell(row=1, column=col_num, value=header)
+        cell.font = cell.font.copy(bold=True)
+    
     for row_num, row in enumerate(mensal.itertuples(index=False), 2):
-        ws_hist.cell(row=row_num, column=1, value=row.AnoMes)
-        ws_hist.cell(row=row_num, column=2, value=row[1])
+        for col_num, value in enumerate(row, 1):
+            ws_hist.cell(row=row_num, column=col_num, value=value)
 
-    # ====================== Folha Ranking Comerciais (DADOS) ======================
-    ws_rank = criar_sheet(wb, "Ranking_Comerciais", existing_names)
-    rank = df.groupby("Comercial")["V Líquido"].sum().sort_values(ascending=False).reset_index()
-    
-    ws_rank["A1"] = "Comercial"
-    ws_rank["B1"] = "Total Vendas (€)"
-    for row_num, row in enumerate(rank.itertuples(index=False), 2):
-        ws_rank.cell(row=row_num, column=1, value=row.Comercial)
-        ws_rank.cell(row=row_num, column=2, value=row[1])
-
-    # ====================== Folha Produtos (TOP 10) ======================
+    # ====================== Folha Top 10 Produtos ======================
     ws_prod = criar_sheet(wb, "Top_Produtos", existing_names)
-    top_prod = df.groupby("Artigo")["V Líquido"].sum().nlargest(10).reset_index()
+    top_prod = df.groupby("Artigo").agg(
+        Total_Vendas=("V Líquido", "sum"),
+        Quantidade=("Quantidade", "sum")
+    ).nlargest(10, "Total_Vendas").reset_index()
     
-    ws_prod["A1"] = "Produto"
-    ws_prod["B1"] = "Total Vendas (€)"
+    prod_headers = ["Produto", "Total Vendas (€)", "Quantidade"]
+    for col_num, header in enumerate(prod_headers, 1):
+        cell = ws_prod.cell(row=1, column=col_num, value=header)
+        cell.font = cell.font.copy(bold=True)
+    
     for row_num, row in enumerate(top_prod.itertuples(index=False), 2):
-        ws_prod.cell(row=row_num, column=1, value=row.Artigo)
-        ws_prod.cell(row=row_num, column=2, value=row[1])
+        for col_num, value in enumerate(row, 1):
+            ws_prod.cell(row=row_num, column=col_num, value=value)
 
-    # ====================== Folha Clientes (TOP 10) ======================
+    # ====================== Folha Top 10 Clientes ======================
     ws_cli = criar_sheet(wb, "Top_Clientes", existing_names)
-    top_cli = df.groupby("Nome")["V Líquido"].sum().nlargest(10).reset_index()
     
-    ws_cli["A1"] = "Cliente"
-    ws_cli["B1"] = "Total Vendas (€)"
+    # Calcular métricas por cliente
+    df_temp_cli = df.copy()
+    df_temp_cli["Data_Apenas"] = df_temp_cli["Data"].dt.date
+    
+    clientes_agg = df_temp_cli.groupby("Nome").agg(
+        Total_Vendas=("V Líquido", "sum"),
+        Quantidade=("Quantidade", "sum")
+    ).reset_index()
+    
+    # Contar visitas por cliente
+    visitas_cliente = df_temp_cli.groupby("Nome").apply(
+        lambda x: x.groupby("Data_Apenas").ngroups
+    ).reset_index(name="Visitas")
+    
+    top_cli = clientes_agg.merge(visitas_cliente, on="Nome")
+    top_cli["Ticket_Medio"] = top_cli["Total_Vendas"] / top_cli["Visitas"]
+    top_cli = top_cli.nlargest(10, "Total_Vendas")
+    
+    cli_headers = ["Cliente", "Total Vendas (€)", "Quantidade", "Visitas", "Ticket Médio (€)"]
+    for col_num, header in enumerate(cli_headers, 1):
+        cell = ws_cli.cell(row=1, column=col_num, value=header)
+        cell.font = cell.font.copy(bold=True)
+    
     for row_num, row in enumerate(top_cli.itertuples(index=False), 2):
-        ws_cli.cell(row=row_num, column=1, value=row.Nome)
-        ws_cli.cell(row=row_num, column=2, value=row[1])
+        for col_num, value in enumerate(row, 1):
+            ws_cli.cell(row=row_num, column=col_num, value=value)
+
+    # ====================== Folha Segmentação de Clientes ======================
+    ws_seg = criar_sheet(wb, "Segmentacao_Clientes", existing_names)
+    
+    clientes_seg = segmentar_clientes(df)
+    if not clientes_seg.empty:
+        seg_export = clientes_seg.copy()
+        seg_export["Primeira_Compra"] = seg_export["Primeira_Compra"].dt.strftime("%d/%m/%Y")
+        seg_export["Ultima_Compra"] = seg_export["Ultima_Compra"].dt.strftime("%d/%m/%Y")
+        seg_export = seg_export[[
+            "Nome", "Segmento", "Total_Vendas", "Transacoes", 
+            "Ticket_Medio", "Dias_Sem_Comprar", "Primeira_Compra", "Ultima_Compra"
+        ]]
+        
+        seg_headers = ["Cliente", "Segmento", "Total Vendas (€)", "Transações", 
+                      "Ticket Médio (€)", "Dias sem Comprar", "Primeira Compra", "Última Compra"]
+        
+        for col_num, header in enumerate(seg_headers, 1):
+            cell = ws_seg.cell(row=1, column=col_num, value=header)
+            cell.font = cell.font.copy(bold=True)
+        
+        for row_num, row in enumerate(seg_export.itertuples(index=False), 2):
+            for col_num, value in enumerate(row, 1):
+                ws_seg.cell(row=row_num, column=col_num, value=value)
 
     # ====================== Exportação ======================
     buffer = io.BytesIO()
