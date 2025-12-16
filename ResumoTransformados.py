@@ -573,32 +573,32 @@ def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame, df: pd.DataFrame):
                          "Quantidade", "Ticket Médio", "Valor Médio/Unidade"]
     
     st.dataframe(df_display, width='stretch', hide_index=True)
-        
-        # Botão de download
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-            # Usar df_resultado (não formatado) para Excel
-            df_excel = df_resultado[["Comercial", "Total_Vendas", "Transacoes", 
-                                    "Quantidade", "Ticket_Medio", "Valor_Medio_Unidade"]].copy()
-            df_excel.columns = ["Comercial", "Total Vendas (€)", "Transações Únicas", 
-                               "Quantidade", "Ticket Médio (€)", "Valor Médio/Unidade (€)"]
-            df_excel.to_excel(writer, sheet_name="Desempenho_Comerciais", index=False)
-        
-        buffer.seek(0)
-        
-        st.download_button(
-            label="📥 Download Desempenho por Comercial (Excel)",
-            data=buffer,
-            file_name="Desempenho_Comerciais.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-        
-        # Mostrar totais
-        st.markdown("---")
-        col_a, col_b, col_c = st.columns(3)
-        col_a.metric("Total Geral", f"{df_resultado['Total_Vendas'].sum():,.2f}€")
-        col_b.metric("Total Transações", f"{int(df_resultado['Transacoes'].sum())}")
-        col_c.metric("Total Quantidade", f"{df_resultado['Quantidade'].sum():,.3f}")
+    
+    # Botão de download
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+        # Usar df_resultado (não formatado) para Excel
+        df_excel = df_resultado[["Comercial", "Total_Vendas", "Transacoes", 
+                                "Quantidade", "Ticket_Medio", "Valor_Medio_Unidade"]].copy()
+        df_excel.columns = ["Comercial", "Total Vendas (€)", "Transações Únicas", 
+                           "Quantidade", "Ticket Médio (€)", "Valor Médio/Unidade (€)"]
+        df_excel.to_excel(writer, sheet_name="Desempenho_Comerciais", index=False)
+    
+    buffer.seek(0)
+    
+    st.download_button(
+        label="📥 Download Desempenho por Comercial (Excel)",
+        data=buffer,
+        file_name="Desempenho_Comerciais.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    
+    # Mostrar totais
+    st.markdown("---")
+    col_a, col_b, col_c = st.columns(3)
+    col_a.metric("Total Geral", f"{df_resultado['Total_Vendas'].sum():,.2f}€")
+    col_b.metric("Total Transações", f"{int(df_resultado['Transacoes'].sum())}")
+    col_c.metric("Total Quantidade", f"{df_resultado['Quantidade'].sum():,.3f}")
 
 
 def grafico_evolucao(df: pd.DataFrame):
