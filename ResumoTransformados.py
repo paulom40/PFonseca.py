@@ -491,7 +491,7 @@ def calcular_ticket_medio_por_comercial(df: pd.DataFrame) -> pd.DataFrame:
     return grp.sort_values("Total_Vendas", ascending=False)
 
 # ====================== VISUALIZAÇÕES PRINCIPAIS ======================
-def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
+def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame, df: pd.DataFrame):
     st.subheader("KPIs em Tempo Real")
     
     # Debug info (pode remover depois)
@@ -574,33 +574,12 @@ def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
     
     st.dataframe(df_display, width='stretch', hide_index=True)
         
-        df_show = df_ticket_com.copy()
-        
-        # Debug: Mostrar valores brutos
-        with st.expander("🔍 Debug - Valores Brutos"):
-            st.dataframe(df_show)
-        
-        # Formatar colunas para display
-        df_show["Total_Vendas_Format"] = df_show["Total_Vendas"].map(lambda x: f"{x:,.2f}€")
-        df_show["Transacoes_Format"] = df_show["Transacoes"].map(lambda x: f"{int(x)}")
-        df_show["Quantidade_Format"] = df_show["Quantidade"].map(lambda x: f"{x:,.3f}")
-        df_show["Ticket_Medio_Format"] = df_show["Ticket_Medio"].map(lambda x: f"{x:,.2f}€")
-        df_show["Valor_Medio_Unidade_Format"] = df_show["Valor_Medio_Unidade"].map(lambda x: f"{x:,.4f}€")
-        
-        # Selecionar colunas formatadas
-        df_display = df_show[["Comercial", "Total_Vendas_Format", "Transacoes_Format", 
-                              "Quantidade_Format", "Ticket_Medio_Format", "Valor_Medio_Unidade_Format"]]
-        df_display.columns = ["Comercial", "Total Vendas", "Transações Únicas", 
-                             "Quantidade", "Ticket Médio", "Valor Médio/Unidade"]
-        
-        st.dataframe(df_display, width='stretch', hide_index=True)
-        
         # Botão de download
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-            # Preparar dados para Excel (com valores numéricos originais)
-            df_excel = df_show[["Comercial", "Total_Vendas", "Transacoes", 
-                                "Quantidade", "Ticket_Medio", "Valor_Medio_Unidade"]].copy()
+            # Usar df_resultado (não formatado) para Excel
+            df_excel = df_resultado[["Comercial", "Total_Vendas", "Transacoes", 
+                                    "Quantidade", "Ticket_Medio", "Valor_Medio_Unidade"]].copy()
             df_excel.columns = ["Comercial", "Total Vendas (€)", "Transações Únicas", 
                                "Quantidade", "Ticket Médio (€)", "Valor Médio/Unidade (€)"]
             df_excel.to_excel(writer, sheet_name="Desempenho_Comerciais", index=False)
@@ -617,9 +596,9 @@ def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
         # Mostrar totais
         st.markdown("---")
         col_a, col_b, col_c = st.columns(3)
-        col_a.metric("Total Geral", f"{df_show['Total_Vendas'].sum():,.2f}€")
-        col_b.metric("Total Transações", f"{int(df_show['Transacoes'].sum())}")
-        col_c.metric("Total Quantidade", f"{df_show['Quantidade'].sum():,.3f}")
+        col_a.metric("Total Geral", f"{df_resultado['Total_Vendas'].sum():,.2f}€")
+        col_b.metric("Total Transações", f"{int(df_resultado['Transacoes'].sum())}")
+        col_c.metric("Total Quantidade", f"{df_resultado['Quantidade'].sum():,.3f}")
 
 
 def grafico_evolucao(df: pd.DataFrame):
@@ -1064,7 +1043,7 @@ def aba_dashboard(df: pd.DataFrame):
     kpis = calcular_kpis(df)
     df_ticket_com = calcular_ticket_medio_por_comercial(df)
 
-    desenhar_kpis(kpis, df_ticket_com)
+    desenhar_kpis(kpis, df_ticket_com, df)
 
     st.divider()
 
