@@ -140,11 +140,15 @@ def calcular_kpis(df: pd.DataFrame) -> dict:
     periodo = f"{df['Data'].min().strftime('%d/%m/%Y')} a {df['Data'].max().strftime('%d/%m/%Y')}"
     dias_com_venda = df["Data"].dt.date.nunique()
 
-    trans = len(df)
+    # CORREÇÃO: Transações = Agrupamento por Cliente + Data (visitas únicas)
+    df_temp = df.copy()
+    df_temp["Data_Apenas"] = df_temp["Data"].dt.date
+    trans = df_temp.groupby(["Nome", "Data_Apenas"]).ngroups  # Cada cliente+dia = 1 transação
+    
     clientes = df["Nome"].nunique()
     produtos = df["Artigo"].nunique()
 
-    # Ticket Médio = Valor médio por transação
+    # Ticket Médio = Valor médio por transação (visita)
     ticket_medio = total_vendas / trans if trans else 0
     
     # Ticket Médio por Cliente = Valor médio de compra por cliente
@@ -180,6 +184,7 @@ def calcular_crescimento(df: pd.DataFrame) -> dict:
     
     df = df.copy()
     df["AnoMes"] = df["Data"].dt.strftime("%Y-%m")
+    df["Data_Apenas"] = df["Data"].dt.date
     
     meses = sorted(df["AnoMes"].unique())
     if len(meses) < 2:
@@ -199,8 +204,9 @@ def calcular_crescimento(df: pd.DataFrame) -> dict:
     qtd_atual = df_atual["Quantidade"].sum()
     qtd_anterior = df_anterior["Quantidade"].sum()
     
-    trans_atual = len(df_atual)
-    trans_anterior = len(df_anterior)
+    # CORREÇÃO: Contar transações como visitas (Cliente + Data)
+    trans_atual = df_atual.groupby(["Nome", "Data_Apenas"]).ngroups
+    trans_anterior = df_anterior.groupby(["Nome", "Data_Apenas"]).ngroups
     
     clientes_atual = df_atual["Nome"].nunique()
     clientes_anterior = df_anterior["Nome"].nunique()
@@ -302,8 +308,8 @@ def segmentar_clientes(df: pd.DataFrame) -> pd.DataFrame:
     Segmenta clientes em: VIP, Regulares, Novos, Inativos
     
     Critérios:
-    - VIP: Top 20% em vendas E mais de 5 transações
-    - Regulares: Mais de 3 transações
+    - VIP: Top 20% em vendas E mais de 5 transações (visitas)
+    - Regulares: Mais de 3 transações (visitas)
     - Novos: 1-3 transações E primeira compra nos últimos 90 dias
     - Inativos: Última compra há mais de 90 dias
     """
@@ -311,16 +317,23 @@ def segmentar_clientes(df: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame()
     
     df = df.copy()
+    df["Data_Apenas"] = df["Data"].dt.date
     data_max = df["Data"].max()
     
     # Agregar por cliente
     clientes = df.groupby("Nome").agg(
         Total_Vendas=("V Líquido", "sum"),
-        Transacoes=("V Líquido", "count"),
         Primeira_Compra=("Data", "min"),
         Ultima_Compra=("Data", "max"),
         Quantidade=("Quantidade", "sum")
     ).reset_index()
+    
+    # CORREÇÃO: Contar transações como visitas únicas (Cliente + Data)
+    transacoes_por_cliente = df.groupby("Nome").apply(
+        lambda x: x.groupby("Data_Apenas").ngroups
+    ).reset_index(name="Transacoes")
+    
+    clientes = clientes.merge(transacoes_por_cliente, on="Nome")
     
     # Calcular dias desde última compra
     clientes["Dias_Sem_Comprar"] = (data_max - clientes["Ultima_Compra"]).dt.days
