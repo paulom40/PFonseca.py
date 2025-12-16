@@ -520,7 +520,17 @@ def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
     if df_ticket_com.empty:
         st.warning("Sem dados de comercial.")
     else:
+        # Verificar se a coluna Transacoes existe
+        if "Transacoes" not in df_ticket_com.columns:
+            st.error("Erro: Coluna 'Transacoes' não encontrada. Verifique a função calcular_ticket_medio_por_comercial()")
+            st.write("Colunas disponíveis:", df_ticket_com.columns.tolist())
+            return
+        
         df_show = df_ticket_com.copy()
+        
+        # Debug: Mostrar valores brutos
+        with st.expander("🔍 Debug - Valores Brutos"):
+            st.dataframe(df_show)
         
         # Formatar colunas para display
         df_show["Total_Vendas_Format"] = df_show["Total_Vendas"].map(lambda x: f"{x:,.2f}€")
