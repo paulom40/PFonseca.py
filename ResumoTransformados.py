@@ -495,9 +495,9 @@ def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
     st.subheader("KPIs em Tempo Real")
     
     # Debug info (pode remover depois)
-    with st.expander("ℹ️ Informação de Debug"):
+    with st.expander("ℹ️ Informação de Debug - KPIs Globais"):
         st.write(f"**Total Vendas:** {kpis['total_vendas']:,.2f}€")
-        st.write(f"**Número de Transações (linhas):** {kpis['trans']}")
+        st.write(f"**Número de Transações (visitas únicas):** {kpis['trans']}")
         st.write(f"**Ticket Médio Calculado:** {kpis['total_vendas'] / kpis['trans'] if kpis['trans'] else 0:,.2f}€")
 
     c1, c2, c3, c4, c5 = st.columns(5)
@@ -517,13 +517,25 @@ def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
     st.info(f"Período em análise: {kpis['periodo']}")
 
     st.subheader("📊 Desempenho por Comercial")
+    
+    # TESTE: Verificar se df_ticket_com foi calculado corretamente
     if df_ticket_com.empty:
         st.warning("Sem dados de comercial.")
     else:
-        # Verificar se a coluna Transacoes existe
+        st.warning("⚠️ DEBUGGING ATIVO - Verificando cálculos...")
+        
+        # Mostrar estado da função
+        st.write("**Colunas recebidas:**", df_ticket_com.columns.tolist())
+        st.write("**Primeiras linhas (dados brutos):**")
+        st.dataframe(df_ticket_com.head())
+        
+        # Verificar tipos
+        st.write("**Tipos de dados:**")
+        st.write(df_ticket_com.dtypes)
+        
+        # AGORA mostrar formatado
         if "Transacoes" not in df_ticket_com.columns:
-            st.error("Erro: Coluna 'Transacoes' não encontrada. Verifique a função calcular_ticket_medio_por_comercial()")
-            st.write("Colunas disponíveis:", df_ticket_com.columns.tolist())
+            st.error("❌ Coluna 'Transacoes' NÃO existe! A função calcular_ticket_medio_por_comercial() está a retornar dados incorretos.")
             return
         
         df_show = df_ticket_com.copy()
