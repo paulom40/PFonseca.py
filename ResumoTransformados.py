@@ -518,25 +518,61 @@ def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
 
     st.subheader("📊 Desempenho por Comercial")
     
-    # TESTE: Verificar se df_ticket_com foi calculado corretamente
-    if df_ticket_com.empty:
+    # RECALCULAR AQUI DIRETAMENTE - não usar df_ticket_com
+    st.warning("🔧 Recalculando métricas por comercial...")
+    
+    # Criar cópia do dataframe original
+    df_analise = df.copy() if not df.empty else pd.DataFrame()
+    
+    if df_analise.empty:
         st.warning("Sem dados de comercial.")
-    else:
-        st.warning("⚠️ DEBUGGING ATIVO - Verificando cálculos...")
+        return
+    
+    df_analise["Data_Apenas"] = df_analise["Data"].dt.date
+    
+    # Calcular para cada comercial
+    resultados = []
+    for comercial in df_analise["Comercial"].unique():
+        df_com = df_analise[df_analise["Comercial"] == comercial]
         
-        # Mostrar estado da função
-        st.write("**Colunas recebidas:**", df_ticket_com.columns.tolist())
-        st.write("**Primeiras linhas (dados brutos):**")
-        st.dataframe(df_ticket_com.head())
+        # Vendas e quantidade
+        total_vendas = df_com["V Líquido"].sum()
+        quantidade = df_com["Quantidade"].sum()
         
-        # Verificar tipos
-        st.write("**Tipos de dados:**")
-        st.write(df_ticket_com.dtypes)
+        # Visitas únicas
+        visitas = df_com.groupby(["Nome", "Data_Apenas"]).ngroups
         
-        # AGORA mostrar formatado
-        if "Transacoes" not in df_ticket_com.columns:
-            st.error("❌ Coluna 'Transacoes' NÃO existe! A função calcular_ticket_medio_por_comercial() está a retornar dados incorretos.")
-            return
+        # Métricas
+        ticket_medio = total_vendas / visitas if visitas > 0 else 0
+        valor_medio_un = total_vendas / quantidade if quantidade > 0 else 0
+        
+        resultados.append({
+            "Comercial": comercial,
+            "Total_Vendas": total_vendas,
+            "Transacoes": visitas,
+            "Quantidade": quantidade,
+            "Ticket_Medio": ticket_medio,
+            "Valor_Medio_Unidade": valor_medio_un
+        })
+    
+    df_resultado = pd.DataFrame(resultados).sort_values("Total_Vendas", ascending=False)
+    
+    # Debug
+    with st.expander("🔍 Debug - Cálculo Direto"):
+        st.dataframe(df_resultado)
+    
+    # Formatar para exibição
+    df_display = df_resultado.copy()
+    df_display["Total_Vendas"] = df_display["Total_Vendas"].map(lambda x: f"{x:,.2f}€")
+    df_display["Transacoes"] = df_display["Transacoes"].map(lambda x: f"{int(x)}")
+    df_display["Quantidade"] = df_display["Quantidade"].map(lambda x: f"{x:,.3f}")
+    df_display["Ticket_Medio"] = df_display["Ticket_Medio"].map(lambda x: f"{x:,.2f}€")
+    df_display["Valor_Medio_Unidade"] = df_display["Valor_Medio_Unidade"].map(lambda x: f"{x:,.4f}€")
+    
+    df_display.columns = ["Comercial", "Total Vendas", "Transações Únicas", 
+                         "Quantidade", "Ticket Médio", "Valor Médio/Unidade"]
+    
+    st.dataframe(df_display, width='stretch', hide_index=True)
         
         df_show = df_ticket_com.copy()
         
