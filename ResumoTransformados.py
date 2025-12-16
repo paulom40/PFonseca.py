@@ -542,7 +542,7 @@ def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
         # Selecionar colunas formatadas
         df_display = df_show[["Comercial", "Total_Vendas_Format", "Transacoes_Format", 
                               "Quantidade_Format", "Ticket_Medio_Format", "Valor_Medio_Unidade_Format"]]
-        df_display.columns = ["Comercial", "Total Vendas", "Transações", 
+        df_display.columns = ["Comercial", "Total Vendas", "Transações Únicas", 
                              "Quantidade", "Ticket Médio", "Valor Médio/Unidade"]
         
         st.dataframe(df_display, width='stretch', hide_index=True)
@@ -553,7 +553,7 @@ def desenhar_kpis(kpis: dict, df_ticket_com: pd.DataFrame):
             # Preparar dados para Excel (com valores numéricos originais)
             df_excel = df_show[["Comercial", "Total_Vendas", "Transacoes", 
                                 "Quantidade", "Ticket_Medio", "Valor_Medio_Unidade"]].copy()
-            df_excel.columns = ["Comercial", "Total Vendas (€)", "Transações", 
+            df_excel.columns = ["Comercial", "Total Vendas (€)", "Transações Únicas", 
                                "Quantidade", "Ticket Médio (€)", "Valor Médio/Unidade (€)"]
             df_excel.to_excel(writer, sheet_name="Desempenho_Comerciais", index=False)
         
