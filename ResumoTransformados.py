@@ -67,6 +67,9 @@ def load_data(path_or_file="ResumoTR.xlsx") -> pd.DataFrame:
         st.error(f"Faltam colunas obrigatórias: {missing}")
         return pd.DataFrame()
 
+    # DEBUG: Antes da limpeza
+    linhas_antes = len(df)
+    
     df["Quantidade"] = (
         df["Quantidade"].astype(str)
         .str.replace(",", ".", regex=False)
@@ -81,7 +84,27 @@ def load_data(path_or_file="ResumoTR.xlsx") -> pd.DataFrame:
     df["Data"] = pd.to_datetime(df["Data"], errors="coerce")
 
     df = df.dropna(subset=["Data"])
-    df = df[(df["Quantidade"] > 0) & (df["V Líquido"] != 0)]
+    linhas_apos_data = len(df)
+    
+    # CORRIGIDO: Manter valores negativos (devoluções), remover apenas zeros e quantidade negativa
+    df_original = df.copy()
+    df = df[df["Quantidade"] > 0]  # Apenas quantidade positiva
+    linhas_apos_filtro = len(df)
+    
+    # DEBUG: Mostrar o que foi removido
+    if linhas_antes != linhas_apos_filtro:
+        st.info(f"ℹ️ Foram removidas {linhas_antes - linhas_apos_filtro} linhas (datas inválidas ou quantidade ≤ 0)")
+        st.write(f"- Linhas originais: {linhas_antes}")
+        st.write(f"- Após remover datas inválidas: {linhas_apos_data}")
+        st.write(f"- Após remover Quantidade ≤ 0: {linhas_apos_filtro}")
+        st.write(f"**Nota:** Valores negativos em 'V Líquido' (devoluções) são mantidos no cálculo.")
+        
+        # Mostrar linhas removidas
+        linhas_removidas = df_original[~df_original.index.isin(df.index)]
+        if not linhas_removidas.empty:
+            with st.expander(f"🔍 Ver {len(linhas_removidas)} linhas removidas"):
+                st.dataframe(linhas_removidas[["Data", "Comercial", "Nome", "Artigo", "Quantidade", "V Líquido"]].head(20))
+    
     df["AnoMes"] = df["Data"].dt.strftime("%Y-%m")
     return df
 
@@ -1117,6 +1140,31 @@ def aba_dashboard(df: pd.DataFrame):
     if df.empty:
         st.warning("Sem dados para apresentar.")
         return
+    
+    # DEBUG: Mostrar informação sobre filtros aplicados
+    with st.expander("🔍 DEBUG - Verificar Dados Filtrados"):
+        st.write(f"**Total de linhas após filtros:** {len(df)}")
+        st.write(f"**Período dos dados:** {df['Data'].min()} a {df['Data'].max()}")
+        st.write(f"**Comerciais presentes:** {sorted(df['Comercial'].unique())}")
+        
+        # Mostrar exemplo para Bracar em Setembro 2024
+        if 'Bracar' in df['Comercial'].values:
+            df_bracar = df[df['Comercial'] == 'Bracar']
+            st.write(f"**Linhas de Bracar:** {len(df_bracar)}")
+            st.write(f"**Total Vendas Bracar:** {df_bracar['V Líquido'].sum():,.2f}€")
+            st.write(f"**Quantidade Bracar:** {df_bracar['Quantidade'].sum():,.2f}")
+            
+            # Mostrar setembro 2024 especificamente
+            df_bracar_set = df_bracar[
+                (df_bracar['Data'].dt.year == 2024) & 
+                (df_bracar['Data'].dt.month == 9)
+            ]
+            if not df_bracar_set.empty:
+                st.write("**Bracar - Setembro 2024:**")
+                st.write(f"  - Linhas: {len(df_bracar_set)}")
+                st.write(f"  - Vendas: {df_bracar_set['V Líquido'].sum():,.2f}€")
+                st.write(f"  - Quantidade: {df_bracar_set['Quantidade'].sum():,.2f}")
+                st.write(f"  - Datas: {df_bracar_set['Data'].min()} a {df_bracar_set['Data'].max()}")
 
     # ====================== KPIs ======================
     kpis = calcular_kpis(df)
