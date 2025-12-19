@@ -86,18 +86,19 @@ def load_data(path_or_file="ResumoTR.xlsx") -> pd.DataFrame:
     df = df.dropna(subset=["Data"])
     linhas_apos_data = len(df)
     
-    # CORRIGIDO: Manter valores negativos (devoluções), remover apenas zeros e quantidade negativa
+    # CORRIGIDO: Aceitar valores negativos (devoluções), remover apenas dados inválidos
     df_original = df.copy()
-    df = df[df["Quantidade"] > 0]  # Apenas quantidade positiva
+    # Remover apenas linhas onde NÃO há quantidade E NÃO há valor (linhas vazias)
+    df = df[(df["Quantidade"].notna()) & (df["V Líquido"].notna())]
     linhas_apos_filtro = len(df)
     
     # DEBUG: Mostrar o que foi removido
     if linhas_antes != linhas_apos_filtro:
-        st.info(f"ℹ️ Foram removidas {linhas_antes - linhas_apos_filtro} linhas (datas inválidas ou quantidade ≤ 0)")
+        st.info(f"ℹ️ Foram removidas {linhas_antes - linhas_apos_filtro} linhas (datas ou valores inválidos)")
         st.write(f"- Linhas originais: {linhas_antes}")
         st.write(f"- Após remover datas inválidas: {linhas_apos_data}")
-        st.write(f"- Após remover Quantidade ≤ 0: {linhas_apos_filtro}")
-        st.write(f"**Nota:** Valores negativos em 'V Líquido' (devoluções) são mantidos no cálculo.")
+        st.write(f"- Após remover valores inválidos: {linhas_apos_filtro}")
+        st.write(f"**Nota:** Valores negativos (devoluções) são incluídos no cálculo.")
         
         # Mostrar linhas removidas
         linhas_removidas = df_original[~df_original.index.isin(df.index)]
@@ -1142,29 +1143,50 @@ def aba_dashboard(df: pd.DataFrame):
         return
     
     # DEBUG: Mostrar informação sobre filtros aplicados
-    with st.expander("🔍 DEBUG - Verificar Dados Filtrados"):
+    with st.expander("🔍 DEBUG - Análise Detalhada dos Dados"):
         st.write(f"**Total de linhas após filtros:** {len(df)}")
         st.write(f"**Período dos dados:** {df['Data'].min()} a {df['Data'].max()}")
         st.write(f"**Comerciais presentes:** {sorted(df['Comercial'].unique())}")
         
-        # Mostrar exemplo para Bracar em Setembro 2024
+        # Análise específica para Bracar em Setembro 2025
         if 'Bracar' in df['Comercial'].values:
             df_bracar = df[df['Comercial'] == 'Bracar']
-            st.write(f"**Linhas de Bracar:** {len(df_bracar)}")
-            st.write(f"**Total Vendas Bracar:** {df_bracar['V Líquido'].sum():,.2f}€")
-            st.write(f"**Quantidade Bracar:** {df_bracar['Quantidade'].sum():,.2f}")
+            st.markdown("---")
+            st.markdown("### 🔎 Análise Bracar - Setembro 2025")
             
-            # Mostrar setembro 2024 especificamente
+            # Filtrar setembro 2025
             df_bracar_set = df_bracar[
-                (df_bracar['Data'].dt.year == 2024) & 
-                (df_bracar['Data'].dt.month == 9)
+                (df_bracar['Data'] >= '2025-09-01') & 
+                (df_bracar['Data'] <= '2025-09-30')
             ]
+            
             if not df_bracar_set.empty:
-                st.write("**Bracar - Setembro 2024:**")
-                st.write(f"  - Linhas: {len(df_bracar_set)}")
-                st.write(f"  - Vendas: {df_bracar_set['V Líquido'].sum():,.2f}€")
-                st.write(f"  - Quantidade: {df_bracar_set['Quantidade'].sum():,.2f}")
-                st.write(f"  - Datas: {df_bracar_set['Data'].min()} a {df_bracar_set['Data'].max()}")
+                st.write(f"**Linhas encontradas:** {len(df_bracar_set)}")
+                st.write(f"**Soma V Líquido:** {df_bracar_set['V Líquido'].sum():,.2f}€")
+                st.write(f"**Soma Quantidade:** {df_bracar_set['Quantidade'].sum():,.2f}")
+                
+                # Mostrar valores positivos e negativos separadamente
+                vendas_positivas = df_bracar_set[df_bracar_set['V Líquido'] > 0]['V Líquido'].sum()
+                vendas_negativas = df_bracar_set[df_bracar_set['V Líquido'] < 0]['V Líquido'].sum()
+                vendas_zero = df_bracar_set[df_bracar_set['V Líquido'] == 0]['V Líquido'].count()
+                
+                st.write("**Breakdown:**")
+                st.write(f"  - Vendas positivas: {vendas_positivas:,.2f}€")
+                st.write(f"  - Vendas negativas (devoluções): {vendas_negativas:,.2f}€")
+                st.write(f"  - Registos com valor 0: {vendas_zero}")
+                st.write(f"  - **TOTAL (líquido): {vendas_positivas + vendas_negativas:,.2f}€**")
+                
+                # Mostrar detalhes
+                st.markdown("**Detalhes das transações:**")
+                st.dataframe(df_bracar_set[['Data', 'Nome', 'Artigo', 'Quantidade', 'V Líquido', 'PM']].sort_values('Data'))
+                
+                st.markdown("---")
+                st.write("**Valores esperados vs calculados:**")
+                st.write(f"- Esperado: 1.320,40€ e 366,32 kg")
+                st.write(f"- Calculado: {df_bracar_set['V Líquido'].sum():,.2f}€ e {df_bracar_set['Quantidade'].sum():,.2f} kg")
+                st.write(f"- Diferença: {df_bracar_set['V Líquido'].sum() - 1320.40:,.2f}€ e {df_bracar_set['Quantidade'].sum() - 366.32:,.2f} kg")
+            else:
+                st.warning("Nenhum registo encontrado para Bracar em Setembro 2025")
 
     # ====================== KPIs ======================
     kpis = calcular_kpis(df)
