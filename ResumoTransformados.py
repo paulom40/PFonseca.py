@@ -352,10 +352,11 @@ def segmentar_clientes(df: pd.DataFrame) -> pd.DataFrame:
         Quantidade=("Quantidade", "sum")
     ).reset_index()
     
-    # CORREÇÃO: Contar transações como visitas únicas (Cliente + Data)
-    transacoes_por_cliente = df.groupby("Nome").apply(
-        lambda x: x.groupby("Data_Apenas").ngroups
-    ).reset_index(name="Transacoes")
+    # Contar transações (visitas únicas = combinações Cliente+Data) por comercial
+    transacoes_por_cliente = df_temp.groupby("Nome", group_keys=False).apply(
+        lambda x: pd.Series({"Transacoes": x.groupby("Data_Apenas").ngroups}),
+        include_groups=False
+    ).reset_index()
     
     clientes = clientes.merge(transacoes_por_cliente, on="Nome")
     
@@ -884,8 +885,10 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
     existing_names = {ws0.title}
 
     # ====================== Folha Resumo ======================
+    from openpyxl.styles import Font
+    
     ws0["A1"] = "Resumo Geral"
-    ws0["A1"].font = ws0["A1"].font.copy(bold=True, size=14)
+    ws0["A1"].font = Font(bold=True, size=14)
     
     ws0["A3"] = "Total Vendas (€)"
     ws0["B3"] = kpis["total_vendas"]
@@ -991,9 +994,10 @@ def tabela_dados_export(df: pd.DataFrame, kpis: dict):
     ).reset_index()
     
     # Contar visitas por cliente
-    visitas_cliente = df_temp_cli.groupby("Nome").apply(
-        lambda x: x.groupby("Data_Apenas").ngroups
-    ).reset_index(name="Visitas")
+    visitas_cliente = df_temp_cli.groupby("Nome", group_keys=False).apply(
+        lambda x: pd.Series({"Visitas": x.groupby("Data_Apenas").ngroups}), 
+        include_groups=False
+    ).reset_index()
     
     top_cli = clientes_agg.merge(visitas_cliente, on="Nome")
     top_cli["Ticket_Medio"] = top_cli["Total_Vendas"] / top_cli["Visitas"]
@@ -1412,9 +1416,10 @@ def main():
     df_filt = aplicar_filtros(df)
 
     # Tabs principais
-    tab_dashboard, tab_comparacoes = st.tabs([
+    tab_dashboard, tab_comparacoes, tab_ticket_cliente = st.tabs([
         "📊 Dashboard Geral",
-        "📆 Comparações Temporais"
+        "📆 Comparações Temporais",
+        "👤 Ticket por Cliente"
     ])
 
     with tab_dashboard:
@@ -1422,6 +1427,9 @@ def main():
 
     with tab_comparacoes:
         aba_comparacao_ano_ano(df_filt)
+    
+    with tab_ticket_cliente:
+        analise_ticket_cliente_mensal(df_filt)
 
 # ====================== EXECUÇÃO ======================
 if __name__ == "__main__":
