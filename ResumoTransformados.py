@@ -1119,6 +1119,176 @@ def tabelas_export_interface(df: pd.DataFrame, kpis: dict):
     st.markdown("### 📥 Exportação Mensal")
     gerar_excel_completo(df)
 
+# ====================== TICKET MÉDIO POR CLIENTE (MÊS/ANO) ======================
+def analise_ticket_cliente_mensal(df: pd.DataFrame):
+    st.header("👤 Ticket Médio por Cliente")
+    
+    if df.empty:
+        st.warning("Sem dados para análise.")
+        return
+    
+    df_temp = df.copy()
+    df_temp["Data_Apenas"] = df_temp["Data"].dt.date
+    
+    # Seleção de período
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        anos_disponiveis = sorted(df_temp["Data"].dt.year.unique(), reverse=True)
+        ano_sel = st.selectbox("Seleciona o Ano:", anos_disponiveis, key="ano_ticket_cliente")
+    
+    with col2:
+        meses_disponiveis = sorted(df_temp[df_temp["Data"].dt.year == ano_sel]["Data"].dt.month.unique())
+        mes_sel = st.selectbox(
+            "Seleciona o Mês:",
+            meses_disponiveis,
+            format_func=lambda m: datetime(2000, m, 1).strftime("%B"),
+            key="mes_ticket_cliente"
+        )
+    
+    # Filtrar dados
+    df_periodo = df_temp[
+        (df_temp["Data"].dt.year == ano_sel) & 
+        (df_temp["Data"].dt.month == mes_sel)
+    ]
+    
+    if df_periodo.empty:
+        st.warning(f"Sem dados para {datetime(2000, mes_sel, 1).strftime('%B')} de {ano_sel}")
+        return
+    
+    st.info(f"📅 Análise de **{datetime(2000, mes_sel, 1).strftime('%B')} {ano_sel}**")
+    
+    # Calcular métricas por cliente
+    clientes_data = []
+    for cliente in df_periodo["Nome"].unique():
+        df_cli = df_periodo[df_periodo["Nome"] == cliente]
+        
+        total_vendas = df_cli["V Líquido"].sum()
+        quantidade = df_cli["Quantidade"].sum()
+        
+        # Visitas únicas (Cliente + Data)
+        visitas = df_cli.groupby("Data_Apenas").ngroups
+        
+        # Ticket médio
+        ticket_medio = total_vendas / visitas if visitas > 0 else 0
+        
+        clientes_data.append({
+            "Cliente": cliente,
+            "Total_Vendas": total_vendas,
+            "Visitas": visitas,
+            "Quantidade": quantidade,
+            "Ticket_Medio": ticket_medio
+        })
+    
+    df_resultado = pd.DataFrame(clientes_data).sort_values("Total_Vendas", ascending=False)
+    
+    # KPIs Resumo
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total Clientes", len(df_resultado))
+    col2.metric("Total Vendas", f"{df_resultado['Total_Vendas'].sum():,.2f}€")
+    col3.metric("Total Visitas", f"{int(df_resultado['Visitas'].sum())}")
+    col4.metric("Ticket Médio Geral", f"{df_resultado['Total_Vendas'].sum() / df_resultado['Visitas'].sum():,.2f}€")
+    
+    st.divider()
+    
+    # Gráficos
+    col_g1, col_g2 = st.columns(2)
+    
+    with col_g1:
+        # Top 10 por Ticket Médio
+        st.subheader("🏆 Top 10 - Maior Ticket Médio")
+        top_ticket = df_resultado.nlargest(10, "Ticket_Medio")
+        fig1 = px.bar(
+            top_ticket,
+            x="Ticket_Medio",
+            y="Cliente",
+            orientation="h",
+            text="Ticket_Medio",
+            color="Ticket_Medio",
+            color_continuous_scale="Greens"
+        )
+        fig1.update_traces(texttemplate="%{text:.2f}€", textposition="outside")
+        fig1.update_layout(height=400, showlegend=False)
+        st.plotly_chart(fig1, width='stretch')
+    
+    with col_g2:
+        # Top 10 por Total Vendas
+        st.subheader("💰 Top 10 - Maior Volume")
+        top_vendas = df_resultado.nlargest(10, "Total_Vendas")
+        fig2 = px.bar(
+            top_vendas,
+            x="Total_Vendas",
+            y="Cliente",
+            orientation="h",
+            text="Total_Vendas",
+            color="Total_Vendas",
+            color_continuous_scale="Blues"
+        )
+        fig2.update_traces(texttemplate="%{text:,.0f}€", textposition="outside")
+        fig2.update_layout(height=400, showlegend=False)
+        st.plotly_chart(fig2, width='stretch')
+    
+    st.divider()
+    
+    # Distribuição de Ticket Médio
+    st.subheader("📊 Distribuição de Ticket Médio")
+    fig3 = px.histogram(
+        df_resultado,
+        x="Ticket_Medio",
+        nbins=30,
+        title=f"Distribuição de Ticket Médio - {datetime(2000, mes_sel, 1).strftime('%B')} {ano_sel}",
+        labels={"Ticket_Medio": "Ticket Médio (€)", "count": "Nº Clientes"}
+    )
+    fig3.update_layout(height=400)
+    st.plotly_chart(fig3, width='stretch')
+    
+    st.divider()
+    
+    # Tabela completa
+    st.subheader("📋 Todos os Clientes")
+    
+    # Adicionar filtros
+    col_f1, col_f2 = st.columns(2)
+    with col_f1:
+        min_ticket = st.number_input("Ticket Mínimo (€)", min_value=0.0, value=0.0, step=10.0)
+    with col_f2:
+        min_visitas = st.number_input("Mínimo de Visitas", min_value=0, value=0, step=1)
+    
+    df_filtrado = df_resultado[
+        (df_resultado["Ticket_Medio"] >= min_ticket) &
+        (df_resultado["Visitas"] >= min_visitas)
+    ]
+    
+    st.write(f"**Mostrando {len(df_filtrado)} de {len(df_resultado)} clientes**")
+    
+    # Formatar para exibição
+    df_display = df_filtrado.copy()
+    df_display["Total_Vendas"] = df_display["Total_Vendas"].map(lambda x: f"{x:,.2f}€")
+    df_display["Visitas"] = df_display["Visitas"].map(lambda x: f"{int(x)}")
+    df_display["Quantidade"] = df_display["Quantidade"].map(lambda x: f"{x:,.2f}")
+    df_display["Ticket_Medio"] = df_display["Ticket_Medio"].map(lambda x: f"{x:,.2f}€")
+    
+    df_display.columns = ["Cliente", "Total Vendas", "Visitas", "Quantidade", "Ticket Médio"]
+    
+    st.dataframe(df_display, width='stretch', hide_index=True)
+    
+    # Botão de download
+    st.divider()
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+        df_export = df_resultado.copy()
+        df_export.columns = ["Cliente", "Total Vendas (€)", "Visitas", "Quantidade", "Ticket Médio (€)"]
+        df_export.to_excel(writer, sheet_name=f"{ano_sel}-{mes_sel:02d}", index=False)
+    
+    buffer.seek(0)
+    st.download_button(
+        label=f"📥 Download Ticket por Cliente - {datetime(2000, mes_sel, 1).strftime('%B')} {ano_sel}",
+        data=buffer,
+        file_name=f"Ticket_Cliente_{ano_sel}_{mes_sel:02d}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+
 # ====================== ABA PRINCIPAL — COMPARAÇÕES ======================
 def aba_comparacao_ano_ano(df: pd.DataFrame):
     st.header("📆 Comparações Temporais")
